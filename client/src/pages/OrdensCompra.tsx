@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { OrderCompraDetailDrawer } from "@/components/OrderCompraDetailDrawer";
 import { toast } from "@/hooks/use-toast";
 import {
   Table,
@@ -231,34 +232,14 @@ export default function OrdensCompra() {
     },
   });
 
-  // Estado para controle do diálogo de detalhes
-  const [detailsOrderId, setDetailsOrderId] = useState<number | null>(null);
-  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-  const [detailsItems, setDetailsItems] = useState<any[]>([]);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  // Estado para controle do drawer de detalhes
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   
   // Função para mostrar detalhes de uma ordem
-  const showOrderDetails = async (orderId: number) => {
-    setDetailsOrderId(orderId);
-    setIsLoadingDetails(true);
-    
-    try {
-      const response = await fetch(`/api/ordem-compra/${orderId}/itens`);
-      if (!response.ok) throw new Error('Falha ao carregar detalhes');
-      
-      const items = await response.json();
-      setDetailsItems(items);
-      setIsDetailsDialogOpen(true);
-    } catch (error) {
-      console.error('Erro ao carregar detalhes:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os detalhes da ordem',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsLoadingDetails(false);
-    }
+  const showOrderDetails = (orderId: number) => {
+    setSelectedOrderId(orderId);
+    setDrawerOpen(true);
   };
   
   // Buscar dados usando nossas rotas
@@ -450,63 +431,12 @@ export default function OrdensCompra() {
 
   return (
     <div className="space-y-6">
-      {/* Diálogo para exibir detalhes da ordem */}
-      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Detalhes da Ordem de Compra</DialogTitle>
-            <DialogDescription>
-              Produtos, quantidades e saldo disponível nesta ordem
-            </DialogDescription>
-          </DialogHeader>
-          
-          {isLoadingDetails ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : detailsItems.length === 0 ? (
-            <div className="text-center py-6">
-              <Package className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-muted-foreground">Nenhum produto encontrado nesta ordem.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {detailsItems.map((item: any) => (
-                <Card key={item.id} className="bg-muted/40">
-                  <CardContent className="pt-6">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="text-base font-medium">
-                          {item.produto_nome || `Produto #${item.produto_id}`}
-                        </h4>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Quantidade: {formatNumber(item.quantidade)}
-                        </p>
-                      </div>
-                      
-                      <div className="text-sm">
-                        <SaldoProduto 
-                          ordemId={detailsOrderId!} 
-                          produtoId={item.produto_id} 
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsDetailsDialogOpen(false)}
-            >
-              Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Drawer para exibir detalhes da ordem */}
+      <OrderCompraDetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        ordemId={selectedOrderId}
+      />
       
       {/* Header com ações */}
       <div className="flex justify-between items-center mb-6">
@@ -1021,10 +951,7 @@ export default function OrdensCompra() {
                           variant="ghost" 
                           size="icon"
                           title="Ver detalhes da ordem"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            showOrderDetails(ordem.id);
-                          }}
+                          onClick={() => showOrderDetails(ordem.id)}
                         >
                           <Info className="h-4 w-4" />
                         </Button>
