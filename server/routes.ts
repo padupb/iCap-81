@@ -138,47 +138,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // NOVA REGRA: Se email = "keyuser", autenticar como keyuser
+      // NOVA REGRA: Se email = "keyuser", buscar credenciais na tabela settings
       if (email === "keyuser") {
-        console.log("🔍 Login do keyuser detectado");
+        console.log("🔍 Login do keyuser detectado - buscando credenciais no banco");
         
-        // KEYUSER HARDCODED - credenciais fixas
-        const KEYUSER_PASSWORD = "170824";
-        
-        // Verificar senha do keyuser
-        if (password === KEYUSER_PASSWORD) {
-          console.log("✅ Login de keyuser efetuado com sucesso");
-          
-          // Criar usuário keyuser virtual
-          const keyUser = {
-            id: 9999,
-            name: "Paulo Eduardo (KeyUser)",
-            email: "padupb@admin.icap",
-            companyId: null,
-            roleId: null,
-            canConfirmDelivery: true,
-            isKeyUser: true,
-            isDeveloper: true,
-            permissions: ["*"] // Acesso total
-          };
-          
-          // Salvar na sessão
-          req.session.userId = keyUser.id;
-          
-          return res.json({
-            success: true,
-            user: keyUser
-          });
-        } else {
-          console.log("❌ Senha incorreta para keyuser");
-          return res.status(401).json({ 
+        try {
+          // Buscar keyuser_email (ID 5) e keyuser_password (ID 6) na tabela settings
+          const keyUserEmailSetting = await storage.getSetting("keyuser_email");
+          const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
+
+          console.log("📧 Configuração keyuser_email encontrada:", keyUserEmailSetting ? keyUserEmailSetting.value : "não encontrada");
+          console.log("🔑 Configuração keyuser_password encontrada:", keyUserPasswordSetting ? "sim" : "não");
+
+          if (!keyUserEmailSetting || !keyUserPasswordSetting) {
+            console.log("❌ Configurações do keyuser não encontradas no banco");
+            return res.status(500).json({ 
+              success: false, 
+              message: "Configurações do keyuser não encontradas" 
+            });
+          }
+
+          const keyUserEmail = keyUserEmailSetting.value;
+          const keyUserPassword = keyUserPasswordSetting.value;
+
+          console.log("🔍 Comparando credenciais do keyuser:");
+          console.log("🔑 Senha fornecida vs configurada:", password === keyUserPassword ? "✅ MATCH" : "❌ DIFERENTE");
+
+          // Verificar senha do keyuser
+          if (password === keyUserPassword) {
+            console.log("✅ Login de keyuser efetuado com sucesso");
+            
+            // Criar usuário keyuser virtual com email do banco
+            const keyUser = {
+              id: 9999,
+              name: "Paulo Eduardo (KeyUser)",
+              email: keyUserEmail, // Usar email do banco (padupb@admin.icap)
+              companyId: null,
+              roleId: null,
+              canConfirmDelivery: true,
+              isKeyUser: true,
+              isDeveloper: true,
+              permissions: ["*"] // Acesso total
+            };
+            
+            // Salvar na sessão
+            req.session.userId = keyUser.id;
+            
+            return res.json({
+              success: true,
+              user: keyUser
+            });
+          } else {
+            console.log("❌ Senha incorreta para keyuser");
+            return res.status(401).json({ 
+              success: false, 
+              message: "Credenciais inválidas" 
+            });
+          }
+        } catch (error) {
+          console.error("❌ Erro ao buscar configurações do keyuser:", error);
+          return res.status(500).json({ 
             success: false, 
-            message: "Credenciais inválidas" 
+            message: "Erro ao verificar credenciais do keyuser" 
           });
         }
       }
 
-      // Para qualquer outro email, autenticar com banco de dados
+      // Para qualquer outro email, autenticar com tabela users
       console.log("🔍 Login de usuário regular:", email);
       
       const user = await storage.getUserByEmail(email);
