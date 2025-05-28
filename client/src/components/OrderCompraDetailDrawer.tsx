@@ -37,64 +37,7 @@ const formatNumber = (value: string | number): string => {
   });
 };
 
-// Componente para mostrar saldo disponível de um produto na ordem
-function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: number }) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [saldo, setSaldo] = useState<any>(null);
-  
-  const fetchSaldo = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/ordens-compra/${ordemId}/produtos/${produtoId}/saldo`);
-      const data = await response.json();
-      setSaldo(data);
-    } catch (error) {
-      console.error("Erro ao verificar saldo:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchSaldo();
-  }, [ordemId, produtoId]);
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        <span className="text-xs">Carregando...</span>
-      </div>
-    );
-  }
-  
-  if (!saldo || !saldo.sucesso) {
-    return (
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-destructive">Erro ao verificar saldo</span>
-        <Button variant="outline" size="sm" className="h-6 text-xs" onClick={fetchSaldo}>
-          <RefreshCw className="h-3 w-3 mr-1" />
-          Tentar novamente
-        </Button>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-sm">
-        {formatNumber(saldo.saldoDisponivel)} {saldo.unidade}
-        <span className="text-xs text-muted-foreground ml-1">
-          (Total: {formatNumber(saldo.quantidadeTotal)} / Usado: {formatNumber(saldo.quantidadeUsada)})
-        </span>
-      </span>
-      <Button variant="outline" size="sm" className="h-6 text-xs" onClick={fetchSaldo}>
-        <RefreshCw className="h-3 w-3 mr-1" />
-        Atualizar
-      </Button>
-    </div>
-  );
-}
+
 
 interface OrderCompraDetailDrawerProps {
   open: boolean;
@@ -252,7 +195,7 @@ export function OrderCompraDetailDrawer({
               {/* Produtos */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Produtos e Saldo Disponível</CardTitle>
+                  <CardTitle>Produtos</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {isLoadingDetails ? (
@@ -268,22 +211,16 @@ export function OrderCompraDetailDrawer({
                     <div className="space-y-4">
                       {detailsItems.map((item: any) => (
                         <Card key={item.id} className="bg-muted/40">
-                          <CardContent className="pt-4 pb-4">
-                            <div className="flex justify-between items-start gap-4">
+                          <CardContent className="pt-3 pb-3">
+                            <div className="flex justify-between items-center gap-4">
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-sm font-medium truncate">
                                   {item.produto_nome || `Produto #${item.produto_id}`}
                                 </h4>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatNumber(item.quantidade)}
-                                </p>
                               </div>
                               
-                              <div className="text-sm flex-shrink-0">
-                                <SaldoProduto 
-                                  ordemId={ordemId} 
-                                  produtoId={item.produto_id} 
-                                />
+                              <div className="text-sm flex-shrink-0 text-muted-foreground">
+                                {formatNumber(item.quantidade)}
                               </div>
                             </div>
                           </CardContent>
