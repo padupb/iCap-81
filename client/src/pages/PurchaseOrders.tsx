@@ -69,7 +69,7 @@ export default function PurchaseOrders() {
     mutationFn: async (data: PurchaseOrderFormData) => {
       try {
         const { items, ...purchaseOrderData } = data;
-
+        
         // Preparar dados no novo formato
         const dadosFormatados = {
           numero: purchaseOrderData.orderNumber.trim(),
@@ -82,10 +82,10 @@ export default function PurchaseOrders() {
               qtd: parseInt(item.quantity)
             }))
         };
-
+        
         console.log("=== NOVA IMPLEMENTAÇÃO ===");
         console.log("Enviando dados no novo formato:", JSON.stringify(dadosFormatados, null, 2));
-
+        
         // Requisição para a nova rota especializada
         const response = await fetch("/api/ordem-compra-nova", {
           method: "POST",
@@ -95,11 +95,11 @@ export default function PurchaseOrders() {
           },
           body: JSON.stringify(dadosFormatados)
         });
-
+        
         // Verificar se houve erro HTTP
         if (!response.ok) {
           console.error("Erro HTTP:", response.status);
-
+          
           // Tentar obter mensagem de erro do servidor
           let mensagemErro = "Erro ao criar ordem de compra";
           try {
@@ -109,20 +109,20 @@ export default function PurchaseOrders() {
             // Se falhar em obter JSON, tentar obter texto puro
             mensagemErro = await response.text();
           }
-
+          
           throw new Error(mensagemErro);
         }
-
+        
         // Ler resposta com tratamento de erro
         let resultado;
         try {
           resultado = await response.json();
           console.log("Resposta da nova API:", resultado);
-
+          
           if (!resultado.sucesso) {
             throw new Error(resultado.mensagem || "Erro desconhecido na operação");
           }
-
+          
           // Mapear para formato compatível com o restante da aplicação
           const ordemCriada = {
             id: resultado.dados.id,
@@ -133,7 +133,7 @@ export default function PurchaseOrders() {
             userId: 1,
             createdAt: resultado.dados.data
           };
-
+          
           console.log("Ordem mapeada para formato compatível:", ordemCriada);
           return ordemCriada;
         } catch (parseError) {
@@ -178,7 +178,7 @@ export default function PurchaseOrders() {
 
   const onSubmit = (data: PurchaseOrderFormData) => {
     console.log("Formulário submetido com dados:", data);
-
+    
     // Verificar se há dados de formulário válidos
     if (!data.orderNumber || !data.companyId || !data.validUntil) {
       console.error("Dados do formulário inválidos:", data);
@@ -189,7 +189,7 @@ export default function PurchaseOrders() {
       });
       return;
     }
-
+    
     if (data.items.some(item => !item.productId || !item.quantity)) {
       console.error("Itens do formulário inválidos:", data.items);
       toast({
@@ -199,7 +199,7 @@ export default function PurchaseOrders() {
       });
       return;
     }
-
+    
     createPurchaseOrderMutation.mutate(data);
   };
 
@@ -237,7 +237,7 @@ export default function PurchaseOrders() {
             <DialogHeader>
               <DialogTitle>Criar Nova Ordem de Compra</DialogTitle>
             </DialogHeader>
-
+            
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 gap-4">
@@ -263,17 +263,17 @@ export default function PurchaseOrders() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
-                      control={form.control}
-                      name="companyId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Fornecedor</FormLabel>
-                          <Select onValueChange={(value) => field.onChange(parseInt(value))}>
-                            <FormControl>
-                              <SelectTrigger className="bg-input border-border">
-                                <SelectValue placeholder="Selecione um fornecedor" />
-                              </SelectTrigger>
-                            </FormControl>
+                    control={form.control}
+                    name="companyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Empresa</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione uma empresa" />
+                            </SelectTrigger>
+                          </FormControl>
                           <SelectContent>
                             {/* Filtrar empresas com duas condições:
                                1. Empresas que podem receber ordens de compra (categoria.receivesPurchaseOrders)
@@ -290,7 +290,7 @@ export default function PurchaseOrders() {
                                 // @ts-ignore - a propriedade category foi adicionada no servidor
                                 const requiresContract = company.category?.requiresContract === true;
                                 const hasContract = company.contractNumber && company.contractNumber.trim() !== '';
-
+                                
                                 // Formatação do nome da empresa
                                 let displayName = company.name;
                                 if (requiresContract) {
@@ -298,7 +298,7 @@ export default function PurchaseOrders() {
                                     ? `${company.name} - Contrato: ${company.contractNumber}`
                                     : `${company.name} - Sem Contrato`;
                                 }
-
+                                
                                 return (
                                   <SelectItem key={company.id} value={company.id.toString()}>
                                     {displayName}
@@ -521,7 +521,7 @@ export default function PurchaseOrders() {
               </TableBody>
             </Table>
           </div>
-
+          
           {filteredPurchaseOrders.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               {searchTerm 

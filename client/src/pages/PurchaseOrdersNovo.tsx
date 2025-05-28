@@ -465,7 +465,7 @@ export default function PurchaseOrdersNovo() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-muted/50">
                   <TableHead className="w-[100px]">Número</TableHead>
-                  <TableHead>Fornecedor</TableHead>
+                  <TableHead>Empresa</TableHead>
                   <TableHead>Válido Até</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
