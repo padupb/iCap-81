@@ -181,9 +181,9 @@ export function OrderCompraDetailDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
-        <div className="mx-auto w-full max-w-4xl">
-          <DrawerHeader>
+      <DrawerContent className="max-h-[85vh] flex flex-col">
+        <div className="mx-auto w-full max-w-4xl flex flex-col h-full">
+          <DrawerHeader className="flex-shrink-0">
             <DrawerTitle className="flex items-center justify-between">
               <span>Ordem de Compra {ordemAtual?.numero_ordem}</span>
               {ordemAtual && (
@@ -202,12 +202,13 @@ export function OrderCompraDetailDrawer({
               <p>Carregando detalhes...</p>
             </div>
           ) : (
-            <div className="px-4 pb-6 space-y-6">
-              {/* Informações Gerais */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Informações Gerais</CardTitle>
-                </CardHeader>
+            <div className="flex flex-col h-full">
+              <div className="flex-1 overflow-y-auto px-4 space-y-6">
+                {/* Informações Gerais */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold leading-none tracking-tight">Informações Gerais</CardTitle>
+                  </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -242,49 +243,50 @@ export function OrderCompraDetailDrawer({
               </Card>
 
               {/* Produtos */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Produtos e Saldo Disponível</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {isLoadingDetails ? (
-                    <div className="flex justify-center py-6">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  ) : detailsItems.length === 0 ? (
-                    <div className="text-center py-6">
-                      <Package className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-muted-foreground">Nenhum produto encontrado nesta ordem.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {detailsItems.map((item: any) => (
-                        <Card key={item.id} className="bg-muted/40">
-                          <CardContent className="pt-3 pb-3">
-                            <div className="flex justify-between items-center gap-4">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium truncate">
-                                  {item.produto_nome || `Produto #${item.produto_id}`}
-                                </h4>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg font-semibold leading-none tracking-tight">Produtos e Saldo Disponível</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {isLoadingDetails ? (
+                      <div className="flex justify-center py-6">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      </div>
+                    ) : detailsItems.length === 0 ? (
+                      <div className="text-center py-6">
+                        <Package className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-muted-foreground">Nenhum produto encontrado nesta ordem.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {detailsItems.map((item: any) => (
+                          <Card key={item.id} className="bg-muted/40">
+                            <CardContent className="pt-3 pb-3">
+                              <div className="flex justify-between items-center gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-sm font-medium truncate">
+                                    {item.produto_nome || `Produto #${item.produto_id}`}
+                                  </h4>
+                                </div>
+                                
+                                <div className="text-sm flex-shrink-0">
+                                  <SaldoProduto 
+                                    ordemId={ordemId} 
+                                    produtoId={item.produto_id} 
+                                  />
+                                </div>
                               </div>
-                              
-                              <div className="text-sm flex-shrink-0">
-                                <SaldoProduto 
-                                  ordemId={ordemId} 
-                                  produtoId={item.produto_id} 
-                                />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
               
               {/* Botão Fechar fixo no final */}
-              <div className="pt-4 pb-2">
+              <div className="flex-shrink-0 p-4 border-t">
                 <Button 
                   variant="outline" 
                   onClick={() => onOpenChange(false)}
