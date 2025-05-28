@@ -824,7 +824,10 @@ export default function Keyuser() {
                           name="name"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Nome da Função</FormLabel>
+                              <FormLabel className="flex items-center gap-2">
+                                <Users className="w-4 h-4" />
+                                Nome da Função
+                              </FormLabel>
                               <FormControl>
                                 <Input placeholder="Ex: Gerente" {...field} />
                               </FormControl>
@@ -838,7 +841,10 @@ export default function Keyuser() {
                           name="categoryId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Categoria</FormLabel>
+                              <FormLabel className="flex items-center gap-2">
+                                <Building className="w-4 h-4" />
+                                Categoria
+                              </FormLabel>
                               <Select onValueChange={(value) => field.onChange(parseInt(value))}>
                                 <FormControl>
                                   <SelectTrigger>
@@ -861,7 +867,8 @@ export default function Keyuser() {
 
                       {/* Seção de Permissões */}
                       <div className="space-y-3">
-                        <FormLabel className="text-base font-medium">
+                        <FormLabel className="text-base font-medium flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
                           Permissões de Acesso
                         </FormLabel>
                         <FormDescription>
@@ -956,15 +963,12 @@ export default function Keyuser() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Categoria</TableHead>
-                    <TableHead>Permissões</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {roles.map((role) => {
                     const category = categories.find(c => c.id === role.categoryId);
-                    const permissions = role.permissions || [];
-                    const permissionCount = permissions.filter(p => p.startsWith('view_')).length;
                     
                     return (
                       <TableRow key={role.id}>
@@ -975,31 +979,6 @@ export default function Keyuser() {
                           ) : (
                             <span className="text-muted-foreground">Sem categoria</span>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {permissions.length > 0 ? (
-                              permissions.map(permission => {
-                                const menuId = permission.replace('view_', '');
-                                const menu = SYSTEM_MENUS.find(m => m.id === menuId);
-                                return menu ? (
-                                  <span 
-                                    key={permission}
-                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
-                                    title={menu.name}
-                                  >
-                                    {menu.icon}
-                                    <span className="hidden sm:inline">{menu.name}</span>
-                                  </span>
-                                ) : null;
-                              })
-                            ) : (
-                              <span className="text-gray-500 text-sm">Nenhuma permissão</span>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {permissionCount} de {SYSTEM_MENUS.length} áreas
-                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
