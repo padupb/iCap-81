@@ -22,6 +22,7 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
         roleId: null,
         canConfirmDelivery: true,
         isKeyUser: true,
+        isDeveloper: true, // Adicionar para compatibilidade
         permissions: ["*"] // Permissão total - sem restrições
       };
       return next();

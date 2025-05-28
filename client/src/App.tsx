@@ -182,15 +182,15 @@ function Router() {
         />
       </Route>
       
-      {/* Desenvolvedor - Acesso especial, não possui verificação de área */}
+      {/* Desenvolvedor - Acesso especial para keyuser */}
       <Route path="/dev">
-        <ProtectedRoute 
-          component={() => (
-            <Layout>
-                              <Keyuser />
-            </Layout>
-          )}
-        />
+        {isAuthenticated ? (
+          <Layout>
+            <Keyuser />
+          </Layout>
+        ) : (
+          <Redirect to="/login" />
+        )}
       </Route>
       
       {/* Logs/Relatórios - Requer permissão de 'logs' */}

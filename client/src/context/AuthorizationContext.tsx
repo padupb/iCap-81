@@ -45,11 +45,14 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     // O usuário keyuser (administrator) tem acesso a tudo
     if (user.isDeveloper || user.isKeyUser) return true;
 
+    // Se o usuário tem permissão total (*), permite acesso
+    if (user.permissions && user.permissions.includes("*")) return true;
+
     // Se o usuário não tem permissões definidas, nega acesso
     if (!user.permissions || !Array.isArray(user.permissions)) return false;
 
     // Verifica se o usuário tem permissão para visualizar a área
-    return user.permissions.includes(`view_${area}`);
+    return user.permissions.includes(`view_${area}`) || user.permissions.includes("*");
   };
 
   const canEdit = (area: string): boolean => {
@@ -59,11 +62,14 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     // O usuário keyuser (administrator) tem acesso a tudo
     if (user.isDeveloper || user.isKeyUser) return true;
 
+    // Se o usuário tem permissão total (*), permite acesso
+    if (user.permissions && user.permissions.includes("*")) return true;
+
     // Se o usuário não tem permissões definidas, nega acesso
     if (!user.permissions || !Array.isArray(user.permissions)) return false;
 
     // Verifica se o usuário tem permissão para editar a área
-    return user.permissions.includes(`edit_${area}`);
+    return user.permissions.includes(`edit_${area}`) || user.permissions.includes("*");
   };
 
   const canCreate = (area: string): boolean => {
@@ -73,11 +79,14 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     // O usuário keyuser (administrator) tem acesso a tudo
     if (user.isDeveloper || user.isKeyUser) return true;
 
+    // Se o usuário tem permissão total (*), permite acesso
+    if (user.permissions && user.permissions.includes("*")) return true;
+
     // Se o usuário não tem permissões definidas, nega acesso
     if (!user.permissions || !Array.isArray(user.permissions)) return false;
 
     // Verifica se o usuário tem permissão para cadastrar na área
-    return user.permissions.includes(`create_${area}`);
+    return user.permissions.includes(`create_${area}`) || user.permissions.includes("*");
   };
 
   return (

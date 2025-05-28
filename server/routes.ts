@@ -168,6 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             roleId: null,
             canConfirmDelivery: true,
             isKeyUser: true,
+            isDeveloper: true, // Adicionar para compatibilidade
             permissions: ["*"] // Acesso total sem restrições
           };
           
@@ -268,7 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           roleId: req.user.roleId,
           canConfirmDelivery: req.user.canConfirmDelivery,
           isKeyUser: req.user.isKeyUser || false,
-          isDeveloper: req.user.isKeyUser || false,
+          isDeveloper: req.user.isKeyUser || req.user.isDeveloper || false,
           // Incluir informações da função
           role: role ? {
             id: role.id,
