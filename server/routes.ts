@@ -195,6 +195,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: `Login do usuário ${user.name}${isKeyUser ? ' (KeyUser)' : ''}`
       });
       
+      // Buscar informações da role para usuários normais
+      let role = null;
+      let permissions: string[] = [];
+      
+      if (user.roleId && !isKeyUser) {
+        role = await storage.getUserRole(user.roleId);
+        if (role && role.permissions) {
+          permissions = role.permissions;
+        }
+      } else if (isKeyUser) {
+        // Para o keyuser, criar role virtual
+        role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
+        permissions = ["*"];
+      }
+      
       // Preparar resposta do usuário
       const userResponse = {
         id: user.id,
@@ -203,10 +218,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyId: user.companyId,
         roleId: user.roleId,
         canConfirmDelivery: user.canConfirmDelivery,
-        // Adicionar propriedades de keyuser se ID = 1
+        // Adicionar propriedades de keyuser apenas se ID = 1
         isKeyUser: isKeyUser,
         isDeveloper: isKeyUser,
-        permissions: isKeyUser ? ["*"] : []
+        permissions: permissions,
+        role: role
       };
 
       console.log("📤 Resposta do login:", userResponse);
@@ -226,20 +242,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/auth/me", isAuthenticated, async (req, res) => {
     try {
-      // NOVA REGRA: Se o usuário tem ID = 1, dar permissões de keyuser
+      // O middleware isAuthenticated já definiu corretamente as permissões
       const isKeyUser = req.user.id === 1;
       
       if (isKeyUser) {
         console.log("🔑 Usuário ID 1 acessando /api/auth/me - Permissões de KeyUser concedidas");
-      }
-
-      // Buscar informações da função do usuário se não for keyuser
-      let role = null;
-      if (req.user.roleId && !isKeyUser) {
-        role = await storage.getUserRole(req.user.roleId);
-      } else if (isKeyUser) {
-        // Para o keyuser (ID 1), criar uma função virtual
-        role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
       }
 
       return res.json({
@@ -251,16 +258,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           companyId: req.user.companyId,
           roleId: req.user.roleId,
           canConfirmDelivery: req.user.canConfirmDelivery,
-          isKeyUser: isKeyUser,
-          isDeveloper: isKeyUser,
+          isKeyUser: req.user.isKeyUser,
+          isDeveloper: req.user.isDeveloper,
           // Incluir informações da função
-          role: role ? {
-            id: role.id,
-            name: role.name,
-            permissions: role.permissions || []
+          role: req.user.role ? {
+            id: req.user.role.id,
+            name: req.user.role.name,
+            permissions: req.user.role.permissions || []
           } : null,
-          // Enviamos as permissões para o frontend
-          permissions: isKeyUser ? ["*"] : (req.user.permissions || [])
+          // Enviamos as permissões para o frontend (já definidas no middleware)
+          permissions: req.user.permissions || []
         }
       });
     } catch (error) {
@@ -297,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Users routes
-  app.get("/api/users", isAuthenticated, async (req, res) => {
+  app.get("/api/users", isAuthenticated, hasPermission("view_users"), async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -307,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/users", isAuthenticated, async (req, res) => {
+  app.post("/api/users", isAuthenticated, hasPermission("create_users"), async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const newUser = await storage.createUser(userData);
@@ -1318,7 +1325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // User Roles routes
-  app.get("/api/user-roles", async (req, res) => {
+  app.get("/api/user-roles", isAuthenticated, hasPermission("view_user_roles"), async (req, res) => {
     try {
       const roles = await storage.getAllUserRoles();
       res.json(roles);
@@ -1328,7 +1335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/user-roles", async (req, res) => {
+  app.post("/api/user-roles", isAuthenticated, hasPermission("create_user_roles"), async (req, res) => {
     try {
       const roleData = insertUserRoleSchema.parse(req.body);
       const newRole = await storage.createUserRole(roleData);
@@ -1351,7 +1358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/user-roles/:id", async (req, res) => {
+  app.put("/api/user-roles/:id", isAuthenticated, hasPermission("edit_user_roles"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -1379,7 +1386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/user-roles/:id", async (req, res) => {
+  app.delete("/api/user-roles/:id", isAuthenticated, hasPermission("delete_user_roles"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
