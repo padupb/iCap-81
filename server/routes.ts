@@ -603,7 +603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           [orderData.purchaseOrderId, orderData.productId]
         );
 
-                 quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
+        quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
        } else {
          // Para armazenamento em memória, assumir que há saldo suficiente
          quantidadeTotal = 1000; // Valor padrão para desenvolvimento
