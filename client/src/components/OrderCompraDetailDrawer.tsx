@@ -70,28 +70,20 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
   
   if (!saldo || !saldo.sucesso) {
     return (
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
         <span className="text-xs text-destructive">Erro ao verificar saldo</span>
-        <Button variant="outline" size="sm" className="h-6 text-xs" onClick={fetchSaldo}>
-          <RefreshCw className="h-3 w-3 mr-1" />
-          Tentar novamente
-        </Button>
       </div>
     );
   }
   
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center gap-2">
       <span className="text-sm">
         {formatNumber(saldo.saldoDisponivel)} {saldo.unidade}
         <span className="text-xs text-muted-foreground ml-1">
           (Total: {formatNumber(saldo.quantidadeTotal)} / Usado: {formatNumber(saldo.quantidadeUsada)})
         </span>
       </span>
-      <Button variant="outline" size="sm" className="h-6 text-xs" onClick={fetchSaldo}>
-        <RefreshCw className="h-3 w-3 mr-1" />
-        Atualizar
-      </Button>
     </div>
   );
 }
