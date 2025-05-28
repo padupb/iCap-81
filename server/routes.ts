@@ -763,6 +763,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Rota de compatibilidade para o frontend que ainda usa /api/purchase-orders
+  app.get("/api/purchase-orders", async (req, res) => {
+    try {
+      // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
+      if (!pool) {
+        // Se não há banco de dados, retornar array vazio para desenvolvimento local
+        return res.json([]);
+      }
+      
+      const result = await pool.query(`
+        SELECT 
+          oc.id,
+          oc.numero_ordem as order_number,
+          oc.empresa_id as company_id,
+          c.name as empresa_nome,
+          oc.valido_ate as valid_until,
+          oc.status,
+          oc.data_criacao as created_at
+        FROM ordens_compra oc
+        LEFT JOIN companies c ON oc.empresa_id = c.id
+        ORDER BY oc.data_criacao DESC
+      `);
+      
+      // Formatar os dados para o frontend no formato esperado
+      const formattedOrders = result.rows.map((row: any) => ({
+        id: row.id,
+        order_number: row.order_number,
+        company_id: row.company_id,
+        empresa_nome: row.empresa_nome || "Empresa não encontrada",
+        valid_until: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
+        status: row.status || "Ativo",
+        created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+        // Campos adicionais para compatibilidade
+        numero_ordem: row.order_number,
+        empresa_id: row.company_id,
+        valido_ate: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
+        data_criacao: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
+      }));
+      
+      res.json(formattedOrders);
+    } catch (error) {
+      console.error("Erro ao buscar ordens de compra:", error);
+      res.status(500).json({ message: "Erro ao buscar ordens de compra" });
+    }
+  });
+  
   // Criar nova ordem de compra
   app.post("/api/ordem-compra-nova", async (req, res) => {
     try {
@@ -933,7 +979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         
         if (checkPedidos.rows.length > 0) {
-          const pedidosVinculados = checkPedidos.rows.map(row => row.order_id).join(", ");
+          const pedidosVinculados = checkPedidos.rows.map((row: any) => row.order_id).join(", ");
           return res.status(400).json({
             sucesso: false,
             mensagem: `Não é possível excluir esta ordem pois existem ${checkPedidos.rows.length} pedido(s) vinculado(s) a ela: ${pedidosVinculados}. Exclua os pedidos primeiro.`
@@ -998,7 +1044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `, [id]);
       
       // Formatar os dados para o frontend
-      const itens = result.rows.map(item => ({
+      const itens = result.rows.map((item: any) => ({
         id: item.id,
         ordem_compra_id: item.ordem_compra_id,
         produto_id: item.produto_id,
