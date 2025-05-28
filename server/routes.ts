@@ -140,145 +140,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // NOVA ESTRATÉGIA: Verificar se é o keyuser especial
-      if (email === "padupb@gmail.com") {
-        console.log("🔍 Login do keyuser especial detectado:", email);
-        
-        // Verificar senha hardcoded para o keyuser
-        if (password === "170824") {
-          console.log("✅ Login de keyuser especial efetuado com sucesso");
-          
-          // Criar usuário keyuser virtual
-          const keyUser = {
-            id: 9999,
-            name: "Paulo Eduardo (KeyUser)",
-            email: email, // Usar o email fornecido
-            companyId: null,
-            roleId: null,
-            canConfirmDelivery: true,
-            isKeyUser: true,
-            isDeveloper: true,
-            permissions: ["*"] // Acesso total
-          };
-          
-          // Salvar na sessão
-          req.session.userId = keyUser.id;
-          console.log("💾 Sessão salva com userId:", req.session.userId);
-          
-          return res.json({
-            success: true,
-            user: keyUser
-          });
-        } else {
-          console.log("❌ Senha incorreta para keyuser especial");
-          return res.status(401).json({ 
-            success: false, 
-            message: "Credenciais inválidas" 
-          });
-        }
-      }
-
-      // FALLBACK: Verificar se é keyuser com email @admin.icap (compatibilidade)
-      if (email === "keyuser" || email.endsWith("@admin.icap")) {
-        console.log("🔍 Login do keyuser detectado - buscando credenciais no banco");
-        
-        try {
-          // Buscar keyuser_email e keyuser_password na tabela settings
-          const keyUserEmailSetting = await storage.getSetting("keyuser_email");
-          const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
-
-          if (!keyUserEmailSetting || !keyUserPasswordSetting) {
-            console.log("❌ Configurações do keyuser não encontradas no banco");
-            return res.status(500).json({ 
-              success: false, 
-              message: "Configurações do keyuser não encontradas" 
-            });
-          }
-
-          const keyUserEmail = keyUserEmailSetting.value;
-          const keyUserPassword = keyUserPasswordSetting.value;
-
-          // Verificar se o email fornecido é válido para keyuser
-          const isValidKeyUserEmail = email === "keyuser" || email === keyUserEmail;
-
-          if (!isValidKeyUserEmail) {
-            console.log("❌ Email não autorizado para keyuser");
-            return res.status(401).json({ 
-              success: false, 
-              message: "Email não autorizado" 
-            });
-          }
-
-          // Verificar senha do keyuser
-          if (password === keyUserPassword) {
-            console.log("✅ Login de keyuser efetuado com sucesso");
-            
-            // Criar usuário keyuser virtual com email do banco
-            const keyUser = {
-              id: 9999,
-              name: "Paulo Eduardo (KeyUser)",
-              email: keyUserEmail,
-              companyId: null,
-              roleId: null,
-              canConfirmDelivery: true,
-              isKeyUser: true,
-              isDeveloper: true,
-              permissions: ["*"] // Acesso total
-            };
-            
-            // Salvar na sessão
-            req.session.userId = keyUser.id;
-            console.log("💾 Sessão salva com userId:", req.session.userId);
-            
-            return res.json({
-              success: true,
-              user: keyUser
-            });
-          } else {
-            console.log("❌ Senha incorreta para keyuser");
-            return res.status(401).json({ 
-              success: false, 
-              message: "Credenciais inválidas" 
-            });
-          }
-        } catch (error) {
-          console.error("❌ Erro ao buscar configurações do keyuser:", error);
-          return res.status(500).json({ 
-            success: false, 
-            message: "Erro ao verificar credenciais do keyuser" 
-          });
-        }
-      }
-
-      // Para qualquer outro email, autenticar com tabela users
-      console.log("🔍 Login de usuário regular:", email);
+      // Buscar usuário no banco de dados
+      console.log("🔍 Buscando usuário no banco:", email);
       
       const user = await storage.getUserByEmail(email);
       
       if (!user) {
+        console.log("❌ Usuário não encontrado:", email);
         return res.status(401).json({ 
           success: false, 
           message: "Usuário não encontrado" 
         });
       }
+
+      console.log("👤 Usuário encontrado:", { id: user.id, name: user.name, email: user.email });
       
       // Verificar a senha do usuário
+      let senhaCorreta = false;
+      
       if (!user.password) {
         // Se o usuário não tem senha, por compatibilidade, verificamos se a senha é igual ao email
-        if (password !== email) {
-          return res.status(401).json({ 
-            success: false, 
-            message: "Senha incorreta" 
-          });
-        }
+        senhaCorreta = password === email;
       } else {
         // Verificar a senha fornecida com a senha armazenada
-        if (password !== user.password) {
-          return res.status(401).json({ 
-            success: false, 
-            message: "Senha incorreta" 
-          });
-        }
+        senhaCorreta = password === user.password;
+      }
+
+      if (!senhaCorreta) {
+        console.log("❌ Senha incorreta para usuário:", email);
+        return res.status(401).json({ 
+          success: false, 
+          message: "Senha incorreta" 
+        });
+      }
+
+      console.log("✅ Senha correta para usuário:", email);
+
+      // NOVA REGRA: Se o usuário tem ID = 1, dar permissões de keyuser
+      const isKeyUser = user.id === 1;
+      
+      if (isKeyUser) {
+        console.log("🔑 USUÁRIO ID 1 DETECTADO - CONCEDENDO PERMISSÕES DE KEYUSER");
       }
       
       // Salvar o ID do usuário na sessão
@@ -290,19 +192,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: "Login",
         itemType: "session",
         itemId: user.id.toString(),
-        details: `Login do usuário ${user.name}`
+        details: `Login do usuário ${user.name}${isKeyUser ? ' (KeyUser)' : ''}`
       });
+      
+      // Preparar resposta do usuário
+      const userResponse = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        companyId: user.companyId,
+        roleId: user.roleId,
+        canConfirmDelivery: user.canConfirmDelivery,
+        // Adicionar propriedades de keyuser se ID = 1
+        isKeyUser: isKeyUser,
+        isDeveloper: isKeyUser,
+        permissions: isKeyUser ? ["*"] : []
+      };
+
+      console.log("📤 Resposta do login:", userResponse);
       
       res.json({ 
         success: true, 
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          companyId: user.companyId,
-          roleId: user.roleId,
-          canConfirmDelivery: user.canConfirmDelivery
-        }
+        user: userResponse
       });
     } catch (error) {
       console.error("Erro ao fazer login:", error);
@@ -315,12 +226,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/auth/me", isAuthenticated, async (req, res) => {
     try {
+      // NOVA REGRA: Se o usuário tem ID = 1, dar permissões de keyuser
+      const isKeyUser = req.user.id === 1;
+      
+      if (isKeyUser) {
+        console.log("🔑 Usuário ID 1 acessando /api/auth/me - Permissões de KeyUser concedidas");
+      }
+
       // Buscar informações da função do usuário se não for keyuser
       let role = null;
-      if (req.user.roleId && !req.user.isKeyUser) {
+      if (req.user.roleId && !isKeyUser) {
         role = await storage.getUserRole(req.user.roleId);
-      } else if (req.user.isKeyUser) {
-        // Para o keyuser, criar uma função virtual
+      } else if (isKeyUser) {
+        // Para o keyuser (ID 1), criar uma função virtual
         role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
       }
 
@@ -333,8 +251,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           companyId: req.user.companyId,
           roleId: req.user.roleId,
           canConfirmDelivery: req.user.canConfirmDelivery,
-          isKeyUser: req.user.isKeyUser || false,
-          isDeveloper: req.user.isKeyUser || req.user.isDeveloper || false,
+          isKeyUser: isKeyUser,
+          isDeveloper: isKeyUser,
           // Incluir informações da função
           role: role ? {
             id: role.id,
@@ -342,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             permissions: role.permissions || []
           } : null,
           // Enviamos as permissões para o frontend
-          permissions: req.user.permissions || []
+          permissions: isKeyUser ? ["*"] : (req.user.permissions || [])
         }
       });
     } catch (error) {
