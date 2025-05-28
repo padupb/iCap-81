@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -30,7 +29,7 @@ import { formatDate } from "@/lib/utils";
 const formatNumber = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(numValue)) return value.toString();
-  
+
   return numValue.toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
@@ -41,7 +40,7 @@ const formatNumber = (value: string | number): string => {
 function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: number }) {
   const [isLoading, setIsLoading] = useState(false);
   const [saldo, setSaldo] = useState<any>(null);
-  
+
   const fetchSaldo = async () => {
     setIsLoading(true);
     try {
@@ -54,11 +53,11 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
       setIsLoading(false);
     }
   };
-  
+
   useEffect(() => {
     fetchSaldo();
   }, [ordemId, produtoId]);
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2">
@@ -67,7 +66,7 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
       </div>
     );
   }
-  
+
   if (!saldo || !saldo.sucesso) {
     return (
       <div className="flex items-center gap-2">
@@ -75,7 +74,7 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
       </div>
     );
   }
-  
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-sm">
@@ -103,6 +102,7 @@ type OrdemCompra = {
   valido_ate: string;
   status: string;
   data_criacao: string;
+  pdf_arquivo?: string;
 };
 
 export function OrderCompraDetailDrawer({ 
@@ -123,7 +123,7 @@ export function OrderCompraDetailDrawer({
   useEffect(() => {
     if (open && ordemId) {
       setIsLoadingDetails(true);
-      
+
       fetch(`/api/ordem-compra/${ordemId}/itens`)
         .then(response => {
           if (!response.ok) throw new Error('Falha ao carregar detalhes');
@@ -152,7 +152,7 @@ export function OrderCompraDetailDrawer({
     today.setHours(0, 0, 0, 0);
     return validDate < today;
   };
-  
+
   // Função para obter status real com base na data de validade
   const getRealStatus = (ordem: OrdemCompra): string => {
     if (isOrderExpired(ordem.valido_ate)) {
@@ -193,7 +193,7 @@ export function OrderCompraDetailDrawer({
               )}
             </DrawerTitle>
           </DrawerHeader>
-          
+
           {!ordemAtual ? (
             <div className="flex justify-center items-center py-12">
               <p>Carregando detalhes...</p>
@@ -212,7 +212,7 @@ export function OrderCompraDetailDrawer({
                       <h4 className="text-sm font-medium text-muted-foreground">Número da Ordem</h4>
                       <p className="text-base font-medium">{ordemAtual.numero_ordem}</p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Fornecedor</h4>
                       <p className="text-base font-medium flex items-center gap-2">
@@ -220,7 +220,7 @@ export function OrderCompraDetailDrawer({
                         {ordemAtual.empresa_nome}
                       </p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Válido Até</h4>
                       <p className="text-base font-medium flex items-center gap-2">
@@ -228,7 +228,7 @@ export function OrderCompraDetailDrawer({
                         {formatDate(ordemAtual.valido_ate)}
                       </p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Data de Criação</h4>
                       <p className="text-base font-medium">
@@ -265,7 +265,7 @@ export function OrderCompraDetailDrawer({
                                     {item.produto_nome || `Produto #${item.produto_id}`}
                                   </h4>
                                 </div>
-                                
+
                                 <div className="text-sm flex-shrink-0">
                                   <SaldoProduto 
                                     ordemId={ordemId} 
@@ -281,7 +281,7 @@ export function OrderCompraDetailDrawer({
                   </CardContent>
                 </Card>
               </div>
-              
+
               {/* Botão Fechar fixo no final */}
               <div className="flex-shrink-0 p-4 border-t">
                 <Button 

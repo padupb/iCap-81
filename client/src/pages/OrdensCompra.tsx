@@ -214,6 +214,7 @@ export default function OrdensCompra() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrdemCompra | null>(null);
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   
   // Verificar se o usuário é keyuser
   const isKeyUser = user?.isKeyUser || user?.isDeveloper;
@@ -362,6 +363,25 @@ export default function OrdensCompra() {
         throw new Error(resultado.mensagem || "Erro ao criar ordem");
       }
       
+      // Se há arquivo PDF, fazer upload
+      if (selectedPdfFile && resultado.ordem) {
+        try {
+          const formData = new FormData();
+          formData.append('ordem_pdf', selectedPdfFile);
+          
+          const uploadResponse = await fetch(`/api/ordem-compra/${resultado.ordem.id}/upload-pdf`, {
+            method: "POST",
+            body: formData
+          });
+          
+          if (!uploadResponse.ok) {
+            console.warn("Erro ao fazer upload do PDF, mas ordem foi criada");
+          }
+        } catch (uploadError) {
+          console.warn("Erro ao fazer upload do PDF:", uploadError);
+        }
+      }
+      
       // Sucesso!
       toast({
         title: "Sucesso!",
@@ -370,6 +390,7 @@ export default function OrdensCompra() {
       
       // Limpar e fechar formulário
       form.reset();
+      setSelectedPdfFile(null);
       setIsDialogOpen(false);
       
       // Atualizar dados
@@ -748,6 +769,29 @@ export default function OrdensCompra() {
                       </FormItem>
                     )}
                   />
+                </div>
+                
+                {/* Upload de PDF */}
+                <div className="col-span-full">
+                  <FormItem>
+                    <FormLabel>Anexar PDF da Ordem de Compra</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="file" 
+                        accept=".pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setSelectedPdfFile(file);
+                          }
+                        }}
+                        className="bg-input border-border"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Selecione um arquivo PDF para anexar à ordem de compra
+                    </p>
+                  </FormItem>
                 </div>
                 
                 {/* Produtos */}
