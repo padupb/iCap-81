@@ -590,14 +590,14 @@ export default function OrdensCompra() {
                     name="companyId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Empresa</FormLabel>
+                        <FormLabel>Fornecedor</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
                           defaultValue={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione uma empresa" />
+                              <SelectValue placeholder="Selecione um fornecedor" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -747,14 +747,14 @@ export default function OrdensCompra() {
                     name="companyId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Empresa</FormLabel>
+                        <FormLabel>Fornecedor</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
                           defaultValue={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione uma empresa" />
+                              <SelectValue placeholder="Selecione um fornecedor" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -979,7 +979,7 @@ export default function OrdensCompra() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[100px]">Número</TableHead>
-                  <TableHead>Empresa</TableHead>
+                  <TableHead>Empresas</TableHead>
                   <TableHead>Válido Até</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
