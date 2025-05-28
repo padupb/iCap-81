@@ -40,6 +40,10 @@ import {
   MapPin,
   AlertTriangle,
   Box,
+  LayoutDashboard,
+  FileText,
+  BarChart3,
+  History,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -74,17 +78,17 @@ const settingsFormSchema = z.object({
 
 // Lista de menus/áreas do sistema para configuração de permissões
 const SYSTEM_MENUS = [
-  { id: "dashboard", name: "Dashboard", icon: "📊" },
-  { id: "orders", name: "Pedidos", icon: "📋" },
-  { id: "approvals", name: "Aprovações", icon: "✅" },
-  { id: "purchase_orders", name: "Ordens de Compra", icon: "🛒" },
-  { id: "companies", name: "Empresas", icon: "🏢" },
-  { id: "users", name: "Usuários", icon: "👥" },
-  { id: "products", name: "Produtos", icon: "📦" },
-  { id: "reports", name: "Relatórios", icon: "📈" },
-  { id: "settings", name: "Configurações", icon: "⚙️" },
-  { id: "logs", name: "Logs do Sistema", icon: "📝" },
-  { id: "keyuser", name: "KeyUser", icon: "🔑" }
+  { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
+  { id: "orders", name: "Pedidos", icon: ShoppingCart },
+  { id: "approvals", name: "Aprovações", icon: CheckCircle },
+  { id: "purchase_orders", name: "Ordens de Compra", icon: FileText },
+  { id: "companies", name: "Empresas", icon: Building },
+  { id: "users", name: "Usuários", icon: Users },
+  { id: "products", name: "Produtos", icon: Package },
+  { id: "reports", name: "Relatórios", icon: BarChart3 },
+  { id: "settings", name: "Configurações", icon: SettingsIcon },
+  { id: "logs", name: "Logs do Sistema", icon: History },
+  { id: "keyuser", name: "KeyUser", icon: Code }
 ];
 
 type CompanyCategoryFormData = z.infer<typeof companyCategoryFormSchema>;
@@ -876,16 +880,17 @@ export default function Keyuser() {
                         </FormDescription>
                         
                         {/* Container com rolagem para a lista de permissões */}
-                        <div className="border rounded-lg p-3 max-h-64 overflow-y-auto bg-gray-50">
+                        <div className="border rounded-lg p-3 max-h-64 overflow-y-auto">
                           <div className="space-y-2">
                             {SYSTEM_MENUS.map((menu) => {
                               const permissionKey = `view_${menu.id}`;
                               const isChecked = roleForm.watch("permissions")?.includes(permissionKey) || false;
+                              const IconComponent = menu.icon;
                               
                               return (
                                 <div key={menu.id} className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded">
                                   {/* Ícone do menu */}
-                                  <span className="text-lg">{menu.icon}</span>
+                                  <IconComponent className="w-4 h-4 text-gray-600" />
                                   
                                   {/* Nome do menu */}
                                   <label 
