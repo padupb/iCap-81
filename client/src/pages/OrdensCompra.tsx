@@ -196,6 +196,9 @@ const purchaseOrderSchema = z.object({
       today.setHours(0, 0, 0, 0); // Zerar horas para comparação apenas de datas
       return selectedDate >= today;
     }, "A data deve ser igual ou posterior a hoje"),
+  pdfFile: z.instanceof(File, "Arquivo PDF é obrigatório")
+    .refine((file) => file.type === "application/pdf", "O arquivo deve ser um PDF")
+    .refine((file) => file.size <= 10 * 1024 * 1024, "O arquivo deve ter no máximo 10MB"),
   items: z.array(z.object({
     productId: z.string().min(1, "Produto é obrigatório"),
     quantity: z.string()
@@ -214,6 +217,7 @@ export default function OrdensCompra() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrdemCompra | null>(null);
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   
   // Verificar se o usuário é keyuser
   const isKeyUser = user?.isKeyUser || user?.isDeveloper;
@@ -285,6 +289,7 @@ export default function OrdensCompra() {
       companyId: "",
       obraId: "",
       validUntil: "",
+      pdfFile: undefined,
       items: [{ productId: "", quantity: "" }],
     },
   });
@@ -331,7 +336,7 @@ export default function OrdensCompra() {
       
       setIsSubmitting(true);
 
-      // Formatar dados para envio
+      // Primeiro, criar a ordem de compra
       const formattedData = {
         numeroOrdem: data.orderNumber,
         empresaId: parseInt(data.companyId),
@@ -343,7 +348,7 @@ export default function OrdensCompra() {
         }))
       };
       
-      // Enviar requisição
+      // Enviar requisição para criar ordem
       const response = await fetch("/api/ordem-compra-nova", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -361,6 +366,21 @@ export default function OrdensCompra() {
       if (!resultado.sucesso) {
         throw new Error(resultado.mensagem || "Erro ao criar ordem");
       }
+
+      // Se temos um arquivo PDF, fazer upload
+      if (data.pdfFile) {
+        const formData = new FormData();
+        formData.append('pdf', data.pdfFile);
+        
+        const uploadResponse = await fetch(`/api/ordem-compra/${data.orderNumber}/upload-pdf`, {
+          method: "POST",
+          body: formData
+        });
+        
+        if (!uploadResponse.ok) {
+          console.warn("Erro ao fazer upload do PDF, mas ordem foi criada");
+        }
+      }
       
       // Sucesso!
       toast({
@@ -370,6 +390,7 @@ export default function OrdensCompra() {
       
       // Limpar e fechar formulário
       form.reset();
+      setSelectedPdfFile(null);
       setIsDialogOpen(false);
       
       // Atualizar dados
@@ -743,6 +764,41 @@ export default function OrdensCompra() {
                             min={getTodayFormatted()}
                             className="bg-input border-border"
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                {/* Campo de Upload de PDF */}
+                <div className="space-y-2">
+                  <FormField
+                    control={form.control}
+                    name="pdfFile"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Arquivo PDF da Ordem</FormLabel>
+                        <FormControl>
+                          <div className="space-y-2">
+                            <Input
+                              type="file"
+                              accept=".pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setSelectedPdfFile(file);
+                                  field.onChange(file);
+                                }
+                              }}
+                              className="bg-input border-border"
+                            />
+                            {selectedPdfFile && (
+                              <div className="text-sm text-muted-foreground">
+                                Arquivo selecionado: {selectedPdfFile.name} ({(selectedPdfFile.size / 1024 / 1024).toFixed(2)} MB)
+                              </div>
+                            )}
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
