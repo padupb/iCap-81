@@ -88,100 +88,90 @@ export default function Sidebar() {
         {/* Pedidos */}
         {user && canView("orders") && (
           <SidebarItem
-            href="/orders"
+            href="/pedidos"
             icon={ShoppingCart}
             label="Pedidos"
-            isActive={location === "/orders"}
+            isActive={location === "/pedidos"}
           />
         )}
 
         {/* Aprovações */}
         {user && canView("approvals") && (
           <SidebarItem
-            href="/approvals"
+            href="/aprovacoes"
             icon={CheckCircle}
             label="Aprovações"
-            isActive={location === "/approvals"}
+            isActive={location === "/aprovacoes"}
           />
         )}
 
         {/* Ordens de Compra */}
         {user && canView("purchase_orders") && (
           <SidebarItem
-            href="/purchase-orders"
+            href="/ordens-compra"
             icon={FileText}
             label="Ordens de Compra"
-            isActive={location === "/purchase-orders"}
+            isActive={location === "/ordens-compra"}
           />
         )}
 
         {/* Empresas */}
         {user && canView("companies") && (
           <SidebarItem
-            href="/companies"
+            href="/empresas"
             icon={Building}
             label="Empresas"
-            isActive={location === "/companies"}
+            isActive={location === "/empresas"}
           />
         )}
 
         {/* Usuários */}
         {user && canView("users") && (
           <SidebarItem
-            href="/users"
+            href="/usuarios"
             icon={Users}
             label="Usuários"
-            isActive={location === "/users"}
+            isActive={location === "/usuarios"}
           />
         )}
 
         {/* Produtos */}
         {user && canView("products") && (
           <SidebarItem
-            href="/products"
+            href="/produtos"
             icon={Package}
             label="Produtos"
-            isActive={location === "/products"}
+            isActive={location === "/produtos"}
           />
         )}
 
-        {/* Relatórios */}
-        {user && canView("reports") && (
+        {/* Relatórios/Logs */}
+        {user && canView("logs") && (
           <SidebarItem
-            href="/reports"
+            href="/logs"
             icon={BarChart3}
             label="Relatórios"
-            isActive={location === "/reports"}
+            isActive={location === "/logs"}
           />
         )}
 
         {/* Configurações */}
         {user && canView("settings") && (
           <SidebarItem
-            href="/settings"
+            href="/configuracoes"
             icon={Settings}
             label="Configurações"
-            isActive={location === "/settings"}
-          />
-        )}
-
-        {/* Logs */}
-        {user && canView("logs") && (
-          <SidebarItem
-            href="/logs"
-            icon={Activity}
-            label="Logs"
-            isActive={location === "/logs"}
+            isActive={location === "/configuracoes"}
           />
         )}
 
         {/* KeyUser - REGRA ESPECIAL: Só para KeyUser (ID = 9999) ou usuário ID = 1 */}
         {user && (user.id === 9999 || user.id === 1 || user.isKeyUser) && (
           <SidebarItem
-            href="/keyuser"
+            href="/dev"
             icon={Key}
             label="KeyUser"
-            isActive={location === "/keyuser"}
+            isActive={location === "/dev"}
           />
         )}
       </nav>
