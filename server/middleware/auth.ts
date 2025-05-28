@@ -85,9 +85,24 @@ export const hasPermission = (permission: string) => {
       return next();
     }
     
-    // Sempre permite acesso a todas as funcionalidades do sistema
-    // independentemente do perfil do usuário
-    return next();
+    // Verificar se o usuário tem a permissão específica
+    const userPermissions = req.user.permissions || [];
+    
+    // Se tem permissão total (*), permite acesso
+    if (userPermissions.includes("*")) {
+      return next();
+    }
+    
+    // Verificar se tem a permissão específica
+    if (userPermissions.includes(permission)) {
+      return next();
+    }
+    
+    // Se não tem permissão, negar acesso
+    return res.status(403).json({ 
+      success: false, 
+      message: "Acesso negado - permissão insuficiente" 
+    });
   };
 };
 

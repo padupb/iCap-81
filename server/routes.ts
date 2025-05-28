@@ -297,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Users routes
-  app.get("/api/users", isAuthenticated, async (req, res) => {
+  app.get("/api/users", isAuthenticated, hasPermission("view_users"), async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -307,7 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/users", isAuthenticated, async (req, res) => {
+  app.post("/api/users", isAuthenticated, hasPermission("view_users"), async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const newUser = await storage.createUser(userData);
@@ -407,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Companies routes
-  app.get("/api/companies", async (req, res) => {
+  app.get("/api/companies", isAuthenticated, hasPermission("view_companies"), async (req, res) => {
     try {
       const companies = await storage.getAllCompanies();
       res.json(companies);
@@ -417,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/companies", async (req, res) => {
+  app.post("/api/companies", isAuthenticated, hasPermission("view_companies"), async (req, res) => {
     try {
       const companyData = insertCompanySchema.parse(req.body);
       const newCompany = await storage.createCompany(companyData);
@@ -511,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Products routes
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", isAuthenticated, hasPermission("view_products"), async (req, res) => {
     try {
       const products = await storage.getAllProducts();
       res.json(products);
@@ -521,8 +521,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Orders routes (Pedidos)
-  app.get("/api/orders", async (req, res) => {
+  // Orders routes
+  app.get("/api/orders", isAuthenticated, hasPermission("view_orders"), async (req, res) => {
     try {
       const orders = await storage.getAllOrders();
       res.json(orders);
@@ -723,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchase Orders routes
-  app.get("/api/ordens-compra", async (req, res) => {
+  app.get("/api/ordens-compra", isAuthenticated, hasPermission("view_purchase_orders"), async (req, res) => {
     try {
       // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
       if (!pool) {
@@ -1516,7 +1516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // System Logs routes
-  app.get("/api/logs", async (req, res) => {
+  app.get("/api/logs", isAuthenticated, hasPermission("view_logs"), async (req, res) => {
     try {
       const logs = await storage.getAllLogs();
       res.json(logs);
@@ -2009,6 +2009,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao buscar menus do sistema:", error);
       res.status(500).json({ message: "Erro ao buscar menus do sistema" });
+    }
+  });
+
+  // Rota temporária para criar usuário de teste (remover em produção)
+  app.post("/api/create-test-user", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      // Criar uma função de teste com permissões limitadas
+      const testRole = await storage.createUserRole({
+        name: "Usuário Teste",
+        categoryId: 1,
+        permissions: ["view_dashboard", "view_orders"] // Apenas dashboard e pedidos
+      });
+
+      // Criar usuário de teste
+      const testUser = await storage.createUser({
+        name: "Usuário Teste",
+        email: "teste@teste.com",
+        phone: null,
+        password: "123456",
+        companyId: null,
+        roleId: testRole.id,
+        canConfirmDelivery: false
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Usuário de teste criado",
+        user: testUser,
+        role: testRole
+      });
+    } catch (error) {
+      console.error("Erro ao criar usuário de teste:", error);
+      res.status(500).json({ message: "Erro ao criar usuário de teste" });
     }
   });
 
