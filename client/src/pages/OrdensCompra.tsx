@@ -995,7 +995,7 @@ export default function OrdensCompra() {
                           variant="ghost" 
                           size="icon"
                           title="Ver detalhes da ordem"
-                          onClick={()              showOrderDetails(ordem.id)}
+                          onClick={() => showOrderDetails(ordem.id)}
                         >
                           <Info className="h-4 w-4" />
                         </Button>
