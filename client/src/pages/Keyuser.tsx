@@ -74,15 +74,18 @@ const settingsFormSchema = z.object({
 
 // Lista de menus/áreas do sistema para configuração de permissões
 const SYSTEM_MENUS = [
-  { id: "dashboard", name: "Dashboard", description: "Página inicial com visão geral" },
-  { id: "orders", name: "Pedidos", description: "Gerenciar pedidos de compra" },
-  { id: "approvals", name: "Aprovações", description: "Aprovar pedidos pendentes" },
-  { id: "purchase_orders", name: "Ordens de Compra", description: "Gerenciar ordens de compra" },
-  { id: "companies", name: "Empresas", description: "Cadastro e gestão de empresas" },
-  { id: "users", name: "Usuários", description: "Gerenciar usuários do sistema" },
-  { id: "products", name: "Produtos", description: "Cadastro e gestão de produtos" },
-  { id: "logs", name: "Logs do Sistema", description: "Visualizar logs de atividades" },
-] as const;
+  { id: "dashboard", name: "Dashboard", icon: "📊" },
+  { id: "orders", name: "Pedidos", icon: "📋" },
+  { id: "approvals", name: "Aprovações", icon: "✅" },
+  { id: "purchase_orders", name: "Ordens de Compra", icon: "🛒" },
+  { id: "companies", name: "Empresas", icon: "🏢" },
+  { id: "users", name: "Usuários", icon: "👥" },
+  { id: "products", name: "Produtos", icon: "📦" },
+  { id: "reports", name: "Relatórios", icon: "📈" },
+  { id: "settings", name: "Configurações", icon: "⚙️" },
+  { id: "logs", name: "Logs do Sistema", icon: "📝" },
+  { id: "keyuser", name: "KeyUser", icon: "🔑" }
+];
 
 type CompanyCategoryFormData = z.infer<typeof companyCategoryFormSchema>;
 type UserRoleFormData = z.infer<typeof userRoleFormSchema>;
@@ -857,57 +860,80 @@ export default function Keyuser() {
                       </div>
 
                       {/* Seção de Permissões */}
-                      <div className="space-y-4">
-                        <div className="border-t pt-4">
-                          <h3 className="text-lg font-medium mb-2">Permissões de Acesso</h3>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Selecione quais menus esta função pode visualizar no sistema.
-                          </p>
-                          
-                          <FormField
-                            control={roleForm.control}
-                            name="permissions"
-                            render={({ field }) => (
-                              <FormItem>
-                                <div className="grid grid-cols-1 gap-3">
-                                  {SYSTEM_MENUS.map((menu) => (
-                                    <div key={menu.id} className="flex items-start space-x-3 p-3 border rounded-lg">
-                                      <Checkbox
-                                        id={`permission-${menu.id}`}
-                                        checked={field.value?.includes(`view_${menu.id}`) || false}
-                                        onCheckedChange={(checked) => {
-                                          const currentPermissions = field.value || [];
-                                          const permission = `view_${menu.id}`;
-                                          
-                                          if (checked) {
-                                            // Adicionar permissão se não existir
-                                            if (!currentPermissions.includes(permission)) {
-                                              field.onChange([...currentPermissions, permission]);
-                                            }
-                                          } else {
-                                            // Remover permissão
-                                            field.onChange(currentPermissions.filter(p => p !== permission));
-                                          }
-                                        }}
-                                      />
-                                      <div className="flex-1">
-                                        <label 
-                                          htmlFor={`permission-${menu.id}`}
-                                          className="text-sm font-medium cursor-pointer"
-                                        >
-                                          {menu.name}
-                                        </label>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          {menu.description}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  ))}
+                      <div className="space-y-3">
+                        <FormLabel className="text-base font-medium">
+                          Permissões de Acesso
+                        </FormLabel>
+                        <FormDescription>
+                          Selecione quais áreas do sistema esta função pode acessar
+                        </FormDescription>
+                        
+                        {/* Container com rolagem para a lista de permissões */}
+                        <div className="border rounded-lg p-3 max-h-64 overflow-y-auto bg-gray-50">
+                          <div className="space-y-2">
+                            {SYSTEM_MENUS.map((menu) => {
+                              const permissionKey = `view_${menu.id}`;
+                              const isChecked = roleForm.watch("permissions")?.includes(permissionKey) || false;
+                              
+                              return (
+                                <div key={menu.id} className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded">
+                                  {/* Ícone do menu */}
+                                  <span className="text-lg">{menu.icon}</span>
+                                  
+                                  {/* Nome do menu */}
+                                  <label 
+                                    htmlFor={`permission-${menu.id}`}
+                                    className="flex-1 text-sm font-medium cursor-pointer"
+                                  >
+                                    {menu.name}
+                                  </label>
+                                  
+                                  {/* Checkbox */}
+                                  <Checkbox
+                                    id={`permission-${menu.id}`}
+                                    checked={isChecked}
+                                    onCheckedChange={(checked) => {
+                                      const currentPermissions = roleForm.getValues("permissions") || [];
+                                      let newPermissions;
+                                      
+                                      if (checked) {
+                                        newPermissions = [...currentPermissions, permissionKey];
+                                      } else {
+                                        newPermissions = currentPermissions.filter(p => p !== permissionKey);
+                                      }
+                                      
+                                      roleForm.setValue("permissions", newPermissions);
+                                    }}
+                                  />
                                 </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                              );
+                            })}
+                          </div>
+                        </div>
+                        
+                        {/* Botões de seleção rápida */}
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const allPermissions = SYSTEM_MENUS.map(menu => `view_${menu.id}`);
+                              roleForm.setValue("permissions", allPermissions);
+                            }}
+                          >
+                            Selecionar Todos
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              roleForm.setValue("permissions", []);
+                            }}
+                          >
+                            Limpar Todos
+                          </Button>
                         </div>
                       </div>
                       
@@ -951,16 +977,28 @@ export default function Keyuser() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">
-                              {permissionCount} de {SYSTEM_MENUS.length} menus
-                            </Badge>
-                            {permissionCount === 0 && (
-                              <Badge variant="destructive">Sem acesso</Badge>
+                          <div className="flex flex-wrap gap-1">
+                            {permissions.length > 0 ? (
+                              permissions.map(permission => {
+                                const menuId = permission.replace('view_', '');
+                                const menu = SYSTEM_MENUS.find(m => m.id === menuId);
+                                return menu ? (
+                                  <span 
+                                    key={permission}
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                                    title={menu.name}
+                                  >
+                                    {menu.icon}
+                                    <span className="hidden sm:inline">{menu.name}</span>
+                                  </span>
+                                ) : null;
+                              })
+                            ) : (
+                              <span className="text-gray-500 text-sm">Nenhuma permissão</span>
                             )}
-                            {permissionCount === SYSTEM_MENUS.length && (
-                              <Badge variant="default">Acesso total</Badge>
-                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {permissionCount} de {SYSTEM_MENUS.length} áreas
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
