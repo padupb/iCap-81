@@ -1,0 +1,2304 @@
+import type { Express, Request, Response, NextFunction } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { db, pool } from "./db";
+import { 
+  insertUserSchema, insertCompanySchema, insertCompanyCategorySchema,
+  insertUserRoleSchema, insertProductSchema, insertUnitSchema,
+  insertOrderSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
+  insertSystemLogSchema, insertSettingSchema
+} from "@shared/schema";
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import { z } from 'zod';
+
+// Configuração avançada do multer para upload de arquivos
+const storage_upload = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Criar uma pasta específica para cada pedido
+    const pedidoId = req.params.id;
+    const uploadDir = path.resolve(process.cwd(), 'uploads');
+    const pedidoDir = path.join(uploadDir, pedidoId);
+
+    // Criar pasta de uploads se não existir
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Criar pasta específica para o pedido
+    if (!fs.existsSync(pedidoDir)) {
+      fs.mkdirSync(pedidoDir, { recursive: true });
+    }
+
+    console.log(`Diretório para upload do pedido ${pedidoId}: ${pedidoDir}`);
+    cb(null, pedidoDir);
+  },
+  filename: function (req, file, cb) {
+    // Gerar um nome de arquivo mais simples e único
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    const fileExt = path.extname(file.originalname);
+    const fileName = `${file.fieldname}_${timestamp}_${random}${fileExt}`;
+
+    console.log(`Nome do arquivo para upload: ${fileName}`);
+    cb(null, fileName);
+  }
+});
+
+// Configuração simplificada de filtro de arquivos - aceita qualquer tipo para debugar
+const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  // Aceitar qualquer tipo de arquivo para resolver o problema de upload
+  console.log(`Arquivo recebido: ${file.fieldname}, mimetype: ${file.mimetype}`);
+  cb(null, true);
+};
+
+const upload = multer({ 
+  storage: storage_upload,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  }
+});
+
+export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Users routes
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar usuários" });
+    }
+  });
+
+  app.post("/api/users", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(userData);
+      await storage.createLog({
+        userId: user.id,
+        action: "Criou usuário",
+        itemType: "user",
+        itemId: user.id.toString(),
+        details: `Usuário ${user.name} foi criado`
+      });
+      res.status(201).json(user);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para criação de usuário" });
+    }
+  });
+
+  app.put("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userData = insertUserSchema.partial().parse(req.body);
+      const user = await storage.updateUser(id, userData);
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      await storage.createLog({
+        userId: user.id,
+        action: "Editou usuário",
+        itemType: "user",
+        itemId: user.id.toString(),
+        details: `Usuário ${user.name} foi editado`
+      });
+      res.json(user);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para atualização de usuário" });
+    }
+  });
+
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      await storage.deleteUser(id);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Excluiu usuário",
+        itemType: "user",
+        itemId: id.toString(),
+        details: `Usuário ${user.name} foi excluído`
+      });
+      res.json({ message: "Usuário excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir usuário" });
+    }
+  });
+
+  // Companies routes
+  app.get("/api/companies", async (req, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+
+      // Buscar as categorias para cada empresa
+      const categories = await storage.getAllCompanyCategories();
+
+      // Mapeamento de categorias por ID para fácil acesso
+      const categoriesMap = categories.reduce<Record<number, any>>((map, category) => {
+        map[category.id] = category;
+        return map;
+      }, {});
+
+      // Adicionar informações da categoria a cada empresa
+      const companiesWithCategories = companies.map(company => ({
+        ...company,
+        category: categoriesMap[company.categoryId]
+      }));
+
+      res.json(companiesWithCategories);
+    } catch (error) {
+      console.error("Erro ao buscar empresas:", error);
+      res.status(500).json({ message: "Erro ao buscar empresas" });
+    }
+  });
+
+  app.post("/api/companies", async (req, res) => {
+    try {
+      const companyData = insertCompanySchema.parse(req.body);
+      const company = await storage.createCompany(companyData);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Criou empresa",
+        itemType: "company",
+        itemId: company.id.toString(),
+        details: `Empresa ${company.name} foi criada`
+      });
+      res.status(201).json(company);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para criação de empresa" });
+    }
+  });
+
+  app.put("/api/companies/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const companyData = insertCompanySchema.partial().parse(req.body);
+      const company = await storage.updateCompany(id, companyData);
+      if (!company) {
+        return res.status(404).json({ message: "Empresa não encontrada" });
+      }
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Editou empresa",
+        itemType: "company",
+        itemId: company.id.toString(),
+        details: `Empresa ${company.name} foi editada`
+      });
+      res.json(company);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para atualização de empresa" });
+    }
+  });
+
+  app.delete("/api/companies/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const company = await storage.getCompany(id);
+      if (!company) {
+        return res.status(404).json({ message: "Empresa não encontrada" });
+      }
+      await storage.deleteCompany(id);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Excluiu empresa",
+        itemType: "company",
+        itemId: id.toString(),
+        details: `Empresa ${company.name} foi excluída`
+      });
+      res.json({ message: "Empresa excluída com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir empresa" });
+    }
+  });
+
+  // Company Categories routes
+  app.get("/api/company-categories", async (req, res) => {
+    try {
+      const categories = await storage.getAllCompanyCategories();
+      console.log("Enviando categorias para o frontend:", categories);
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar categorias de empresa" });
+    }
+  });
+
+  app.post("/api/company-categories", async (req, res) => {
+    try {
+      const categoryData = insertCompanyCategorySchema.parse(req.body);
+      const category = await storage.createCompanyCategory(categoryData);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Criou categoria de empresa",
+        itemType: "company_category",
+        itemId: category.id.toString(),
+        details: `Categoria ${category.name} foi criada`
+      });
+      res.status(201).json(category);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para criação de categoria" });
+    }
+  });
+
+  app.put("/api/company-categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const categoryData = insertCompanyCategorySchema.partial().parse(req.body);
+      const category = await storage.updateCompanyCategory(id, categoryData);
+      if (!category) {
+        return res.status(404).json({ message: "Categoria não encontrada" });
+      }
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Editou categoria de empresa",
+        itemType: "company_category",
+        itemId: category.id.toString(),
+        details: `Categoria ${category.name} foi editada`
+      });
+      res.json(category);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para atualização de categoria" });
+    }
+  });
+
+  app.delete("/api/company-categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const category = await storage.getCompanyCategory(id);
+      if (!category) {
+        return res.status(404).json({ message: "Categoria não encontrada" });
+      }
+      await storage.deleteCompanyCategory(id);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Excluiu categoria de empresa",
+        itemType: "company_category",
+        itemId: id.toString(),
+        details: `Categoria ${category.name} foi excluída`
+      });
+      res.json({ message: "Categoria excluída com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir categoria" });
+    }
+  });
+
+  // User Roles routes
+  app.get("/api/user-roles", async (req, res) => {
+    try {
+      const roles = await storage.getAllUserRoles();
+      res.json(roles);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar funções de usuário" });
+    }
+  });
+
+  app.get("/api/user-roles/category/:categoryId", async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const roles = await storage.getUserRolesByCategory(categoryId);
+      res.json(roles);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar funções de usuário por categoria" });
+    }
+  });
+
+  app.post("/api/user-roles", async (req, res) => {
+    try {
+      const roleData = insertUserRoleSchema.parse(req.body);
+      console.log("Creating user role:", roleData);
+      const role = await storage.createUserRole(roleData);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Criou função de usuário",
+        itemType: "user_role",
+        itemId: role.id.toString(),
+        details: `Função ${role.name} foi criada`
+      });
+      res.status(201).json(role);
+    } catch (error) {
+      console.error("Error creating user role:", error);
+      res.status(400).json({ message: "Dados inválidos para criação de função" });
+    }
+  });
+
+  app.put("/api/user-roles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      console.log("Updating user role:", req.body);
+      const roleData = insertUserRoleSchema.partial().parse(req.body);
+      const role = await storage.updateUserRole(id, roleData);
+      if (!role) {
+        return res.status(404).json({ message: "Função não encontrada" });
+      }
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Editou função de usuário",
+        itemType: "user_role",
+        itemId: role.id.toString(),
+        details: `Função ${role.name} foi editada`
+      });
+      res.json(role);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(400).json({ message: "Dados inválidos para atualização de função" });
+    }
+  });
+
+  app.delete("/api/user-roles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const role = await storage.getUserRole(id);
+      if (!role) {
+        return res.status(404).json({ message: "Função não encontrada" });
+      }
+      await storage.deleteUserRole(id);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Excluiu função de usuário",
+        itemType: "user_role",
+        itemId: id.toString(),
+        details: `Função ${role.name} foi excluída`
+      });
+      res.json({ message: "Função excluída com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir função" });
+    }
+  });
+
+  // Products routes
+  app.get("/api/products", async (req, res) => {
+    try {
+      const products = await storage.getAllProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar produtos" });
+    }
+  });
+
+  app.post("/api/products", async (req, res) => {
+    try {
+      const productData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(productData);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Criou produto",
+        itemType: "product",
+        itemId: product.id.toString(),
+        details: `Produto ${product.name} foi criado`
+      });
+      res.status(201).json(product);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para criação de produto" });
+    }
+  });
+
+  app.put("/api/products/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const productData = insertProductSchema.partial().parse(req.body);
+      const product = await storage.updateProduct(id, productData);
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Editou produto",
+        itemType: "product",
+        itemId: product.id.toString(),
+        details: `Produto ${product.name} foi editado`
+      });
+      res.json(product);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para atualização de produto" });
+    }
+  });
+
+  app.delete("/api/products/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const product = await storage.getProduct(id);
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      await storage.deleteProduct(id);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Excluiu produto",
+        itemType: "product",
+        itemId: id.toString(),
+        details: `Produto ${product.name} foi excluído`
+      });
+      res.json({ message: "Produto excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir produto" });
+    }
+  });
+
+  // Units routes
+  app.get("/api/units", async (req, res) => {
+    try {
+      const units = await storage.getAllUnits();
+      res.json(units);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar unidades" });
+    }
+  });
+
+  app.post("/api/units", async (req, res) => {
+    try {
+      const unitData = insertUnitSchema.parse(req.body);
+      const unit = await storage.createUnit(unitData);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Criou unidade",
+        itemType: "unit",
+        itemId: unit.id.toString(),
+        details: `Unidade ${unit.name} foi criada`
+      });
+      res.status(201).json(unit);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para criação de unidade" });
+    }
+  });
+
+  app.put("/api/units/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const unitData = insertUnitSchema.partial().parse(req.body);
+      const unit = await storage.updateUnit(id, unitData);
+      if (!unit) {
+        return res.status(404).json({ message: "Unidade não encontrada" });
+      }
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Editou unidade",
+        itemType: "unit",
+        itemId: unit.id.toString(),
+        details: `Unidade ${unit.name} foi editada`
+      });
+      res.json(unit);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para atualização de unidade" });
+    }
+  });
+
+  app.delete("/api/units/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const unit = await storage.getUnit(id);
+      if (!unit) {
+        return res.status(404).json({ message: "Unidade não encontrada" });
+      }
+      await storage.deleteUnit(id);
+      await storage.createLog({
+        userId: 1, // System user
+        action: "Excluiu unidade",
+        itemType: "unit",
+        itemId: id.toString(),
+        details: `Unidade ${unit.name} foi excluída`
+      });
+      res.json({ message: "Unidade excluída com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir unidade" });
+    }
+  });
+
+  // Orders routes
+  app.get("/api/orders", async (req, res) => {
+    try {
+      const orders = await storage.getAllOrders();
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar pedidos" });
+    }
+  });
+
+  app.get("/api/orders/status/:status", async (req, res) => {
+    try {
+      const status = req.params.status;
+      const orders = await storage.getOrdersByStatus(status);
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar pedidos por status" });
+    }
+  });
+
+  app.get("/api/orders/urgent", async (req, res) => {
+    try {
+      const urgentOrders = await storage.getUrgentOrders();
+      res.json(urgentOrders);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar pedidos urgentes" });
+    }
+  });
+
+  // Rota para buscar detalhes completos de um pedido
+  app.get("/api/pedidos/:id/detalhes", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID inválido" 
+        });
+      }
+
+      const { pool } = await import("./db");
+
+      // Buscar o pedido com todos os relacionamentos necessários
+      const orderResult = await pool.query(`
+        SELECT 
+          o.*,
+          p.name as product_name,
+          p.unit_id as product_unit_id,
+          u.name as unit_name,
+          u.abbreviation as unit_abbreviation,
+          c.name as supplier_name,
+          c.address as supplier_address,
+          po.numero_ordem as purchase_order_number,
+          po.empresa_id as purchase_order_company_id,
+          po.valido_ate as purchase_order_valid_until
+        FROM orders o
+        LEFT JOIN products p ON o.product_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        LEFT JOIN companies c ON o.supplier_id = c.id
+        LEFT JOIN ordens_compra po ON o.purchase_order_id = po.id
+        WHERE o.id = $1
+      `, [id]);
+
+      if (orderResult.rowCount === 0) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      // Buscar pontos de rastreamento
+      const trackingResult = await pool.query(`
+        SELECT tp.*, u.name as user_name
+        FROM tracking_points tp
+        LEFT JOIN users u ON tp.user_id = u.id
+        WHERE tp.order_id = $1
+        ORDER BY tp.created_at ASC
+      `, [id]);
+
+      // Buscar eventos do pedido (do log do sistema)
+      const eventsResult = await pool.query(`
+        SELECT l.*, u.name as user_name
+        FROM system_logs l
+        LEFT JOIN users u ON l.user_id = u.id
+        WHERE l.item_type = 'order' AND l.item_id = $1
+        ORDER BY l.created_at ASC
+      `, [id.toString()]); // Considerando que item_id é string no log
+
+      // Montar objeto completo de resposta
+      const orderData = orderResult.rows[0];
+
+      const response = {
+        id: orderData.id,
+        orderId: orderData.order_id,
+        status: orderData.status,
+        productId: orderData.product_id,
+        quantity: orderData.quantity,
+        supplierId: orderData.supplier_id,
+        workLocation: orderData.work_location,
+        deliveryDate: orderData.delivery_date,
+        isUrgent: orderData.is_urgent,
+        userId: orderData.user_id,
+        purchaseOrderId: orderData.purchase_order_id,
+        createdAt: orderData.created_at,
+        product: {
+          id: orderData.product_id,
+          name: orderData.product_name,
+          unitId: orderData.product_unit_id,
+          unit: {
+            id: orderData.product_unit_id,
+            name: orderData.unit_name,
+            abbreviation: orderData.unit_abbreviation
+          }
+        },
+        supplier: {
+          id: orderData.supplier_id,
+          name: orderData.supplier_name,
+          address: orderData.supplier_address
+        },
+        purchaseOrder: orderData.purchase_order_id ? {
+          id: orderData.purchase_order_id,
+          orderNumber: orderData.purchase_order_number,
+          companyId: orderData.purchase_order_company_id,
+          validUntil: orderData.purchase_order_valid_until
+        } : null,
+        trackingPoints: trackingResult.rows,
+        events: eventsResult.rows.map(event => ({
+          id: event.id,
+          eventType: event.action,
+          description: event.details,
+          timestamp: event.created_at,
+          userId: event.user_id,
+          userName: event.user_name
+        }))
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error("Erro ao buscar detalhes do pedido:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao buscar detalhes do pedido", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para upload de documentos - versão simplificada para resolver problemas
+  app.post("/api/pedidos/:id/documentos", async (req, res) => {
+    console.log("Iniciando upload de documentos para o pedido:", req.params.id);
+
+    try {
+      // Verificar se o pedido existe antes de iniciar o upload
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      const pedido = await pool.query("SELECT * FROM orders WHERE id = $1", [id]);
+      if (pedido.rowCount === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      // Atualizar status do pedido sem tentar processar arquivos (temporário para debug)
+      await pool.query(
+        'UPDATE orders SET status = $1, documentoscarregados = $2 WHERE id = $3',
+        ['Carregado', true, id]
+      );
+
+      // Responder com sucesso para teste
+      return res.status(200).json({
+        sucesso: true,
+        mensagem: "Pedido marcado como documentos carregados (simulação para teste)",
+        debug: "Upload real será implementado após resolver problemas de permissão"
+      });
+    } catch (error) {
+      console.error("Erro ao processar pedido:", error);
+      return res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro interno do servidor ao processar o pedido",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+
+  });
+
+  // Rota de upload antiga - foi removida
+
+      // Se chegou aqui, não houve erro no upload
+      try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          return res.status(400).json({ 
+            sucesso: false, 
+            mensagem: "ID inválido" 
+          });
+        }
+
+        const order = await storage.getOrder(id);
+        if (!order) {
+          return res.status(404).json({ 
+            sucesso: false, 
+            mensagem: "Pedido não encontrado" 
+          });
+        }
+
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        console.log("Arquivos recebidos:", files);
+
+        // Verificar se pelo menos um arquivo foi enviado
+        if (!files || Object.keys(files).length === 0) {
+          return res.status(400).json({ 
+            sucesso: false, 
+            mensagem: "É necessário enviar pelo menos um documento" 
+          });
+        }
+
+        // Registrar quais arquivos foram recebidos e garantir segurança de tipo
+        const arquivosRecebidos: Record<string, string> = {};
+        const documentosInfo: Record<string, any> = {};
+
+        // Verificar e processar cada tipo de arquivo de forma segura
+        console.log("Arquivos recebidos para processamento:", files);
+
+        if (files.nota_pdf && files.nota_pdf.length > 0) {
+          const file = files.nota_pdf[0];
+          arquivosRecebidos['nota_pdf'] = file.filename;
+          documentosInfo['nota_pdf'] = {
+            name: file.originalname,
+            filename: file.filename,
+            size: file.size,
+            path: file.path,
+            date: new Date().toISOString()
+          };
+          console.log("Nota PDF recebida:", file);
+        }
+
+        if (files.nota_xml && files.nota_xml.length > 0) {
+          const file = files.nota_xml[0];
+          arquivosRecebidos['nota_xml'] = file.filename;
+          documentosInfo['nota_xml'] = {
+            name: file.originalname,
+            filename: file.filename,
+            size: file.size,
+            path: file.path,
+            date: new Date().toISOString()
+          };
+          console.log("Nota XML recebida:", file);
+        }
+
+        if (files.certificado_pdf && files.certificado_pdf.length > 0) {
+          const file = files.certificado_pdf[0];
+          arquivosRecebidos['certificado_pdf'] = file.filename;
+          documentosInfo['certificado_pdf'] = {
+            name: file.originalname,
+            filename: file.filename,
+            size: file.size,
+            path: file.path,
+            date: new Date().toISOString()
+          };
+          console.log("Certificado PDF recebido:", file);
+        }
+
+        // Verificar se algum arquivo foi processado
+        if (Object.keys(documentosInfo).length === 0) {
+          console.error("Nenhum arquivo foi processado corretamente");
+          return res.status(400).json({
+            sucesso: false,
+            mensagem: "Nenhum arquivo foi processado corretamente"
+          });
+        }
+
+        // Salvar informações dos documentos no pedido para persistência
+        const documentosJSON = JSON.stringify(documentosInfo);
+
+        // Atualizar o status do pedido para "Carregado" e salvar informações dos documentos diretamente no banco
+        await pool.query(
+          'UPDATE orders SET status = $1, documentoscarregados = $2, documentosinfo = $3 WHERE id = $4',
+          ['Carregado', true, documentosJSON, id]
+        );
+
+        // Registrar no log do sistema
+        await storage.createLog({
+          userId: req.session.userId || 0,
+          action: "Upload de documentos",
+          itemType: "order",
+          itemId: id.toString(),
+          details: `Documentos carregados para o pedido ${order.orderId}`
+        });
+
+        console.log("Upload concluído com sucesso");
+
+        res.status(200).json({ 
+          sucesso: true,
+          mensagem: "Documentos enviados com sucesso",
+          arquivos: arquivosRecebidos,
+          info: documentosInfo
+        });
+      } catch (error) {
+        console.error("Erro no processamento dos documentos:", error);
+        res.status(500).json({ 
+          sucesso: false, 
+          mensagem: "Erro ao processar o upload de documentos",
+          erro: error instanceof Error ? error.message : "Erro desconhecido"
+        });
+      }
+    });
+  });
+
+  // Rota para confirmar entrega de pedido
+  app.post("/api/pedidos/:id/confirmar", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID inválido" 
+        });
+      }
+
+      const { status, quantidade } = req.body;
+
+      if (!status || !['aprovado', 'rejeitado'].includes(status)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Status inválido. Deve ser 'aprovado' ou 'rejeitado'" 
+        });
+      }
+
+      const { pool } = await import("./db");
+
+      // Verificar se o pedido existe
+      const checkResult = await pool.query(
+        "SELECT * FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (checkResult.rowCount === 0) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      const order = checkResult.rows[0];
+
+      // Atualizar status do pedido
+      const newStatus = status === 'aprovado' ? 'Entregue' : 'Recusado';
+
+      await pool.query(
+        "UPDATE orders SET status = $1 WHERE id = $2",
+        [newStatus, id]
+      );
+
+      // Registrar a quantidade confirmada se fornecida
+      if (quantidade !== undefined) {
+        // Aqui você poderia adicionar uma tabela de confirmação de entrega
+        // Para simplificar, estamos apenas registrando no log
+        console.log(`Quantidade confirmada para o pedido ${id}: ${quantidade}`);
+      }
+
+      // Registrar nos logs de sistema
+      await pool.query(
+        `INSERT INTO system_logs 
+         (user_id, action, item_type, item_id, details) 
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          req.session.userId || 1,
+          status === 'aprovado' ? 'delivery_confirmed' : 'delivery_rejected',
+          'order',
+          id.toString(),
+          status === 'aprovado' 
+            ? `Entrega do pedido ${order.order_id} confirmada` + (quantidade ? ` com quantidade ${quantidade}` : '')
+            : `Entrega do pedido ${order.order_id} rejeitada`
+        ]
+      );
+
+      return res.json({ 
+        sucesso: true, 
+        mensagem: status === 'aprovado' ? "Entrega confirmada com sucesso" : "Entrega rejeitada com sucesso"
+      });
+    } catch (error) {
+      console.error("Erro ao confirmar entrega:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao confirmar entrega", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  app.post("/api/orders", async (req, res) => {
+    try {
+      console.log("Dados recebidos:", req.body);
+
+      // Buscar configuração de dias para pedidos urgentes
+      const urgentDaysSetting = await storage.getSetting("urgent_days_threshold");
+      const urgentDaysThreshold = urgentDaysSetting 
+        ? parseInt(urgentDaysSetting.value, 10) 
+        : 3; // Valor padrão de 3 dias se não encontrar configuração
+
+      // Calcular se o pedido é urgente com base na data de entrega
+      const deliveryDate = new Date(req.body.deliveryDate);
+      const today = new Date();
+      const diffTime = deliveryDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const isUrgent = diffDays <= urgentDaysThreshold;
+
+      // Validar dados do pedido
+      const orderData = insertOrderSchema.parse({
+        productId: req.body.productId,
+        quantity: req.body.quantity,
+        supplierId: req.body.supplierId,
+        workLocation: req.body.workLocation,
+        deliveryDate: deliveryDate,
+        status: "Criado",
+        userId: req.body.userId,
+        purchaseOrderId: req.body.purchaseOrderId,
+        isUrgent: isUrgent
+      });
+
+      // Verificar saldo disponível se houver ordem de compra
+      if (orderData.purchaseOrderId) {
+        try {
+          const response = await fetch(`http://localhost:5000/api/ordens-compra/${orderData.purchaseOrderId}/produtos/${orderData.productId}/saldo`);
+          const balanceData = await response.json();
+
+          if (response.ok && balanceData.sucesso) {
+            const requestedQty = parseFloat(orderData.quantity);
+            if (requestedQty > balanceData.saldo_disponivel) {
+              return res.status(400).json({ 
+                message: `Quantidade solicitada (${requestedQty}) excede o saldo disponível (${balanceData.saldo_disponivel})` 
+              });
+            }
+          }
+        } catch (balanceError) {
+          console.error("Erro ao verificar saldo:", balanceError);
+          // Continuar mesmo com erro de verificação de saldo
+        }
+      }
+
+      // Criar o pedido
+      const order = await storage.createOrder(orderData);
+
+      // Verificar se precisa enviar notificação para o aprovador (se for pedido urgente)
+      if (isUrgent && orderData.purchaseOrderId) {
+        try {
+          // Obter a ordem de compra para saber a empresa
+          const purchaseOrder = await storage.getPurchaseOrder(orderData.purchaseOrderId);
+          if (purchaseOrder) {
+            // Obter a empresa para verificar se tem aprovador
+            const company = await storage.getCompany(purchaseOrder.companyId);
+            if (company && company.approverId) {
+              // Registrar no log a necessidade de aprovação
+              await storage.createLog({
+                userId: order.userId,
+                action: "Solicitação de aprovação urgente",
+                itemType: "order",
+                itemId: order.id.toString(),
+                details: `Pedido urgente ${order.orderId} foi enviado para aprovação`
+              });
+
+              // Aqui poderia haver um envio de email para o aprovador
+              console.log(`Pedido urgente ${order.orderId} requer aprovação do usuário ID ${company.approverId}`);
+            }
+          }
+        } catch (notificationError) {
+          console.error("Erro ao notificar aprovador:", notificationError);
+        }
+      }
+
+      // Registrar no log
+      await storage.createLog({
+        userId: order.userId,
+        action: "Criou pedido",
+        itemType: "order",
+        itemId: order.id.toString(),
+        details: `Pedido ${order.orderId} foi criado${isUrgent ? ' (URGENTE)' : ''}`
+      });
+
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Erro ao criar pedido:", error);
+      res.status(400).json({ message: "Dados inválidos para criação de pedido", erro: error instanceof Error ? error.message : "Erro desconhecido" });
+    }
+  });
+
+  app.put("/api/orders/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const orderData = insertOrderSchema.partial().parse(req.body);
+      const order = await storage.updateOrder(id, orderData);
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+      await storage.createLog({
+        userId: order.userId,
+        action: "Editou pedido",
+        itemType: "order",
+        itemId: order.id.toString(),
+        details: `Pedido ${order.orderNumber} foi editado`
+      });
+      res.json(order);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para atualização de pedido" });
+    }
+  });
+
+  app.delete("/api/orders/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+      await storage.deleteOrder(id);
+      await storage.createLog({
+        userId: order.userId,
+        action: "Excluiu pedido",
+        itemType: "order",
+        itemId: order.id.toString(),
+        details: `Pedido ${order.orderNumber} foi excluído`
+      });
+      res.json({ message: "Pedido excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir pedido" });
+    }
+  });
+
+  // Purchase Orders routes
+  app.get("/api/purchase-orders", async (req, res) => {
+    try {
+      const purchaseOrders = await storage.getAllPurchaseOrders();
+      res.json(purchaseOrders);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar ordens de compra" });
+    }
+  });
+
+  app.post("/api/purchase-orders", async (req, res) => {
+    try {
+      const purchaseOrderData = insertPurchaseOrderSchema.parse(req.body);
+      const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
+      await storage.createLog({
+        userId: purchaseOrder.userId,
+        action: "Criou ordem de compra",
+        itemType: "purchase_order",
+        itemId: purchaseOrder.id.toString(),
+        details: `Ordem de compra ${purchaseOrder.orderNumber} foi criada`
+      });
+      res.status(201).json(purchaseOrder);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para criação de ordem de compra" });
+    }
+  });
+
+  app.put("/api/purchase-orders/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const purchaseOrderData = insertPurchaseOrderSchema.partial().parse(req.body);
+      const purchaseOrder = await storage.updatePurchaseOrder(id, purchaseOrderData);
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Ordem de compra não encontrada" });
+      }
+      await storage.createLog({
+        userId: purchaseOrder.userId,
+        action: "Editou ordem de compra",
+        itemType: "purchase_order",
+        itemId: purchaseOrder.id.toString(),
+        details: `Ordem de compra ${purchaseOrder.orderNumber} foi editada`
+      });
+      res.json(purchaseOrder);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para atualização de ordem de compra" });
+    }
+  });
+
+  app.delete("/api/purchase-orders/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const purchaseOrder = await storage.getPurchaseOrder(id);
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Ordem de compra não encontrada" });
+      }
+      await storage.deletePurchaseOrder(id);
+      await storage.createLog({
+        userId: purchaseOrder.userId,
+        action: "Excluiu ordem de compra",
+        itemType: "purchase_order",
+        itemId: purchaseOrder.id.toString(),
+        details: `Ordem de compra ${purchaseOrder.orderNumber} foi excluída`
+      });
+      res.json({ message: "Ordem de compra excluída com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir ordem de compra" });
+    }
+  });
+
+  // Purchase Order Items routes
+  app.get("/api/purchase-orders/:id/items", async (req, res) => {
+    try {
+      const purchaseOrderId = parseInt(req.params.id);
+      const items = await storage.getPurchaseOrderItems(purchaseOrderId);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar itens da ordem de compra" });
+    }
+  });
+
+  app.post("/api/purchase-order-items", async (req, res) => {
+    try {
+      const itemData = insertPurchaseOrderItemSchema.parse(req.body);
+      const item = await storage.createPurchaseOrderItem(itemData);
+      res.status(201).json(item);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para criação de item de ordem de compra" });
+    }
+  });
+
+  app.delete("/api/purchase-order-items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePurchaseOrderItem(id);
+      res.json({ message: "Item de ordem de compra excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir item de ordem de compra" });
+    }
+  });
+
+  // System Logs routes
+  app.get("/api/logs", async (req, res) => {
+    try {
+      const logs = await storage.getAllLogs();
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar logs" });
+    }
+  });
+
+  // Settings routes
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const settings = await storage.getAllSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar configurações" });
+    }
+  });
+
+  app.get("/api/settings/:key", async (req, res) => {
+    try {
+      const key = req.params.key;
+      const setting = await storage.getSetting(key);
+      if (!setting) {
+        return res.status(404).json({ message: "Configuração não encontrada" });
+      }
+      res.json(setting);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar configuração" });
+    }
+  });
+
+  app.post("/api/settings", async (req, res) => {
+    try {
+      const settingData = insertSettingSchema.parse(req.body);
+      const setting = await storage.createOrUpdateSetting(settingData);
+      res.status(201).json(setting);
+    } catch (error) {
+      res.status(400).json({ message: "Dados inválidos para criação de configuração" });
+    }
+  });
+
+  // Adicionando rotas para tabelas separadas de Ordem de Compra e Itens
+  // Rota para criar ordem de compra nova (formato frontend)
+  app.post("/api/ordem-compra-nova", async (req, res) => {
+    try {
+      // Verificar dados necessários
+      if (!req.body.numero || !req.body.empresa || !req.body.obra || !req.body.validade || !req.body.produtos) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Dados incompletos. Número, fornecedor, obra, validade e produtos são obrigatórios"
+        });
+      }
+
+      // Obter ID do usuário logado
+      const userId = req.session.userId || 1;
+
+      // Usar SQL nativo para inserir na tabela
+      const { pool } = await import("./db");
+
+      // Inserir a ordem de compra
+      const result = await pool.query(
+        `INSERT INTO ordens_compra 
+         (numero_ordem, empresa_id, obra_id, usuario_id, valido_ate, status) 
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, numero_ordem, empresa_id, obra_id, usuario_id, valido_ate, data_criacao, status`,
+        [
+          req.body.numero,
+          req.body.empresa,
+          req.body.obra,
+          userId,
+          req.body.validade,
+          "Ativo"
+        ]
+      );
+
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(500).json({ 
+          sucesso: false, 
+          mensagem: "Erro ao criar ordem de compra" 
+        });
+      }
+
+      const orderId = result.rows[0].id;
+
+      // Inserir os produtos da ordem
+      if (req.body.produtos && Array.isArray(req.body.produtos)) {
+        for (const produto of req.body.produtos) {
+          await pool.query(
+            `INSERT INTO itens_ordem_compra 
+             (ordem_compra_id, produto_id, quantidade) 
+             VALUES ($1, $2, $3)`,
+            [orderId, produto.id, produto.qtd]
+          );
+        }
+      }
+
+      // Criar log da operação
+      await pool.query(
+        `INSERT INTO system_logs 
+         (user_id, action, item_type, item_id, details) 
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          userId,
+          "Criou ordem de compra",
+          "ordem_compra",
+          result.rows[0].numero_ordem,
+          `Ordem de compra ${result.rows[0].numero_ordem} foi criada`
+        ]
+      );
+
+      return res.json({ 
+        sucesso: true, 
+        mensagem: "Ordem de compra criada com sucesso",
+        ordem: result.rows[0]
+      });
+    } catch (error) {
+      console.error("Erro ao criar ordem de compra:", error);
+      return res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao criar ordem de compra", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para criar ordem de compra em tabela especializada
+  app.post("/api/ordem-compra", async (req, res) => {
+    try {
+      // Verificar se tem os dados básicos necessários
+      if (!req.body.numeroOrdem || !req.body.empresaId || !req.body.obraId || !req.body.validoAte || !req.body.userId) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Dados incompletos. Número da ordem, fornecedor, obra, validade e usuário são obrigatórios" 
+        });
+      }
+
+      // Usar SQL nativo para inserir na nova tabela
+      const { pool } = await import("./db");
+
+      const valorTotal = req.body.valorTotal || 0;
+
+      // Garantir que o status seja válido
+      const status = req.body.status && ["Ativo", "Expirado"].includes(req.body.status) 
+        ? req.body.status 
+        : "Ativo";
+
+      // Inserir a ordem de compra
+      const result = await pool.query(
+        `INSERT INTO ordens_compra 
+         (numero_ordem, empresa_id, obra_id, usuario_id, valido_ate, status, valor_total) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, numero_ordem, empresa_id, obra_id, usuario_id, valido_ate, data_criacao, status`,
+        [
+          req.body.numeroOrdem,
+          req.body.empresaId,
+          req.body.obraId || null, // Tornando o campo opcional para compatibilidade
+          req.body.userId,
+          req.body.validoAte,
+          status,
+          valorTotal
+        ]
+      );
+
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(500).json({ 
+          sucesso: false, 
+          mensagem: "Erro ao criar ordem de compra" 
+        });
+      }
+
+      const createdOrder = {
+        id: result.rows[0].id,
+        orderNumber: result.rows[0].numero_ordem,
+        companyId: result.rows[0].empresa_id,
+        validUntil: result.rows[0].valido_ate,
+        userId: result.rows[0].usuario_id,
+        status: result.rows[0].status,
+        createdAt: result.rows[0].data_criacao
+      };
+
+      console.log("Ordem criada com nova estrutura:", createdOrder);
+
+      // Adicionar os itens
+      if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
+        for (const item of req.body.items) {
+          if (item.productId && item.quantity) {
+            await pool.query(
+              `INSERT INTO itens_ordem_compra 
+               (ordem_compra_id, produto_id, quantidade) 
+               VALUES ($1, $2, $3)`,
+              [createdOrder.id, Number(item.productId), String(item.quantity)]
+            );
+          }
+        }
+      }
+
+      // Registrar nos logs de sistema
+      try {
+        await pool.query(
+          `INSERT INTO system_logs 
+           (user_id, action, item_type, item_id, details) 
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            createdOrder.userId,
+            "Criou ordem de compra",
+            "ordem_compra",
+            createdOrder.orderNumber,
+            `Ordem de compra ${createdOrder.orderNumber} foi criada`
+          ]
+        );
+      } catch (logError) {
+        console.log("Erro ao criar log, mas a ordem foi salva:", logError);
+      }
+
+      // Retornar a ordem criada
+      return res.status(201).json(createdOrder);
+    } catch (error) {
+      console.error("Erro na criação de ordem de compra:", error);
+      return res.status(500).json({ 
+        message: "Erro ao criar ordem de compra", 
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        details: error
+      });
+    }
+  });
+
+  // Rota para listar obras
+  app.get("/api/obras", async (req, res) => {
+    try {
+      const { pool } = await import("./db");
+
+      const result = await pool.query(`
+        SELECT o.*, c.name as empresa_nome 
+        FROM obras o
+        LEFT JOIN companies c ON o.empresa_id = c.id
+        ORDER BY o.nome ASC
+      `);
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Erro ao buscar obras:", error);
+      res.status(500).json({ 
+        mensagem: "Erro ao buscar obras", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para listar ordens de compra das tabelas especializadas
+  app.get("/api/ordens-compra", async (req, res) => {
+    try {
+      // Usar SQL nativo para consultar as novas tabelas
+      const { pool } = await import("./db");
+
+      // Primeiro atualiza os status das ordens expiradas
+      await pool.query(`
+        UPDATE ordens_compra 
+        SET status = 'Expirado' 
+        WHERE valido_ate < NOW() AND status = 'Ativo'
+      `);
+
+      // Parâmetros opcionais de filtro
+      const empresaId = req.query.empresaId ? parseInt(req.query.empresaId as string) : null;
+      const status = req.query.status as string || null;
+
+      // Construindo a consulta com filtros opcionais
+      let query = `
+        SELECT oc.*, c.name as empresa_nome 
+        FROM ordens_compra oc
+        LEFT JOIN companies c ON oc.empresa_id = c.id
+        WHERE 1=1
+      `;
+
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      // Aplicando filtros se fornecidos
+      if (empresaId !== null) {
+        query += ` AND oc.empresa_id = $${paramIndex}`;
+        params.push(empresaId);
+        paramIndex++;
+      }
+
+      if (status) {
+        query += ` AND oc.status = $${paramIndex}`;
+        params.push(status);
+        paramIndex++;
+      }
+
+      // Sempre filtrar para mostrar apenas ordens válidas (data atual <= data de validade)
+      if (req.query.apenasValidas === 'true') {
+        query += ` AND oc.valido_ate >= NOW()`;
+      }
+
+      // Ordenação
+      query += ` ORDER BY oc.id DESC`;
+
+      // Executar a consulta
+      const result = await pool.query(query, params);
+
+      console.log("Ordens encontradas:", result.rowCount);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Erro ao buscar ordens de compra:", error);
+      res.status(500).json({ 
+        mensagem: "Erro ao buscar ordens de compra", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para excluir ordem de compra
+  app.delete("/api/ordem-compra/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID inválido" 
+        });
+      }
+
+      const { pool } = await import("./db");
+
+      // Primeiro excluir os itens da ordem
+      await pool.query(
+        "DELETE FROM itens_ordem_compra WHERE ordem_compra_id = $1",
+        [id]
+      );
+
+      // Depois excluir a ordem
+      const result = await pool.query(
+        "DELETE FROM ordens_compra WHERE id = $1 RETURNING id, numero_ordem",
+        [id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Ordem de compra não encontrada" 
+        });
+      }
+
+      // Registrar nos logs de sistema
+      try {
+        await pool.query(
+          `INSERT INTO system_logs 
+           (user_id, action, item_type, item_id, details) 
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            1, // System user por padrão
+            "Excluiu ordem de compra",
+            "ordem_compra",
+            result.rows[0].numero_ordem,
+            `Ordem de compra ${result.rows[0].numero_ordem} foi excluída`
+          ]
+        );
+      } catch (logError) {
+        console.log("Erro ao criar log, mas a ordem foi excluída:", logError);
+      }
+
+      return res.json({ 
+        sucesso: true, 
+        mensagem: "Ordem de compra excluída com sucesso" 
+      });
+    } catch (error) {
+      console.error("Erro ao excluir ordem de compra:", error);
+      return res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao excluir ordem de compra", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para atualizar ordem de compra
+  app.put("/api/ordem-compra/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID inválido" 
+        });
+      }
+
+      // Validar status permitidos
+      if (req.body.status && !["Ativo", "Expirado"].includes(req.body.status)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Status inválido. Apenas 'Ativo' e 'Expirado' são permitidos."
+        });
+      }
+
+      const { pool } = await import("./db");
+
+      // Verificar se a ordem existe
+      const checkResult = await pool.query(
+        "SELECT id FROM ordens_compra WHERE id = $1",
+        [id]
+      );
+
+      if (checkResult.rowCount === 0) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Ordem de compra não encontrada" 
+        });
+      }
+
+      // Construir a query de atualização dinamicamente
+      let updateFields = [];
+      let params = [];
+      let paramCount = 1;
+
+      if (req.body.numeroOrdem) {
+        updateFields.push(`numero_ordem = $${paramCount}`);
+        params.push(req.body.numeroOrdem);
+        paramCount++;
+      }
+
+      if (req.body.empresaId) {
+        updateFields.push(`empresa_id = $${paramCount}`);
+        params.push(req.body.empresaId);
+        paramCount++;
+      }
+
+      if (req.body.userId) {
+        updateFields.push(`usuario_id = $${paramCount}`);
+        params.push(req.body.userId);
+        paramCount++;
+      }
+
+      if (req.body.validoAte) {
+        updateFields.push(`valido_ate = $${paramCount}`);
+        params.push(req.body.validoAte);
+        paramCount++;
+      }
+
+      if (req.body.status) {
+        updateFields.push(`status = $${paramCount}`);
+        params.push(req.body.status);
+        paramCount++;
+      }
+
+      // Removido tratamento de valor_total pois a coluna não existe na tabela
+
+      // Se não há campos para atualizar mas existem itens, permitir apenas a atualização dos itens
+      if (updateFields.length === 0 && (!req.body.items || !Array.isArray(req.body.items))) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Nenhum campo para atualizar foi fornecido" 
+        });
+      }
+
+      // Se não há campos para atualizar mas existem itens, pulamos a atualização da ordem principal
+      let updateResult = { rows: [{ id }] };
+
+      if (updateFields.length > 0) {
+        // Adicionar o ID como último parâmetro
+        params.push(id);
+
+        // Executar a atualização
+        const updateQuery = `
+          UPDATE ordens_compra 
+          SET ${updateFields.join(', ')} 
+          WHERE id = $${paramCount}
+          RETURNING id, numero_ordem, empresa_id, usuario_id, valido_ate, status
+        `;
+
+        updateResult = await pool.query(updateQuery, params);
+      }
+
+      // Atualizar itens da ordem, se fornecidos
+      if (req.body.items && Array.isArray(req.body.items)) {
+        // Primeiro, excluir os itens existentes
+        await pool.query(
+          "DELETE FROM itens_ordem_compra WHERE ordem_compra_id = $1",
+          [id]
+        );
+
+        // Depois, inserir os novos itens
+        for (const item of req.body.items) {
+          if (item.productId && item.quantity) {
+            await pool.query(
+              `INSERT INTO itens_ordem_compra 
+               (ordem_compra_id, produto_id, quantidade) 
+               VALUES ($1, $2, $3)`,
+              [id, Number(item.productId), String(item.quantity)]
+            );
+          }
+        }
+      }
+
+      // Registrar nos logs de sistema
+      try {
+        await pool.query(
+          `INSERT INTO system_logs 
+           (user_id, action, item_type, item_id, details) 
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            req.body.userId || 1, // Usuário da requisição ou system user
+            "Atualizou ordem de compra",
+            "ordem_compra",
+            updateResult.rows[0].numero_ordem,
+            `Ordem de compra ${updateResult.rows[0].numero_ordem} foi atualizada`
+          ]
+        );
+      } catch (logError) {
+        console.log("Erro ao criar log, mas a ordem foi atualizada:", logError);
+      }
+
+      return res.json({ 
+        sucesso: true, 
+        mensagem: "Ordem de compra atualizada com sucesso",
+        ordem: updateResult.rows[0]
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar ordem de compra:", error);
+      return res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao atualizar ordem de compra", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para buscar itens de uma ordem de compra
+  app.get("/api/ordem-compra/:id/itens", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID inválido" 
+        });
+      }
+
+      const { pool } = await import("./db");
+
+      const result = await pool.query(`
+        SELECT i.*, p.name as produto_nome, p.unit_id as unidade_id, u.name as unidade_nome, u.abbreviation as unidade_abreviacao
+        FROM itens_ordem_compra i
+        LEFT JOIN products p ON i.produto_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        WHERE i.ordem_compra_id = $1
+      `, [id]);
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Erro ao buscar itens da ordem de compra:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao buscar itens da ordem de compra", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para consultar o saldo disponível de um produto em uma ordem de compra
+  app.get("/api/ordens-compra/:id/produtos/:produtoId/saldo", async (req, res) => {
+    try {
+      const ordemId = parseInt(req.params.id);
+      const produtoId = parseInt(req.params.produtoId);
+
+      if (isNaN(ordemId) || isNaN(produtoId)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "IDs inválidos" 
+        });
+      }
+
+      const { pool } = await import("./db");
+
+      // 1. Buscar a quantidade do produto na ordem de compra
+      const itemResult = await pool.query(
+        `SELECT quantidade 
+         FROM itens_ordem_compra 
+         WHERE ordem_compra_id = $1 AND produto_id = $2`,
+        [ordemId, produtoId]
+      );
+
+      if (itemResult.rows.length === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Produto não encontrado na ordem de compra"
+        });
+      }
+
+      const quantidadeTotal = parseFloat(itemResult.rows[0].quantidade);
+
+      // 2. Buscar a quantidade já solicitada em pedidos anteriores
+      const pedidosResult = await pool.query(
+        `SELECT COALESCE(SUM(CAST(quantity AS NUMERIC)), 0) as quantidade_usada
+         FROM orders
+         WHERE purchase_order_id = $1 AND product_id = $2`,
+        [ordemId, produtoId]
+      );
+
+      const quantidadeUsada = parseFloat(pedidosResult.rows[0].quantidade_usada) || 0;
+
+      // 3. Calcular o saldo disponível
+      const saldoDisponivel = quantidadeTotal - quantidadeUsada;
+
+      res.json({
+        sucesso: true,
+        ordem_id: ordemId,
+        produto_id: produtoId,
+        quantidade_total: quantidadeTotal,
+        quantidade_usada: quantidadeUsada,
+        saldo_disponivel: saldoDisponivel
+      });
+    } catch (error) {
+      console.error("Erro ao calcular saldo do produto:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao calcular saldo do produto", 
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Email e senha são obrigatórios" 
+        });
+      }
+
+      // Verificar se o email termina com @admin.icap
+      if (email.endsWith("@admin.icap")) {
+        // Fazer login como keyuser
+        // Buscar as configurações de keyuser
+        const keyUserEmailSetting = await storage.getSetting("keyuser_email");
+        const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
+
+        if (!keyUserEmailSetting || !keyUserPasswordSetting) {
+          return res.status(500).json({ 
+            success: false, 
+            message: "Configurações do administrador não encontradas" 
+          });
+        }
+
+        const keyUsername = keyUserEmailSetting.value;
+        const keyPassword = keyUserPasswordSetting.value;
+
+        // Verificar se é o keyuser
+        if (email === keyUsername && password === keyPassword) {
+          console.log("Login de administrador keyuser efetuado");
+
+          // Usuário especial com acesso total
+          const keyUserAdmin = {
+            id: 999, // ID especial para o keyuser
+            name: "Desenvolvedor", 
+            email: email,
+            phone: null,
+            companyId: null,
+            roleId: null,
+            createdAt: new Date(),
+            isDeveloper: true,
+            canConfirmDelivery: true, // Permissão para confirmar entregas
+            role: { id: 888, name: "Super Administrador" }
+          };
+
+          // Iniciar sessão para o keyuser
+          if (req.session) {
+            req.session.userId = keyUserAdmin.id;
+          }
+
+          return res.json(keyUserAdmin);
+        } else {
+          return res.status(401).json({
+            success: false,
+            message: "Credenciais inválidas para usuário administrador"
+          });
+        }
+      }
+
+      // Processo normal de autenticação para outros usuários
+      const user = await storage.getUserByEmail(email);
+
+      if (!user) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Credenciais inválidas" 
+        });
+      }
+
+      // Verificar senha (em um sistema real, usaríamos bcrypt)
+      if (user.password !== password) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Credenciais inválidas" 
+        });
+      }
+
+      // Iniciar sessão
+      if (req.session) {
+        req.session.userId = user.id;
+      }
+
+      // Remover a senha do objeto de usuário antes de enviar
+      const { password: _, ...userWithoutPassword } = user;
+
+      // Buscar informações adicionais do usuário
+      const role = user.roleId ? await storage.getUserRole(user.roleId) : null;
+      const permissions = role?.permissions || [];
+
+      res.json({
+        ...userWithoutPassword,
+        role: role ? { 
+          id: role.id, 
+          name: role.name,
+          permissions 
+        } : null,
+        permissions
+      });
+
+    } catch (error) {
+      console.error("Erro no login:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao processar o login" 
+      });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    if (req.session) {
+      req.session.destroy(err => {
+        if (err) {
+          console.error("Erro ao encerrar sessão:", err);
+          return res.status(500).json({ 
+            success: false, 
+            message: "Erro ao fazer logout" 
+          });
+        }
+
+        res.clearCookie("connect.sid"); // Limpar cookie de sessão
+        res.json({ success: true, message: "Logout realizado com sucesso" });
+      });
+    } else {
+      res.json({ success: true, message: "Nenhuma sessão ativa" });
+    }
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      if (!req.session || !req.session.userId) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Não autenticado" 
+        });
+      }
+
+      const userId = req.session.userId;
+
+      // Verificar se é o keyuser (ID especial 999)
+      if (userId === 999) {
+        // Retornar o perfil do keyuser
+        return res.json({
+          id: 999,
+          name: "Desenvolvedor",
+          email: "padupb", // Nome de usuário apenas
+          phone: null,
+          companyId: null,
+          roleId: null,
+          createdAt: new Date(),
+          canConfirmDelivery: true, // Permissão para confirmar entregas
+          isDeveloper: true,
+          role: { id: 888, name: "Super Administrador" }
+        });
+      }
+
+      // Processo normal para outros usuários
+      const user = await storage.getUser(userId);
+
+      if (!user) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Usuário não encontrado" 
+        });
+      }
+
+      // Remover a senha do objeto de usuário antes de enviar
+      const { password: _, ...userWithoutPassword } = user;
+
+      // Buscar informações adicionais do usuário
+      const role = user.roleId ? await storage.getUserRole(user.roleId) : null;
+      const permissions = role?.permissions || [];
+
+      res.json({
+        ...userWithoutPassword,
+        role: role ? { 
+          id: role.id, 
+          name: role.name,
+          permissions 
+        } : null,
+        permissions // Adicionando permissões diretamente no objeto usuário
+      });
+
+    } catch (error) {
+      console.error("Erro ao buscar usuário autenticado:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao buscar dados do usuário" 
+      });
+    }
+  });
+
+  // System Logs routes
+  app.get("/api/logs", async (req, res) => {
+    try {
+      const logs = await storage.getAllLogs();
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar logs" });
+    }
+  });
+
+  // Rota para buscar detalhes completos de um pedido (incluindo rastreamento)
+  app.get('/api/pedidos/:id/detalhes', async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Buscar o pedido com todos os relacionamentos necessários
+      const orderResult = await pool.query(`
+        SELECT 
+          o.*,
+          p.name as product_name,
+          p.unit_id as product_unit_id,
+          u.name as unit_name,
+          u.abbreviation as unit_abbreviation,
+          c.name as supplier_name,
+          c.address as supplier_address,
+          po.numero_ordem as purchase_order_number,
+          po.empresa_id as purchase_order_company_id,
+          po.valido_ate as purchase_order_valid_until
+        FROM orders o
+        LEFT JOIN products p ON o.product_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        LEFT JOIN companies c ON o.supplier_id = c.id
+        LEFT JOIN ordens_compra po ON o.purchase_order_id = po.id
+        WHERE o.id = $1
+      `, [id]);
+
+      if (orderResult.rowCount === 0) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      // Buscar pontos de rastreamento
+      const trackingResult = await pool.query(`
+        SELECT tp.*, u.name as user_name
+        FROM tracking_points tp
+        LEFT JOIN users u ON tp.user_id = u.id
+        WHERE tp.order_id = $1
+        ORDER BY tp.created_at ASC
+      `, [id]);
+
+      // Buscar eventos do pedido (do log do sistema)
+      const eventsResult = await pool.query(`
+        SELECT l.*, u.name as user_name
+        FROM system_logs l
+        LEFT JOIN users u ON l.user_id = u.id
+        WHERE l.item_type = 'order' AND l.item_id = $1
+        ORDER BY l.created_at ASC
+      `, [id.toString()]); // Considerando que item_id é string no log
+
+      // Montar objeto completo de resposta
+      const orderData = orderResult.rows[0];
+
+      // Formatar os pontos de rastreamento
+      const formattedTrackingPoints = trackingResult.rows.map(point => ({
+        id: point.id,
+        status: point.status,
+        comment: point.comment,
+        userId: point.user_id,
+        userName: point.user_name,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        createdAt: point.created_at
+      }));
+
+      const response = {
+        id: orderData.id,
+        orderId: orderData.order_id,
+        status: orderData.status,
+        productId: orderData.product_id,
+        quantity: orderData.quantity,
+        supplierId: orderData.supplier_id,
+        workLocation: orderData.work_location,
+        deliveryDate: orderData.delivery_date,
+        isUrgent: orderData.is_urgent,
+        userId: orderData.user_id,
+        purchaseOrderId: orderData.purchase_order_id,
+        createdAt: orderData.created_at,
+        product: {
+          id: orderData.product_id,
+          name: orderData.product_name,
+          unitId: orderData.product_unit_id,
+          unit: {
+            id: orderData.product_unit_id,
+            name: orderData.unit_name,
+            abbreviation: orderData.unit_abbreviation
+          }
+        },
+        supplier: {
+          id: orderData.supplier_id,
+          name: orderData.supplier_name,
+          address: orderData.supplier_address
+        },
+        purchaseOrder: orderData.purchase_order_id ? {
+          id: orderData.purchase_order_id,
+          orderNumber: orderData.purchase_order_number,
+          companyId: orderData.purchase_order_company_id,
+          validUntil: orderData.purchase_order_valid_until
+        } : null,
+        trackingPoints: formattedTrackingPoints,
+        events: eventsResult.rows.map(event => ({
+          id: event.id,
+          eventType: event.action,
+          description: event.details,
+          timestamp: event.created_at,
+          userId: event.user_id,
+          userName: event.user_name
+        }))
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error("Erro ao buscar detalhes do pedido:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao buscar detalhes do pedido" 
+      });
+    }
+  });
+
+  // Rota para obter os documentos de um pedido
+  app.get('/api/pedidos/:id/documentos', async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Verificar se o pedido existe
+      const orderResult = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
+      if (orderResult.rowCount === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      const order = orderResult.rows[0];
+
+      // Verificar se o pedido tem documentos
+      if (!order.documentoscarregados && !order.documentosinfo) {
+        return res.json({
+          sucesso: true,
+          temDocumentos: false,
+          mensagem: "Pedido não possui documentos carregados"
+        });
+      }
+
+      // Tentar interpretar as informações dos documentos
+      let documentosInfo;
+      try {
+        documentosInfo = JSON.parse(order.documentosinfo || "{}");
+      } catch (error) {
+        console.error("Erro ao processar JSON de documentos:", error);
+        return res.status(500).json({
+          sucesso: false,
+          mensagem: "Erro ao processar informações dos documentos"
+        });
+      }
+
+      res.json({
+        sucesso: true,
+        temDocumentos: true,
+        documentos: documentosInfo
+      });
+    } catch (error) {
+      console.error("Erro ao buscar documentos:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar documentos do pedido"
+      });
+    }
+  });
+
+  // Rota para download de um documento específico
+  app.get('/api/pedidos/:id/documentos/:tipo', async (req, res) => {
+    try {
+      const { id, tipo } = req.params;
+
+      if (!['nota_pdf', 'nota_xml', 'certificado_pdf'].includes(tipo)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Tipo de documento inválido"
+        });
+      }
+
+      console.log(`Solicitação de download para pedido ${id}, documento ${tipo}`);
+
+      // Verificar se o pedido existe
+      const orderResult = await pool.query('SELECT documentosinfo FROM orders WHERE id = $1', [id]);
+      if (orderResult.rowCount === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      const order = orderResult.rows[0];
+      console.log(`Informações de documentos do pedido ${id}:`, order.documentosinfo);
+
+      // Verificar se o pedido tem documentos
+      if (!order.documentosinfo) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não possui documentos carregados"
+        });
+      }
+
+      // Tentar interpretar as informações dos documentos
+      let documentosInfo;
+      try {
+        documentosInfo = JSON.parse(order.documentosinfo);
+        console.log(`Documentos parseados:`, documentosInfo);
+      } catch (error) {
+        console.error("Erro ao processar JSON de documentos:", error);
+        return res.status(500).json({
+          sucesso: false,
+          mensagem: "Erro ao processar informações dos documentos",
+          erro: error.message
+        });
+      }
+
+      // Verificar se o documento solicitado existe
+      if (!documentosInfo[tipo]) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: `Documento do tipo ${tipo} não encontrado`
+        });
+      }
+
+      const docInfo = documentosInfo[tipo];
+      console.log(`Informações do documento ${tipo}:`, docInfo);
+
+      if (!docInfo.path) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Caminho do arquivo não encontrado"
+        });
+      }
+
+      const filePath = docInfo.path;
+      console.log(`Caminho do arquivo: ${filePath}`);
+
+      // Verificar se o arquivo existe no sistema de arquivos
+      if (!fs.existsSync(filePath)) {
+        console.error(`Arquivo ${filePath} não encontrado no servidor`);
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Arquivo não encontrado no servidor",
+          path: filePath
+        });
+      }
+
+      console.log(`Enviando arquivo ${filePath} para download...`);
+
+      // Definir o tipo de conteúdo com base na extensão do arquivo
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === '.pdf') {
+        res.setHeader('Content-Type', 'application/pdf');
+      } else if (ext === '.xml') {
+        res.setHeader('Content-Type', 'application/xml');
+      }
+
+      // Ler o arquivo diretamente e enviar como resposta
+      const fileData = fs.readFileSync(filePath);
+      const fileName = docInfo.name || path.basename(filePath);
+
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(fileData);
+    } catch (error) {
+      console.error("Erro ao fazer download do documento:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao fazer download do documento",
+        erro: error.message
+      });
+    }
+  });
+
+  // Rota para confirmar entrega de um pedido
+  app.post('/api/pedidos/:id/confirmar', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, quantidade } = req.body;
+      const userId = req.session.userId;
+
+      // Verificar se o pedido existe
+      const orderResult = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
+      if (orderResult.rowCount === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      // Atualizar status do pedido
+      await pool.query(
+        'UPDATE orders SET status = $1 WHERE id = $2',
+        [status === 'aprovado' ? 'Entregue' : 'Recusado', id]
+      );
+
+      // Registrar comentário na tabela de tracking_points
+      const comment = status === 'aprovado' 
+        ? `Entrega confirmada. ${quantidade ? `Quantidade aferida: ${quantidade}` : ''}`
+        : 'Entrega recusada/rejeitada';
+
+      await pool.query(
+        'INSERT INTO tracking_points (order_id, status, comment, user_id) VALUES ($1, $2, $3, $4)',
+        [id, status === 'aprovado' ? 'Entregue' : 'Recusado', comment, userId]
+      );
+
+      // Registrar no log do sistema
+      await pool.query(
+        'INSERT INTO system_logs (user_id, action, item_type, item_id, details) VALUES ($1, $2, $3, $4, $5)',
+        [userId, 'delivery_confirmed', 'order', id.toString(), comment]
+      );
+
+      res.json({
+        sucesso: true,
+        mensagem: status === 'aprovado' ? "Entrega confirmada com sucesso" : "Entrega recusada com sucesso"
+      });
+    } catch (error) {
+      console.error("Erro ao confirmar entrega:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao processar confirmação de entrega"
+      });
+    }
+  });
+
+  // Configurar servidor HTTP com o app Express
+  const server = createServer(app);
+  return server;
+}

@@ -1,0 +1,23 @@
+{
+  "name": "icap-tracker-pwa",
+  "version": "2.0.0",
+  "description": "PWA i-CAP Tracker integrada com banco de dados",
+  "main": "pwa-api.js",
+  "scripts": {
+    "start": "node pwa-api.js",
+    "dev": "node pwa-api.js",
+    "test": "node test-network.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  },
+  "keywords": [
+    "pwa",
+    "tracking",
+    "gps",
+    "qr-code",
+    "icap"
+  ],
+  "author": "i-CAP Team",
+  "license": "MIT"
+} 

@@ -1,0 +1,23 @@
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <kml xmlns="http://www.opengis.net/kml/2.2">
+      <Document>
+        <name>Pontos em Cuiabá</name>
+        <Placemark>
+          <name>Ponto 1</name>
+          <Point>
+            <coordinates>longitude1,latitude1,192.843</coordinates>
+          </Point>
+        </Placemark>
+        <Placemark>
+          <name>Ponto 2</name>
+          <Point>
+            <coordinates>longitude2,latitude2,195.144</coordinates>
+          </Point>
+        </Placemark>
+        <!-- Continue para outros pontos -->
+      </Document>
+    </kml>
+    ```
+
+    - Substitua `longitude1,latitude1`, `longitude2,latitude2`, etc. com as coordenadas longitudinais e latitudinais convertidas. A altura final, presente após a segunda vírgula em cada coordenada, é a altitude que já foi fornecida.

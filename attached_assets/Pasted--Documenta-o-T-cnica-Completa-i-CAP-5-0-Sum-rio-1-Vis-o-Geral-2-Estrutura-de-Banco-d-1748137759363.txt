@@ -1,0 +1,203 @@
+# Documentação Técnica Completa — i-CAP 5.0
+
+## Sumário
+
+1. Visão Geral
+2. Estrutura de Banco de Dados
+3. Funcionalidades Back-End
+4. Funcionalidades Front-End
+5. Upload e Download de Documentos
+6. Logs e Auditoria
+7. Permissões e Autenticação
+8. Validações e Regras de Negócio
+9. Checklist Final de Implementação
+
+---
+
+## 1. Visão Geral
+
+O sistema **i-CAP 5.0** é uma plataforma de controle de pedidos e materiais betuminosos, com foco em rastreabilidade, conformidade documental e controle logístico. Conta com fluxo completo de criação de pedidos, associação a ordens de compra, upload de documentos obrigatórios e rastreamento.
+
+---
+
+## 2. Estrutura de Banco de Dados
+
+### Tabela `orders`
+
+Campos relevantes:
+
+* `documentoscarregados` BOOLEAN DEFAULT FALSE
+* `documentosinfo` JSONB
+
+### Tabela `tracking_points`
+
+* Registro de status com coordenadas, comentários e responsável
+
+### Tabela `system_logs`
+
+* Registro de ações dos usuários e sistema (entregas, uploads, etc)
+
+---
+
+## 3. Funcionalidades Back-End
+
+### Upload de Documentos
+
+* Rota: `POST /api/pedidos/:id/documentos`
+* Middleware: `multer`
+* Destino: `uploads/{pedidoId}/`
+* Arquivos esperados:
+
+  * `nota_pdf`
+  * `nota_xml`
+  * `certificado_pdf`
+* Geração de nomes únicos com timestamp e random
+* Armazenamento de metadados no campo `documentosinfo`
+
+### Download de Documentos
+
+* Rota: `GET /api/pedidos/:id/documentos/:tipo`
+* Tipos aceitos: `nota_pdf`, `nota_xml`, `certificado_pdf`
+* Leitura direta via `fs.readFileSync`
+* Headers dinâmicos conforme tipo MIME
+
+### Validação obrigatória de documentos (a implementar)
+
+* Rejeitar uploads incompletos com status `400`
+
+### Confirmação de Entrega
+
+* Rota: `POST /api/pedidos/:id/confirmar`
+* Permite status `aprovado` ou `rejeitado`
+* Registra tracking point e evento em `system_logs`
+* Campo `quantidade` opcional, mas armazenado via comentário
+
+---
+
+## 4. Funcionalidades Front-End
+
+### Drawer Detalhado do Pedido
+
+* Abas: "Resumo", "Documentos", "Histórico"
+* Download dos arquivos por botão
+* Estado: `documentosCarregados` e `documentosInfo`
+* Invalidação de cache via `queryClient.invalidateQueries`
+
+### Upload de Arquivos
+
+* Formulário com input de 3 arquivos
+* Envio multipart/form-data
+* Validação local de obrigatoriedade (3 arquivos)
+* Feedback com snackbar ou toast
+
+### Aba de Confirmação de Entrega
+
+* Exibida somente se `user.canConfirmDelivery === true`
+* Input de quantidade aferida (opcional)
+* Botões de `Confirmar` e `Rejeitar`
+* Atualiza status e histórico
+
+---
+
+## 5. Upload e Download de Documentos
+
+### Nomeação dos Arquivos
+
+Formato: `{fieldname}_{timestamp}_{random}.{ext}`
+
+### JSON armazenado em `orders.documentosinfo`
+
+```json
+{
+  "nota_pdf": {
+    "name": "nota123.pdf",
+    "filename": "nota_pdf_1717171717_1234.pdf",
+    "size": 18234,
+    "path": "/uploads/123/nota_pdf_1717.pdf",
+    "date": "2025-05-23T14:22:00.000Z"
+  }
+}
+```
+
+### Regras:
+
+* Todos os 3 tipos devem estar presentes
+* Campo `documentoscarregados` define exibição no frontend
+
+---
+
+## 6. Logs e Auditoria
+
+### Campos em `system_logs`
+
+* `user_id`, `action`, `item_type`, `item_id`, `details`, `created_at`
+
+### Exemplos de ações registradas
+
+* `Criou pedido`
+* `Upload de documentos`
+* `Entrega confirmada`
+* `Entrega recusada`
+
+### Visualização
+
+* Aba "Histórico" no Drawer do Pedido
+* Eventos ordenados por `created_at`
+
+---
+
+## 7. Permissões e Autenticação
+
+### Usuário com permissão especial
+
+* Campo: `canConfirmDelivery` (boolean)
+* Chave no frontend para exibir botão "Confirmar entrega"
+* Keyuser com domínio `@admin.icap` tem acesso irrestrito
+
+### Sessão
+
+* `req.session.userId` preenchido no login
+* Sessão encerrada via `/api/auth/logout`
+
+---
+
+## 8. Validações e Regras de Negócio
+
+### Pedido Urgente
+
+* Baseado na diferença entre data atual e `deliveryDate`
+* Threshold controlado por configuração: `urgent_days_threshold`
+
+### Ordem de Compra
+
+* Considerada expirada se `valido_ate < now()`
+* Oculta no frontend se estiver fora do prazo
+* Exibição com destaque visual (ex: cor vermelha)
+
+### Saldo de Produto
+
+* Endpoint: `GET /api/ordens-compra/:id/produtos/:produtoId/saldo`
+* Impede criação de pedido com quantidade > saldo
+
+---
+
+## 9. Checklist Final de Implementação
+
+| Item                                      | Implementado?      |
+| ----------------------------------------- | ------------------ |
+| Campo `documentoscarregados`              | ✅                  |
+| Campo `documentosinfo`                    | ✅                  |
+| Upload de arquivos funcionando            | ✅                  |
+| Download de arquivos funcionando          | ✅                  |
+| Verificação dos 3 documentos obrigatórios | ⚠️ (a implementar) |
+| Log de upload                             | ✅                  |
+| Exibição de documentos no frontend        | ✅                  |
+| Permissão `canConfirmDelivery`            | ✅                  |
+| Confirmação e rejeição de entrega         | ✅                  |
+| Logs de confirmação registrados           | ✅                  |
+| Tela de histórico do pedido               | ✅                  |
+| Filtro de ordens expiradas                | ✅                  |
+
+---
+
+> **Nota:** A próxima etapa recomendada é adicionar a **validação obrigatória dos três arquivos** no backend e garantir feedbacks claros no frontend durante upload incompleto.

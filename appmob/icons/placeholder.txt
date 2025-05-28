@@ -1,0 +1,39 @@
+# Ícones da PWA i-CAP Tracker
+
+Esta pasta deve conter os ícones da PWA nos seguintes tamanhos:
+
+## Ícones Necessários:
+- icon-72x72.png
+- icon-96x96.png  
+- icon-128x128.png
+- icon-144x144.png
+- icon-152x152.png
+- icon-192x192.png
+- icon-384x384.png
+- icon-512x512.png
+
+## Como Gerar os Ícones:
+
+### Opção 1: Ferramenta Online
+1. Acesse: https://www.pwabuilder.com/imageGenerator
+2. Faça upload de uma imagem 512x512 do logo i-CAP
+3. Baixe o pacote de ícones gerado
+4. Extraia os arquivos nesta pasta
+
+### Opção 2: Ferramenta PWA Icon Generator
+1. Acesse: https://tools.crawlink.com/tools/pwa-icon-generator/
+2. Faça upload da imagem base
+3. Baixe todos os tamanhos
+4. Renomeie conforme necessário
+
+### Opção 3: Criar Manualmente
+Use qualquer editor de imagem (Photoshop, GIMP, Canva) para redimensionar uma imagem base para cada tamanho necessário.
+
+## Recomendações:
+- Use PNG com fundo transparente ou sólido
+- Mantenha o design simples e legível em tamanhos pequenos
+- Teste em diferentes dispositivos
+- Cores que contrastem bem com fundos claros e escuros
+
+## Temporário:
+Enquanto não tiver os ícones, a PWA funcionará normalmente, mas não terá ícones personalizados na tela inicial do dispositivo. 

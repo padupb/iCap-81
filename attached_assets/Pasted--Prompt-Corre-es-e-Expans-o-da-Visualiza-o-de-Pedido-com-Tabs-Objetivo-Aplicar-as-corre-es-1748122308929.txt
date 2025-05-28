@@ -1,0 +1,60 @@
+# Prompt – Correções e Expansão da Visualização de Pedido com Tabs
+
+## Objetivo
+Aplicar as correções e funcionalidades adicionais na interface e backend relacionados à visualização e acompanhamento dos pedidos no i-CAP 5.0.
+
+---
+
+## 1. Adição da Aba "Documentos" no TabList
+
+- Inserir uma nova aba na segunda posição da TabList chamada "Documentos".
+- Esta aba deverá permitir o upload de três arquivos:
+  1. Nota Fiscal (formato PDF)
+  2. Nota Fiscal (formato XML)
+  3. Certificado de Qualidade do Produto (formato PDF)
+- Após o upload de todos os arquivos:
+  - O status de progresso do pedido (linha do tempo) deve ser atualizado para "Carregado".
+  - A etapa anterior chamada "Análise" deve ser removida/substituída por essa.
+
+---
+
+## 2. Confirmação de Entrega (Aba 2)
+
+- Ao confirmar a entrega da carga, com inserção da quantidade aferida:
+  - O backend deve registrar esse valor no banco de dados (`quantidade_recebida`).
+  - A Tab “Confirmar Entrega” passa a exibir apenas os dados confirmados.
+  - A linha do tempo do pedido deve ser atualizada para o status **"Entregue"**.
+
+---
+
+## 3. Histórico do Pedido (Aba 4)
+
+- O histórico deve apresentar as seguintes etapas, com:
+  - Data e hora da operação
+  - Nome do usuário responsável
+  - Nome da etapa (em formato de menu expansível)
+
+### Etapas esperadas:
+1. Criação da Ordem de Compra
+2. Criação do Pedido
+3. Emissão da Nota Fiscal (ativada com o upload dos arquivos)
+4. Transporte (será desenvolvida futuramente)
+5. Entrega (ao confirmar recebimento)
+
+- Importante:
+  - Os eventos **1 e 2 sempre estarão presentes**
+  - Os eventos **3 a 5** só aparecem se tiverem sido realizados (condicional)
+
+---
+
+## Considerações Técnicas (Backend)
+
+- Criar nova rota de upload de documentos:
+  ```
+  POST /api/pedidos/:id/documentos
+  Body: { nota_pdf, nota_xml, certificado_pdf }
+  ```
+- Atualizar campo `status` do pedido para "Carregado" após os uploads.
+- Criar ou atualizar tabela de histórico com colunas:
+  - `pedido_id`, `etapa`, `usuario_id`, `descricao`, `created_at`
+- Nova entrada em `/api/pedidos/:id/historico` deve ser retornada com dados agrupados por etapa e em ordem decrescente de data.
