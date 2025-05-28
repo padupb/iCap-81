@@ -607,8 +607,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Para armazenamento em memória, assumir que há saldo suficiente
         quantidadeTotal = 1000; // Valor padrão para desenvolvimento
-         quantidadeUsada = 0;
-       }
+        quantidadeUsada = 0;
+      }
       const saldoDisponivel = quantidadeTotal - quantidadeUsada;
       const quantidadePedido = parseFloat(orderData.quantity);
 
