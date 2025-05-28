@@ -604,9 +604,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
         quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
-       } else {
-         // Para armazenamento em memória, assumir que há saldo suficiente
-         quantidadeTotal = 1000; // Valor padrão para desenvolvimento
+      } else {
+        // Para armazenamento em memória, assumir que há saldo suficiente
+        quantidadeTotal = 1000; // Valor padrão para desenvolvimento
          quantidadeUsada = 0;
        }
       const saldoDisponivel = quantidadeTotal - quantidadeUsada;
