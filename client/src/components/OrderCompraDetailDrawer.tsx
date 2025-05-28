@@ -192,9 +192,6 @@ export function OrderCompraDetailDrawer({
                 </Badge>
               )}
             </DrawerTitle>
-            <DrawerDescription>
-              Detalhes completos da ordem de compra
-            </DrawerDescription>
           </DrawerHeader>
           
           {!ordemAtual ? (
