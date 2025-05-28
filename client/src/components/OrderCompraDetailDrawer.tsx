@@ -207,36 +207,40 @@ export function OrderCompraDetailDrawer({
                     <CardTitle className="text-lg font-semibold leading-none tracking-tight">Informações Gerais</CardTitle>
                   </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Número da Ordem</h4>
-                      <p className="text-base font-medium">{ordemAtual.numero_ordem}</p>
+                  <div className="flex justify-between items-start gap-6">
+                    {/* Informações à esquerda */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">Número da Ordem</h4>
+                        <p className="text-base font-medium">{ordemAtual.numero_ordem}</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">Fornecedor</h4>
+                        <p className="text-base font-medium flex items-center gap-2">
+                          <Building size={16} className="text-muted-foreground" />
+                          {ordemAtual.empresa_nome}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">Válido Até</h4>
+                        <p className="text-base font-medium flex items-center gap-2">
+                          <Calendar size={16} className="text-muted-foreground" />
+                          {formatDate(ordemAtual.valido_ate)}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">Data de Criação</h4>
+                        <p className="text-base font-medium">
+                          {formatDate(ordemAtual.data_criacao)}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Fornecedor</h4>
-                      <p className="text-base font-medium flex items-center gap-2">
-                        <Building size={16} className="text-muted-foreground" />
-                        {ordemAtual.empresa_nome}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Válido Até</h4>
-                      <p className="text-base font-medium flex items-center gap-2">
-                        <Calendar size={16} className="text-muted-foreground" />
-                        {formatDate(ordemAtual.valido_ate)}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Data de Criação</h4>
-                      <p className="text-base font-medium">
-                        {formatDate(ordemAtual.data_criacao)}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2 md:col-span-2">
+                    {/* Botão à direita */}
+                    <div className="flex flex-col items-end space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Documentos</h4>
                       <Button
                         variant="outline"
