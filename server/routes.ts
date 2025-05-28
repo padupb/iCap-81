@@ -927,10 +927,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rota para download do PDF da ordem de compra
+  app.get("/api/ordem-compra/:id/pdf", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID inválido"
+        });
+      }
+
+      // Buscar informações da ordem de compra
+      const ordemResult = await pool.query(
+        "SELECT numero_ordem, pdf_url FROM ordens_compra WHERE id = $1",
+        [id]
+      );
+
+      if (!ordemResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Ordem de compra não encontrada"
+        });
+      }
+
+      const ordem = ordemResult.rows[0];
+      
+      // Verificar se existe PDF_URL na base de dados
+      if (ordem.pdf_url) {
+        const pdfPath = path.join(process.cwd(), "public", ordem.pdf_url);
+        if (fs.existsSync(pdfPath)) {
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
+          return res.sendFile(pdfPath);
+        }
+      }
+
+      // Tentar buscar o arquivo na pasta uploads usando o número da ordem
+      const uploadsPath = path.join(process.cwd(), "uploads", `${ordem.numero_ordem}.pdf`);
+      if (fs.existsSync(uploadsPath)) {
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
+        return res.sendFile(uploadsPath);
+      }
+
+      // Se não encontrar o arquivo
+      return res.status(404).json({
+        sucesso: false,
+        mensagem: "PDF da ordem de compra não encontrado"
+      });
+
+    } catch (error) {
+      console.error("Erro ao buscar PDF da ordem de compra:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro interno do servidor"
+      });
+    }
+  });
+
   // Rota para upload de PDF da ordem de compra
   app.post(
     "/api/ordem-compra/:id/upload-pdf",
-    uploadOrdemCompraPdf.single("pdf"),
+    uploadOrdemCompraPdf.single("ordem_pdf"),
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
