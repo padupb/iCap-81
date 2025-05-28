@@ -11,24 +11,7 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
   }
   
   try {
-    // Verificar se é o administrador keyuser
-    if (req.session.userId === 9999) {
-      // O keyuser tem todas as permissões
-      req.user = {
-        id: 9999,
-        name: "Paulo Eduardo (KeyUser)",
-        email: "padupb@admin.icap",
-        companyId: null,
-        roleId: null,
-        canConfirmDelivery: true,
-        isKeyUser: true,
-        isDeveloper: true, // Adicionar para compatibilidade
-        permissions: ["*"] // Permissão total - sem restrições
-      };
-      return next();
-    }
-    
-    // Buscar usuário normal
+    // Buscar usuário
     const user = await storage.getUser(req.session.userId);
     
     if (!user) {
@@ -45,19 +28,31 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       });
     }
     
+    // Verificar se é o usuário KeyUser (ID = 1)
+    const isRealKeyUser = user.id === 1;
+    
     // Buscar a função do usuário e suas permissões
     let permissions: string[] = [];
-    if (user.roleId) {
-      const role = await storage.getUserRole(user.roleId);
+    let role = null;
+    
+    if (user.roleId && !isRealKeyUser) {
+      role = await storage.getUserRole(user.roleId);
       if (role && role.permissions) {
         permissions = role.permissions;
       }
+    } else if (isRealKeyUser) {
+      // Para o keyuser real, criar função virtual
+      role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
+      permissions = ["*"];
     }
     
     // Adicionar o usuário com suas permissões ao objeto de requisição
     req.user = {
       ...user,
-      permissions
+      isKeyUser: isRealKeyUser,
+      isDeveloper: isRealKeyUser,
+      permissions,
+      role
     };
     
     next();
@@ -80,14 +75,28 @@ export const hasPermission = (permission: string) => {
       });
     }
     
-    // KeyUser sempre tem acesso total
-    if (req.user.isKeyUser === true || req.user.id === 9999) {
+    // KeyUser (ID = 1) sempre tem acesso total
+    if (req.user.id === 1 || req.user.isKeyUser === true) {
       return next();
     }
     
-    // Sempre permite acesso a todas as funcionalidades do sistema
-    // independentemente do perfil do usuário
-    return next();
+    // Verificar se o usuário tem a permissão específica
+    if (!req.user.permissions || !Array.isArray(req.user.permissions)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Sem permissões definidas" 
+      });
+    }
+    
+    // Verificar se tem a permissão específica
+    if (req.user.permissions.includes(permission)) {
+      return next();
+    }
+    
+    return res.status(403).json({ 
+      success: false, 
+      message: `Permissão '${permission}' necessária` 
+    });
   };
 };
 

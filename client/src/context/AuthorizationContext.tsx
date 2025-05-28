@@ -39,54 +39,82 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
   const { user } = useAuth();
 
   const canView = (area: string): boolean => {
+    console.log(`🔍 [AuthorizationContext] Verificando permissão view_${area} para usuário:`, {
+      userId: user?.id,
+      name: user?.name,
+      isKeyUser: user?.isKeyUser,
+      isDeveloper: user?.isDeveloper,
+      permissions: user?.permissions,
+      role: user?.role
+    });
+
     // Se não há usuário autenticado, nega acesso
-    if (!user) return false;
+    if (!user) {
+      console.log(`❌ [AuthorizationContext] Usuário não autenticado - negando acesso a ${area}`);
+      return false;
+    }
 
-    // O usuário keyuser (administrator) tem acesso a tudo
-    if (user.isDeveloper || user.isKeyUser) return true;
-
-    // Se o usuário tem permissão total (*), permite acesso
-    if (user.permissions && user.permissions.includes("*")) return true;
+    // APENAS o usuário keyuser (ID = 1) tem acesso total
+    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+      console.log(`🔑 [AuthorizationContext] KeyUser detectado - liberando acesso total a ${area}`);
+      return true;
+    }
 
     // Se o usuário não tem permissões definidas, nega acesso
-    if (!user.permissions || !Array.isArray(user.permissions)) return false;
+    if (!user.permissions || !Array.isArray(user.permissions)) {
+      console.log(`❌ [AuthorizationContext] Usuário sem permissões definidas - negando acesso a ${area}`);
+      return false;
+    }
 
-    // Verifica se o usuário tem permissão para visualizar a área
-    return user.permissions.includes(`view_${area}`) || user.permissions.includes("*");
+    // Para usuários normais, verificar apenas permissões específicas da role
+    // Remover permissão "*" automática que pode ter sido adicionada incorretamente
+    const rolePermissions = user.role?.permissions || [];
+    console.log(`🔐 [AuthorizationContext] Verificando permissões da role:`, rolePermissions);
+
+    // Verificar se tem permissão específica na role
+    const hasRolePermission = rolePermissions.includes(`view_${area}`);
+    
+    if (hasRolePermission) {
+      console.log(`✅ [AuthorizationContext] Permissão view_${area} encontrada na role - liberando acesso`);
+      return true;
+    }
+
+    console.log(`❌ [AuthorizationContext] Permissão view_${area} não encontrada - negando acesso`);
+    return false;
   };
 
   const canEdit = (area: string): boolean => {
     // Se não há usuário autenticado, nega acesso
     if (!user) return false;
 
-    // O usuário keyuser (administrator) tem acesso a tudo
-    if (user.isDeveloper || user.isKeyUser) return true;
-
-    // Se o usuário tem permissão total (*), permite acesso
-    if (user.permissions && user.permissions.includes("*")) return true;
+    // APENAS o usuário keyuser (ID = 1) tem acesso total
+    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+      return true;
+    }
 
     // Se o usuário não tem permissões definidas, nega acesso
     if (!user.permissions || !Array.isArray(user.permissions)) return false;
 
-    // Verifica se o usuário tem permissão para editar a área
-    return user.permissions.includes(`edit_${area}`) || user.permissions.includes("*");
+    // Para usuários normais, verificar apenas permissões específicas da role
+    const rolePermissions = user.role?.permissions || [];
+    return rolePermissions.includes(`edit_${area}`);
   };
 
   const canCreate = (area: string): boolean => {
     // Se não há usuário autenticado, nega acesso
     if (!user) return false;
 
-    // O usuário keyuser (administrator) tem acesso a tudo
-    if (user.isDeveloper || user.isKeyUser) return true;
-
-    // Se o usuário tem permissão total (*), permite acesso
-    if (user.permissions && user.permissions.includes("*")) return true;
+    // APENAS o usuário keyuser (ID = 1) tem acesso total
+    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+      return true;
+    }
 
     // Se o usuário não tem permissões definidas, nega acesso
     if (!user.permissions || !Array.isArray(user.permissions)) return false;
 
-    // Verifica se o usuário tem permissão para cadastrar na área
-    return user.permissions.includes(`create_${area}`) || user.permissions.includes("*");
+    // Para usuários normais, verificar apenas permissões específicas da role
+    const rolePermissions = user.role?.permissions || [];
+    return rolePermissions.includes(`create_${area}`);
   };
 
   return (
