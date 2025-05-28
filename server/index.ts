@@ -72,30 +72,45 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    console.log("🔧 Inicializando configurações do keyuser...");
+    
     let keyUserEmail = await storage.getSetting("keyuser_email");
     let keyUserPassword = await storage.getSetting("keyuser_password");
 
+    console.log("📧 KeyUser email atual:", keyUserEmail ? keyUserEmail.value : "não encontrado");
+    console.log("🔑 KeyUser password atual:", keyUserPassword ? "configurado" : "não encontrado");
+
     if (!keyUserEmail || keyUserEmail.value !== "padupb@admin.icap") {
-      console.log("Atualizando configuração do keyuser_email");
+      console.log("🔄 Criando/atualizando configuração do keyuser_email");
       await storage.createOrUpdateSetting({
         key: "keyuser_email",
         value: "padupb@admin.icap",
         description: "E-mail do superadministrador"
       });
+      console.log("✅ KeyUser email configurado");
     }
 
     if (!keyUserPassword || keyUserPassword.value !== "170824") {
-      console.log("Atualizando configuração do keyuser_password");
+      console.log("🔄 Criando/atualizando configuração do keyuser_password");
       await storage.createOrUpdateSetting({
         key: "keyuser_password",
         value: "170824",
         description: "Senha do superadministrador"
       });
+      console.log("✅ KeyUser password configurado");
     }
 
-    console.log("Configurações do superadministrador verificadas com sucesso");
+    // Verificar novamente se as configurações foram salvas
+    const emailVerify = await storage.getSetting("keyuser_email");
+    const passwordVerify = await storage.getSetting("keyuser_password");
+    
+    console.log("🔍 Verificação final:");
+    console.log("📧 Email:", emailVerify ? emailVerify.value : "ERRO - não encontrado");
+    console.log("🔑 Password:", passwordVerify ? "configurado" : "ERRO - não encontrado");
+
+    console.log("✅ Configurações do superadministrador verificadas com sucesso");
   } catch (error) {
-    console.error("Erro ao inicializar configurações do superadministrador:", error);
+    console.error("❌ Erro ao inicializar configurações do superadministrador:", error);
   }
 
   const server = await registerRoutes(app);

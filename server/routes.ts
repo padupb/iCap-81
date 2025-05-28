@@ -140,12 +140,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar se o email termina com @admin.icap
       if (email.endsWith("@admin.icap")) {
+        console.log("🔍 Tentativa de login de keyuser detectada:", email);
+        
         // Fazer login como keyuser
         // Buscar as configurações de keyuser
         const keyUserEmailSetting = await storage.getSetting("keyuser_email");
         const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
 
+        console.log("📧 Configuração de email encontrada:", keyUserEmailSetting ? keyUserEmailSetting.value : "não encontrada");
+        console.log("🔑 Configuração de senha encontrada:", keyUserPasswordSetting ? "sim" : "não");
+
         if (!keyUserEmailSetting || !keyUserPasswordSetting) {
+          console.log("❌ Configurações do keyuser não encontradas no banco");
           return res.status(500).json({ 
             success: false, 
             message: "Configurações do administrador não encontradas" 
@@ -155,9 +161,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const keyUsername = keyUserEmailSetting.value;
         const keyPassword = keyUserPasswordSetting.value;
 
+        console.log("🔍 Comparando credenciais:");
+        console.log("📧 Email fornecido:", email, "vs configurado:", keyUsername);
+        console.log("🔑 Senha fornecida:", password, "vs configurada:", keyPassword);
+
         // Verificar se é o keyuser
         if (email === keyUsername && password === keyPassword) {
-          console.log("Login de administrador keyuser efetuado");
+          console.log("✅ Login de administrador keyuser efetuado com sucesso");
           
           // Criar um usuário administrador virtual
           const adminUser = {

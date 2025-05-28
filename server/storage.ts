@@ -1020,4 +1020,7 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// Escolher o tipo de storage baseado na disponibilidade do banco de dados
+import { db } from "./db";
+
+export const storage = db ? new DatabaseStorage() : new MemStorage();

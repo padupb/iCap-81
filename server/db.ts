@@ -7,12 +7,22 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set in Replit Secrets. Please add it in the Secrets tab."
-  );
+  console.warn("⚠️  DATABASE_URL não configurado. Usando armazenamento em memória para desenvolvimento local.");
+  console.warn("⚠️  Para produção no Replit, configure DATABASE_URL nos Secrets.");
 }
 
-console.log('DATABASE_URL configurada via Secrets:', process.env.DATABASE_URL?.substring(0, 50) + '...');
+let pool: any = null;
+let db: any = null;
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+if (process.env.DATABASE_URL) {
+  console.log('DATABASE_URL configurada via Secrets:', process.env.DATABASE_URL?.substring(0, 50) + '...');
+  pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  db = drizzle({ client: pool, schema });
+} else {
+  console.log('🔧 Usando configuração local sem banco de dados');
+  // Para desenvolvimento local, usar armazenamento em memória
+  pool = null;
+  db = null;
+}
+
+export { pool, db };
