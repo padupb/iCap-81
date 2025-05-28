@@ -140,27 +140,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // NOVA REGRA: Se email = "keyuser" OU email = email do keyuser configurado, buscar credenciais na tabela settings
+      // NOVA ESTRATÉGIA: Verificar se é o keyuser especial
+      if (email === "padupb@gmail.com") {
+        console.log("🔍 Login do keyuser especial detectado:", email);
+        
+        // Verificar senha hardcoded para o keyuser
+        if (password === "170824") {
+          console.log("✅ Login de keyuser especial efetuado com sucesso");
+          
+          // Criar usuário keyuser virtual
+          const keyUser = {
+            id: 9999,
+            name: "Paulo Eduardo (KeyUser)",
+            email: email, // Usar o email fornecido
+            companyId: null,
+            roleId: null,
+            canConfirmDelivery: true,
+            isKeyUser: true,
+            isDeveloper: true,
+            permissions: ["*"] // Acesso total
+          };
+          
+          // Salvar na sessão
+          req.session.userId = keyUser.id;
+          console.log("💾 Sessão salva com userId:", req.session.userId);
+          
+          return res.json({
+            success: true,
+            user: keyUser
+          });
+        } else {
+          console.log("❌ Senha incorreta para keyuser especial");
+          return res.status(401).json({ 
+            success: false, 
+            message: "Credenciais inválidas" 
+          });
+        }
+      }
+
+      // FALLBACK: Verificar se é keyuser com email @admin.icap (compatibilidade)
       if (email === "keyuser" || email.endsWith("@admin.icap")) {
         console.log("🔍 Login do keyuser detectado - buscando credenciais no banco");
         
         try {
-          // Buscar keyuser_email (ID 5) e keyuser_password (ID 6) na tabela settings
-          console.log("📋 Buscando configurações do keyuser...");
+          // Buscar keyuser_email e keyuser_password na tabela settings
           const keyUserEmailSetting = await storage.getSetting("keyuser_email");
           const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
 
-          console.log("📧 Configuração keyuser_email:", keyUserEmailSetting);
-          console.log("🔑 Configuração keyuser_password:", keyUserPasswordSetting ? { key: keyUserPasswordSetting.key, hasValue: !!keyUserPasswordSetting.value } : null);
-
           if (!keyUserEmailSetting || !keyUserPasswordSetting) {
             console.log("❌ Configurações do keyuser não encontradas no banco");
-            console.log("📊 Todas as configurações disponíveis:");
-            const allSettings = await storage.getAllSettings();
-            allSettings.forEach(setting => {
-              console.log(`  - ${setting.key}: ${setting.value}`);
-            });
-            
             return res.status(500).json({ 
               success: false, 
               message: "Configurações do keyuser não encontradas" 
@@ -170,15 +198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const keyUserEmail = keyUserEmailSetting.value;
           const keyUserPassword = keyUserPasswordSetting.value;
 
-          console.log("🔍 Comparando credenciais do keyuser:");
-          console.log("📧 Email configurado:", keyUserEmail);
-          console.log("🔑 Senha fornecida:", password);
-          console.log("🔑 Senha configurada:", keyUserPassword);
-          console.log("🔑 Senhas coincidem:", password === keyUserPassword ? "✅ SIM" : "❌ NÃO");
-
           // Verificar se o email fornecido é válido para keyuser
           const isValidKeyUserEmail = email === "keyuser" || email === keyUserEmail;
-          console.log("📧 Email válido para keyuser:", isValidKeyUserEmail ? "✅ SIM" : "❌ NÃO");
 
           if (!isValidKeyUserEmail) {
             console.log("❌ Email não autorizado para keyuser");
@@ -196,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const keyUser = {
               id: 9999,
               name: "Paulo Eduardo (KeyUser)",
-              email: keyUserEmail, // Usar email do banco (padupb@admin.icap)
+              email: keyUserEmail,
               companyId: null,
               roleId: null,
               canConfirmDelivery: true,
@@ -215,12 +236,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           } else {
             console.log("❌ Senha incorreta para keyuser");
-            console.log("🔍 Debug - Tipos:", { 
-              fornecida: typeof password, 
-              configurada: typeof keyUserPassword,
-              fornecidaValue: password,
-              configuradaValue: keyUserPassword
-            });
             return res.status(401).json({ 
               success: false, 
               message: "Credenciais inválidas" 
