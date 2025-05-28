@@ -87,8 +87,8 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
 
 // Middleware para verificar permissões específicas
 export const hasPermission = (permission: string) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    console.log(`🔍 Verificando permissão "${permission}" para usuário:`, {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    console.log(`🔍 [hasPermission] Verificando permissão "${permission}" para usuário:`, {
       userId: req.user?.id,
       name: req.user?.name,
       isKeyUser: req.user?.isKeyUser,
@@ -96,7 +96,7 @@ export const hasPermission = (permission: string) => {
     });
 
     if (!req.user) {
-      console.log("❌ Usuário não autenticado");
+      console.log("❌ [hasPermission] Usuário não autenticado");
       return res.status(401).json({ 
         success: false, 
         message: "Não autenticado" 
@@ -105,31 +105,55 @@ export const hasPermission = (permission: string) => {
     
     // KeyUser sempre tem acesso total
     if (req.user.isKeyUser === true || req.user.id === 9999 || req.user.id === 1) {
-      console.log("✅ Acesso liberado - KeyUser detectado");
+      console.log("✅ [hasPermission] Acesso liberado - KeyUser detectado");
       return next();
     }
     
-    // Verificar se o usuário tem a permissão específica
-    const userPermissions = req.user.permissions || [];
-    
-    // Se tem permissão total (*), permite acesso
-    if (userPermissions.includes("*")) {
-      console.log("✅ Acesso liberado - Permissão total (*)");
-      return next();
+    // VALIDAÇÃO BASEADA NO BANCO DE DADOS
+    try {
+      // Buscar as permissões atuais do usuário no banco
+      let userPermissions: string[] = [];
+      
+      if (req.user.roleId) {
+        console.log(`🔍 [hasPermission] Buscando permissões da função ${req.user.roleId} no banco...`);
+        const role = await storage.getUserRole(req.user.roleId);
+        
+        if (role && role.permissions) {
+          userPermissions = role.permissions;
+          console.log(`🔐 [hasPermission] Permissões encontradas no banco:`, userPermissions);
+        } else {
+          console.log(`⚠️ [hasPermission] Função não encontrada ou sem permissões definidas`);
+        }
+      } else {
+        console.log(`⚠️ [hasPermission] Usuário sem função definida (roleId: ${req.user.roleId})`);
+      }
+      
+      // Se tem permissão total (*), permite acesso
+      if (userPermissions.includes("*")) {
+        console.log("✅ [hasPermission] Acesso liberado - Permissão total (*) encontrada no banco");
+        return next();
+      }
+      
+      // Verificar se tem a permissão específica
+      if (userPermissions.includes(permission)) {
+        console.log(`✅ [hasPermission] Acesso liberado - Permissão específica "${permission}" encontrada no banco`);
+        return next();
+      }
+      
+      // Se não tem permissão, negar acesso
+      console.log(`❌ [hasPermission] Acesso negado - Permissão "${permission}" não encontrada no banco. Permissões do usuário:`, userPermissions);
+      return res.status(403).json({ 
+        success: false, 
+        message: `Acesso negado - você não tem permissão para "${permission}"` 
+      });
+      
+    } catch (error) {
+      console.error(`❌ [hasPermission] Erro ao verificar permissões no banco:`, error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Erro interno ao verificar permissões" 
+      });
     }
-    
-    // Verificar se tem a permissão específica
-    if (userPermissions.includes(permission)) {
-      console.log(`✅ Acesso liberado - Permissão específica "${permission}" encontrada`);
-      return next();
-    }
-    
-    // Se não tem permissão, negar acesso
-    console.log(`❌ Acesso negado - Permissão "${permission}" não encontrada. Permissões do usuário:`, userPermissions);
-    return res.status(403).json({ 
-      success: false, 
-      message: "Acesso negado - permissão insuficiente" 
-    });
   };
 };
 

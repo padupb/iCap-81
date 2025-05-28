@@ -1,11 +1,16 @@
 const https = require('https');
+const http = require('http');
 
-// Função para fazer requisições HTTPS
+// Função para fazer requisições HTTP/HTTPS
 function makeRequest(method, path, data = null, cookie = null) {
   return new Promise((resolve, reject) => {
+    // Usar HTTP para localhost
+    const isLocal = true;
+    const protocol = isLocal ? http : https;
+    
     const options = {
-      hostname: 'icap7-2.replit.app',
-      port: 443,
+      hostname: isLocal ? 'localhost' : 'icap7-2.replit.app',
+      port: isLocal ? 3000 : 443,
       path: path,
       method: method,
       headers: {
@@ -17,7 +22,7 @@ function makeRequest(method, path, data = null, cookie = null) {
       options.headers['Cookie'] = cookie;
     }
 
-    const req = https.request(options, (res) => {
+    const req = protocol.request(options, (res) => {
       let body = '';
       res.on('data', (chunk) => {
         body += chunk;
@@ -50,7 +55,7 @@ function makeRequest(method, path, data = null, cookie = null) {
 }
 
 async function testPermissions() {
-  console.log('🧪 Testando Sistema de Permissões no Replit\n');
+  console.log('🧪 Testando Sistema de Permissões Localmente\n');
 
   try {
     // 1. Fazer login como KeyUser

@@ -140,7 +140,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Buscar usuário no banco de dados
+      // VERIFICAÇÃO ESPECIAL PARA KEYUSER - ANTES DE BUSCAR NO BANCO
+      if (email === 'padupb@admin.icap') {
+        console.log("🔍 Login do keyuser detectado - buscando credenciais no banco");
+        
+        try {
+          // Buscar as configurações de keyuser
+          console.log("📋 Buscando configurações do keyuser...");
+          const keyUserEmailSetting = await storage.getSetting("keyuser_email");
+          const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
+
+          console.log("📧 Configuração keyuser_email:", keyUserEmailSetting);
+          console.log("🔑 Configuração keyuser_password:", { 
+            key: keyUserPasswordSetting?.key, 
+            hasValue: !!keyUserPasswordSetting?.value 
+          });
+
+          if (!keyUserEmailSetting || !keyUserPasswordSetting) {
+            console.log("❌ Configurações do keyuser não encontradas");
+            return res.status(500).json({ 
+              success: false, 
+              message: "Configurações do administrador não encontradas" 
+            });
+          }
+
+          const keyUsername = keyUserEmailSetting.value;
+          const keyPassword = keyUserPasswordSetting.value;
+
+          console.log("🔍 Comparando credenciais do keyuser:");
+          console.log("📧 Email configurado:", keyUsername);
+          console.log("🔑 Senha fornecida:", password);
+          console.log("🔑 Senha configurada:", keyPassword);
+          console.log("🔑 Senhas coincidem:", password === keyPassword ? "✅ SIM" : "❌ NÃO");
+          console.log("📧 Email válido para keyuser:", email === keyUsername ? "✅ SIM" : "❌ NÃO");
+
+          // Verificar se é o keyuser
+          if (email === keyUsername && password === keyPassword) {
+            console.log("✅ Login de keyuser efetuado com sucesso");
+
+            // Salvar o ID especial do keyuser na sessão
+            req.session.userId = 9999;
+            console.log("💾 Sessão salva com userId:", 9999);
+
+            // Log de atividade
+            await storage.createLog({
+              userId: 9999,
+              action: "Login",
+              itemType: "session",
+              itemId: "9999",
+              details: "Login do superadministrador keyuser"
+            });
+
+            // Usuário especial com acesso total
+            const keyUserResponse = {
+              id: 9999,
+              name: "Paulo Eduardo (KeyUser)",
+              email: email,
+              companyId: null,
+              roleId: null,
+              canConfirmDelivery: true,
+              isKeyUser: true,
+              isDeveloper: true,
+              permissions: ["*"] // Permissão total
+            };
+
+            console.log("📤 Resposta do keyuser:", keyUserResponse);
+
+            return res.json({ 
+              success: true, 
+              user: keyUserResponse
+            });
+          } else {
+            console.log("❌ Credenciais inválidas para keyuser");
+            return res.status(401).json({
+              success: false,
+              message: "Credenciais inválidas para administrador"
+            });
+          }
+        } catch (error) {
+          console.error("❌ Erro ao verificar credenciais do keyuser:", error);
+          return res.status(500).json({ 
+            success: false, 
+            message: "Erro ao verificar credenciais do administrador" 
+          });
+        }
+      }
+
+      // PROCESSO NORMAL PARA USUÁRIOS REGULARES
       console.log("🔍 Buscando usuário no banco:", email);
       
       const user = await storage.getUserByEmail(email);

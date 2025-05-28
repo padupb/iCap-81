@@ -34,6 +34,13 @@ export default function Sidebar() {
   const { canView } = useAuthorization();
   const { settings } = useSettings();
 
+  console.log("🎨 [Sidebar] Renderizando sidebar para usuário:", {
+    userId: user?.id,
+    name: user?.name,
+    isKeyUser: user?.isKeyUser,
+    permissions: user?.permissions
+  });
+
   return (
     <div className="w-60 bg-sidebar border-r border-sidebar-border flex flex-col relative z-40">
       {/* Logo/Header */}
@@ -71,13 +78,38 @@ export default function Sidebar() {
           // 2. Ou o usuário tem permissão de visualização para a área
           const isDeveloperItem = item.href === '/dev';
           
-          // Se é item do dev, mostrar apenas para keyuser (isKeyUser)
+          console.log(`🔍 [Sidebar] Verificando item ${item.name}:`, {
+            isDeveloperItem,
+            area: item.area,
+            userIsKeyUser: user?.isKeyUser,
+            userId: user?.id
+          });
+          
+          // Se é item do dev, mostrar apenas para keyuser (isKeyUser) ou usuário ID = 1
           // Para outros itens, verificar permissões normalmente
-          const canShowItem = (isDeveloperItem && user?.isKeyUser) || 
-                             (!isDeveloperItem && item.area && canView(item.area));
+          let canShowItem = false;
+          
+          if (isDeveloperItem) {
+            // Menu KeyUser: só para keyuser ou ID = 1
+            canShowItem = user?.isKeyUser === true || user?.id === 1;
+            console.log(`🔑 [Sidebar] Item KeyUser - canShowItem: ${canShowItem} (isKeyUser: ${user?.isKeyUser}, id: ${user?.id})`);
+          } else if (item.area) {
+            // Outros menus: verificar permissões
+            canShowItem = canView(item.area);
+            console.log(`📋 [Sidebar] Item ${item.name} (${item.area}) - canShowItem: ${canShowItem}`);
+          } else {
+            // Item sem área definida - não mostrar
+            canShowItem = false;
+            console.log(`❓ [Sidebar] Item ${item.name} sem área definida - não mostrando`);
+          }
           
           // Não renderizar se o usuário não tem permissão para ver este item
-          if (!canShowItem) return null;
+          if (!canShowItem) {
+            console.log(`❌ [Sidebar] Ocultando item ${item.name}`);
+            return null;
+          }
+          
+          console.log(`✅ [Sidebar] Mostrando item ${item.name}`);
           
           return (
             <div key={item.name}>
