@@ -140,93 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // VERIFICAÇÃO ESPECIAL PARA KEYUSER - ANTES DE BUSCAR NO BANCO
-      if (email === 'padupb@admin.icap') {
-        console.log("🔍 Login do keyuser detectado - buscando credenciais no banco");
-        
-        try {
-          // Buscar as configurações de keyuser
-          console.log("📋 Buscando configurações do keyuser...");
-          const keyUserEmailSetting = await storage.getSetting("keyuser_email");
-          const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
-
-          console.log("📧 Configuração keyuser_email:", keyUserEmailSetting);
-          console.log("🔑 Configuração keyuser_password:", { 
-            key: keyUserPasswordSetting?.key, 
-            hasValue: !!keyUserPasswordSetting?.value 
-          });
-
-          if (!keyUserEmailSetting || !keyUserPasswordSetting) {
-            console.log("❌ Configurações do keyuser não encontradas");
-            return res.status(500).json({ 
-              success: false, 
-              message: "Configurações do administrador não encontradas" 
-            });
-          }
-
-          const keyUsername = keyUserEmailSetting.value;
-          const keyPassword = keyUserPasswordSetting.value;
-
-          console.log("🔍 Comparando credenciais do keyuser:");
-          console.log("📧 Email configurado:", keyUsername);
-          console.log("🔑 Senha fornecida:", password);
-          console.log("🔑 Senha configurada:", keyPassword);
-          console.log("🔑 Senhas coincidem:", password === keyPassword ? "✅ SIM" : "❌ NÃO");
-          console.log("📧 Email válido para keyuser:", email === keyUsername ? "✅ SIM" : "❌ NÃO");
-
-          // Verificar se é o keyuser
-          if (email === keyUsername && password === keyPassword) {
-            console.log("✅ Login de keyuser efetuado com sucesso");
-
-            // Salvar o ID especial do keyuser na sessão
-            req.session.userId = 9999;
-            console.log("💾 Sessão salva com userId:", 9999);
-
-            // Log de atividade
-            await storage.createLog({
-              userId: 9999,
-              action: "Login",
-              itemType: "session",
-              itemId: "9999",
-              details: "Login do superadministrador keyuser"
-            });
-
-            // Usuário especial com acesso total
-            const keyUserResponse = {
-              id: 9999,
-              name: "Paulo Eduardo (KeyUser)",
-              email: email,
-              companyId: null,
-              roleId: null,
-              canConfirmDelivery: true,
-              isKeyUser: true,
-              isDeveloper: true,
-              permissions: ["*"] // Permissão total
-            };
-
-            console.log("📤 Resposta do keyuser:", keyUserResponse);
-
-            return res.json({ 
-              success: true, 
-              user: keyUserResponse
-            });
-          } else {
-            console.log("❌ Credenciais inválidas para keyuser");
-            return res.status(401).json({
-              success: false,
-              message: "Credenciais inválidas para administrador"
-            });
-          }
-        } catch (error) {
-          console.error("❌ Erro ao verificar credenciais do keyuser:", error);
-          return res.status(500).json({ 
-            success: false, 
-            message: "Erro ao verificar credenciais do administrador" 
-          });
-        }
-      }
-
-      // PROCESSO NORMAL PARA USUÁRIOS REGULARES
+      // Buscar usuário no banco de dados
       console.log("🔍 Buscando usuário no banco:", email);
       
       const user = await storage.getUserByEmail(email);
@@ -269,29 +183,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("🔑 USUÁRIO ID 1 DETECTADO - CONCEDENDO PERMISSÕES DE KEYUSER");
       }
       
-      // Buscar as permissões do usuário baseadas na sua função (role)
-      let userPermissions: string[] = [];
-      let userRole = null;
-      
-      if (user.roleId && !isKeyUser) {
-        try {
-          console.log(`🔍 Buscando função do usuário (roleId: ${user.roleId})...`);
-          userRole = await storage.getUserRole(user.roleId);
-          if (userRole && userRole.permissions) {
-            userPermissions = userRole.permissions;
-            console.log(`🔐 Permissões carregadas da função "${userRole.name}":`, userPermissions);
-          } else {
-            console.log(`⚠️ Função encontrada mas sem permissões definidas:`, userRole);
-          }
-        } catch (error) {
-          console.error("❌ Erro ao carregar permissões do usuário:", error);
-        }
-      } else if (isKeyUser) {
-        console.log(`🔑 KeyUser detectado - definindo permissões totais`);
-        userPermissions = ["*"];
-        userRole = { id: 9999, name: "Super Administrador", permissions: ["*"] };
-      }
-      
       // Salvar o ID do usuário na sessão
       req.session.userId = user.id;
       
@@ -315,13 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Adicionar propriedades de keyuser se ID = 1
         isKeyUser: isKeyUser,
         isDeveloper: isKeyUser,
-        permissions: userPermissions,
-        // Incluir informações da função
-        role: userRole ? {
-          id: userRole.id,
-          name: userRole.name,
-          permissions: userRole.permissions || []
-        } : null
+        permissions: isKeyUser ? ["*"] : []
       };
 
       console.log("📤 Resposta do login:", userResponse);
@@ -350,21 +235,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar informações da função do usuário se não for keyuser
       let role = null;
-      let userPermissions: string[] = [];
-      
       if (req.user.roleId && !isKeyUser) {
-        console.log(`🔍 Buscando função do usuário (roleId: ${req.user.roleId})...`);
         role = await storage.getUserRole(req.user.roleId);
-        if (role && role.permissions) {
-          userPermissions = role.permissions;
-          console.log(`🔐 Permissões carregadas da função "${role.name}":`, userPermissions);
-        } else {
-          console.log(`⚠️ Função encontrada mas sem permissões definidas:`, role);
-        }
       } else if (isKeyUser) {
         // Para o keyuser (ID 1), criar uma função virtual
-        console.log(`🔑 KeyUser detectado - definindo permissões totais`);
-        userPermissions = ["*"];
         role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
       }
 
@@ -386,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             permissions: role.permissions || []
           } : null,
           // Enviamos as permissões para o frontend
-          permissions: userPermissions
+          permissions: isKeyUser ? ["*"] : (req.user.permissions || [])
         }
       });
     } catch (error) {
@@ -423,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Users routes
-  app.get("/api/users", isAuthenticated, hasPermission("view_users"), async (req, res) => {
+  app.get("/api/users", isAuthenticated, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -433,7 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/users", isAuthenticated, hasPermission("view_users"), async (req, res) => {
+  app.post("/api/users", isAuthenticated, async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const newUser = await storage.createUser(userData);
@@ -533,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Companies routes
-  app.get("/api/companies", isAuthenticated, hasPermission("view_companies"), async (req, res) => {
+  app.get("/api/companies", async (req, res) => {
     try {
       const companies = await storage.getAllCompanies();
       res.json(companies);
@@ -543,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/companies", isAuthenticated, hasPermission("view_companies"), async (req, res) => {
+  app.post("/api/companies", async (req, res) => {
     try {
       const companyData = insertCompanySchema.parse(req.body);
       const newCompany = await storage.createCompany(companyData);
@@ -637,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Products routes
-  app.get("/api/products", isAuthenticated, hasPermission("view_products"), async (req, res) => {
+  app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getAllProducts();
       res.json(products);
@@ -647,8 +521,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Orders routes
-  app.get("/api/orders", isAuthenticated, hasPermission("view_orders"), async (req, res) => {
+  // Orders routes (Pedidos)
+  app.get("/api/orders", async (req, res) => {
     try {
       const orders = await storage.getAllOrders();
       res.json(orders);
@@ -849,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchase Orders routes
-  app.get("/api/ordens-compra", isAuthenticated, hasPermission("view_purchase_orders"), async (req, res) => {
+  app.get("/api/ordens-compra", async (req, res) => {
     try {
       // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
       if (!pool) {
@@ -1642,7 +1516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // System Logs routes
-  app.get("/api/logs", isAuthenticated, hasPermission("view_logs"), async (req, res) => {
+  app.get("/api/logs", async (req, res) => {
     try {
       const logs = await storage.getAllLogs();
       res.json(logs);
@@ -2135,39 +2009,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao buscar menus do sistema:", error);
       res.status(500).json({ message: "Erro ao buscar menus do sistema" });
-    }
-  });
-
-  // Rota temporária para criar usuário de teste (remover em produção)
-  app.post("/api/create-test-user", isAuthenticated, isKeyUser, async (req, res) => {
-    try {
-      // Criar uma função de teste com permissões limitadas
-      const testRole = await storage.createUserRole({
-        name: "Usuário Teste",
-        categoryId: 1,
-        permissions: ["view_dashboard", "view_orders"] // Apenas dashboard e pedidos
-      });
-
-      // Criar usuário de teste
-      const testUser = await storage.createUser({
-        name: "Usuário Teste",
-        email: "teste@teste.com",
-        phone: null,
-        password: "123456",
-        companyId: null,
-        roleId: testRole.id,
-        canConfirmDelivery: false
-      });
-
-      res.json({ 
-        success: true, 
-        message: "Usuário de teste criado",
-        user: testUser,
-        role: testRole
-      });
-    } catch (error) {
-      console.error("Erro ao criar usuário de teste:", error);
-      res.status(500).json({ message: "Erro ao criar usuário de teste" });
     }
   });
 

@@ -53,43 +53,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Verificar se o usuário está autenticado
   const checkAuth = async () => {
     try {
-      console.log("🔍 [AuthContext] Verificando autenticação...");
-      
       const response = await fetch("/api/auth/me", {
         credentials: "include"
       });
 
       if (!response.ok) {
-        console.log("❌ [AuthContext] Resposta não OK:", response.status);
         setUser(null);
         return false;
       }
 
       const userData = await response.json();
-      console.log("📥 [AuthContext] Dados recebidos do servidor:", userData);
       
       // Verificar se o usuário é o administrador/keyuser
       if (userData.success && userData.user && userData.user.isKeyUser) {
-        console.log("🔑 [AuthContext] KeyUser detectado - adicionando propriedades especiais");
         // Adicionar propriedade isDeveloper para compatibilidade com o sistema de autorização
         userData.user.isDeveloper = true;
         userData.user.permissions = ['*']; // Permissão total
       }
       
       if (userData.success && userData.user) {
-        console.log("✅ [AuthContext] Usuário autenticado:", {
-          id: userData.user.id,
-          name: userData.user.name,
-          isKeyUser: userData.user.isKeyUser,
-          permissions: userData.user.permissions
-        });
         setUser(userData.user);
         return true;
       } else {
         throw new Error("Formato de resposta inválido");
       }
     } catch (error) {
-      console.error("❌ [AuthContext] Erro ao verificar autenticação:", error);
+      console.error("Erro ao verificar autenticação", error);
       setUser(null);
       return false;
     }
@@ -98,8 +87,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fazer login
   const login = async (email: string, password: string) => {
     try {
-      console.log("🔍 [AuthContext] Tentativa de login:", { email, passwordLength: password?.length });
-      
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -111,31 +98,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: "Falha na autenticação" }));
-        console.log("❌ [AuthContext] Falha no login:", errorData);
         throw new Error(errorData.message || "Credenciais inválidas");
       }
 
       const userData = await response.json();
-      console.log("📥 [AuthContext] Dados de login recebidos:", userData);
       
       // Verificar se o usuário é o administrador/keyuser
       if (userData.user && userData.user.isKeyUser) {
-        console.log("🔑 [AuthContext] KeyUser detectado no login - adicionando propriedades especiais");
         // Adicionar propriedade isDeveloper para compatibilidade com o sistema de autorização
         userData.user.isDeveloper = true;
       }
       
-      console.log("✅ [AuthContext] Login realizado com sucesso:", {
-        id: userData.user?.id,
-        name: userData.user?.name,
-        isKeyUser: userData.user?.isKeyUser,
-        permissions: userData.user?.permissions
-      });
-      
       setUser(userData.user);
       return true;
     } catch (error) {
-      console.error("❌ [AuthContext] Erro no login:", error);
+      console.error("Erro no login", error);
       throw error;
     }
   };

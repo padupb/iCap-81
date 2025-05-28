@@ -15,7 +15,6 @@ import PurchaseOrders from "./pages/OrdensCompra";
 import Companies from "./pages/Companies";
 import Users from "./pages/Users";
 import Products from "./pages/Products";
-import Settings from "./pages/Settings";
 import Keyuser from "./pages/Keyuser";
 import Logs from "./pages/Logs";
 
@@ -192,11 +191,6 @@ function Router() {
         ) : (
           <Redirect to="/login" />
         )}
-      </Route>
-      
-      {/* Rota de compatibilidade para /keyuser -> /dev */}
-      <Route path="/keyuser">
-        <Redirect to="/dev" />
       </Route>
       
       {/* Logs/Relatórios - Requer permissão de 'logs' */}
