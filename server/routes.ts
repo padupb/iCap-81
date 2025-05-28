@@ -611,15 +611,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Verificar se a ordem de compra existe usando storage
-      const ordemCompra = await storage.getPurchaseOrder(orderData.purchaseOrderId);
+      // Verificar se a ordem de compra existe na tabela ordens_compra
+      const ordemCompraResult = await pool.query(
+        "SELECT id, numero_ordem, status FROM ordens_compra WHERE id = $1",
+        [orderData.purchaseOrderId]
+      );
 
-      if (!ordemCompra) {
+      if (!ordemCompraResult.rows.length) {
         return res.status(404).json({
           success: false,
           message: "Ordem de compra não encontrada"
         });
       }
+
+      const ordemCompra = ordemCompraResult.rows[0];
 
       // Para armazenamento em memória, vamos simular a verificação de saldo
       // Em produção com banco, isso seria feito com queries SQL
