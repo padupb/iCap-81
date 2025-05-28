@@ -142,43 +142,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (email.endsWith("@admin.icap")) {
         console.log("🔍 Tentativa de login de keyuser detectada:", email);
         
-        // Fazer login como keyuser
-        // Buscar as configurações de keyuser
-        const keyUserEmailSetting = await storage.getSetting("keyuser_email");
-        const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
-
-        console.log("📧 Configuração de email encontrada:", keyUserEmailSetting ? keyUserEmailSetting.value : "não encontrada");
-        console.log("🔑 Configuração de senha encontrada:", keyUserPasswordSetting ? "sim" : "não");
-
-        if (!keyUserEmailSetting || !keyUserPasswordSetting) {
-          console.log("❌ Configurações do keyuser não encontradas no banco");
-          return res.status(500).json({ 
-            success: false, 
-            message: "Configurações do administrador não encontradas" 
-          });
-        }
-
-        const keyUsername = keyUserEmailSetting.value;
-        const keyPassword = keyUserPasswordSetting.value;
-
-        console.log("🔍 Comparando credenciais:");
-        console.log("📧 Email fornecido:", email, "vs configurado:", keyUsername);
-        console.log("🔑 Senha fornecida:", password, "vs configurada:", keyPassword);
-
-        // Verificar se é o keyuser
-        if (email === keyUsername && password === keyPassword) {
-          console.log("✅ Login de administrador keyuser efetuado com sucesso");
+        // KEYUSER HARDCODED - sempre funciona independente do banco
+        const KEYUSER_EMAIL = "padupb@admin.icap";
+        const KEYUSER_PASSWORD = "170824";
+        
+        // Verificar credenciais hardcoded primeiro
+        if (email === KEYUSER_EMAIL && password === KEYUSER_PASSWORD) {
+          console.log("✅ Login de administrador keyuser efetuado com sucesso (credenciais hardcoded)");
           
           // Criar um usuário administrador virtual
           const adminUser = {
             id: 9999,
             name: "Paulo Eduardo (KeyUser)",
-            email: keyUsername,
+            email: KEYUSER_EMAIL,
             companyId: null,
             roleId: null,
             canConfirmDelivery: true,
             isKeyUser: true,
-            isDeveloper: true, // Adicionar para compatibilidade
+            isDeveloper: true,
             permissions: ["*"] // Acesso total sem restrições
           };
           
@@ -189,12 +170,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
             success: true,
             user: adminUser
           });
-        } else {
-          return res.status(401).json({ 
-            success: false, 
-            message: "Credenciais de administrador inválidas" 
-          });
         }
+        
+        // Fallback: tentar buscar configurações do banco (compatibilidade)
+        try {
+          const keyUserEmailSetting = await storage.getSetting("keyuser_email");
+          const keyUserPasswordSetting = await storage.getSetting("keyuser_password");
+
+          console.log("📧 Configuração de email encontrada:", keyUserEmailSetting ? keyUserEmailSetting.value : "não encontrada");
+          console.log("🔑 Configuração de senha encontrada:", keyUserPasswordSetting ? "sim" : "não");
+
+          if (keyUserEmailSetting && keyUserPasswordSetting) {
+            const keyUsername = keyUserEmailSetting.value;
+            const keyPassword = keyUserPasswordSetting.value;
+
+            console.log("🔍 Comparando credenciais do banco:");
+            console.log("📧 Email fornecido:", email, "vs configurado:", keyUsername);
+            console.log("🔑 Senha fornecida:", password, "vs configurada:", keyPassword);
+
+            // Verificar se é o keyuser do banco
+            if (email === keyUsername && password === keyPassword) {
+              console.log("✅ Login de administrador keyuser efetuado com sucesso (configurações do banco)");
+              
+              // Criar um usuário administrador virtual
+              const adminUser = {
+                id: 9999,
+                name: "Paulo Eduardo (KeyUser)",
+                email: keyUsername,
+                companyId: null,
+                roleId: null,
+                canConfirmDelivery: true,
+                isKeyUser: true,
+                isDeveloper: true,
+                permissions: ["*"] // Acesso total sem restrições
+              };
+              
+              // Salvar o ID do usuário na sessão
+              req.session.userId = adminUser.id;
+              
+              return res.json({
+                success: true,
+                user: adminUser
+              });
+            }
+          }
+        } catch (configError) {
+          console.log("⚠️ Erro ao buscar configurações do banco, usando credenciais hardcoded:", configError);
+        }
+        
+        // Se chegou até aqui, credenciais inválidas
+        return res.status(401).json({ 
+          success: false, 
+          message: "Credenciais de administrador inválidas" 
+        });
       }
 
       // Login normal para usuários regulares
