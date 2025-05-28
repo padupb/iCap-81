@@ -63,7 +63,7 @@ import { useAuth } from "@/context/AuthContext";
 const formatNumber = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(numValue)) return value.toString();
-  
+
   // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
   return numValue.toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
@@ -75,7 +75,7 @@ const formatNumber = (value: string | number): string => {
 function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: number }) {
   const [isLoading, setIsLoading] = useState(false);
   const [saldo, setSaldo] = useState<any>(null);
-  
+
   const fetchSaldo = async () => {
     setIsLoading(true);
     try {
@@ -88,12 +88,12 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
       setIsLoading(false);
     }
   };
-  
+
   // Buscar saldo ao montar o componente
   useEffect(() => {
     fetchSaldo();
   }, [ordemId, produtoId]);
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2">
@@ -102,7 +102,7 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
       </div>
     );
   }
-  
+
   if (!saldo || !saldo.sucesso) {
     return (
       <div className="flex items-center justify-between gap-2">
@@ -114,7 +114,7 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
       </div>
     );
   }
-  
+
   return (
     <div className="flex items-center justify-between gap-2">
               <span className="text-sm">
@@ -183,7 +183,7 @@ const getTodayFormatted = () => {
 const purchaseOrderSchema = z.object({
   orderNumber: z.string()
     .min(5, "Número da ordem deve ter 5 dígitos")
-    .max(5, "Número da ordem deve ter 5 dígitos")
+    .max(6, "Número da ordem deve ter até 6 dígitos")
     .regex(/^\d+$/, "Número da ordem deve conter apenas dígitos"),
   companyId: z.string().min(1, "Fornecedor é obrigatório"),
   obraId: z.string().min(1, "Obra é obrigatória"),
@@ -212,15 +212,15 @@ export default function OrdensCompra() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isEditDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrdemCompra | null>(null);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
-  
+
   // Verificar se o usuário é keyuser
   const isKeyUser = user?.isKeyUser || user?.isDeveloper;
   const [orderItems, setOrderItems] = useState<OrdemCompraItem[]>([]);
   const queryClient = useQueryClient();
-  
+
   // Formulário para edição
   const editForm = useForm<PurchaseOrderFormData>({
     resolver: zodResolver(purchaseOrderSchema),
@@ -236,13 +236,13 @@ export default function OrdensCompra() {
   // Estado para controle do drawer de detalhes
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  
+
   // Função para mostrar detalhes de uma ordem
   const showOrderDetails = (orderId: number) => {
     setSelectedOrderId(orderId);
     setDrawerOpen(true);
   };
-  
+
   // Buscar dados usando nossas rotas
   const { data: ordens = [], isLoading } = useQuery<OrdemCompra[]>({
     queryKey: ["/api/ordens-compra"],
@@ -269,7 +269,7 @@ export default function OrdensCompra() {
     today.setHours(0, 0, 0, 0); // Zerar horas para comparação apenas de datas
     return validDate < today;
   };
-  
+
   // Função para obter status real com base na data de validade
   const getRealStatus = (ordem: OrdemCompra): string => {
     if (isOrderExpired(ordem.valido_ate)) {
@@ -294,10 +294,10 @@ export default function OrdensCompra() {
   const ordensFiltradas = ordens.filter(ordem => {
     const matchesSearch = ordem.numero_ordem.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          ordem.empresa_nome.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const realStatus = getRealStatus(ordem);
     const matchesStatus = statusFilter === "all" || realStatus.toLowerCase() === statusFilter.toLowerCase();
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -329,7 +329,7 @@ export default function OrdensCompra() {
         });
         return;
       }
-      
+
       setIsSubmitting(true);
 
       // Formatar dados para envio
@@ -343,37 +343,37 @@ export default function OrdensCompra() {
           qtd: parseInt(item.quantity)
         }))
       };
-      
+
       // Enviar requisição
       const response = await fetch("/api/ordem-compra-nova", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formattedData)
       });
-      
+
       if (!response.ok) {
         const responseData = await response.json().catch(() => null);
         const errorMessage = responseData?.mensagem || await response.text() || "Erro ao criar ordem";
         throw new Error(errorMessage);
       }
-      
+
       const resultado = await response.json();
-      
+
       if (!resultado.sucesso) {
         throw new Error(resultado.mensagem || "Erro ao criar ordem");
       }
-      
+
       // Se há arquivo PDF, fazer upload
       if (selectedPdfFile && resultado.ordem) {
         try {
           const formData = new FormData();
           formData.append('ordem_pdf', selectedPdfFile);
-          
+
           const uploadResponse = await fetch(`/api/ordem-compra/${resultado.ordem.id}/upload-pdf`, {
             method: "POST",
             body: formData
           });
-          
+
           if (!uploadResponse.ok) {
             console.warn("Erro ao fazer upload do PDF, mas ordem foi criada");
           }
@@ -381,21 +381,21 @@ export default function OrdensCompra() {
           console.warn("Erro ao fazer upload do PDF:", uploadError);
         }
       }
-      
+
       // Sucesso!
       toast({
         title: "Sucesso!",
         description: "Ordem de compra criada com sucesso"
       });
-      
+
       // Limpar e fechar formulário
       form.reset();
       setSelectedPdfFile(null);
       setIsDialogOpen(false);
-      
+
       // Atualizar dados
       queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
-      
+
     } catch (error) {
       toast({
         title: "Erro",
@@ -427,26 +427,26 @@ export default function OrdensCompra() {
   const filteredCompanies = companies.filter(company => {
     // Se a categoria não existir, permitir a empresa por padrão
     if (!company.category) return true;
-    
+
     // Se a categoria existir, verificar se pode receber ordens de compra
     // Se receivesPurchaseOrders for undefined ou true, permitir a empresa
     const canReceiveOrders = company.category.receivesPurchaseOrders !== false;
-    
+
     // Se não precisar de contrato, incluir a empresa
     const requiresContract = company.category.requiresContract === true;
-    
+
     // Se precisar de contrato, verificar se tem
     const hasContract = requiresContract ? 
       (company.contractNumber && company.contractNumber.trim() !== '') : true;
-    
+
     return canReceiveOrders && hasContract;
   });
-  
+
   // Filtrar apenas empresas com contrato preenchido para o campo de Obra
   const filteredObras = companies.filter(company => 
     company.contractNumber && company.contractNumber.trim() !== ''
   );
-  
+
   // Verificar se há empresas disponíveis para seleção
   const hasAvailableCompanies = filteredCompanies.length > 0;
 
@@ -458,10 +458,10 @@ export default function OrdensCompra() {
         onOpenChange={setDrawerOpen}
         ordemId={selectedOrderId}
       />
-      
+
       {/* Header com ações */}
       <div className="flex justify-between items-center mb-6">
-        
+
         {/* Diálogo de Edição da Ordem de Compra */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -471,11 +471,11 @@ export default function OrdensCompra() {
                 Modifique os campos abaixo para atualizar a ordem de compra.
               </DialogDescription>
             </DialogHeader>
-            
+
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(async (data) => {
                 if (!selectedOrder) return;
-                
+
                 setIsSubmitting(true);
                 try {
                   // Transformar os dados
@@ -489,7 +489,7 @@ export default function OrdensCompra() {
                       quantity: item.quantity
                     }))
                   };
-                  
+
                   const response = await fetch(`/api/ordem-compra/${selectedOrder.id}`, {
                     method: 'PUT',
                     headers: {
@@ -497,16 +497,16 @@ export default function OrdensCompra() {
                     },
                     body: JSON.stringify(requestData),
                   });
-                  
+
                   if (!response.ok) {
                     throw new Error('Falha ao atualizar ordem');
                   }
-                  
+
                   toast({
                     title: "Sucesso",
                     description: "Ordem atualizada com sucesso",
                   });
-                  
+
                   // Fechar diálogo e recarregar dados
                   setIsEditDialogOpen(false);
                   queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
@@ -529,13 +529,13 @@ export default function OrdensCompra() {
                       <FormItem>
                         <FormLabel>Número da Ordem</FormLabel>
                         <FormControl>
-                          <Input {...field} maxLength={5} className="bg-input border-border" />
+                          <Input {...field} maxLength={6} className="bg-input border-border" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={editForm.control}
                     name="companyId"
@@ -563,7 +563,7 @@ export default function OrdensCompra() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={editForm.control}
                     name="obraId"
@@ -591,7 +591,7 @@ export default function OrdensCompra() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={editForm.control}
                     name="validUntil"
@@ -611,13 +611,13 @@ export default function OrdensCompra() {
                     )}
                   />
                 </div>
-                
+
                 {/* Lista de itens */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-medium">Produtos</h3>
                   </div>
-                  
+
                   {orderItems.map((item, index) => (
                     <div key={item.id} className="flex items-center gap-2">
                       <div className="flex-1">
@@ -627,7 +627,7 @@ export default function OrdensCompra() {
                     </div>
                   ))}
                 </div>
-                
+
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"
@@ -654,7 +654,7 @@ export default function OrdensCompra() {
             </Form>
           </DialogContent>
         </Dialog>
-        
+
         {/* Botão Nova Ordem */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -670,7 +670,7 @@ export default function OrdensCompra() {
                 Preencha os campos abaixo para criar uma nova ordem de compra.
               </DialogDescription>
             </DialogHeader>
-            
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -683,8 +683,8 @@ export default function OrdensCompra() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            placeholder="Digite o número (5 dígitos)" 
-                            maxLength={5}
+                            placeholder="Digite o número da ordem (até 6 dígitos)"
+                            maxLength={6}
                             className="bg-input border-border"
                           />
                         </FormControl>
@@ -692,7 +692,7 @@ export default function OrdensCompra() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="companyId"
@@ -722,7 +722,7 @@ export default function OrdensCompra() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="obraId"
@@ -750,7 +750,7 @@ export default function OrdensCompra() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="validUntil"
@@ -770,7 +770,7 @@ export default function OrdensCompra() {
                     )}
                   />
                 </div>
-                
+
                 {/* Upload de PDF */}
                 <div className="col-span-full">
                   <FormItem>
@@ -793,7 +793,7 @@ export default function OrdensCompra() {
                     </p>
                   </FormItem>
                 </div>
-                
+
                 {/* Produtos */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -810,7 +810,7 @@ export default function OrdensCompra() {
                       </Button>
                     )}
                   </div>
-                  
+
                   {form.watch("items").map((item, index) => (
                     <Card key={index}>
                       <CardContent className="pt-4">
@@ -847,7 +847,7 @@ export default function OrdensCompra() {
                               )}
                             />
                           </div>
-                          
+
                           <div className="w-32">
                             <FormField
                               control={form.control}
@@ -869,7 +869,7 @@ export default function OrdensCompra() {
                               )}
                             />
                           </div>
-                          
+
                           <Button
                             type="button"
                             variant="ghost"
@@ -995,11 +995,11 @@ export default function OrdensCompra() {
                           variant="ghost" 
                           size="icon"
                           title="Ver detalhes da ordem"
-                          onClick={() => showOrderDetails(ordem.id)}
+                          onClick={()              showOrderDetails(ordem.id)}
                         >
                           <Info className="h-4 w-4" />
                         </Button>
-                        
+
                         {/* Botão de exclusão apenas para keyuser */}
                         {isKeyUser && (
                           <AlertDialog>
@@ -1024,16 +1024,16 @@ export default function OrdensCompra() {
                                     const response = await fetch(`/api/ordem-compra/${ordem.id}`, {
                                       method: 'DELETE'
                                     });
-                                    
+
                                     if (!response.ok) {
                                       throw new Error('Falha ao excluir ordem');
                                     }
-                                    
+
                                     toast({
                                       title: "Sucesso",
                                       description: "Ordem excluída com sucesso",
                                     });
-                                    
+
                                     queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
                                   } catch (error) {
                                     toast({

@@ -168,8 +168,8 @@ const getTodayFormatted = () => {
 // Esquema de validação para o formulário
 const purchaseOrderSchema = z.object({
   orderNumber: z.string()
-    .min(5, "Número da ordem deve ter 5 dígitos")
-    .max(5, "Número da ordem deve ter 5 dígitos")
+    .min(1, "Número da ordem é obrigatório")
+    .max(6, "Número da ordem deve ter no máximo 6 dígitos")
     .regex(/^\d+$/, "Número da ordem deve conter apenas dígitos"),
   companyId: z.string().min(1, "Fornecedor é obrigatório"),
   obraId: z.string().min(1, "Obra é obrigatória"),

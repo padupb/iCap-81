@@ -243,8 +243,8 @@ export default function PurchaseOrdersNovo() {
                         <FormLabel>Número da Ordem (5 dígitos)</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Digite o número da ordem (5 dígitos)"
-                            maxLength={5}
+                            placeholder="Digite o número da ordem (até 6 dígitos)"
+                            maxLength={6}
                             className="bg-input border-border"
                             {...field}
                           />
