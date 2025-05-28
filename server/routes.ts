@@ -583,44 +583,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verificar se a ordem de compra existe
-      const ordemResult = await pool.query(
-        "SELECT * FROM ordens_compra WHERE id = $1",
-        [orderData.purchaseOrderId]
-      );
+      // Verificar se a ordem de compra existe usando storage
+      const ordemCompra = await storage.getPurchaseOrder(orderData.purchaseOrderId);
       
-      if (!ordemResult.rows.length) {
+      if (!ordemCompra) {
         return res.status(404).json({
           success: false,
           message: "Ordem de compra não encontrada"
         });
       }
       
-      // Verificar saldo disponível
-      const saldoResult = await pool.query(
-        `SELECT quantidade FROM itens_ordem_compra 
-         WHERE ordem_compra_id = $1 AND produto_id = $2`,
-        [orderData.purchaseOrderId, orderData.productId]
-      );
+      // Para armazenamento em memória, vamos simular a verificação de saldo
+      // Em produção com banco, isso seria feito com queries SQL
+      let quantidadeTotal = 0;
+      let quantidadeUsada = 0;
       
-      if (!saldoResult.rows.length) {
-        return res.status(400).json({
-          success: false,
-          message: "Produto não encontrado na ordem de compra"
-        });
-      }
-      
-      const quantidadeTotal = parseFloat(saldoResult.rows[0].quantidade);
-      
-      // Buscar quantidade já usada em pedidos
-      const usadoResult = await pool.query(
-        `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
-         FROM orders 
-         WHERE purchase_order_id = $1 AND product_id = $2`,
-        [orderData.purchaseOrderId, orderData.productId]
-      );
-      
-      const quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
+      if (pool) {
+        // Se temos banco de dados, usar queries SQL
+        const saldoResult = await pool.query(
+          `SELECT quantidade FROM itens_ordem_compra 
+           WHERE ordem_compra_id = $1 AND produto_id = $2`,
+          [orderData.purchaseOrderId, orderData.productId]
+        );
+        
+        if (!saldoResult.rows.length) {
+          return res.status(400).json({
+            success: false,
+            message: "Produto não encontrado na ordem de compra"
+          });
+        }
+        
+        quantidadeTotal = parseFloat(saldoResult.rows[0].quantidade);
+        
+        // Buscar quantidade já usada em pedidos
+        const usadoResult = await pool.query(
+          `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
+           FROM orders 
+           WHERE purchase_order_id = $1 AND product_id = $2`,
+          [orderData.purchaseOrderId, orderData.productId]
+        );
+        
+                 quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
+       } else {
+         // Para armazenamento em memória, assumir que há saldo suficiente
+         quantidadeTotal = 1000; // Valor padrão para desenvolvimento
+         quantidadeUsada = 0;
+       }
       const saldoDisponivel = quantidadeTotal - quantidadeUsada;
       const quantidadePedido = parseFloat(orderData.quantity);
       
@@ -641,61 +649,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Gerar ID único para o pedido no formato CAP + data + sequencial
-      const date = new Date();
-      const dateStr = `${date.getFullYear().toString().substr(2)}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
-      
-      // Buscar último pedido do dia para incrementar sequencial
-      const lastOrderResult = await pool.query(
-        "SELECT order_id FROM orders WHERE order_id LIKE $1 ORDER BY id DESC LIMIT 1",
-        [`CAP${dateStr}%`]
-      );
-      
-      let sequencial = 1;
-      if (lastOrderResult.rows.length > 0) {
-        const lastId = lastOrderResult.rows[0].order_id;
-        const lastSeq = parseInt(lastId.substring(9));
-        sequencial = lastSeq + 1;
-      }
-      
-      const orderId = `CAP${dateStr}${sequencial.toString().padStart(4, '0')}`;
-      
-      // Verificar se já existe um pedido com este order_id (validação de unicidade)
-      const checkOrderId = await pool.query(
-        "SELECT id FROM orders WHERE order_id = $1",
-        [orderId]
-      );
-      
-      if (checkOrderId.rows.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Já existe um pedido com este identificador. Tente novamente."
-        });
-      }
-      
-      // Inserir o pedido
-      const result = await pool.query(
-        `INSERT INTO orders (
-          order_id, purchase_order_id, product_id, quantity, 
-          supplier_id, delivery_date, is_urgent, user_id, 
-          status, created_at, work_location
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-        [
-          orderId,
-          orderData.purchaseOrderId,
-          orderData.productId,
-          orderData.quantity,
-          orderData.supplierId,
-          orderData.deliveryDate,
-          orderData.isUrgent || false,
-          orderData.userId || req.session.userId,
-          "Registrado",
-          new Date(),
-          orderData.workLocation || "Conforme ordem de compra"
-        ]
-      );
-      
-      const newOrder = result.rows[0];
+      // Criar o pedido usando o storage
+      const newOrder = await storage.createOrder({
+        purchaseOrderId: orderData.purchaseOrderId,
+        productId: orderData.productId,
+        quantity: orderData.quantity,
+        supplierId: orderData.supplierId,
+        deliveryDate: new Date(orderData.deliveryDate),
+        userId: orderData.userId || req.session.userId || 1,
+        status: "Registrado",
+        workLocation: orderData.workLocation || "Conforme ordem de compra"
+      });
       
       // Registrar log de criação
       if (req.session.userId) {
@@ -704,7 +668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           action: "Criou pedido",
           itemType: "order",
           itemId: newOrder.id.toString(),
-          details: `Pedido ${orderId} criado`
+          details: `Pedido ${newOrder.orderId} criado`
         });
       }
       
@@ -788,23 +752,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Purchase Orders routes
   app.get("/api/ordens-compra", async (req, res) => {
     try {
-      // Consultar diretamente a tabela ordens_compra
-      const result = await pool.query(`
-        SELECT oc.*, c.name as empresa_nome 
-        FROM ordens_compra oc
-        LEFT JOIN companies c ON oc.empresa_id = c.id
-        ORDER BY oc.data_criacao DESC
-      `);
+      // Usar o storage para buscar ordens de compra
+      const orders = await storage.getAllPurchaseOrders();
       
       // Formatar os dados para o frontend
-      const formattedOrders = result.rows.map(order => ({
-        id: order.id,
-        numero_ordem: order.numero_ordem,
-        empresa_id: order.empresa_id,
-        empresa_nome: order.empresa_nome || "Empresa não encontrada",
-        valido_ate: order.valido_ate ? new Date(order.valido_ate).toISOString() : new Date().toISOString(),
-        status: order.status,
-        data_criacao: order.data_criacao ? new Date(order.data_criacao).toISOString() : new Date().toISOString()
+      const formattedOrders = await Promise.all(orders.map(async (order) => {
+        let empresaNome = "Empresa não encontrada";
+        if (order.companyId) {
+          const company = await storage.getCompany(order.companyId);
+          empresaNome = company?.name || "Empresa não encontrada";
+        }
+        
+        return {
+          id: order.id,
+          numero_ordem: order.orderNumber,
+          empresa_id: order.companyId,
+          empresa_nome: empresaNome,
+          valido_ate: order.validUntil ? new Date(order.validUntil).toISOString() : new Date().toISOString(),
+          status: order.status || "Ativo",
+          data_criacao: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString()
+        };
       }));
       
       res.json(formattedOrders);
@@ -1072,28 +1039,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Obter empresas disponíveis para ordens de compra
   app.get("/api/empresas-para-ordens-compra", async (req, res) => {
     try {
-      // Buscar todas as empresas com suas categorias
-      const result = await pool.query(`
-        SELECT c.*, cc.name as category_name, 
-               cc.receives_purchase_orders, 
-               cc.requires_contract
-        FROM companies c
-        LEFT JOIN company_categories cc ON c.category_id = cc.id
-        ORDER BY c.name
-      `);
+      // Buscar todas as empresas usando o storage
+      const companies = await storage.getAllCompanies();
+      const categories = await storage.getAllCompanyCategories();
       
       // Processar os resultados para formar objetos completos
-      const empresas = result.rows.map(company => ({
-        id: company.id,
-        name: company.name,
-        cnpj: company.cnpj,
-        contractNumber: company.contract_number,
-        category: {
-          name: company.category_name,
-          receivesPurchaseOrders: company.receives_purchase_orders,
-          requiresContract: company.requires_contract
-        }
-      }));
+      const empresas = companies.map(company => {
+        const category = categories.find(cat => cat.id === company.categoryId);
+        
+        return {
+          id: company.id,
+          name: company.name,
+          cnpj: company.cnpj,
+          contractNumber: company.contractNumber,
+          category: {
+            name: category?.name || "Sem categoria",
+            receivesPurchaseOrders: category?.receivesPurchaseOrders || false,
+            requiresContract: category?.requiresContract || false
+          }
+        };
+      });
       
       res.json(empresas);
     } catch (error) {
@@ -1108,22 +1073,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Obter obras (empresas com número de contrato) para ordens de compra
   app.get("/api/obras-para-ordens-compra", async (req, res) => {
     try {
-      // Buscar apenas empresas que possuem número de contrato preenchido
-      // Aqui focamos apenas nas colunas relevantes: id, name, contract_number
-      const result = await pool.query(`
-        SELECT c.id, c.name, c.contract_number
-        FROM companies c
-        WHERE c.contract_number IS NOT NULL 
-        AND c.contract_number != ''
-        ORDER BY c.name
-      `);
+      // Buscar apenas empresas que possuem número de contrato preenchido usando storage
+      const companies = await storage.getAllCompanies();
       
-      // Processar os resultados para o formato esperado pelo frontend
-      const obras = result.rows.map(company => ({
-        id: company.id,
-        name: company.name,
-        contractNumber: company.contract_number
-      }));
+      // Filtrar empresas com número de contrato
+      const obras = companies
+        .filter(company => company.contractNumber && company.contractNumber.trim() !== '')
+        .map(company => ({
+          id: company.id,
+          name: company.name,
+          contractNumber: company.contractNumber
+        }));
       
       // Log para debug
       console.log("Obras disponíveis:", obras);
