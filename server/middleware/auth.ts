@@ -54,12 +54,6 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       }
     }
     
-    // Garantir que todos os usuários tenham permissões completas
-    // Isso é necessário para o funcionamento adequado do sistema
-    if (!permissions.includes("*")) {
-      permissions.push("*");
-    }
-    
     // Adicionar o usuário com suas permissões ao objeto de requisição
     req.user = {
       ...user,

@@ -1991,6 +1991,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // System menus route - para configuração de permissões
+  app.get("/api/system-menus", async (req, res) => {
+    try {
+      const systemMenus = [
+        { id: "dashboard", name: "Dashboard", description: "Página inicial com visão geral" },
+        { id: "orders", name: "Pedidos", description: "Gerenciar pedidos de compra" },
+        { id: "approvals", name: "Aprovações", description: "Aprovar pedidos pendentes" },
+        { id: "purchase_orders", name: "Ordens de Compra", description: "Gerenciar ordens de compra" },
+        { id: "companies", name: "Empresas", description: "Cadastro e gestão de empresas" },
+        { id: "users", name: "Usuários", description: "Gerenciar usuários do sistema" },
+        { id: "products", name: "Produtos", description: "Cadastro e gestão de produtos" },
+        { id: "logs", name: "Logs do Sistema", description: "Visualizar logs de atividades" },
+      ];
+      
+      res.json(systemMenus);
+    } catch (error) {
+      console.error("Erro ao buscar menus do sistema:", error);
+      res.status(500).json({ message: "Erro ao buscar menus do sistema" });
+    }
+  });
+
   // Configurar servidor HTTP com o app Express
   const server = createServer(app);
   return server;

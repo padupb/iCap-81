@@ -72,6 +72,18 @@ const settingsFormSchema = z.object({
   logo_url: z.string().optional(),
 });
 
+// Lista de menus/áreas do sistema para configuração de permissões
+const SYSTEM_MENUS = [
+  { id: "dashboard", name: "Dashboard", description: "Página inicial com visão geral" },
+  { id: "orders", name: "Pedidos", description: "Gerenciar pedidos de compra" },
+  { id: "approvals", name: "Aprovações", description: "Aprovar pedidos pendentes" },
+  { id: "purchase_orders", name: "Ordens de Compra", description: "Gerenciar ordens de compra" },
+  { id: "companies", name: "Empresas", description: "Cadastro e gestão de empresas" },
+  { id: "users", name: "Usuários", description: "Gerenciar usuários do sistema" },
+  { id: "products", name: "Produtos", description: "Cadastro e gestão de produtos" },
+  { id: "logs", name: "Logs do Sistema", description: "Visualizar logs de atividades" },
+] as const;
+
 type CompanyCategoryFormData = z.infer<typeof companyCategoryFormSchema>;
 type UserRoleFormData = z.infer<typeof userRoleFormSchema>;
 type UnitFormData = z.infer<typeof unitFormSchema>;
@@ -474,8 +486,8 @@ export default function Keyuser() {
     setEditingRole(role);
     roleForm.reset({
       name: role.name,
-      categoryId: role.categoryId || 0,
-      permissions: role.permissions || [],
+      categoryId: role.categoryId,
+      permissions: role.permissions || []
     });
     setActiveRoleDialog(true);
   };
@@ -792,57 +804,114 @@ export default function Keyuser() {
                     Nova Função
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>
                       {editingRole ? "Editar Função" : "Nova Função de Usuário"}
                     </DialogTitle>
                     <DialogDescription>
-                      Configure as propriedades da função de usuário.
+                      Configure as propriedades da função de usuário e suas permissões de acesso.
                     </DialogDescription>
                   </DialogHeader>
                   <Form {...roleForm}>
-                    <form onSubmit={roleForm.handleSubmit(onRoleSubmit)} className="space-y-4">
-                      <FormField
-                        control={roleForm.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nome da Função</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Ex: Gerente" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={roleForm.control}
-                        name="categoryId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Categoria</FormLabel>
-                            <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                    <form onSubmit={roleForm.handleSubmit(onRoleSubmit)} className="space-y-6">
+                      <div className="grid grid-cols-1 gap-4">
+                        <FormField
+                          control={roleForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nome da Função</FormLabel>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione uma categoria" />
-                                </SelectTrigger>
+                                <Input placeholder="Ex: Gerente" {...field} />
                               </FormControl>
-                              <SelectContent>
-                                {categories.map((category) => (
-                                  <SelectItem key={category.id} value={category.id.toString()}>
-                                    {category.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={roleForm.control}
+                          name="categoryId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Categoria</FormLabel>
+                              <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione uma categoria" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {categories.map((category) => (
+                                    <SelectItem key={category.id} value={category.id.toString()}>
+                                      {category.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Seção de Permissões */}
+                      <div className="space-y-4">
+                        <div className="border-t pt-4">
+                          <h3 className="text-lg font-medium mb-2">Permissões de Acesso</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Selecione quais menus esta função pode visualizar no sistema.
+                          </p>
+                          
+                          <FormField
+                            control={roleForm.control}
+                            name="permissions"
+                            render={({ field }) => (
+                              <FormItem>
+                                <div className="grid grid-cols-1 gap-3">
+                                  {SYSTEM_MENUS.map((menu) => (
+                                    <div key={menu.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                                      <Checkbox
+                                        id={`permission-${menu.id}`}
+                                        checked={field.value?.includes(`view_${menu.id}`) || false}
+                                        onCheckedChange={(checked) => {
+                                          const currentPermissions = field.value || [];
+                                          const permission = `view_${menu.id}`;
+                                          
+                                          if (checked) {
+                                            // Adicionar permissão se não existir
+                                            if (!currentPermissions.includes(permission)) {
+                                              field.onChange([...currentPermissions, permission]);
+                                            }
+                                          } else {
+                                            // Remover permissão
+                                            field.onChange(currentPermissions.filter(p => p !== permission));
+                                          }
+                                        }}
+                                      />
+                                      <div className="flex-1">
+                                        <label 
+                                          htmlFor={`permission-${menu.id}`}
+                                          className="text-sm font-medium cursor-pointer"
+                                        >
+                                          {menu.name}
+                                        </label>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {menu.description}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
                       
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 pt-4 border-t">
                         <Button type="button" variant="outline" onClick={() => setActiveRoleDialog(false)}>
                           Cancelar
                         </Button>
@@ -861,12 +930,16 @@ export default function Keyuser() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Categoria</TableHead>
+                    <TableHead>Permissões</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {roles.map((role) => {
                     const category = categories.find(c => c.id === role.categoryId);
+                    const permissions = role.permissions || [];
+                    const permissionCount = permissions.filter(p => p.startsWith('view_')).length;
+                    
                     return (
                       <TableRow key={role.id}>
                         <TableCell className="font-medium">{role.name}</TableCell>
@@ -876,6 +949,19 @@ export default function Keyuser() {
                           ) : (
                             <span className="text-muted-foreground">Sem categoria</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">
+                              {permissionCount} de {SYSTEM_MENUS.length} menus
+                            </Badge>
+                            {permissionCount === 0 && (
+                              <Badge variant="destructive">Sem acesso</Badge>
+                            )}
+                            {permissionCount === SYSTEM_MENUS.length && (
+                              <Badge variant="default">Acesso total</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -1101,8 +1187,6 @@ export default function Keyuser() {
                         Formatos aceitos: PNG, JPG, SVG. Tamanho recomendado: 140x60px
                       </p>
                     </div>
-
-
 
                     {/* Configurações de Integração */}
                     <div>
