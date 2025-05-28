@@ -1805,7 +1805,8 @@ sucesso: false,
         // Tentar o caminho antigo como fallback (para arquivos já existentes)
         const oldPath = documentosInfo[tipo].path;
         if (fs.existsSync(oldPath)) {
-          console.log("Usando caminho antigo:", oldPath);          const fileStream = fs.createReadStream(oldPath);
+          console.log("Usando caminho antigo:", oldPath);
+        const fileStream = fs.createReadStream(oldPath);
           fileStream.pipe(res);
           return;
         }
