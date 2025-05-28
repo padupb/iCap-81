@@ -725,26 +725,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Purchase Orders routes
   app.get("/api/ordens-compra", async (req, res) => {
     try {
-      // Usar o storage para buscar ordens de compra
-      const orders = await storage.getAllPurchaseOrders();
+      // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
+      if (!pool) {
+        // Se não há banco de dados, retornar array vazio para desenvolvimento local
+        return res.json([]);
+      }
+      
+      const result = await pool.query(`
+        SELECT 
+          oc.id,
+          oc.numero_ordem,
+          oc.empresa_id,
+          c.name as empresa_nome,
+          oc.valido_ate,
+          oc.status,
+          oc.data_criacao
+        FROM ordens_compra oc
+        LEFT JOIN companies c ON oc.empresa_id = c.id
+        ORDER BY oc.data_criacao DESC
+      `);
       
       // Formatar os dados para o frontend
-      const formattedOrders = await Promise.all(orders.map(async (order) => {
-        let empresaNome = "Empresa não encontrada";
-        if (order.companyId) {
-          const company = await storage.getCompany(order.companyId);
-          empresaNome = company?.name || "Empresa não encontrada";
-        }
-        
-        return {
-          id: order.id,
-          numero_ordem: order.orderNumber,
-          empresa_id: order.companyId,
-          empresa_nome: empresaNome,
-          valido_ate: order.validUntil ? new Date(order.validUntil).toISOString() : new Date().toISOString(),
-          status: order.status || "Ativo",
-          data_criacao: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString()
-        };
+      const formattedOrders = result.rows.map((row: any) => ({
+        id: row.id,
+        numero_ordem: row.numero_ordem,
+        empresa_id: row.empresa_id,
+        empresa_nome: row.empresa_nome || "Empresa não encontrada",
+        valido_ate: row.valido_ate ? new Date(row.valido_ate).toISOString() : new Date().toISOString(),
+        status: row.status || "Ativo",
+        data_criacao: row.data_criacao ? new Date(row.data_criacao).toISOString() : new Date().toISOString()
       }));
       
       res.json(formattedOrders);
