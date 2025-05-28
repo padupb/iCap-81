@@ -183,6 +183,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("🔑 USUÁRIO ID 1 DETECTADO - CONCEDENDO PERMISSÕES DE KEYUSER");
       }
       
+      // Buscar as permissões do usuário baseadas na sua função (role)
+      let userPermissions: string[] = [];
+      if (user.roleId && !isKeyUser) {
+        try {
+          const role = await storage.getUserRole(user.roleId);
+          if (role && role.permissions) {
+            userPermissions = role.permissions;
+            console.log(`🔐 Permissões carregadas para usuário ${user.name}:`, userPermissions);
+          }
+        } catch (error) {
+          console.error("Erro ao carregar permissões do usuário:", error);
+        }
+      }
+      
       // Salvar o ID do usuário na sessão
       req.session.userId = user.id;
       
@@ -206,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Adicionar propriedades de keyuser se ID = 1
         isKeyUser: isKeyUser,
         isDeveloper: isKeyUser,
-        permissions: isKeyUser ? ["*"] : []
+        permissions: isKeyUser ? ["*"] : userPermissions
       };
 
       console.log("📤 Resposta do login:", userResponse);

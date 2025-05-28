@@ -44,16 +44,31 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
         message: "Usuário não encontrado" 
       });
     }
+
+    // NOVA REGRA: Se o usuário tem ID = 1, dar permissões de keyuser
+    const isKeyUser = user.id === 1;
     
-    // Buscar a função do usuário e suas permissões
+    if (isKeyUser) {
+      console.log("🔑 Usuário ID 1 detectado no middleware - Concedendo permissões de KeyUser");
+      req.user = {
+        ...user,
+        isKeyUser: true,
+        isDeveloper: true,
+        permissions: ["*"] // Permissão total
+      };
+      return next();
+    }
+
+    // Buscar a função do usuário e suas permissões para usuários normais
     let permissions: string[] = [];
     if (user.roleId) {
       const role = await storage.getUserRole(user.roleId);
       if (role && role.permissions) {
         permissions = role.permissions;
+        console.log(`🔐 Permissões carregadas no middleware para ${user.name}:`, permissions);
       }
     }
-    
+
     // Adicionar o usuário com suas permissões ao objeto de requisição
     req.user = {
       ...user,
@@ -73,7 +88,15 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
 // Middleware para verificar permissões específicas
 export const hasPermission = (permission: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
+    console.log(`🔍 Verificando permissão "${permission}" para usuário:`, {
+      userId: req.user?.id,
+      name: req.user?.name,
+      isKeyUser: req.user?.isKeyUser,
+      permissions: req.user?.permissions
+    });
+
     if (!req.user) {
+      console.log("❌ Usuário não autenticado");
       return res.status(401).json({ 
         success: false, 
         message: "Não autenticado" 
@@ -81,7 +104,8 @@ export const hasPermission = (permission: string) => {
     }
     
     // KeyUser sempre tem acesso total
-    if (req.user.isKeyUser === true || req.user.id === 9999) {
+    if (req.user.isKeyUser === true || req.user.id === 9999 || req.user.id === 1) {
+      console.log("✅ Acesso liberado - KeyUser detectado");
       return next();
     }
     
@@ -90,15 +114,18 @@ export const hasPermission = (permission: string) => {
     
     // Se tem permissão total (*), permite acesso
     if (userPermissions.includes("*")) {
+      console.log("✅ Acesso liberado - Permissão total (*)");
       return next();
     }
     
     // Verificar se tem a permissão específica
     if (userPermissions.includes(permission)) {
+      console.log(`✅ Acesso liberado - Permissão específica "${permission}" encontrada`);
       return next();
     }
     
     // Se não tem permissão, negar acesso
+    console.log(`❌ Acesso negado - Permissão "${permission}" não encontrada. Permissões do usuário:`, userPermissions);
     return res.status(403).json({ 
       success: false, 
       message: "Acesso negado - permissão insuficiente" 
