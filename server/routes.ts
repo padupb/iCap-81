@@ -742,13 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const order = checkOrder.rows[0];
 
-      // Excluir documentos relacionados primeiro
-      await pool.query("DELETE FROM documents WHERE order_id = $1", [id]);
-
-      // Excluir pontos de rastreamento
-      await pool.query("DELETE FROM tracking_points WHERE order_id = $1", [id]);
-
-      // Excluir o pedido
+      // Excluir o pedido diretamente (documentos são armazenados como JSON no próprio pedido)
       await pool.query("DELETE FROM orders WHERE id = $1", [id]);
 
       // Registrar log de exclusão
