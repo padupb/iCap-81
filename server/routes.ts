@@ -603,12 +603,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           [orderData.purchaseOrderId, orderData.productId]
         );
 
-                 quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
-       } else {
-         // Para armazenamento em memória, assumir que há saldo suficiente
-         quantidadeTotal = 1000; // Valor padrão para desenvolvimento
-         quantidadeUsada = 0;
-       }
+        quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
+      } else {
+        // Para armazenamento em memória, assumir que há saldo suficiente
+        quantidadeTotal = 1000; // Valor padrão para desenvolvimento
+        quantidadeUsada = 0;
+      }
       const saldoDisponivel = quantidadeTotal - quantidadeUsada;
       const quantidadePedido = parseFloat(orderData.quantity);
 
@@ -899,7 +899,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (!checkOrdem || !checkOrdem.rows || checkOrdem.rows.length === 0) {
-        return res.status(404).```python
+        return res.status(404).json({
+```python
 json({
           sucesso: false,
           mensagem: "Ordem de compra não encontrada"
