@@ -899,9 +899,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (!checkOrdem || !checkOrdem.rows || checkOrdem.rows.length === 0) {
-        return res.status(404).json({
-```python
-json({
+        return res.status(404).json({```text
           sucesso: false,
           mensagem: "Ordem de compra não encontrada"
         });
@@ -1811,6 +1809,7 @@ json({
       if (!["nota_pdf", "nota_xml", "certificado_pdf"].includes(tipo)) {
         return res.status(400).json({
           sucesso: false,
+```text
           mensagem: "Tipo de documento inválido"
         });
       }
