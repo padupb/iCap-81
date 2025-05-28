@@ -243,10 +243,10 @@ export function OrderCompraDetailDrawer({
 
               {/* Produtos */}
               <Card>
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <CardTitle>Produtos e Saldo Disponível</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   {isLoadingDetails ? (
                     <div className="flex justify-center py-6">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -257,10 +257,10 @@ export function OrderCompraDetailDrawer({
                       <p className="text-muted-foreground">Nenhum produto encontrado nesta ordem.</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       {detailsItems.map((item: any) => (
                         <Card key={item.id} className="bg-muted/40">
-                          <CardContent className="pt-4 pb-4">
+                          <CardContent className="pt-3 pb-3">
                             <div className="flex justify-between items-center gap-4">
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-sm font-medium truncate">
@@ -282,17 +282,19 @@ export function OrderCompraDetailDrawer({
                   )}
                 </CardContent>
               </Card>
+              
+              {/* Botão Fechar fixo no final */}
+              <div className="pt-4 pb-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => onOpenChange(false)}
+                  className="w-full"
+                >
+                  Fechar
+                </Button>
+              </div>
             </div>
           )}
-          
-          <DrawerFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-            >
-              Fechar
-            </Button>
-          </DrawerFooter>
         </div>
       </DrawerContent>
     </Drawer>
