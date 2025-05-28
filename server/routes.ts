@@ -271,16 +271,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Buscar as permissões do usuário baseadas na sua função (role)
       let userPermissions: string[] = [];
+      let userRole = null;
+      
       if (user.roleId && !isKeyUser) {
         try {
-          const role = await storage.getUserRole(user.roleId);
-          if (role && role.permissions) {
-            userPermissions = role.permissions;
-            console.log(`🔐 Permissões carregadas para usuário ${user.name}:`, userPermissions);
+          console.log(`🔍 Buscando função do usuário (roleId: ${user.roleId})...`);
+          userRole = await storage.getUserRole(user.roleId);
+          if (userRole && userRole.permissions) {
+            userPermissions = userRole.permissions;
+            console.log(`🔐 Permissões carregadas da função "${userRole.name}":`, userPermissions);
+          } else {
+            console.log(`⚠️ Função encontrada mas sem permissões definidas:`, userRole);
           }
         } catch (error) {
-          console.error("Erro ao carregar permissões do usuário:", error);
+          console.error("❌ Erro ao carregar permissões do usuário:", error);
         }
+      } else if (isKeyUser) {
+        console.log(`🔑 KeyUser detectado - definindo permissões totais`);
+        userPermissions = ["*"];
+        userRole = { id: 9999, name: "Super Administrador", permissions: ["*"] };
       }
       
       // Salvar o ID do usuário na sessão
@@ -306,7 +315,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Adicionar propriedades de keyuser se ID = 1
         isKeyUser: isKeyUser,
         isDeveloper: isKeyUser,
-        permissions: isKeyUser ? ["*"] : userPermissions
+        permissions: userPermissions,
+        // Incluir informações da função
+        role: userRole ? {
+          id: userRole.id,
+          name: userRole.name,
+          permissions: userRole.permissions || []
+        } : null
       };
 
       console.log("📤 Resposta do login:", userResponse);
@@ -335,10 +350,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar informações da função do usuário se não for keyuser
       let role = null;
+      let userPermissions: string[] = [];
+      
       if (req.user.roleId && !isKeyUser) {
+        console.log(`🔍 Buscando função do usuário (roleId: ${req.user.roleId})...`);
         role = await storage.getUserRole(req.user.roleId);
+        if (role && role.permissions) {
+          userPermissions = role.permissions;
+          console.log(`🔐 Permissões carregadas da função "${role.name}":`, userPermissions);
+        } else {
+          console.log(`⚠️ Função encontrada mas sem permissões definidas:`, role);
+        }
       } else if (isKeyUser) {
         // Para o keyuser (ID 1), criar uma função virtual
+        console.log(`🔑 KeyUser detectado - definindo permissões totais`);
+        userPermissions = ["*"];
         role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
       }
 
@@ -360,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             permissions: role.permissions || []
           } : null,
           // Enviamos as permissões para o frontend
-          permissions: isKeyUser ? ["*"] : (req.user.permissions || [])
+          permissions: userPermissions
         }
       });
     } catch (error) {
