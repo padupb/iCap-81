@@ -261,14 +261,11 @@ export function OrderCompraDetailDrawer({
                       {detailsItems.map((item: any) => (
                         <Card key={item.id} className="bg-muted/40">
                           <CardContent className="pt-4 pb-4">
-                            <div className="flex justify-between items-start gap-4">
+                            <div className="flex justify-between items-center gap-4">
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-sm font-medium truncate">
                                   {item.produto_nome || `Produto #${item.produto_id}`}
                                 </h4>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatNumber(item.quantidade)}
-                                </p>
                               </div>
                               
                               <div className="text-sm flex-shrink-0">
