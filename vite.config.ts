@@ -21,10 +21,7 @@ export default defineConfig({
     port: 3000,
     allowedHosts: 'all',
     disableHostCheck: true,
-    hmr: {
-      port: 24678,
-      clientPort: 443
-    }
+    hmr: false
   },
   resolve: {
     alias: {

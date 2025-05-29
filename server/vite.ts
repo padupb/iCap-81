@@ -36,10 +36,7 @@ export async function setupVite(app: Express, server: Server) {
       port: 3000,
       allowedHosts: 'all',
       disableHostCheck: true,
-      hmr: {
-        port: 24678,
-        clientPort: 443
-      }
+      hmr: false
     },
     appType: "custom",
   });
