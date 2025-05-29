@@ -581,7 +581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orders = await storage.getAllOrders();
 
-      
+
 
       res.json(orders);
     } catch (error) {
@@ -594,7 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const urgentOrders = await storage.getUrgentOrders();
 
-      
+
 
       res.json(urgentOrders);
     } catch (error) {
@@ -2069,6 +2069,140 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
+  // Rota para buscar pontos de rastreamento de um pedido
+  app.get("/api/tracking-points/:orderId", async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      console.log(`🔍 Buscando pontos de rastreamento para pedido ID: ${orderId}`);
+
+      // Verificar se o pedido existe
+      const orderCheck = await pool.query(
+        "SELECT id, order_id FROM orders WHERE id = $1",
+        [orderId]
+      );
+
+      if (!orderCheck.rows.length) {
+        console.log(`❌ Pedido ${orderId} não encontrado`);
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      console.log(`📦 Pedido encontrado: ${orderCheck.rows[0].order_id}`);
+
+      // Buscar pontos de rastreamento ordenados por data de criação
+      const result = await pool.query(
+        `SELECT 
+          id, 
+          order_id as "orderId", 
+          CAST(latitude AS DECIMAL(10,6)) as latitude, 
+          CAST(longitude AS DECIMAL(11,6)) as longitude, 
+          created_at as "createdAt"
+         FROM tracking_points 
+         WHERE order_id = $1 
+         ORDER BY created_at ASC`,
+        [orderId]
+      );
+
+      console.log(`📍 Encontrados ${result.rows.length} pontos de rastreamento`);
+
+      const trackingPoints = result.rows.map((row: any) => {
+        const latitude = parseFloat(row.latitude);
+        const longitude = parseFloat(row.longitude);
+        
+        console.log(`🔍 Processando ponto: lat=${latitude}, lng=${longitude}`);
+        
+        return {
+          id: row.id,
+          orderId: row.orderId,
+          latitude: isNaN(latitude) ? 0 : latitude,
+          longitude: isNaN(longitude) ? 0 : longitude,
+          createdAt: row.createdAt
+        };
+      });
+
+      // Log detalhado dos dados brutos do banco
+      if (result.rows.length > 0) {
+        console.log(`🔍 Dados brutos do banco:`, result.rows[0]);
+        console.log(`🔍 Primeiro ponto formatado:`, trackingPoints[0]);
+      }
+
+      console.log(`📊 Total de pontos válidos:`, trackingPoints.filter(p => p.latitude !== 0 && p.longitude !== 0).length);
+
+      res.json(trackingPoints);
+    } catch (error) {
+      console.error("Erro ao buscar pontos de rastreamento:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao buscar pontos de rastreamento" 
+      });
+    }
+  });
+
+  // Rota para adicionar ponto de rastreamento (usado pelo app mobile)
+  app.post("/api/tracking-points", async (req, res) => {
+    try {
+      const { orderId, latitude, longitude } = req.body;
+
+      if (!orderId || !latitude || !longitude) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Dados incompletos: orderId, latitude e longitude são obrigatórios"
+        });
+      }
+
+      // Verificar se o pedido existe
+      const orderCheck = await pool.query(
+        "SELECT id, order_id FROM orders WHERE id = $1",
+        [orderId]
+      );
+
+      if (!orderCheck.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      // Inserir novo ponto de rastreamento
+      const result = await pool.query(
+        `INSERT INTO tracking_points (order_id, latitude, longitude, created_at)
+         VALUES ($1, $2, $3, NOW())
+         RETURNING id, order_id as "orderId", latitude, longitude, created_at as "createdAt"`,
+        [orderId, latitude, longitude]
+      );
+
+      const newPoint = {
+        id: result.rows[0].id,
+        orderId: result.rows[0].orderId,
+        latitude: parseFloat(result.rows[0].latitude),
+        longitude: parseFloat(result.rows[0].longitude),
+        createdAt: result.rows[0].createdAt
+      };
+
+      res.json({
+        sucesso: true,
+        mensagem: "Ponto de rastreamento adicionado com sucesso",
+        ponto: newPoint
+      });
+    } catch (error) {
+      console.error("Erro ao adicionar ponto de rastreamento:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao adicionar ponto de rastreamento"
+      });
+    }
+  });
+
   // Rota para confirmar entrega de pedido
   app.post("/api/pedidos/:id/confirmar", async (req, res) => {
     try {
@@ -2134,7 +2268,38 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
-  
+  // Configurações
+  app.get('/api/settings', async (req, res) => {
+    try {
+      const settings = await storage.getAllSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Erro ao buscar configurações:", error);
+      res.status(500).json({ message: "Erro ao buscar configurações" });
+    }
+  });
+
+  app.post('/api/settings', isAuthenticated, async (req, res) => {
+    try {
+      const { key, value, description } = req.body;
+
+      if (!key || value === undefined) {
+        return res.status(400).json({ message: 'Chave e valor são obrigatórios' });
+      }
+
+      // Criar ou atualizar a configuração
+      await storage.createOrUpdateSetting({
+        key: key,
+        value: value,
+        description: description || ""
+      });
+
+      res.json({ success: true, message: 'Configuração salva com sucesso' });
+    } catch (error) {
+      console.error('Erro ao salvar configuração:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
 
   // Rota de debug para verificar configurações do keyuser
   app.get("/api/debug/keyuser-config", async (req, res) => {

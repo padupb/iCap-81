@@ -46,18 +46,6 @@ import {
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder } from "@shared/schema";
 
-// Função para formatar números com vírgula (formato brasileiro)
-const formatNumber = (value: string | number): string => {
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  if (isNaN(numValue)) return value.toString();
-
-  // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
-  return numValue.toLocaleString('pt-BR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2, // Máximo 2 casas decimais
-  });
-};
-
 interface OrderDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1278,18 +1266,17 @@ export function OrderDetailDrawer({
                     <CardHeader>
                       <CardTitle>Rastreamento do Pedido</CardTitle>
                       <CardDescription>
-                        Acompanhe a localização e status do pedido em tempo real
+                        Acompanhe o status atual do pedido e atualizações de localização
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {orderId ? (
-                        <GoogleMapsTracker orderId={orderId} />
-                      ) : (
-                        <div className="text-center py-6">
-                          <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-                          <p className="text-muted-foreground">ID do pedido não disponível</p>
-                        </div>
-                      )}
+                      <div className="text-center py-6">
+                        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Rastreamento em desenvolvimento</h3>
+                        <p className="text-muted-foreground">
+                          O rastreamento detalhado estará disponível em breve. Por enquanto, você pode acompanhar o status geral do pedido.
+                        </p>
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
