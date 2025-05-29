@@ -26,6 +26,7 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Buscar pontos de rastreamento
   const { data: trackingPoints = [], isLoading } = useQuery<TrackingPoint[]>({
@@ -48,12 +49,26 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
         return;
       }
 
+      // Verificar se já existe um script carregando
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => {
+          setIsGoogleMapsLoaded(true);
+        });
+        return;
+      }
+
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw&libraries=geometry`;
       script.async = true;
       script.defer = true;
       script.onload = () => {
+        console.log('Google Maps API carregada com sucesso');
         setIsGoogleMapsLoaded(true);
+      };
+      script.onerror = () => {
+        console.error('Erro ao carregar Google Maps API');
+        setMapError('Erro ao carregar Google Maps API');
       };
       document.head.appendChild(script);
     };
@@ -65,28 +80,36 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
   useEffect(() => {
     if (!isGoogleMapsLoaded || !mapRef.current || map) return;
 
-    // Posição padrão (centro do Brasil)
-    const defaultCenter = { lat: -15.7942, lng: -47.8825 };
+    try {
+      console.log('Inicializando Google Maps...');
+      
+      // Posição padrão (centro do Brasil)
+      const defaultCenter = { lat: -15.7942, lng: -47.8825 };
 
-    const newMap = new window.google.maps.Map(mapRef.current, {
-      zoom: 6,
-      center: defaultCenter,
-      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-      styles: [
-        {
-          featureType: 'all',
-          elementType: 'geometry.fill',
-          stylers: [{ color: '#f5f5f5' }]
-        },
-        {
-          featureType: 'water',
-          elementType: 'geometry',
-          stylers: [{ color: '#c9e2f0' }]
-        }
-      ]
-    });
+      const newMap = new window.google.maps.Map(mapRef.current, {
+        zoom: 6,
+        center: defaultCenter,
+        mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+        styles: [
+          {
+            featureType: 'all',
+            elementType: 'geometry.fill',
+            stylers: [{ color: '#f5f5f5' }]
+          },
+          {
+            featureType: 'water',
+            elementType: 'geometry',
+            stylers: [{ color: '#c9e2f0' }]
+          }
+        ]
+      });
 
-    setMap(newMap);
+      console.log('Mapa inicializado com sucesso');
+      setMap(newMap);
+    } catch (error) {
+      console.error('Erro ao inicializar mapa:', error);
+      setMapError('Erro ao inicializar o mapa');
+    }
   }, [isGoogleMapsLoaded, map]);
 
   // Atualizar mapa com pontos de rastreamento
@@ -215,25 +238,36 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     map.markers = markers;
   }, [map, trackingPoints]);
 
-  if (isLoading) {
+  // Exibir erro se houver problema com o mapa
+  if (mapError) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Carregando rastreamento...</p>
+          <div className="text-4xl mb-2">🗺️</div>
+          <p className="text-sm text-red-600 font-medium">Erro ao carregar mapa</p>
+          <p className="text-xs text-gray-500 mt-1">{mapError}</p>
+          <button 
+            onClick={() => {
+              setMapError(null);
+              setIsGoogleMapsLoaded(false);
+              setMap(null);
+            }}
+            className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+          >
+            Tentar novamente
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!trackingPoints.length) {
+  if (isLoading || !isGoogleMapsLoaded) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100">
         <div className="text-center">
-          <div className="text-4xl mb-2">📍</div>
-          <p className="text-sm text-gray-600 font-medium">Nenhum ponto de rastreamento disponível</p>
-          <p className="text-xs text-gray-500 mt-1">
-            O rastreamento aparecerá aqui quando o pedido estiver em rota
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">
+            {!isGoogleMapsLoaded ? 'Carregando Google Maps...' : 'Carregando rastreamento...'}
           </p>
         </div>
       </div>
@@ -244,29 +278,50 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     <div className="w-full h-full relative">
       <div ref={mapRef} className="w-full h-full" />
       
-      {/* Indicador de atualização em tempo real */}
+      {/* Indicador de status */}
       <div className="absolute top-2 right-2 bg-white rounded-lg shadow-md p-2 border">
         <div className="flex items-center text-xs text-gray-600">
-          <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-          Atualização automática
+          {trackingPoints.length > 0 ? (
+            <>
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+              Rastreando ({trackingPoints.length} pontos)
+            </>
+          ) : (
+            <>
+              <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
+              Aguardando rastreamento
+            </>
+          )}
         </div>
       </div>
 
       {/* Legenda */}
       <div className="absolute bottom-2 left-2 bg-white rounded-lg shadow-md p-3 border">
         <div className="space-y-2 text-xs">
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
-            <span>Origem</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
-            <span>Posição Atual</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
-            <span>Trajeto</span>
-          </div>
+          {trackingPoints.length > 0 ? (
+            <>
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                <span>Origem</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                <span>Posição Atual</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
+                <span>Trajeto</span>
+              </div>
+            </>
+          ) : (
+            <div className="text-center">
+              <div className="text-2xl mb-1">📍</div>
+              <p className="text-gray-600 font-medium">Aguardando dados</p>
+              <p className="text-gray-500 text-xs mt-1">
+                O rastreamento aparecerá quando o pedido estiver em rota
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
