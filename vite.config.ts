@@ -21,7 +21,9 @@ export default defineConfig({
     port: 3000,
     allowedHosts: 'all',
     hmr: {
-      clientPort: 443
+      port: 443,
+      clientPort: 443,
+      host: 'localhost'
     }
   },
   resolve: {
