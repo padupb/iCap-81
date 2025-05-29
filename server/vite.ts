@@ -34,11 +34,14 @@ export async function setupVite(app: Express, server: Server) {
       middlewareMode: true,
       host: '0.0.0.0',
       port: 3000,
-      allowedHosts: 'all',
-      disableHostCheck: true,
+      origin: '*',
+      strictPort: false,
       hmr: false
     },
     appType: "custom",
+    define: {
+      global: 'globalThis',
+    }
   });
 
   app.use(vite.middlewares);
