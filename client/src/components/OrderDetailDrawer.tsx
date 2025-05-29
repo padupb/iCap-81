@@ -65,11 +65,23 @@ type TrackingPoint = {
   id: number;
   status: string;
   comment?: string;
-  userId: number;
-  userName?: string;
-  latitude?: number;
-  longitude?: number;
-  createdAt: string;
+  user_id: number;
+  user_name?: string;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+};
+
+// Função para formatar números com vírgula (formato brasileiro)
+const formatNumber = (value: string | number): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return value.toString();
+
+  // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
+  return numValue.toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2, // Máximo 2 casas decimais
+  });
 };
 
 // Componente do Mapa Google Maps
@@ -180,8 +192,8 @@ function GoogleMapsTracker({ orderId }: { orderId: number }) {
         content: `
           <div style="padding: 8px; min-width: 200px;">
             <h4 style="margin: 0 0 8px 0; color: #333;">${point.status}</h4>
-            <p style="margin: 4px 0; color: #666;"><strong>Data:</strong> ${formatDate(point.createdAt)}</p>
-            <p style="margin: 4px 0; color: #666;"><strong>Usuário:</strong> ${point.userName || 'Sistema'}</p>
+            <p style="margin: 4px 0; color: #666;"><strong>Data:</strong> ${formatDate(point.created_at)}</p>
+            <p style="margin: 4px 0; color: #666;"><strong>Usuário:</strong> ${point.user_name || 'Sistema'}</p>
             ${point.comment ? `<p style="margin: 4px 0; color: #666;"><strong>Comentário:</strong> ${point.comment}</p>` : ''}
             <p style="margin: 4px 0; color: #666;"><strong>Coordenadas:</strong> ${Number(point.latitude).toFixed(6)}, ${Number(point.longitude).toFixed(6)}</p>
           </div>
@@ -248,7 +260,7 @@ function GoogleMapsTracker({ orderId }: { orderId: number }) {
                 <div key={point.id} className="text-sm">
                   <span className="font-medium">{point.status}</span>
                   {point.comment && <span className="text-muted-foreground"> - {point.comment}</span>}
-                  <span className="text-muted-foreground block">{formatDate(point.createdAt)}</span>
+                  <span className="text-muted-foreground block">{formatDate(point.created_at)}</span>
                 </div>
               ))}
             </div>
@@ -278,7 +290,7 @@ function GoogleMapsTracker({ orderId }: { orderId: number }) {
                 </div>
                 <div>
                   <p className="font-medium">{point.status}</p>
-                  <p className="text-sm text-muted-foreground">{formatDate(point.createdAt)}</p>
+                  <p className="text-sm text-muted-foreground">{formatDate(point.created_at)}</p>
                   {point.comment && (
                     <p className="text-sm text-muted-foreground">{point.comment}</p>
                   )}
@@ -1270,13 +1282,14 @@ export function OrderDetailDrawer({
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-center py-6">
-                        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Rastreamento em desenvolvimento</h3>
-                        <p className="text-muted-foreground">
-                          O rastreamento detalhado estará disponível em breve. Por enquanto, você pode acompanhar o status geral do pedido.
-                        </p>
-                      </div>
+                      {orderId ? (
+                        <GoogleMapsTracker orderId={orderId} />
+                      ) : (
+                        <div className="text-center py-6">
+                          <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground">ID do pedido não disponível</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
