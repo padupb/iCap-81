@@ -624,6 +624,10 @@ export function OrderDetailDrawer({
                             if (currentLevel > stepLevel) {
                               return 'completed';
                             } else if (currentLevel === stepLevel) {
+                              // Se o status atual é "Entregue" e o step é "Entregue", mostrar como completed
+                              if (currentStatus === 'Entregue' && stepKey === 'Entregue') {
+                                return 'completed';
+                              }
                               return 'current';
                             } else {
                               return 'pending';
