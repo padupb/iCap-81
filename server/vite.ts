@@ -1,3 +1,4 @@
+
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
@@ -21,7 +22,6 @@ export function log(message: string, source = "express") {
 
 export async function setupVite(app: Express, server: Server) {
   const vite = await createViteServer({
-    ...viteConfig,
     configFile: false,
     customLogger: {
       ...viteLogger,
@@ -31,17 +31,9 @@ export async function setupVite(app: Express, server: Server) {
       },
     },
     server: { 
-      middlewareMode: true,
-      host: '0.0.0.0',
-      port: 3000,
-      origin: '*',
-      strictPort: false,
-      hmr: false
+      middlewareMode: true
     },
-    appType: "custom",
-    define: {
-      global: 'globalThis',
-    }
+    appType: "custom"
   });
 
   app.use(vite.middlewares);
