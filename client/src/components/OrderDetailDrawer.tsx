@@ -195,6 +195,7 @@ export function OrderDetailDrawer({
       if (orderDetails.documentosCarregados || 
           orderDetails.status === 'Carregado' || 
           orderDetails.status === 'Em Rota' || 
+          orderDetails.status === 'Em transporte' ||
           orderDetails.status === 'Entregue') {
         setDocumentsLoaded(true);
       } else {
@@ -594,12 +595,14 @@ export function OrderDetailDrawer({
                           const currentStatus = orderDetails.status;
                           
                           const getStepStatus = (stepKey: string) => {
+                            // Normalizar o status atual para tratar "Em transporte" como "Em Rota"
+                            const normalizedStatus = currentStatus === 'Em transporte' ? 'Em Rota' : currentStatus;
+                            
                             // Mapear os status possíveis para suas posições na linha do tempo
                             const statusHierarchy: { [key: string]: number } = {
                               'Registrado': 0,
                               'Carregado': 1,
                               'Em Rota': 2,
-                              'Em transporte': 2, // Equivalente a Em Rota
                               'Entregue': 3,
                               'Recusado': -1 // Status especial
                             };
@@ -611,7 +614,7 @@ export function OrderDetailDrawer({
                               'Entregue': 3
                             };
 
-                            const currentLevel = statusHierarchy[currentStatus] ?? 0;
+                            const currentLevel = statusHierarchy[normalizedStatus] ?? 0;
                             const stepLevel = stepHierarchy[stepKey] ?? 0;
 
                             // Se o pedido foi recusado, mostrar apenas o primeiro step como completed
@@ -649,7 +652,7 @@ export function OrderDetailDrawer({
                                       'Registrado': 0,
                                       'Carregado': 33.33,
                                       'Em Rota': 66.66,
-                                      'Em transporte': 66.66,
+                                      'Em transporte': 66.66, // Mesmo que Em Rota
                                       'Entregue': 100,
                                       'Recusado': 0
                                     };
@@ -714,7 +717,7 @@ export function OrderDetailDrawer({
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {documentsLoaded || orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Entregue' ? (
+                      {documentsLoaded || orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue' ? (
                         <div className="space-y-4">
                           <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
                             <FileCheck size={48} className="text-green-500 mb-2" />
@@ -955,7 +958,7 @@ export function OrderDetailDrawer({
                         </div>
                       )}
                     </CardContent>
-                    {!documentsLoaded && orderDetails.status !== 'Carregado' && orderDetails.status !== 'Em Rota' && orderDetails.status !== 'Entregue' && (
+                    {!documentsLoaded && orderDetails.status !== 'Carregado' && orderDetails.status !== 'Em Rota' && orderDetails.status !== 'Em transporte' && orderDetails.status !== 'Entregue' && (
                       <CardFooter className="flex justify-end">
                         <Button 
                           variant="default"
