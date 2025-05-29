@@ -1,82 +1,71 @@
-
-import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
-import { type Server } from "http";
-import { nanoid } from "nanoid";
+import { fileURLToPath } from "url";
+import express from "express";
+import type { ViteDevServer } from "vite";
 
-const viteLogger = createLogger();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export function log(message: string, source = "express") {
+export const log = (message: string) => {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
+    hour12: false,
+    hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: true,
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
+  console.log(`${formattedTime} [express] ${message}`);
+};
 
-export async function setupVite(app: Express, server: Server) {
-  const vite = await createViteServer({
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
+export async function setupVite(app: express.Application, server: any) {
+  const { createServer } = await import("vite");
+
+  const vite = await createServer({
     server: { 
-      middlewareMode: true
+      middlewareMode: true,
+      hmr: {
+        port: 24678,
+        host: '0.0.0.0'
+      }
     },
     appType: "custom",
-    resolve: {
-      alias: {
-        "@": path.resolve(process.cwd(), "client", "src"),
-        "@shared": path.resolve(process.cwd(), "shared"),
-      },
-    },
-    plugins: [],
-    define: {
-      global: 'globalThis',
+    optimizeDeps: {
+      include: ["react", "react-dom"]
     }
   });
 
   app.use(vite.middlewares);
-  
+
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
     try {
       const clientTemplate = path.resolve(
-        process.cwd(),
+        __dirname,
+        "..",
         "client",
         "index.html",
       );
 
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      template = await vite.transformIndexHtml(url, template);
+
+      res.status(200).set({ "Content-Type": "text/html" }).end(template);
     } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
+      if (e instanceof Error) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
     }
   });
 }
 
-export function serveStatic(app: Express) {
-  const distPath = path.resolve(process.cwd(), "dist", "public");
+export function serveStatic(app: express.Application) {
+  const distPath = path.resolve(__dirname, "..", "dist");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the production build at ${distPath}. Please run "npm run build" first.`,
     );
   }
 

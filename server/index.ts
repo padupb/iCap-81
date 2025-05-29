@@ -1,4 +1,3 @@
-
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -9,17 +8,14 @@ import { db, pool } from "./db";
 import multer from "multer";
 import path from "path";
 
-console.log('DATABASE_URL em index.ts (via Secrets):', process.env.DATABASE_URL);
-
 const app = express();
 
-// Configuração CORS simplificada
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "*");
   res.header("Access-Control-Allow-Methods", "*");
   res.header("Access-Control-Allow-Credentials", "true");
-  
+
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
     return;
@@ -42,6 +38,7 @@ const uploadStorage = multer.diskStorage({
     cb(null, `${pedidoId}_${tipo}_${timestamp}${ext}`);
   },
 });
+
 const upload = multer({ storage: uploadStorage });
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -91,12 +88,12 @@ app.use((req, res, next) => {
 (async () => {
   try {
     console.log("🔧 Inicializando configurações do keyuser...");
-    
+
     if (db) {
       console.log("💾 Banco de dados detectado - aguardando inicialização...");
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
+
     let keyUserEmail = await storage.getSetting("keyuser_email");
     let keyUserPassword = await storage.getSetting("keyuser_password");
 
@@ -136,6 +133,7 @@ app.use((req, res, next) => {
     } else {
       console.error("❌ ERRO: Configurações do keyuser não foram salvas corretamente!");
     }
+
   } catch (error) {
     console.error("❌ Erro ao inicializar configurações do superadministrador:", error);
     console.error("🔧 Tentando criar configurações diretamente...");
@@ -182,3 +180,4 @@ app.use((req, res, next) => {
     console.log(`📱 Preview available at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
   });
 })();
+console.log('DATABASE_URL em index.ts (via Secrets):', process.env.DATABASE_URL);
