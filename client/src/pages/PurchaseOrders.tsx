@@ -145,7 +145,6 @@ export default function PurchaseOrders() {
         throw error;
       }
     },
-    },
     onSuccess: (data) => {
       console.log("Ordem de compra criada com sucesso:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
