@@ -57,15 +57,15 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
 
   // Extrair chave da API do Google Maps das configurações
   useEffect(() => {
-    console.log('🔧 Settings recebidas:', settings);
+    console.log('🔍 Verificando configurações para Google Maps API Key:', settings);
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      console.log('🗝️ Configuração Google Maps encontrada:', googleMapsKeySetting);
+      console.log('🗝️ Configuração encontrada:', googleMapsKeySetting);
       if (googleMapsKeySetting && googleMapsKeySetting.value) {
-        console.log('✅ Chave da API definida:', googleMapsKeySetting.value.substring(0, 10) + '...');
+        console.log('✅ Google Maps API Key encontrada, comprimento:', googleMapsKeySetting.value.length);
         setGoogleMapsApiKey(googleMapsKeySetting.value);
       } else {
-        console.log('❌ Chave da API do Google Maps não encontrada ou vazia');
+        console.log('❌ Google Maps API Key não encontrada ou vazia');
       }
     } else {
       console.log('❌ Nenhuma configuração encontrada');
@@ -165,73 +165,39 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     if (map.markers) {
       map.markers.forEach((marker: any) => marker.setMap(null));
     }
-    if (map.polyline) {
-      map.polyline.setMap(null);
-    }
 
     const markers: any[] = [];
     const path: any[] = [];
 
-    // Criar marcadores para cada ponto
+    // Criar marcadores para cada ponto (todos iguais)
     trackingPoints.forEach((point, index) => {
       const position = { lat: point.latitude, lng: point.longitude };
       path.push(position);
 
-      let icon;
-      let title;
-
-      if (index === 0) {
-        // Primeiro ponto (origem)
-        icon = {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="12" fill="#10B981" stroke="white" stroke-width="2"/>
-              <circle cx="16" cy="16" r="4" fill="white"/>
-            </svg>
-          `),
-          scaledSize: new window.google.maps.Size(32, 32),
-          anchor: new window.google.maps.Point(16, 16),
-        };
-        title = 'Ponto de Origem';
-      } else if (index === trackingPoints.length - 1) {
-        // Último ponto (posição atual)
-        icon = {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="12" fill="#3B82F6" stroke="white" stroke-width="2"/>
-              <circle cx="16" cy="16" r="4" fill="white"/>
-            </svg>
-          `),
-          scaledSize: new window.google.maps.Size(32, 32),
-          anchor: new window.google.maps.Point(16, 16),
-        };
-        title = 'Posição Atual';
-      } else {
-        // Pontos intermediários
-        icon = {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="8" cy="8" r="6" fill="#6B7280" stroke="white" stroke-width="1"/>
-            </svg>
-          `),
-          scaledSize: new window.google.maps.Size(16, 16),
-          anchor: new window.google.maps.Point(8, 8),
-        };
-        title = `Ponto ${index + 1}`;
-      }
+      // Ícone padrão para todos os pontos
+      const icon = {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="#3B82F6" stroke="white" stroke-width="2"/>
+            <circle cx="12" cy="12" r="3" fill="white"/>
+          </svg>
+        `),
+        scaledSize: new window.google.maps.Size(24, 24),
+        anchor: new window.google.maps.Point(12, 12),
+      };
 
       const marker = new window.google.maps.Marker({
         position,
         map,
         icon,
-        title,
+        title: `Ponto ${index + 1}`,
       });
 
       // InfoWindow com informações do ponto
       const infoWindow = new window.google.maps.InfoWindow({
         content: `
           <div style="padding: 8px;">
-            <h4 style="margin: 0 0 8px 0; font-weight: 600;">${title}</h4>
+            <h4 style="margin: 0 0 8px 0; font-weight: 600;">Ponto ${index + 1}</h4>
             <p style="margin: 0; font-size: 12px; color: #666;">
               ${new Date(point.createdAt).toLocaleString('pt-BR')}
             </p>
@@ -252,27 +218,13 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
       markers.push(marker);
     });
 
-    // Criar linha conectando os pontos
-    if (path.length > 1) {
-      const polyline = new window.google.maps.Polyline({
-        path,
-        geodesic: true,
-        strokeColor: '#3B82F6',
-        strokeOpacity: 1.0,
-        strokeWeight: 3,
-      });
-
-      polyline.setMap(map);
-      map.polyline = polyline;
-    }
-
     // Ajustar zoom para mostrar todos os pontos
     if (path.length > 0) {
       const bounds = new window.google.maps.LatLngBounds();
       path.forEach(point => bounds.extend(point));
       map.fitBounds(bounds);
 
-      // Garantir zoom mínimo
+      // Garantir zoom apropriado
       const listener = window.google.maps.event.addListener(map, 'idle', () => {
         if (map.getZoom() > 15) map.setZoom(15);
         window.google.maps.event.removeListener(listener);
@@ -325,34 +277,9 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
           <p className="text-xs text-gray-600 mb-3 max-w-md">
             A chave da API do Google Maps não foi configurada.
           </p>
-          <p className="text-xs text-blue-600 mb-3">
+          <p className="text-xs text-blue-600">
             Acesse Configurações → Google Maps API Key para configurar.
           </p>
-          
-          {/* Botão para adicionar pontos de exemplo */}
-          <button 
-            onClick={async () => {
-              try {
-                const response = await fetch('/api/settings', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    key: 'google_maps_api_key',
-                    value: 'YOUR_API_KEY_HERE',
-                    description: 'Chave da API do Google Maps'
-                  })
-                });
-                if (response.ok) {
-                  alert('Configure sua chave da API do Google Maps nas configurações');
-                }
-              } catch (error) {
-                console.error('Erro:', error);
-              }
-            }}
-            className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-          >
-            Criar configuração
-          </button>
         </div>
       </div>
     );
@@ -380,13 +307,13 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
         <div className="flex items-center text-xs text-gray-600">
           {trackingPoints.length > 0 ? (
             <>
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-              Rastreando ({trackingPoints.length} pontos)
+              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+              {trackingPoints.length} ponto{trackingPoints.length > 1 ? 's' : ''} encontrado{trackingPoints.length > 1 ? 's' : ''}
             </>
           ) : (
             <>
               <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
-              Aguardando rastreamento
+              Nenhum ponto encontrado
             </>
           )}
         </div>
@@ -398,24 +325,19 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
           {trackingPoints.length > 0 ? (
             <>
               <div className="flex items-center">
-                <div className="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
-                <span>Origem</span>
-              </div>
-              <div className="flex items-center">
                 <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
-                <span>Posição Atual</span>
+                <span>Pontos de Rastreamento</span>
               </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
-                <span>Trajeto</span>
-              </div>
+              <p className="text-gray-500 text-xs mt-1">
+                Clique nos pontos para ver detalhes
+              </p>
             </>
           ) : (
             <div className="text-center">
               <div className="text-2xl mb-1">📍</div>
               <p className="text-gray-600 font-medium">Aguardando dados</p>
               <p className="text-gray-500 text-xs mt-1">
-                O rastreamento aparecerá quando o pedido estiver em rota
+                Os pontos de rastreamento aparecerão quando forem adicionados
               </p>
             </div>
           )}

@@ -174,15 +174,6 @@ const uploadLogo = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
-  // Health check route
-  app.get("/health", (req, res) => {
-    res.json({ 
-      status: "ok", 
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || "development"
-    });
-  });
-
   // Rotas de autenticação
   app.post("/api/auth/login", async (req, res) => {
     try {
@@ -2110,7 +2101,12 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Buscar pontos de rastreamento ordenados por data de criação
       const result = await pool.query(
-        `SELECT id, order_id as "orderId", latitude, longitude, created_at as "createdAt"
+        `SELECT 
+          id, 
+          order_id as "orderId", 
+          CAST(latitude AS DECIMAL(10,6)) as latitude, 
+          CAST(longitude AS DECIMAL(11,6)) as longitude, 
+          created_at as "createdAt"
          FROM tracking_points 
          WHERE order_id = $1 
          ORDER BY created_at ASC`,
@@ -2119,15 +2115,28 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       console.log(`📍 Encontrados ${result.rows.length} pontos de rastreamento`);
 
-      const trackingPoints = result.rows.map((row: any) => ({
-        id: row.id,
-        orderId: row.orderId,
-        latitude: parseFloat(row.latitude),
-        longitude: parseFloat(row.longitude),
-        createdAt: row.createdAt
-      }));
+      const trackingPoints = result.rows.map((row: any) => {
+        const latitude = parseFloat(row.latitude);
+        const longitude = parseFloat(row.longitude);
+        
+        console.log(`🔍 Processando ponto: lat=${latitude}, lng=${longitude}`);
+        
+        return {
+          id: row.id,
+          orderId: row.orderId,
+          latitude: isNaN(latitude) ? 0 : latitude,
+          longitude: isNaN(longitude) ? 0 : longitude,
+          createdAt: row.createdAt
+        };
+      });
 
-      console.log(`📊 Pontos formatados:`, trackingPoints.slice(0, 2)); // Log apenas os primeiros 2 pontos
+      // Log detalhado dos dados brutos do banco
+      if (result.rows.length > 0) {
+        console.log(`🔍 Dados brutos do banco:`, result.rows[0]);
+        console.log(`🔍 Primeiro ponto formatado:`, trackingPoints[0]);
+      }
+
+      console.log(`📊 Total de pontos válidos:`, trackingPoints.filter(p => p.latitude !== 0 && p.longitude !== 0).length);
 
       res.json(trackingPoints);
     } catch (error) {
@@ -2263,23 +2272,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
   app.get('/api/settings', async (req, res) => {
     try {
       const settings = await storage.getAllSettings();
-      
-      // Verificar se existe chave do Google Maps, se não, criar uma temporária
-      const hasGoogleMapsKey = settings.find(s => s.key === 'google_maps_api_key');
-      if (!hasGoogleMapsKey) {
-        console.log('🗝️ Criando configuração temporária do Google Maps...');
-        await storage.createOrUpdateSetting({
-          key: 'google_maps_api_key',
-          value: 'AIzaSyDGHQESxNHWV7eHPp5Cn6n6ZIz8FzCfGpE', // Chave temporária para desenvolvimento
-          description: 'Chave da API do Google Maps (temporária para desenvolvimento)'
-        });
-        
-        // Buscar novamente as configurações
-        const updatedSettings = await storage.getAllSettings();
-        res.json(updatedSettings);
-      } else {
-        res.json(settings);
-      }
+      res.json(settings);
     } catch (error) {
       console.error("Erro ao buscar configurações:", error);
       res.status(500).json({ message: "Erro ao buscar configurações" });
