@@ -2254,7 +2254,23 @@ mensagem: "Erro interno do servidor ao processar o upload",
   app.get('/api/settings', async (req, res) => {
     try {
       const settings = await storage.getAllSettings();
-      res.json(settings);
+      
+      // Verificar se existe chave do Google Maps, se não, criar uma temporária
+      const hasGoogleMapsKey = settings.find(s => s.key === 'google_maps_api_key');
+      if (!hasGoogleMapsKey) {
+        console.log('🗝️ Criando configuração temporária do Google Maps...');
+        await storage.createOrUpdateSetting({
+          key: 'google_maps_api_key',
+          value: 'AIzaSyDGHQESxNHWV7eHPp5Cn6n6ZIz8FzCfGpE', // Chave temporária para desenvolvimento
+          description: 'Chave da API do Google Maps (temporária para desenvolvimento)'
+        });
+        
+        // Buscar novamente as configurações
+        const updatedSettings = await storage.getAllSettings();
+        res.json(updatedSettings);
+      } else {
+        res.json(settings);
+      }
     } catch (error) {
       console.error("Erro ao buscar configurações:", error);
       res.status(500).json({ message: "Erro ao buscar configurações" });
