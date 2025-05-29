@@ -33,7 +33,7 @@ import { useAuth } from "@/context/AuthContext";
 const formatNumber = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(numValue)) return value.toString();
-  
+
   // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
   return numValue.toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
@@ -80,12 +80,12 @@ export function OrderDetailDrawer({
   // Definir um valor inicial diferente de "details" para forçar a renderização adequada
   const [activeTab, setActiveTab] = useState("details");
   const [confirmedQuantity, setConfirmedQuantity] = useState("");
-  
+
   // Refs para os inputs de arquivo
   const notaPdfRef = useRef<HTMLInputElement>(null);
   const notaXmlRef = useRef<HTMLInputElement>(null);
   const certificadoPdfRef = useRef<HTMLInputElement>(null);
-  
+
   // Debug dos refs (apenas quando necessário)
   useEffect(() => {
     if (open && activeTab === 'documents') {
@@ -96,15 +96,15 @@ export function OrderDetailDrawer({
       });
     }
   }, [open, activeTab]);
-  
+
   // Estado para os arquivos
   const [notaPdf, setNotaPdf] = useState<File | null>(null);
   const [notaXml, setNotaXml] = useState<File | null>(null);
   const [certificadoPdf, setCertificadoPdf] = useState<File | null>(null);
-  
+
   // Estado para controlar se os documentos foram carregados
   const [documentsLoaded, setDocumentsLoaded] = useState(false);
-  
+
   // Estado para tracking de histórico
   const [orderHistory, setOrderHistory] = useState<Array<{
     etapa: string;
@@ -112,7 +112,7 @@ export function OrderDetailDrawer({
     usuario: string;
     descricao?: string;
   }>>([]);
-  
+
   const queryClient = useQueryClient();
 
   // Buscar pedidos, produtos e empresas
@@ -130,13 +130,13 @@ export function OrderDetailDrawer({
     queryKey: ["/api/companies"],
     enabled: !!orderId && open,
   });
-  
+
   // Tentar buscar das duas rotas possíveis de ordens de compra
   const { data: purchaseOrders = [] } = useQuery<PurchaseOrder[]>({
     queryKey: ["/api/purchase-orders"],
     enabled: !!orderId && open,
   });
-  
+
   const { data: ordensCompra = [] } = useQuery({
     queryKey: ["/api/ordens-compra"],
     enabled: !!orderId && open,
@@ -145,21 +145,21 @@ export function OrderDetailDrawer({
   // Montar os detalhes do pedido a partir dos dados obtidos
   const orderDetails = React.useMemo(() => {
     if (!orderId) return null;
-    
+
     const order = orders.find(o => o.id === orderId);
     if (!order) return null;
-    
+
     const product = products.find(p => p.id === order.productId);
     const supplier = companies.find(c => c.id === order.supplierId);
-    
+
     // Buscar ordem de compra da tabela correta - primeiro tenta purchase_orders, depois ordens_compra
     let purchaseOrder = purchaseOrders.find(po => po.id === order.purchaseOrderId);
-    
+
     // Se não encontrou na primeira tabela, tenta na segunda (ordens_compra)
     if (!purchaseOrder && order.purchaseOrderId) {
       // Verificar se ordensCompra é um array e tem elementos
       const ordensArray = Array.isArray(ordensCompra) ? ordensCompra : [];
-      
+
       if (ordensArray.length > 0) {
         const ordemCompra = ordensArray.find((oc: any) => oc.id === order.purchaseOrderId);
         if (ordemCompra) {
@@ -176,7 +176,7 @@ export function OrderDetailDrawer({
         }
       }
     }
-    
+
     return {
       ...order,
       product,
@@ -190,7 +190,7 @@ export function OrderDetailDrawer({
     if (open && orderDetails) {
       // Não resetamos a aba ativa aqui para manter a navegação entre abas
       setConfirmedQuantity("");
-      
+
       // Verificar se os documentos já foram carregados com base no status do pedido
       if (orderDetails.documentosCarregados || 
           orderDetails.status === 'Carregado' || 
@@ -201,7 +201,7 @@ export function OrderDetailDrawer({
         setDocumentsLoaded(false);
       }
     }
-    
+
     if (!open) {
       // Quando o drawer fecha, resetar os arquivos
       setNotaPdf(null);
@@ -214,10 +214,10 @@ export function OrderDetailDrawer({
   // Verificar se o usuário pode confirmar entregas
   const canConfirmDelivery = () => {
     if (!user) return false;
-    
+
     // Usuário admin pode confirmar qualquer entrega
     if (user.email.endsWith('@admin.icap')) return true;
-    
+
     // Verificar se o usuário tem permissão específica para confirmar entregas
     return !!user.canConfirmDelivery;
   };
@@ -227,18 +227,18 @@ export function OrderDetailDrawer({
     queryKey: [`/api/pedidos/${orderId}/documentos`],
     queryFn: async () => {
       if (!orderId) return null;
-      
+
       const response = await fetch(`/api/pedidos/${orderId}/documentos`);
       if (!response.ok) {
         console.error("Erro ao buscar documentos:", response.statusText);
         return null;
       }
-      
+
       return await response.json();
     },
     enabled: !!orderId && open
   });
-  
+
   // Efeito para processar os dados dos documentos quando eles são carregados
   React.useEffect(() => {
     if (documentosData?.temDocumentos) {
@@ -246,20 +246,20 @@ export function OrderDetailDrawer({
       console.log("Documentos carregados do servidor:", documentosData.documentos);
     }
   }, [documentosData]);
-  
+
   // Mutation para upload de documentos - agora usando o servidor real
   const documentUploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       if (!orderId) {
         throw new Error("ID do pedido não encontrado");
       }
-      
+
       try {
         const response = await fetch(`/api/pedidos/${orderId}/documentos`, {
           method: 'POST',
           body: formData
         });
-        
+
         if (!response.ok) {
           // Clonar a resposta para poder ler o corpo múltiplas vezes
           const responseClone = response.clone();
@@ -276,7 +276,7 @@ export function OrderDetailDrawer({
             }
           }
         }
-        
+
         const data = await response.json();
         console.log("Resposta do servidor:", data);
         return data;
@@ -288,17 +288,17 @@ export function OrderDetailDrawer({
     onSuccess: (data) => {
       // Atualizar o estado local
       setDocumentsLoaded(true);
-      
+
       // Invalidar as queries para atualizar os dados
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
-      
+
       // Notificar o usuário
       toast({
         title: "Sucesso",
         description: data.mensagem || "Documentos enviados com sucesso",
       });
-      
+
       // Atualizar a tab para mostrar os documentos carregados
       setActiveTab("tracking");
       setTimeout(() => setActiveTab("documents"), 100);
@@ -322,7 +322,7 @@ export function OrderDetailDrawer({
   // Função para fazer upload de todos os documentos
   const handleUploadDocuments = () => {
     console.log("Iniciando upload de documentos para pedido:", orderId);
-    
+
     if (!orderId) {
       toast({
         title: "Erro",
@@ -331,7 +331,7 @@ export function OrderDetailDrawer({
       });
       return;
     }
-    
+
     // Verificar se todos os três documentos foram selecionados (obrigatórios)
     if (!notaPdf || !notaXml || !certificadoPdf) {
       toast({
@@ -341,7 +341,7 @@ export function OrderDetailDrawer({
       });
       return;
     }
-    
+
     // Verificar tipos de arquivo
     if (notaPdf && notaPdf.type !== 'application/pdf') {
       toast({
@@ -351,7 +351,7 @@ export function OrderDetailDrawer({
       });
       return;
     }
-    
+
     if (notaXml && !notaXml.name.endsWith('.xml') && notaXml.type !== 'text/xml' && notaXml.type !== 'application/xml') {
       toast({
         title: "Formato Inválido",
@@ -360,7 +360,7 @@ export function OrderDetailDrawer({
       });
       return;
     }
-    
+
     if (certificadoPdf && certificadoPdf.type !== 'application/pdf') {
       toast({
         title: "Formato Inválido",
@@ -369,7 +369,7 @@ export function OrderDetailDrawer({
       });
       return;
     }
-    
+
     // Verificar tamanho (máximo 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if ((notaPdf && notaPdf.size > maxSize) || 
@@ -382,7 +382,7 @@ export function OrderDetailDrawer({
       });
       return;
     }
-    
+
     const formData = new FormData();
     // Garantir que os arquivos não sejam nulos antes de anexá-los
     if (notaPdf) {
@@ -394,15 +394,15 @@ export function OrderDetailDrawer({
     if (certificadoPdf) {
       formData.append('certificado_pdf', certificadoPdf as Blob);
     }
-    
+
     toast({
       title: "Enviando documentos",
       description: "Aguarde enquanto os documentos são enviados...",
     });
-    
+
     documentUploadMutation.mutate(formData);
   };
-  
+
   // Função para lidar com a seleção de arquivos
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
     console.log("handleFileChange chamado", e.target.files);
@@ -422,7 +422,7 @@ export function OrderDetailDrawer({
   // Função para confirmar entrega
   const handleConfirmDelivery = async (status: 'aprovado' | 'rejeitado') => {
     if (!orderId) return;
-    
+
     try {
       // Validar quantidade recebida
       if (status === 'aprovado' && !confirmedQuantity) {
@@ -433,7 +433,7 @@ export function OrderDetailDrawer({
         });
         return;
       }
-      
+
       const response = await fetch(`/api/pedidos/${orderId}/confirmar`, {
         method: 'POST',
         headers: {
@@ -444,23 +444,23 @@ export function OrderDetailDrawer({
           quantidadeRecebida: confirmedQuantity
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.mensagem || "Falha ao confirmar entrega");
       }
-      
+
       // Invalidar queries para atualizar os dados
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
-      
+
       toast({
         title: "Sucesso",
         description: status === 'aprovado' 
           ? "Entrega confirmada com sucesso!" 
           : "Entrega rejeitada com sucesso!",
       });
-      
+
       // Fechar o drawer após confirmar
       onOpenChange(false);
     } catch (error) {
@@ -501,7 +501,7 @@ export function OrderDetailDrawer({
               Detalhes completos do pedido
             </DrawerDescription>
           </DrawerHeader>
-          
+
           {!orderDetails ? (
             <div className="flex justify-center items-center py-12">
               <p>Carregando detalhes...</p>
@@ -531,7 +531,7 @@ export function OrderDetailDrawer({
                     <span>Histórico</span>
                   </TabsTrigger>
                 </TabsList>
-                
+
                 {/* Aba de Detalhes */}
                 <TabsContent value="details" className="space-y-4 py-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -541,7 +541,7 @@ export function OrderDetailDrawer({
                         {orderDetails.product?.name} - {formatNumber(orderDetails.quantity)}
                       </p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Local da Obra</h4>
                       <p className="text-base font-medium flex items-center gap-2">
@@ -556,24 +556,24 @@ export function OrderDetailDrawer({
                         </a>
                       </p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Fornecedor</h4>
                       <p className="text-base font-medium">{orderDetails.supplier?.name || "N/A"}</p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Data de Entrega</h4>
                       <p className="text-base font-medium">{formatDate(orderDetails.deliveryDate.toString())}</p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Nº da Ordem de Compra</h4>
                       <p className="text-base font-medium">
                         {orderDetails.purchaseOrder?.orderNumber || "Sem ordem de compra vinculada"}
                       </p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Data de Criação</h4>
                       <p className="text-base font-medium">
@@ -581,7 +581,7 @@ export function OrderDetailDrawer({
                       </p>
                     </div>
                   </div>
-                  
+
                   {/* Linha do tempo */}
                   <Card className="mt-6">
                     <CardHeader>
@@ -589,90 +589,87 @@ export function OrderDetailDrawer({
                     </CardHeader>
                     <CardContent>
                       <div className="relative">
-                        {/* Linha horizontal conectora */}
-                        <div className="absolute top-4 left-4 right-4 h-0.5 bg-border"></div>
-                        
-                        {/* Container horizontal dos steps */}
-                        <div className="flex justify-between items-start relative">
-                          {/* Step 1: Registrado */}
-                          <div className="flex flex-col items-center text-center flex-1">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white mb-2 relative z-10">
-                              <CheckCircle size={18} />
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-sm">Registrado</h4>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {orderDetails.createdAt ? formatDate(orderDetails.createdAt.toString()) : "N/A"}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {/* Step 2: Carregado */}
-                          <div className="flex flex-col items-center text-center flex-1">
-                            <div className={`flex h-8 w-8 items-center justify-center rounded-full mb-2 relative z-10 ${
-                              orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
-                                ? 'bg-primary text-white' 
-                                : 'bg-border text-muted-foreground'
-                            }`}>
-                              {orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
-                                ? <CheckCircle size={18} /> 
-                                : <Circle size={18} />}
-                            </div>
-                            <div>
-                              <h4 className={`font-medium text-sm ${
-                                !(orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') 
-                                  && 'text-muted-foreground'
-                              }`}>Carregado</h4>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
-                                  ? formatDate(new Date().toString()) 
-                                  : "Aguardando"}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {/* Step 3: Em Transporte */}
-                          <div className="flex flex-col items-center text-center flex-1">
-                            <div className={`flex h-8 w-8 items-center justify-center rounded-full mb-2 relative z-10 ${
-                              orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue' 
-                                ? 'bg-primary text-white' 
-                                : 'bg-border text-muted-foreground'
-                            }`}>
-                              {orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue' 
-                                ? <CheckCircle size={18} /> 
-                                : <Circle size={18} />}
-                            </div>
-                            <div>
-                              <h4 className={`font-medium text-sm ${
-                                !(orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') 
-                                  && 'text-muted-foreground'
-                              }`}>Em Transporte</h4>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
-                                  ? formatDate(new Date().toString()) 
-                                  : "Aguardando"}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {/* Step 4: Entregue */}
-                          <div className="flex flex-col items-center text-center flex-1">
-                            <div className={`flex h-8 w-8 items-center justify-center rounded-full mb-2 relative z-10 ${orderDetails.status === 'Entregue' ? 'bg-primary text-white' : 'bg-border text-muted-foreground'}`}>
-                              {orderDetails.status === 'Entregue' ? <CheckCircle size={18} /> : <Circle size={18} />}
-                            </div>
-                            <div>
-                              <h4 className={`font-medium text-sm ${orderDetails.status !== 'Entregue' && 'text-muted-foreground'}`}>Entregue</h4>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {orderDetails.status === 'Entregue' ? "Concluído" : "Aguardando"}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                        {/* Função para determinar se um step foi completado */}
+                        {(() => {
+                          const getStepStatus = (step: string) => {
+                            const status = orderDetails.status;
+                            const statusOrder = ['Registrado', 'Carregado', 'Em Rota', 'Entregue'];
+                            const currentIndex = statusOrder.indexOf(status);
+                            const stepIndex = statusOrder.indexOf(step);
+
+                            if (currentIndex >= stepIndex) {
+                              return 'completed';
+                            }
+                            if (currentIndex === stepIndex - 1) {
+                              return 'current';
+                            }
+                            return 'pending';
+                          };
+
+                          const steps = [
+                            { key: 'Registrado', label: 'Registrado', description: 'Pedido criado' },
+                            { key: 'Carregado', label: 'Carregado', description: 'Documentos enviados' },
+                            { key: 'Em Rota', label: 'Em Rota', description: 'A caminho do destino' },
+                            { key: 'Entregue', label: 'Entregue', description: 'Pedido finalizado' }
+                          ];
+
+                          return (
+                            <>
+                              {/* Linha de progresso */}
+                              <div className="absolute top-4 left-4 right-4 h-0.5 bg-border"></div>
+                              <div 
+                                className="absolute top-4 left-4 h-0.5 bg-primary transition-all duration-300"
+                                style={{
+                                  width: `${Math.max(0, (steps.findIndex(s => s.key === orderDetails.status) / (steps.length - 1)) * 100)}%`
+                                }}
+                              ></div>
+
+                              {/* Container horizontal dos steps */}
+                              <div className="flex justify-between items-start relative">
+                                {steps.map((step, index) => {
+                                  const stepStatus = getStepStatus(step.key);
+
+                                  return (
+                                    <div key={step.key} className="flex flex-col items-center text-center flex-1">
+                                      <div className={`flex h-8 w-8 items-center justify-center rounded-full relative z-10 transition-all duration-300 ${
+                                        stepStatus === 'completed'
+                                          ? 'bg-primary text-primary-foreground' 
+                                          : stepStatus === 'current'
+                                          ? 'bg-primary/20 text-primary border-2 border-primary'
+                                          : 'bg-muted text-muted-foreground'
+                                      }`}>
+                                        {stepStatus === 'completed' ? (
+                                          <CheckCircle size={16} />
+                                        ) : stepStatus === 'current' ? (
+                                          <Clock size={16} />
+                                        ) : (
+                                          <Clock size={16} />
+                                        )}
+                                      </div>
+                                      <div className="mt-2">
+                                        <p className={`text-sm font-medium ${
+                                          stepStatus === 'completed' || stepStatus === 'current'
+                                            ? 'text-foreground' 
+                                            : 'text-muted-foreground'
+                                        }`}>
+                                          {step.label}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {step.description}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
-                
+
                 {/* Aba de Documentos */}
                 <TabsContent value="documents" className="py-4">
                   <Card>
@@ -692,7 +689,7 @@ export function OrderDetailDrawer({
                               Todos os documentos necessários foram enviados e processados com sucesso.
                             </p>
                           </div>
-                          
+
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                             <div className="p-4 border rounded-lg flex flex-col items-center">
                               <button
@@ -736,7 +733,7 @@ export function OrderDetailDrawer({
                               <p className="font-medium text-center">Nota Fiscal (PDF)</p>
                               <p className="text-xs text-muted-foreground text-center mt-1">Clique no ícone para baixar</p>
                             </div>
-                            
+
                             <div className="p-4 border rounded-lg flex flex-col items-center">
                               <button
                                 className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
@@ -779,7 +776,7 @@ export function OrderDetailDrawer({
                               <p className="font-medium text-center">Nota Fiscal (XML)</p>
                               <p className="text-xs text-muted-foreground text-center mt-1">Clique no ícone para baixar</p>
                             </div>
-                            
+
                             <div className="p-4 border rounded-lg flex flex-col items-center">
                               <button
                                 className="w-16 h-16 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
@@ -850,14 +847,14 @@ export function OrderDetailDrawer({
                               <input
                                 key={`nota-pdf-${orderId}`}
                                 type="file"
-                                ref={notaPdfRef}
+                                ref={notaPdfRef}```python
                                 accept=".pdf"
                                 className="hidden"
                                 onChange={(e) => handleFileChange(e, setNotaPdf)}
                               />
                             </div>
                           </div>
-                          
+
                           <div className="space-y-4">
                             <div className="flex items-center space-x-3">
                               <button
@@ -889,7 +886,7 @@ export function OrderDetailDrawer({
                               />
                             </div>
                           </div>
-                          
+
                           <div className="space-y-4">
                             <div className="flex items-center space-x-3">
                               <button
@@ -939,7 +936,7 @@ export function OrderDetailDrawer({
                     )}
                   </Card>
                 </TabsContent>
-                
+
                 {/* Aba de Confirmar Entrega */}
                 <TabsContent value="confirm" className="py-4">
                   <Card>
@@ -998,7 +995,7 @@ export function OrderDetailDrawer({
                     )}
                   </Card>
                 </TabsContent>
-                
+
                 {/* Aba de Rastreamento */}
                 <TabsContent value="tracking" className="py-4">
                   <Card>
@@ -1019,7 +1016,7 @@ export function OrderDetailDrawer({
                     </CardContent>
                   </Card>
                 </TabsContent>
-                
+
                 {/* Aba de Histórico */}
                 <TabsContent value="history" className="py-4">
                   <Card>
