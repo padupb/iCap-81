@@ -580,6 +580,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders", async (req, res) => {
     try {
       const orders = await storage.getAllOrders();
+      
+      // Aplicar regra: se pedido constar na tabela tracking_points, alterar status para "Em transporte"
+      if (pool) {
+        for (const order of orders) {
+          try {
+            // Verificar se existe registro na tabela tracking_points para este pedido
+            const trackingResult = await pool.query(
+              "SELECT id FROM tracking_points WHERE order_id = $1 LIMIT 1",
+              [order.id]
+            );
+            
+            // Se encontrar registro na tracking_points e status não for "Em transporte"
+            if (trackingResult.rows.length > 0 && order.status !== "Em transporte") {
+              // Atualizar status para "Em transporte"
+              await pool.query(
+                "UPDATE orders SET status = $1 WHERE id = $2",
+                ["Em transporte", order.id]
+              );
+              
+              // Atualizar o objeto na resposta
+              order.status = "Em transporte";
+              
+              console.log(`📦 Status do pedido ${order.orderId} alterado para "Em transporte" devido a registro em tracking_points`);
+            }
+          } catch (trackingError) {
+            console.error(`Erro ao verificar tracking_points para pedido ${order.id}:`, trackingError);
+            // Continuar processamento mesmo com erro
+          }
+        }
+      }
+      
       res.json(orders);
     } catch (error) {
       console.error("Erro ao buscar pedidos:", error);
@@ -590,6 +621,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders/urgent", async (req, res) => {
     try {
       const urgentOrders = await storage.getUrgentOrders();
+      
+      // Aplicar regra: se pedido constar na tabela tracking_points, alterar status para "Em transporte"
+      if (pool) {
+        for (const order of urgentOrders) {
+          try {
+            // Verificar se existe registro na tabela tracking_points para este pedido
+            const trackingResult = await pool.query(
+              "SELECT id FROM tracking_points WHERE order_id = $1 LIMIT 1",
+              [order.id]
+            );
+            
+            // Se encontrar registro na tracking_points e status não for "Em transporte"
+            if (trackingResult.rows.length > 0 && order.status !== "Em transporte") {
+              // Atualizar status para "Em transporte"
+              await pool.query(
+                "UPDATE orders SET status = $1 WHERE id = $2",
+                ["Em transporte", order.id]
+              );
+              
+              // Atualizar o objeto na resposta
+              order.status = "Em transporte";
+              
+              console.log(`📦 Status do pedido urgente ${order.orderId} alterado para "Em transporte" devido a registro em tracking_points`);
+            }
+          } catch (trackingError) {
+            console.error(`Erro ao verificar tracking_points para pedido urgente ${order.id}:`, trackingError);
+            // Continuar processamento mesmo com erro
+          }
+        }
+      }
+      
       res.json(urgentOrders);
     } catch (error) {
       console.error("Erro ao buscar pedidos urgentes:", error);
