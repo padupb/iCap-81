@@ -581,7 +581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orders = await storage.getAllOrders();
 
-      
+
 
       res.json(orders);
     } catch (error) {
@@ -594,7 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const urgentOrders = await storage.getUrgentOrders();
 
-      
+
 
       res.json(urgentOrders);
     } catch (error) {
@@ -2228,7 +2228,38 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
-  
+  // Configurações
+  app.get('/api/settings', async (req, res) => {
+    try {
+      const settings = await storage.getAllSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Erro ao buscar configurações:", error);
+      res.status(500).json({ message: "Erro ao buscar configurações" });
+    }
+  });
+
+  app.post('/api/settings', isAuthenticated, async (req, res) => {
+    try {
+      const { key, value, description } = req.body;
+
+      if (!key || value === undefined) {
+        return res.status(400).json({ message: 'Chave e valor são obrigatórios' });
+      }
+
+      // Criar ou atualizar a configuração
+      await storage.createOrUpdateSetting({
+        key: key,
+        value: value,
+        description: description || ""
+      });
+
+      res.json({ success: true, message: 'Configuração salva com sucesso' });
+    } catch (error) {
+      console.error('Erro ao salvar configuração:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
 
   // Rota de debug para verificar configurações do keyuser
   app.get("/api/debug/keyuser-config", async (req, res) => {

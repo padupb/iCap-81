@@ -27,6 +27,17 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
   const [map, setMap] = useState<any>(null);
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string>('');
+
+  // Buscar configurações do sistema
+  const { data: settings = [] } = useQuery({
+    queryKey: ['/api/settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings');
+      if (!response.ok) throw new Error('Falha ao carregar configurações');
+      return response.json();
+    },
+  });
 
   // Buscar pontos de rastreamento
   const { data: trackingPoints = [], isLoading } = useQuery<TrackingPoint[]>({
@@ -41,8 +52,22 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     refetchInterval: 30000, // Atualizar a cada 30 segundos
   });
 
+  // Extrair chave da API do Google Maps das configurações
+  useEffect(() => {
+    if (settings && settings.length > 0) {
+      const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
+      if (googleMapsKeySetting && googleMapsKeySetting.value) {
+        setGoogleMapsApiKey(googleMapsKeySetting.value);
+      }
+    }
+  }, [settings]);
+
   // Carregar Google Maps API
   useEffect(() => {
+    if (!googleMapsApiKey) {
+      return; // Aguardar chave da API ser carregada
+    }
+
     const loadGoogleMaps = () => {
       if (window.google) {
         setIsGoogleMapsLoaded(true);
@@ -59,26 +84,36 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
       }
 
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw&libraries=geometry`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=geometry,places`;
       script.async = true;
       script.defer = true;
       script.onload = () => {
         console.log('Google Maps API carregada com sucesso');
-        setIsGoogleMapsLoaded(true);
+        if (window.google && window.google.maps) {
+          setIsGoogleMapsLoaded(true);
+        } else {
+          setMapError('Google Maps API carregada mas não está disponível');
+        }
       };
-      script.onerror = () => {
-        console.error('Erro ao carregar Google Maps API');
-        setMapError('Erro ao carregar Google Maps API');
+      script.onerror = (error) => {
+        console.error('Erro ao carregar Google Maps API:', error);
+        setMapError('Falha ao carregar a API do Google Maps. Verifique sua chave de API.');
       };
       document.head.appendChild(script);
     };
 
     loadGoogleMaps();
-  }, []);
+  }, [googleMapsApiKey]);
 
   // Inicializar mapa quando Google Maps carregar
   useEffect(() => {
     if (!isGoogleMapsLoaded || !mapRef.current || map) return;
+
+    // Verificar se o Google Maps está realmente disponível
+    if (!window.google || !window.google.maps) {
+      setMapError('Google Maps API não está disponível');
+      return;
+    }
 
     try {
       console.log('Inicializando Google Maps...');
@@ -108,7 +143,7 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
       setMap(newMap);
     } catch (error) {
       console.error('Erro ao inicializar mapa:', error);
-      setMapError('Erro ao inicializar o mapa');
+      setMapError(`Erro ao inicializar o mapa: ${error.message || 'Erro desconhecido'}`);
     }
   }, [isGoogleMapsLoaded, map]);
 
@@ -242,10 +277,20 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
   if (mapError) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="text-4xl mb-2">🗺️</div>
-          <p className="text-sm text-red-600 font-medium">Erro ao carregar mapa</p>
-          <p className="text-xs text-gray-500 mt-1">{mapError}</p>
+        <div className="text-center p-4">
+          <div className="text-4xl mb-3">🗺️</div>
+          <p className="text-sm text-red-600 font-medium mb-2">Erro ao carregar Google Maps</p>
+          <p className="text-xs text-gray-600 mb-3 max-w-md">{mapError}</p>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3 text-left max-w-md">
+            <p className="text-xs text-yellow-800 font-medium mb-1">Instruções:</p>
+            <ul className="text-xs text-yellow-700 space-y-1">
+              <li>• Verifique se a chave da API do Google Maps está configurada</li>
+              <li>• Acesse as Configurações para definir a chave</li>
+              <li>• Certifique-se de que a API Maps JavaScript está habilitada</li>
+            </ul>
+          </div>
+          
           <button 
             onClick={() => {
               setMapError(null);
@@ -256,6 +301,23 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
           >
             Tentar novamente
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!googleMapsApiKey) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+        <div className="text-center p-4">
+          <div className="text-4xl mb-3">⚙️</div>
+          <p className="text-sm text-yellow-600 font-medium mb-2">Configuração necessária</p>
+          <p className="text-xs text-gray-600 mb-3 max-w-md">
+            A chave da API do Google Maps não foi configurada.
+          </p>
+          <p className="text-xs text-blue-600">
+            Acesse Configurações → Google Maps API Key para configurar.
+          </p>
         </div>
       </div>
     );
