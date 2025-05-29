@@ -1,3 +1,4 @@
+
 import { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 
@@ -18,57 +19,64 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       });
     }
 
-  try {
-    // Buscar usuário
-    const user = await storage.getUser(req.session.userId);
+    try {
+      // Buscar usuário
+      const user = await storage.getUser(req.session.userId);
 
-    if (!user) {
-      // Limpar a sessão se o usuário não for encontrado
-      req.session.destroy((err) => {
-        if (err) {
-          console.error("Erro ao destruir sessão:", err);
-        }
-      });
+      if (!user) {
+        // Limpar a sessão se o usuário não for encontrado
+        req.session.destroy((err) => {
+          if (err) {
+            console.error("Erro ao destruir sessão:", err);
+          }
+        });
 
-      return res.status(401).json({ 
-        success: false, 
-        message: "Usuário não encontrado" 
-      });
-    }
-
-    // Verificar se é o usuário KeyUser (ID = 1)
-    const isRealKeyUser = user.id === 1;
-
-    // Buscar a função do usuário e suas permissões
-    let permissions: string[] = [];
-    let role = null;
-
-    if (user.roleId && !isRealKeyUser) {
-      role = await storage.getUserRole(user.roleId);
-      if (role && role.permissions) {
-        permissions = role.permissions;
+        return res.status(401).json({ 
+          success: false, 
+          message: "Usuário não encontrado" 
+        });
       }
-    } else if (isRealKeyUser) {
-      // Para o keyuser real, criar função virtual
-      role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
-      permissions = ["*"];
+
+      // Verificar se é o usuário KeyUser (ID = 1)
+      const isRealKeyUser = user.id === 1;
+
+      // Buscar a função do usuário e suas permissões
+      let permissions: string[] = [];
+      let role = null;
+
+      if (user.roleId && !isRealKeyUser) {
+        role = await storage.getUserRole(user.roleId);
+        if (role && role.permissions) {
+          permissions = role.permissions;
+        }
+      } else if (isRealKeyUser) {
+        // Para o keyuser real, criar função virtual
+        role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
+        permissions = ["*"];
+      }
+
+      // Adicionar o usuário com suas permissões ao objeto de requisição
+      req.user = {
+        ...user,
+        isKeyUser: isRealKeyUser,
+        isDeveloper: isRealKeyUser,
+        permissions,
+        role
+      };
+
+      next();
+    } catch (error) {
+      console.error("Erro ao verificar autenticação:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao verificar autenticação" 
+      });
     }
-
-    // Adicionar o usuário com suas permissões ao objeto de requisição
-    req.user = {
-      ...user,
-      isKeyUser: isRealKeyUser,
-      isDeveloper: isRealKeyUser,
-      permissions,
-      role
-    };
-
-    next();
   } catch (error) {
-    console.error("Erro ao verificar autenticação:", error);
+    console.error("Erro geral no middleware de autenticação:", error);
     res.status(500).json({ 
       success: false, 
-      message: "Erro ao verificar autenticação" 
+      message: "Erro interno do servidor" 
     });
   }
 };
@@ -118,7 +126,7 @@ export const isKeyUser = (req: Request, res: Response, next: NextFunction) => {
   }
 
   // Verificar se é o keyuser
-  if (req.user.isKeyUser === true || req.user.id === 9999) {
+  if (req.user.isKeyUser === true || req.user.id === 1) {
     return next();
   }
 
