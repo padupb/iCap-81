@@ -591,8 +591,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               [order.id]
             );
             
-            // Se encontrar registro na tracking_points e status não for "Em transporte"
-            if (trackingResult.rows.length > 0 && order.status !== "Em transporte") {
+            // Se encontrar registro na tracking_points e status não for "Em transporte" nem "Entregue"
+            if (trackingResult.rows.length > 0 && !["Em transporte", "Entregue"].includes(order.status)) {
               // Atualizar status para "Em transporte"
               await pool.query(
                 "UPDATE orders SET status = $1 WHERE id = $2",
@@ -632,8 +632,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               [order.id]
             );
             
-            // Se encontrar registro na tracking_points e status não for "Em transporte"
-            if (trackingResult.rows.length > 0 && order.status !== "Em transporte") {
+            // Se encontrar registro na tracking_points e status não for "Em transporte" nem "Entregue"
+            if (trackingResult.rows.length > 0 && !["Em transporte", "Entregue"].includes(order.status)) {
               // Atualizar status para "Em transporte"
               await pool.query(
                 "UPDATE orders SET status = $1 WHERE id = $2",
@@ -2186,6 +2186,58 @@ mensagem: "Erro interno do servidor ao processar o upload",
       res.status(500).json({ 
         sucesso: false, 
         mensagem: "Erro ao confirmar entrega" 
+      });
+    }
+  });
+
+  // Rota para forçar atualização de status baseada em tracking_points
+  app.post("/api/orders/update-status-from-tracking", isAuthenticated, async (req, res) => {
+    try {
+      console.log("🔄 Iniciando atualização forçada de status baseada em tracking_points...");
+      
+      let updatedCount = 0;
+      
+      // Buscar todos os pedidos
+      const ordersResult = await pool.query("SELECT id, order_id, status FROM orders");
+      
+      for (const order of ordersResult.rows) {
+        try {
+          // Verificar se existe registro na tabela tracking_points para este pedido
+          const trackingResult = await pool.query(
+            "SELECT id FROM tracking_points WHERE order_id = $1 LIMIT 1",
+            [order.id]
+          );
+          
+          // Se encontrar registro na tracking_points e status não for "Em transporte" nem "Entregue"
+          if (trackingResult.rows.length > 0 && !["Em transporte", "Entregue"].includes(order.status)) {
+            // Atualizar status para "Em transporte"
+            await pool.query(
+              "UPDATE orders SET status = $1 WHERE id = $2",
+              ["Em transporte", order.id]
+            );
+            
+            updatedCount++;
+            console.log(`📦 Status do pedido ${order.order_id} alterado para "Em transporte"`);
+          }
+        } catch (trackingError) {
+          console.error(`Erro ao verificar tracking_points para pedido ${order.id}:`, trackingError);
+        }
+      }
+      
+      console.log(`✅ Atualização concluída: ${updatedCount} pedidos atualizados`);
+      
+      res.json({
+        success: true,
+        message: `${updatedCount} pedidos foram atualizados para "Em transporte"`,
+        updatedCount
+      });
+      
+    } catch (error) {
+      console.error("Erro ao atualizar status dos pedidos:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao atualizar status dos pedidos",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }
   });
