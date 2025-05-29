@@ -595,14 +595,12 @@ export function OrderDetailDrawer({
                           const currentStatus = orderDetails.status;
                           
                           const getStepStatus = (stepKey: string) => {
-                            // Normalizar o status atual para tratar "Em transporte" como "Em Rota"
-                            const normalizedStatus = currentStatus === 'Em transporte' ? 'Em Rota' : currentStatus;
-                            
                             // Mapear os status possíveis para suas posições na linha do tempo
                             const statusHierarchy: { [key: string]: number } = {
                               'Registrado': 0,
                               'Carregado': 1,
                               'Em Rota': 2,
+                              'Em transporte': 2, // Mesmo nível que Em Rota
                               'Entregue': 3,
                               'Recusado': -1 // Status especial
                             };
@@ -614,7 +612,7 @@ export function OrderDetailDrawer({
                               'Entregue': 3
                             };
 
-                            const currentLevel = statusHierarchy[normalizedStatus] ?? 0;
+                            const currentLevel = statusHierarchy[currentStatus] ?? 0;
                             const stepLevel = stepHierarchy[stepKey] ?? 0;
 
                             // Se o pedido foi recusado, mostrar apenas o primeiro step como completed
@@ -656,7 +654,7 @@ export function OrderDetailDrawer({
                                       'Entregue': 100,
                                       'Recusado': 0
                                     };
-                                    return statusProgress[orderDetails.status] || 0;
+                                    return statusProgress[currentStatus] || 0;
                                   })()}%`
                                 }}
                               ></div>
