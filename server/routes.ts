@@ -581,75 +581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orders = await storage.getAllOrders();
 
-      // Aplicar regra: se pedido constar na tabela tracking_points, alterar status seguindo progressão correta
-      if (pool) {
-        for (const order of orders) {
-          try {
-            // Verificar se existe registro na tabela tracking_points para este pedido
-            const trackingResult = await pool.query(
-              "SELECT id FROM tracking_points WHERE order_id = $1 LIMIT 1",
-              [order.id]
-            );
-
-            // Se encontrar registro na tracking_points, aplicar lógica de progressão de status
-            if (trackingResult.rows.length > 0) {
-              let novoStatus = null;
-              let atualizarDocumentos = false;
-
-              // Determinar o novo status baseado na progressão natural
-              if (order.status === "Registrado" || order.status === "Em Aprovação") {
-                // Verificar se há documentos carregados para determinar progressão correta
-                const docResult = await pool.query(
-                  "SELECT documentosinfo, documentoscarregados FROM orders WHERE id = $1",
-                  [order.id]
-                );
-
-                if (docResult.rows.length > 0) {
-                  const temDocumentos = docResult.rows[0].documentosinfo !== null;
-                  const flagDocumentos = docResult.rows[0].documentoscarregados;
-
-                  if (temDocumentos && !flagDocumentos) {
-                    // Tem documentos mas flag não está marcada - corrigir flag e ir para "Carregado"
-                    novoStatus = "Carregado";
-                    atualizarDocumentos = true;
-                  } else if (temDocumentos && flagDocumentos) {
-                    // Tem documentos e flag está correta - ir para "Em transporte"
-                    novoStatus = "Em transporte";
-                  } else {
-                    // Não tem documentos - pular "Carregado" e ir direto para "Em transporte"
-                    novoStatus = "Em transporte";
-                  }
-                }
-              } else if (order.status === "Carregado") {
-                // Se estava carregado e tem tracking, vai para "Em transporte"
-                novoStatus = "Em transporte";
-              }
-              // Se já está "Em transporte" ou "Entregue", não alterar
-
-              if (novoStatus && order.status !== novoStatus) {
-                if (atualizarDocumentos) {
-                  await pool.query(
-                    "UPDATE orders SET status = $1, documentoscarregados = true WHERE id = $2",
-                    [novoStatus, order.id]
-                  );
-                  order.documentosCarregados = true;
-                } else {
-                  await pool.query(
-                    "UPDATE orders SET status = $1 WHERE id = $2",
-                    [novoStatus, order.id]
-                  );
-                }
-
-                order.status = novoStatus;
-                console.log(`📦 Status do pedido ${order.orderId} alterado para "${novoStatus}" devido a registro em tracking_points (documentos=${order.documentosCarregados})`);
-              }
-            }
-          } catch (trackingError) {
-            console.error(`Erro ao verificar tracking_points para pedido ${order.id}:`, trackingError);
-            // Continuar processamento mesmo com erro
-          }
-        }
-      }
+      
 
       res.json(orders);
     } catch (error) {
@@ -662,75 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const urgentOrders = await storage.getUrgentOrders();
 
-      // Aplicar regra: se pedido constar na tabela tracking_points, alterar status seguindo progressão correta
-      if (pool) {
-        for (const order of urgentOrders) {
-          try {
-            // Verificar se existe registro na tabela tracking_points para este pedido
-            const trackingResult = await pool.query(
-              "SELECT id FROM tracking_points WHERE order_id = $1 LIMIT 1",
-              [order.id]
-            );
-
-            // Se encontrar registro na tracking_points, aplicar lógica de progressão de status
-            if (trackingResult.rows.length > 0) {
-              let novoStatus = null;
-              let atualizarDocumentos = false;
-
-              // Determinar o novo status baseado na progressão natural
-              if (order.status === "Registrado" || order.status === "Em Aprovação") {
-                // Verificar se há documentos carregados para determinar progressão correta
-                const docResult = await pool.query(
-                  "SELECT documentosinfo, documentoscarregados FROM orders WHERE id = $1",
-                  [order.id]
-                );
-
-                if (docResult.rows.length > 0) {
-                  const temDocumentos = docResult.rows[0].documentosinfo !== null;
-                  const flagDocumentos = docResult.rows[0].documentoscarregados;
-
-                  if (temDocumentos && !flagDocumentos) {
-                    // Tem documentos mas flag não está marcada - corrigir flag e ir para "Carregado"
-                    novoStatus = "Carregado";
-                    atualizarDocumentos = true;
-                  } else if (temDocumentos && flagDocumentos) {
-                    // Tem documentos e flag está correta - ir para "Em transporte"
-                    novoStatus = "Em transporte";
-                  } else {
-                    // Não tem documentos - pular "Carregado" e ir direto para "Em transporte"
-                    novoStatus = "Em transporte";
-                  }
-                }
-              } else if (order.status === "Carregado") {
-                // Se estava carregado e tem tracking, vai para "Em transporte"
-                novoStatus = "Em transporte";
-              }
-              // Se já está "Em transporte" ou "Entregue", não alterar
-
-              if (novoStatus && order.status !== novoStatus) {
-                if (atualizarDocumentos) {
-                  await pool.query(
-                    "UPDATE orders SET status = $1, documentoscarregados = true WHERE id = $2",
-                    [novoStatus, order.id]
-                  );
-                  order.documentosCarregados = true;
-                } else {
-                  await pool.query(
-                    "UPDATE orders SET status = $1 WHERE id = $2",
-                    [novoStatus, order.id]
-                  );
-                }
-
-                order.status = novoStatus;
-                console.log(`📦 Status do pedido urgente ${order.orderId} alterado para "${novoStatus}" devido a registro em tracking_points (documentos=${order.documentosCarregados})`);
-              }
-            }
-          } catch (trackingError) {
-            console.error(`Erro ao verificar tracking_points para pedido urgente ${order.id}:`, trackingError);
-            // Continuar processamento mesmo com erro
-          }
-        }
-      }
+      
 
       res.json(urgentOrders);
     } catch (error) {
@@ -2270,57 +2134,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
-  // Rota para forçar atualização de status baseada em tracking_points
-  app.post("/api/orders/update-status-from-tracking", isAuthenticated, async (req, res) => {
-    try {
-      console.log("🔄 Iniciando atualização forçada de status baseada em tracking_points...");
-
-      let updatedCount = 0;
-
-      // Buscar todos os pedidos
-      const ordersResult = await pool.query("SELECT id, order_id, status FROM orders");
-
-      for (const order of ordersResult.rows) {
-        try {
-          // Verificar se existe registro na tabela tracking_points para este pedido
-          const trackingResult = await pool.query(
-            "SELECT id FROM tracking_points WHERE order_id = $1 LIMIT 1",
-            [order.id]
-          );
-
-          // Se encontrar registro na tracking_points e status não for "Em transporte" nem "Entregue"
-          if (trackingResult.rows.length > 0 && !["Em transporte", "Entregue"].includes(order.status)) {
-            // Atualizar status para "Em transporte"
-            await pool.query(
-              "UPDATE orders SET status = $1 WHERE id = $2",
-              ["Em transporte", order.id]
-            );
-
-            updatedCount++;
-            console.log(`📦 Status do pedido ${order.order_id} alterado para "Em transporte"`);
-          }
-        } catch (trackingError) {
-          console.error(`Erro ao verificar tracking_points para pedido ${order.id}:`, trackingError);
-        }
-      }
-
-      console.log(`✅ Atualização concluída: ${updatedCount} pedidos atualizados`);
-
-      res.json({
-        success: true,
-        message: `${updatedCount} pedidos foram atualizados para "Em transporte"`,
-        updatedCount
-      });
-
-    } catch (error) {
-      console.error("Erro ao atualizar status dos pedidos:", error);
-      res.status(500).json({
-        success: false,
-        message: "Erro ao atualizar status dos pedidos",
-        error: error instanceof Error ? error.message : "Erro desconhecido"
-      });
-    }
-  });
+  
 
   // Rota de debug para verificar configurações do keyuser
   app.get("/api/debug/keyuser-config", async (req, res) => {
