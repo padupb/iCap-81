@@ -2101,7 +2101,12 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Buscar pontos de rastreamento ordenados por data de criação
       const result = await pool.query(
-        `SELECT id, order_id as "orderId", latitude, longitude, created_at as "createdAt"
+        `SELECT 
+          id, 
+          order_id as "orderId", 
+          CAST(latitude AS DECIMAL(10,6)) as latitude, 
+          CAST(longitude AS DECIMAL(11,6)) as longitude, 
+          created_at as "createdAt"
          FROM tracking_points 
          WHERE order_id = $1 
          ORDER BY created_at ASC`,
@@ -2110,22 +2115,28 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       console.log(`📍 Encontrados ${result.rows.length} pontos de rastreamento`);
 
-      const trackingPoints = result.rows.map((row: any) => ({
-        id: row.id,
-        orderId: row.orderId,
-        latitude: parseFloat(row.latitude || 0),
-        longitude: parseFloat(row.longitude || 0),
-        createdAt: row.createdAt
-      }));
+      const trackingPoints = result.rows.map((row: any) => {
+        const latitude = parseFloat(row.latitude);
+        const longitude = parseFloat(row.longitude);
+        
+        console.log(`🔍 Processando ponto: lat=${latitude}, lng=${longitude}`);
+        
+        return {
+          id: row.id,
+          orderId: row.orderId,
+          latitude: isNaN(latitude) ? 0 : latitude,
+          longitude: isNaN(longitude) ? 0 : longitude,
+          createdAt: row.createdAt
+        };
+      });
 
       // Log detalhado dos dados brutos do banco
       if (result.rows.length > 0) {
         console.log(`🔍 Dados brutos do banco:`, result.rows[0]);
-        console.log(`🔍 Latitude original: "${result.rows[0].latitude}" (tipo: ${typeof result.rows[0].latitude})`);
-        console.log(`🔍 Longitude original: "${result.rows[0].longitude}" (tipo: ${typeof result.rows[0].longitude})`);
+        console.log(`🔍 Primeiro ponto formatado:`, trackingPoints[0]);
       }
 
-      console.log(`📊 Pontos formatados:`, trackingPoints.slice(0, 2)); // Log apenas os primeiros 2 pontos
+      console.log(`📊 Total de pontos válidos:`, trackingPoints.filter(p => p.latitude !== 0 && p.longitude !== 0).length);
 
       res.json(trackingPoints);
     } catch (error) {
