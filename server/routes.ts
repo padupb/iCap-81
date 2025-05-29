@@ -902,7 +902,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rota de compatibilidade para o frontend que ainda usa /api/purchase-orders
-```text
   app.get("/api/purchase-orders", async (req, res) => {
     try {
       // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
