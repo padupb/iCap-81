@@ -1,3 +1,4 @@
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -7,9 +8,25 @@ import { storage } from "./storage";
 import { db, pool } from "./db";
 import multer from "multer";
 import path from "path";
+
 console.log('DATABASE_URL em index.ts (via Secrets):', process.env.DATABASE_URL);
 
 const app = express();
+
+// Configuração CORS mais robusta
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Credentials", "true");
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -29,16 +46,6 @@ const upload = multer({ storage: uploadStorage });
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/public", express.static(path.join(process.cwd(), "public")));
-
-// Middleware para CORS em desenvolvimento
-if (process.env.NODE_ENV === "development") {
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    next();
-  });
-}
 
 app.use(
   session({
