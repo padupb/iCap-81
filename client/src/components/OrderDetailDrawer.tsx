@@ -56,6 +56,7 @@ import {
   Download
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder } from "@shared/schema";
+import { GoogleMapsTracking } from "./GoogleMapsTracking";
 
 interface OrderDetailDrawerProps {
   open: boolean;
@@ -1041,16 +1042,40 @@ export function OrderDetailDrawer({
                     <CardHeader>
                       <CardTitle>Rastreamento do Pedido</CardTitle>
                       <CardDescription>
-                        Acompanhe o status atual do pedido e atualizações de localização
+                        Acompanhe o trajeto do pedido através do Google Maps
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-center py-6">
-                        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Rastreamento em desenvolvimento</h3>
-                        <p className="text-muted-foreground">
-                          O rastreamento detalhado estará disponível em breve. Por enquanto, você pode acompanhar o status geral do pedido.
-                        </p>
+                      <div className="space-y-4">
+                        {/* Container do Google Maps */}
+                        <div className="w-full h-96 bg-gray-100 rounded-lg overflow-hidden relative">
+                          <GoogleMapsTracking orderId={orderId} />
+                        </div>
+                        
+                        {/* Informações do rastreamento */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                          <div className="text-center p-4 border rounded-lg">
+                            <MapPin className="mx-auto text-blue-500 mb-2" size={24} />
+                            <p className="text-sm font-medium">Posição Atual</p>
+                            <p className="text-xs text-muted-foreground">
+                              {orderDetails?.status === 'Em Rota' ? 'Em movimento' : 'Parado'}
+                            </p>
+                          </div>
+                          <div className="text-center p-4 border rounded-lg">
+                            <Clock className="mx-auto text-orange-500 mb-2" size={24} />
+                            <p className="text-sm font-medium">Última Atualização</p>
+                            <p className="text-xs text-muted-foreground">
+                              Há poucos minutos
+                            </p>
+                          </div>
+                          <div className="text-center p-4 border rounded-lg">
+                            <MapPin className="mx-auto text-green-500 mb-2" size={24} />
+                            <p className="text-sm font-medium">Destino</p>
+                            <p className="text-xs text-muted-foreground">
+                              {orderDetails?.workLocation}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

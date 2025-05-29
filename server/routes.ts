@@ -2069,6 +2069,100 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
+  // Rota para buscar pontos de rastreamento de um pedido
+  app.get("/api/tracking-points/:orderId", async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      // Buscar pontos de rastreamento ordenados por data de criação
+      const result = await pool.query(
+        `SELECT id, order_id as "orderId", latitude, longitude, created_at as "createdAt"
+         FROM tracking_points 
+         WHERE order_id = $1 
+         ORDER BY created_at ASC`,
+        [orderId]
+      );
+
+      const trackingPoints = result.rows.map((row: any) => ({
+        id: row.id,
+        orderId: row.orderId,
+        latitude: parseFloat(row.latitude),
+        longitude: parseFloat(row.longitude),
+        createdAt: row.createdAt
+      }));
+
+      res.json(trackingPoints);
+    } catch (error) {
+      console.error("Erro ao buscar pontos de rastreamento:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao buscar pontos de rastreamento" 
+      });
+    }
+  });
+
+  // Rota para adicionar ponto de rastreamento (usado pelo app mobile)
+  app.post("/api/tracking-points", async (req, res) => {
+    try {
+      const { orderId, latitude, longitude } = req.body;
+
+      if (!orderId || !latitude || !longitude) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Dados incompletos: orderId, latitude e longitude são obrigatórios"
+        });
+      }
+
+      // Verificar se o pedido existe
+      const orderCheck = await pool.query(
+        "SELECT id, order_id FROM orders WHERE id = $1",
+        [orderId]
+      );
+
+      if (!orderCheck.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      // Inserir novo ponto de rastreamento
+      const result = await pool.query(
+        `INSERT INTO tracking_points (order_id, latitude, longitude, created_at)
+         VALUES ($1, $2, $3, NOW())
+         RETURNING id, order_id as "orderId", latitude, longitude, created_at as "createdAt"`,
+        [orderId, latitude, longitude]
+      );
+
+      const newPoint = {
+        id: result.rows[0].id,
+        orderId: result.rows[0].orderId,
+        latitude: parseFloat(result.rows[0].latitude),
+        longitude: parseFloat(result.rows[0].longitude),
+        createdAt: result.rows[0].createdAt
+      };
+
+      res.json({
+        sucesso: true,
+        mensagem: "Ponto de rastreamento adicionado com sucesso",
+        ponto: newPoint
+      });
+    } catch (error) {
+      console.error("Erro ao adicionar ponto de rastreamento:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao adicionar ponto de rastreamento"
+      });
+    }
+  });
+
   // Rota para confirmar entrega de pedido
   app.post("/api/pedidos/:id/confirmar", async (req, res) => {
     try {
