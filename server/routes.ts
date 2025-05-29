@@ -2081,6 +2081,24 @@ mensagem: "Erro interno do servidor ao processar o upload",
         });
       }
 
+      console.log(`🔍 Buscando pontos de rastreamento para pedido ID: ${orderId}`);
+
+      // Verificar se o pedido existe
+      const orderCheck = await pool.query(
+        "SELECT id, order_id FROM orders WHERE id = $1",
+        [orderId]
+      );
+
+      if (!orderCheck.rows.length) {
+        console.log(`❌ Pedido ${orderId} não encontrado`);
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      console.log(`📦 Pedido encontrado: ${orderCheck.rows[0].order_id}`);
+
       // Buscar pontos de rastreamento ordenados por data de criação
       const result = await pool.query(
         `SELECT id, order_id as "orderId", latitude, longitude, created_at as "createdAt"
@@ -2090,6 +2108,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
         [orderId]
       );
 
+      console.log(`📍 Encontrados ${result.rows.length} pontos de rastreamento`);
+
       const trackingPoints = result.rows.map((row: any) => ({
         id: row.id,
         orderId: row.orderId,
@@ -2097,6 +2117,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
         longitude: parseFloat(row.longitude),
         createdAt: row.createdAt
       }));
+
+      console.log(`📊 Pontos formatados:`, trackingPoints.slice(0, 2)); // Log apenas os primeiros 2 pontos
 
       res.json(trackingPoints);
     } catch (error) {

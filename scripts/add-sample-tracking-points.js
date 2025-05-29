@@ -27,16 +27,22 @@ async function addSampleTrackingPoints() {
       return;
     }
 
-    // Buscar um pedido para adicionar pontos de rastreamento
-    const orderResult = await pool.query('SELECT id, order_id FROM orders LIMIT 1');
+    // Buscar pedidos existentes
+    const orderResult = await pool.query('SELECT id, order_id FROM orders ORDER BY id DESC LIMIT 5');
     
     if (orderResult.rows.length === 0) {
       console.log('❌ Nenhum pedido encontrado para adicionar pontos de rastreamento.');
       return;
     }
 
+    console.log(`📦 Encontrados ${orderResult.rows.length} pedidos:`);
+    orderResult.rows.forEach(order => {
+      console.log(`  - ID: ${order.id}, Código: ${order.order_id}`);
+    });
+
+    // Usar o primeiro pedido para adicionar pontos
     const order = orderResult.rows[0];
-    console.log(`📦 Adicionando pontos para o pedido ID: ${order.id} (${order.order_id})`);
+    console.log(`📍 Adicionando pontos para o pedido ID: ${order.id} (${order.order_id})`);
 
     // Pontos de exemplo (rota hipotética de São Paulo para Brasília)
     const samplePoints = [
@@ -52,6 +58,7 @@ async function addSampleTrackingPoints() {
 
     // Limpar pontos existentes para este pedido
     await pool.query('DELETE FROM tracking_points WHERE order_id = $1', [order.id]);
+    console.log(`🗑️ Pontos antigos removidos para o pedido ${order.id}`);
 
     // Adicionar novos pontos com intervalos de tempo
     const baseDate = new Date();
@@ -69,8 +76,30 @@ async function addSampleTrackingPoints() {
       console.log(`📍 Ponto ${i + 1}: ${point.description} (${point.lat}, ${point.lng})`);
     }
 
+    // Verificar se os pontos foram inseridos
+    const verifyResult = await pool.query(
+      'SELECT COUNT(*) as total FROM tracking_points WHERE order_id = $1',
+      [order.id]
+    );
+
     console.log('✅ Pontos de rastreamento de exemplo adicionados com sucesso!');
+    console.log(`📊 Total de pontos inseridos: ${verifyResult.rows[0].total}`);
     console.log(`🔗 Acesse o pedido ${order.order_id} na aba "Rastreamento" para ver o mapa.`);
+
+    // Mostrar todos os pedidos que agora têm pontos de rastreamento
+    const allPointsResult = await pool.query(`
+      SELECT DISTINCT o.id, o.order_id, COUNT(tp.id) as pontos
+      FROM orders o
+      LEFT JOIN tracking_points tp ON o.id = tp.order_id
+      GROUP BY o.id, o.order_id
+      HAVING COUNT(tp.id) > 0
+      ORDER BY o.id DESC
+    `);
+
+    console.log('\n📋 Pedidos com pontos de rastreamento:');
+    allPointsResult.rows.forEach(row => {
+      console.log(`  - Pedido ${row.order_id} (ID: ${row.id}): ${row.pontos} pontos`);
+    });
 
   } catch (error) {
     console.error('❌ Erro ao adicionar pontos de rastreamento:', error);
@@ -79,4 +108,9 @@ async function addSampleTrackingPoints() {
   }
 }
 
-addSampleTrackingPoints();
+// Executar se chamado diretamente
+if (require.main === module) {
+  addSampleTrackingPoints();
+}
+
+module.exports = addSampleTrackingPoints;

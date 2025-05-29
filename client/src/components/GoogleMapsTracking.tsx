@@ -44,9 +44,12 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     queryKey: [`/api/tracking-points/${orderId}`],
     queryFn: async () => {
       if (!orderId) return [];
+      console.log(`🔍 Buscando pontos de rastreamento para pedido: ${orderId}`);
       const response = await fetch(`/api/tracking-points/${orderId}`);
       if (!response.ok) throw new Error('Falha ao carregar pontos de rastreamento');
-      return response.json();
+      const data = await response.json();
+      console.log(`📍 Pontos recebidos:`, data);
+      return data;
     },
     enabled: !!orderId,
     refetchInterval: 30000, // Atualizar a cada 30 segundos
