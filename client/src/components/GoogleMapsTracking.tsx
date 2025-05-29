@@ -57,18 +57,11 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
 
   // Extrair chave da API do Google Maps das configurações
   useEffect(() => {
-    console.log('🔧 Settings recebidas:', settings);
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      console.log('🗝️ Configuração Google Maps encontrada:', googleMapsKeySetting);
       if (googleMapsKeySetting && googleMapsKeySetting.value) {
-        console.log('✅ Chave da API definida:', googleMapsKeySetting.value.substring(0, 10) + '...');
         setGoogleMapsApiKey(googleMapsKeySetting.value);
-      } else {
-        console.log('❌ Chave da API do Google Maps não encontrada ou vazia');
       }
-    } else {
-      console.log('❌ Nenhuma configuração encontrada');
     }
   }, [settings]);
 
@@ -325,34 +318,9 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
           <p className="text-xs text-gray-600 mb-3 max-w-md">
             A chave da API do Google Maps não foi configurada.
           </p>
-          <p className="text-xs text-blue-600 mb-3">
+          <p className="text-xs text-blue-600">
             Acesse Configurações → Google Maps API Key para configurar.
           </p>
-          
-          {/* Botão para adicionar pontos de exemplo */}
-          <button 
-            onClick={async () => {
-              try {
-                const response = await fetch('/api/settings', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    key: 'google_maps_api_key',
-                    value: 'YOUR_API_KEY_HERE',
-                    description: 'Chave da API do Google Maps'
-                  })
-                });
-                if (response.ok) {
-                  alert('Configure sua chave da API do Google Maps nas configurações');
-                }
-              } catch (error) {
-                console.error('Erro:', error);
-              }
-            }}
-            className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-          >
-            Criar configuração
-          </button>
         </div>
       </div>
     );
