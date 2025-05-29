@@ -87,21 +87,15 @@ export default function Login() {
         localStorage.removeItem('loginCredentials');
       }
 
-      // Buscar os dados do usuário para confirmar autenticação
-      await fetch("/api/auth/me", { credentials: "include" });
-
       toast({
         title: "Login realizado com sucesso",
         description: "Você será redirecionado para o dashboard"
       });
 
-      // Adicionar um pequeno atraso para garantir que a sessão seja estabelecida
-      setTimeout(() => {
-        // Navegar para o dashboard
-        navigate("/", { replace: true });
-        // Forçar um recarregamento da página para garantir que todos os componentes reconheçam o estado de autenticação
-        window.location.reload();
-      }, 500);
+      // Navegar para o dashboard imediatamente após login bem-sucedido
+      navigate("/", { replace: true });
+      // Forçar um recarregamento da página para garantir que todos os componentes reconheçam o estado de autenticação
+      window.location.reload();
     } catch (error) {
       toast({
         title: "Erro ao realizar login",
