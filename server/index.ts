@@ -30,6 +30,16 @@ const upload = multer({ storage: uploadStorage });
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/public", express.static(path.join(process.cwd(), "public")));
 
+// Middleware para CORS em desenvolvimento
+if (process.env.NODE_ENV === "development") {
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    next();
+  });
+}
+
 app.use(
   session({
     secret: "icap-5.0-secret-key",
@@ -154,14 +164,17 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  if (app.get("env") === "development") {
+  if (process.env.NODE_ENV === "development") {
+    console.log("🔧 Setting up Vite development server...");
     await setupVite(app, server);
   } else {
+    console.log("📦 Serving static files...");
     serveStatic(app);
   }
 
   const port = process.env.PORT || 5000;
   server.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
+    log(`🚀 Server running on http://0.0.0.0:${port}`);
+    console.log(`📱 Preview available at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
   });
 })();
