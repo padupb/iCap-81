@@ -57,11 +57,18 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
 
   // Extrair chave da API do Google Maps das configurações
   useEffect(() => {
+    console.log('🔍 Verificando configurações para Google Maps API Key:', settings);
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
+      console.log('🗝️ Configuração encontrada:', googleMapsKeySetting);
       if (googleMapsKeySetting && googleMapsKeySetting.value) {
+        console.log('✅ Google Maps API Key encontrada, comprimento:', googleMapsKeySetting.value.length);
         setGoogleMapsApiKey(googleMapsKeySetting.value);
+      } else {
+        console.log('❌ Google Maps API Key não encontrada ou vazia');
       }
+    } else {
+      console.log('❌ Nenhuma configuração encontrada');
     }
   }, [settings]);
 
