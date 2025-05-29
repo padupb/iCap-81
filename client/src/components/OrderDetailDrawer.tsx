@@ -591,19 +591,42 @@ export function OrderDetailDrawer({
                       <div className="relative">
                         {/* Função para determinar se um step foi completado */}
                         {(() => {
-                          const getStepStatus = (step: string) => {
-                            const status = orderDetails.status;
-                            const statusOrder = ['Registrado', 'Carregado', 'Em Rota', 'Entregue'];
-                            const currentIndex = statusOrder.indexOf(status);
-                            const stepIndex = statusOrder.indexOf(step);
+                          const currentStatus = orderDetails.status;
+                          
+                          const getStepStatus = (stepKey: string) => {
+                            // Mapear os status possíveis para suas posições na linha do tempo
+                            const statusHierarchy: { [key: string]: number } = {
+                              'Registrado': 0,
+                              'Carregado': 1,
+                              'Em Rota': 2,
+                              'Em transporte': 2, // Equivalente a Em Rota
+                              'Entregue': 3,
+                              'Recusado': -1 // Status especial
+                            };
 
-                            if (currentIndex >= stepIndex) {
+                            const stepHierarchy: { [key: string]: number } = {
+                              'Registrado': 0,
+                              'Carregado': 1,
+                              'Em Rota': 2,
+                              'Entregue': 3
+                            };
+
+                            const currentLevel = statusHierarchy[currentStatus] ?? 0;
+                            const stepLevel = stepHierarchy[stepKey] ?? 0;
+
+                            // Se o pedido foi recusado, mostrar apenas o primeiro step como completed
+                            if (currentStatus === 'Recusado') {
+                              return stepKey === 'Registrado' ? 'completed' : 'pending';
+                            }
+
+                            // Lógica normal para outros status
+                            if (currentLevel > stepLevel) {
                               return 'completed';
-                            }
-                            if (currentIndex === stepIndex - 1) {
+                            } else if (currentLevel === stepLevel) {
                               return 'current';
+                            } else {
+                              return 'pending';
                             }
-                            return 'pending';
                           };
 
                           const steps = [
@@ -620,7 +643,18 @@ export function OrderDetailDrawer({
                               <div 
                                 className="absolute top-4 left-4 h-0.5 bg-primary transition-all duration-300"
                                 style={{
-                                  width: `${Math.max(0, (steps.findIndex(s => s.key === orderDetails.status) / (steps.length - 1)) * 100)}%`
+                                  width: `${(() => {
+                                    // Calcular progresso baseado no status atual
+                                    const statusProgress: { [key: string]: number } = {
+                                      'Registrado': 0,
+                                      'Carregado': 33.33,
+                                      'Em Rota': 66.66,
+                                      'Em transporte': 66.66,
+                                      'Entregue': 100,
+                                      'Recusado': 0
+                                    };
+                                    return statusProgress[orderDetails.status] || 0;
+                                  })()}%`
                                 }}
                               ></div>
 
