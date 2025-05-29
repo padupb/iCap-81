@@ -644,9 +644,6 @@ export function OrderDetailDrawer({
                                   : "Aguardando"}
                               </p>
                             </div>
-                          </div>a' || orderDetails.status === 'Entregue' ? "Em rota" : "Aguardando"}
-                              </p>
-                            </div>
                           </div>
                           
                           {/* Step 4: Entregue */}
