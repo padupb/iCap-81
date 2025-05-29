@@ -847,7 +847,7 @@ export function OrderDetailDrawer({
                               <input
                                 key={`nota-pdf-${orderId}`}
                                 type="file"
-                                ref={notaPdfRef}```python
+                                ref={notaPdfRef}
                                 accept=".pdf"
                                 className="hidden"
                                 onChange={(e) => handleFileChange(e, setNotaPdf)}
