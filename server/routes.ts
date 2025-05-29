@@ -2113,10 +2113,17 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const trackingPoints = result.rows.map((row: any) => ({
         id: row.id,
         orderId: row.orderId,
-        latitude: parseFloat(row.latitude),
-        longitude: parseFloat(row.longitude),
+        latitude: parseFloat(row.latitude || 0),
+        longitude: parseFloat(row.longitude || 0),
         createdAt: row.createdAt
       }));
+
+      // Log detalhado dos dados brutos do banco
+      if (result.rows.length > 0) {
+        console.log(`🔍 Dados brutos do banco:`, result.rows[0]);
+        console.log(`🔍 Latitude original: "${result.rows[0].latitude}" (tipo: ${typeof result.rows[0].latitude})`);
+        console.log(`🔍 Longitude original: "${result.rows[0].longitude}" (tipo: ${typeof result.rows[0].longitude})`);
+      }
 
       console.log(`📊 Pontos formatados:`, trackingPoints.slice(0, 2)); // Log apenas os primeiros 2 pontos
 
