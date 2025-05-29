@@ -13,11 +13,11 @@ console.log('DATABASE_URL em index.ts (via Secrets):', process.env.DATABASE_URL)
 
 const app = express();
 
-// Configuração CORS mais robusta
+// Configuração CORS simplificada
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "*");
+  res.header("Access-Control-Allow-Methods", "*");
   res.header("Access-Control-Allow-Credentials", "true");
   
   if (req.method === 'OPTIONS') {
@@ -53,7 +53,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000,
     },
@@ -92,7 +92,6 @@ app.use((req, res, next) => {
   try {
     console.log("🔧 Inicializando configurações do keyuser...");
     
-    // Aguardar um pouco para garantir que o banco esteja pronto
     if (db) {
       console.log("💾 Banco de dados detectado - aguardando inicialização...");
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -124,7 +123,6 @@ app.use((req, res, next) => {
       console.log("✅ KeyUser password configurado");
     }
 
-    // Verificar novamente se as configurações foram salvas
     const emailVerify = await storage.getSetting("keyuser_email");
     const passwordVerify = await storage.getSetting("keyuser_password");
     
@@ -142,7 +140,6 @@ app.use((req, res, next) => {
     console.error("❌ Erro ao inicializar configurações do superadministrador:", error);
     console.error("🔧 Tentando criar configurações diretamente...");
     
-    // Fallback: tentar criar as configurações diretamente no banco
     if (db && pool) {
       try {
         await pool.query(`
