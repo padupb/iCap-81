@@ -615,6 +615,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`📦 Status do pedido ${order.orderId} alterado para "${novoStatus}" devido a registro em tracking_points (progressão: documentos=${order.documentosCarregados})`);
               }
             }
+
+            // Garantir que a linha do tempo seja consistente com o status atual
+            // Para pedidos "Em transporte", assegurar que documentosCarregados seja true se apropriado
+            if (order.status === "Em transporte" && !order.documentosCarregados) {
+              // Verificar se há documentos carregados no banco
+              const docResult = await pool.query(
+                "SELECT documentosinfo FROM orders WHERE id = $1 AND documentosinfo IS NOT NULL",
+                [order.id]
+              );
+              
+              if (docResult.rows.length > 0) {
+                // Se há documentos, atualizar flag
+                await pool.query(
+                  "UPDATE orders SET documentoscarregados = true WHERE id = $1",
+                  [order.id]
+                );
+                order.documentosCarregados = true;
+                console.log(`📋 Flag documentosCarregados corrigida para pedido ${order.orderId}`);
+              }
+            }
           } catch (trackingError) {
             console.error(`Erro ao verificar tracking_points para pedido ${order.id}:`, trackingError);
             // Continuar processamento mesmo com erro
@@ -665,6 +685,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 order.status = novoStatus;
                 console.log(`📦 Status do pedido urgente ${order.orderId} alterado para "${novoStatus}" devido a registro em tracking_points (progressão: documentos=${order.documentosCarregados})`);
+              }
+            }
+
+            // Garantir que a linha do tempo seja consistente com o status atual
+            // Para pedidos "Em transporte", assegurar que documentosCarregados seja true se apropriado
+            if (order.status === "Em transporte" && !order.documentosCarregados) {
+              // Verificar se há documentos carregados no banco
+              const docResult = await pool.query(
+                "SELECT documentosinfo FROM orders WHERE id = $1 AND documentosinfo IS NOT NULL",
+                [order.id]
+              );
+              
+              if (docResult.rows.length > 0) {
+                // Se há documentos, atualizar flag
+                await pool.query(
+                  "UPDATE orders SET documentoscarregados = true WHERE id = $1",
+                  [order.id]
+                );
+                order.documentosCarregados = true;
+                console.log(`📋 Flag documentosCarregados corrigida para pedido urgente ${order.orderId}`);
               }
             }
           } catch (trackingError) {
