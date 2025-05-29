@@ -28,18 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-
-// Função para formatar números com vírgula (formato brasileiro)
-const formatNumber = (value: string | number): string => {
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  if (isNaN(numValue)) return value.toString();
-
-  // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
-  return numValue.toLocaleString('pt-BR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2, // Máximo 2 casas decimais
-  });
-};
+import { useSettings } from "@/context/SettingsContext";
 import { 
   Package, 
   CircleCheck, 
@@ -57,6 +46,18 @@ import {
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder } from "@shared/schema";
 
+// Função para formatar números com vírgula (formato brasileiro)
+const formatNumber = (value: string | number): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return value.toString();
+
+  // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
+  return numValue.toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2, // Máximo 2 casas decimais
+  });
+};
+
 interface OrderDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -70,6 +71,242 @@ type OrderDetails = Order & {
   quantidadeRecebida?: string;
   documentosCarregados?: boolean;
 };
+
+// Tipo para tracking points
+type TrackingPoint = {
+  id: number;
+  status: string;
+  comment?: string;
+  userId: number;
+  userName?: string;
+  latitude?: number;
+  longitude?: number;
+  createdAt: string;
+};
+
+// Componente do Mapa Google Maps
+function GoogleMapsTracker({ orderId }: { orderId: number }) {
+  const { settings } = useSettings();
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [trackingPoints, setTrackingPoints] = useState<TrackingPoint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+
+  // Buscar detalhes do pedido incluindo tracking points
+  useEffect(() => {
+    const fetchTrackingPoints = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/pedidos/${orderId}/detalhes`);
+        if (response.ok) {
+          const data = await response.json();
+          setTrackingPoints(data.trackingPoints || []);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar tracking points:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (orderId) {
+      fetchTrackingPoints();
+    }
+  }, [orderId]);
+
+  // Carregar Google Maps API
+  useEffect(() => {
+    if (!settings.googleMapsApiKey) {
+      console.warn("Chave da API do Google Maps não configurada");
+      setIsLoading(false);
+      return;
+    }
+
+    const loadGoogleMaps = () => {
+      if ((window as any).google && (window as any).google.maps) {
+        setMapLoaded(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${settings.googleMapsApiKey}&libraries=geometry`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => setMapLoaded(true);
+      script.onerror = () => {
+        console.error("Erro ao carregar Google Maps API");
+        setIsLoading(false);
+      };
+      document.head.appendChild(script);
+    };
+
+    loadGoogleMaps();
+  }, [settings.googleMapsApiKey]);
+
+  // Inicializar mapa quando carregado
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || !trackingPoints.length) return;
+
+    // Filtrar pontos com coordenadas válidas
+    const validPoints = trackingPoints.filter((point: TrackingPoint) => 
+      point.latitude && point.longitude && 
+      !isNaN(Number(point.latitude)) && !isNaN(Number(point.longitude))
+    );
+
+    if (validPoints.length === 0) return;
+
+    // Configurar centro do mapa (primeiro ponto ou média dos pontos)
+    const centerLat = validPoints.length === 1 
+      ? Number(validPoints[0].latitude)
+      : validPoints.reduce((sum: number, point: TrackingPoint) => sum + Number(point.latitude), 0) / validPoints.length;
+    
+    const centerLng = validPoints.length === 1
+      ? Number(validPoints[0].longitude)
+      : validPoints.reduce((sum: number, point: TrackingPoint) => sum + Number(point.longitude), 0) / validPoints.length;
+
+    // Criar mapa
+    const google = (window as any).google;
+    const map = new google.maps.Map(mapRef.current, {
+      center: { lat: centerLat, lng: centerLng },
+      zoom: validPoints.length === 1 ? 15 : 10,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+    });
+
+    mapInstanceRef.current = map;
+
+    // Adicionar marcadores para cada ponto
+    validPoints.forEach((point, index) => {
+      const marker = new google.maps.Marker({
+        position: { 
+          lat: Number(point.latitude), 
+          lng: Number(point.longitude) 
+        },
+        map: map,
+        title: `Ponto ${index + 1}: ${point.status}`,
+        label: (index + 1).toString(),
+      });
+
+      // Info window com detalhes do ponto
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 8px; min-width: 200px;">
+            <h4 style="margin: 0 0 8px 0; color: #333;">${point.status}</h4>
+            <p style="margin: 4px 0; color: #666;"><strong>Data:</strong> ${formatDate(point.createdAt)}</p>
+            <p style="margin: 4px 0; color: #666;"><strong>Usuário:</strong> ${point.userName || 'Sistema'}</p>
+            ${point.comment ? `<p style="margin: 4px 0; color: #666;"><strong>Comentário:</strong> ${point.comment}</p>` : ''}
+            <p style="margin: 4px 0; color: #666;"><strong>Coordenadas:</strong> ${Number(point.latitude).toFixed(6)}, ${Number(point.longitude).toFixed(6)}</p>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+    });
+
+    // Ajustar zoom para mostrar todos os pontos se houver múltiplos
+    if (validPoints.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      validPoints.forEach((point: TrackingPoint) => {
+        bounds.extend(new google.maps.LatLng(Number(point.latitude), Number(point.longitude)));
+      });
+      map.fitBounds(bounds);
+    }
+
+  }, [mapLoaded, trackingPoints]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-muted-foreground">Carregando rastreamento...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!settings.googleMapsApiKey) {
+    return (
+      <div className="text-center py-6">
+        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium mb-2">API do Google Maps não configurada</h3>
+        <p className="text-muted-foreground">
+          Configure a chave da API do Google Maps nas configurações do sistema para habilitar o rastreamento.
+        </p>
+      </div>
+    );
+  }
+
+  const validPoints = trackingPoints.filter((point: TrackingPoint) => 
+    point.latitude && point.longitude && 
+    !isNaN(Number(point.latitude)) && !isNaN(Number(point.longitude))
+  );
+
+  if (validPoints.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium mb-2">Nenhum ponto de rastreamento</h3>
+        <p className="text-muted-foreground">
+          Este pedido ainda não possui pontos de rastreamento com coordenadas registradas.
+        </p>
+        {trackingPoints.length > 0 && (
+          <div className="mt-4 p-4 bg-muted rounded-lg">
+            <h4 className="font-medium mb-2">Eventos registrados:</h4>
+            <div className="space-y-2">
+              {trackingPoints.map((point, index) => (
+                <div key={point.id} className="text-sm">
+                  <span className="font-medium">{point.status}</span>
+                  {point.comment && <span className="text-muted-foreground"> - {point.comment}</span>}
+                  <span className="text-muted-foreground block">{formatDate(point.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div 
+        ref={mapRef} 
+        className="w-full h-64 rounded-lg border"
+        style={{ minHeight: '400px' }}
+      />
+      
+      {/* Lista de pontos */}
+      <div className="space-y-2">
+        <h4 className="font-medium">Pontos de Rastreamento ({validPoints.length})</h4>
+        <div className="grid gap-2">
+          {validPoints.map((point, index) => (
+            <div key={point.id} className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
+                  {index + 1}
+                </div>
+                <div>
+                  <p className="font-medium">{point.status}</p>
+                  <p className="text-sm text-muted-foreground">{formatDate(point.createdAt)}</p>
+                  {point.comment && (
+                    <p className="text-sm text-muted-foreground">{point.comment}</p>
+                  )}
+                </div>
+              </div>
+              <div className="text-right text-sm text-muted-foreground">
+                <p>{Number(point.latitude).toFixed(6)}</p>
+                <p>{Number(point.longitude).toFixed(6)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function OrderDetailDrawer({ 
   open, 
@@ -1041,17 +1278,18 @@ export function OrderDetailDrawer({
                     <CardHeader>
                       <CardTitle>Rastreamento do Pedido</CardTitle>
                       <CardDescription>
-                        Acompanhe o status atual do pedido e atualizações de localização
+                        Acompanhe a localização e status do pedido em tempo real
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-center py-6">
-                        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Rastreamento em desenvolvimento</h3>
-                        <p className="text-muted-foreground">
-                          O rastreamento detalhado estará disponível em breve. Por enquanto, você pode acompanhar o status geral do pedido.
-                        </p>
-                      </div>
+                      {orderId ? (
+                        <GoogleMapsTracker orderId={orderId} />
+                      ) : (
+                        <div className="text-center py-6">
+                          <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground">ID do pedido não disponível</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
