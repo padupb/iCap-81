@@ -610,21 +610,21 @@ export function OrderDetailDrawer({
                           {/* Step 2: Carregado */}
                           <div className="flex flex-col items-center text-center flex-1">
                             <div className={`flex h-8 w-8 items-center justify-center rounded-full mb-2 relative z-10 ${
-                              (orderDetails.status === 'Carregado' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') && orderDetails.documentosCarregados
+                              orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
                                 ? 'bg-primary text-white' 
                                 : 'bg-border text-muted-foreground'
                             }`}>
-                              {(orderDetails.status === 'Carregado' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') && orderDetails.documentosCarregados 
+                              {orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
                                 ? <CheckCircle size={18} /> 
                                 : <Circle size={18} />}
                             </div>
                             <div>
                               <h4 className={`font-medium text-sm ${
-                                !((orderDetails.status === 'Carregado' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') && orderDetails.documentosCarregados) 
+                                !(orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') 
                                   && 'text-muted-foreground'
                               }`}>Carregado</h4>
                               <p className="text-xs text-muted-foreground mt-1">
-                                {(orderDetails.status === 'Carregado' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') && orderDetails.documentosCarregados
+                                {orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
                                   ? formatDate(new Date().toString()) 
                                   : "Aguardando"}
                               </p>
@@ -633,13 +633,22 @@ export function OrderDetailDrawer({
                           
                           {/* Step 3: Em Transporte */}
                           <div className="flex flex-col items-center text-center flex-1">
-                            <div className={`flex h-8 w-8 items-center justify-center rounded-full mb-2 relative z-10 ${orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue' ? 'bg-primary text-white' : 'bg-border text-muted-foreground'}`}>
-                              {orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue' ? <CheckCircle size={18} /> : <Circle size={18} />}
+                            <div className={`flex h-8 w-8 items-center justify-center rounded-full mb-2 relative z-10 ${
+                              orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue' 
+                                ? 'bg-primary text-white' 
+                                : 'bg-border text-muted-foreground'
+                            }`}>
+                              {orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue' 
+                                ? <CheckCircle size={18} /> 
+                                : <Circle size={18} />}
                             </div>
                             <div>
-                              <h4 className={`font-medium text-sm ${!(orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') && 'text-muted-foreground'}`}>Em Transporte</h4>
+                              <h4 className={`font-medium text-sm ${
+                                !(orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') 
+                                  && 'text-muted-foreground'
+                              }`}>Em Transporte</h4>
                               <p className="text-xs text-muted-foreground mt-1">
-                                {orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
+                                {orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue'
                                   ? formatDate(new Date().toString()) 
                                   : "Aguardando"}
                               </p>
@@ -1079,7 +1088,7 @@ export function OrderDetailDrawer({
                         </div>
 
                         {/* Etapa 3: Carregamento de Documentos (condicional) */}
-                        {(orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Entregue') && (
+                        {(orderDetails.status === 'Carregado' || orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') && (
                           <div className="border rounded-lg overflow-hidden">
                             <div className="p-3 flex items-center justify-between bg-[#26262c] pt-[0px] pb-[0px]">
                               <div className="flex items-center space-x-3">
@@ -1107,7 +1116,7 @@ export function OrderDetailDrawer({
                         )}
 
                         {/* Etapa 4: Transporte (condicional) */}
-                        {(orderDetails.status === 'Em Rota' || orderDetails.status === 'Entregue') && (
+                        {(orderDetails.status === 'Em Rota' || orderDetails.status === 'Em transporte' || orderDetails.status === 'Entregue') && (
                           <div className="border rounded-lg overflow-hidden">
                             <div className="p-3 flex items-center justify-between bg-[#26262c] pt-[0px] pb-[0px]">
                               <div className="flex items-center space-x-3">
@@ -1164,6 +1173,7 @@ export function OrderDetailDrawer({
 
                         {/* Se não houver eventos além dos dois primeiros */}
                         {orderDetails.status !== 'Carregado' && 
+                         orderDetails.status !== 'Em Rota' && 
                          orderDetails.status !== 'Em transporte' && 
                          orderDetails.status !== 'Entregue' && (
                           <div className="text-center p-4 border border-dashed rounded-lg">
