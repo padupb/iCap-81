@@ -997,9 +997,7 @@ export function OrderDetailDrawer({
 
                   <div class="progress-step">
                     <div class="step-circle ${getStepClass('Em Rota', orderDetails.status)}">3</div>
-                    <div class```
-="step-label">Em Rota</div>
-                    <div class="step-description">A caminho do destino</div>
+                    <div class="step-label">Em Rota                    <div class="step-description">A caminho do destino</div>
                   </div>
 
                   <div class="progress-step">
