@@ -324,33 +324,36 @@ export function OrderDetailDrawer({
     const product = products.find((p) => p.id === order.productId);
     const supplier = companies.find((c) => c.id === order.supplierId);
 
-    // Buscar ordem de compra da tabela correta - primeiro tenta purchase_orders, depois ordens_compra
-    let purchaseOrder = purchaseOrders.find(
-      (po) => po.id === order.purchaseOrderId,
-    );
+    // Buscar ordem de compra: primeiro na tabela ordens_compra, depois em purchase_orders
+    let purchaseOrder = null;
 
-    // Se não encontrou na primeira tabela, tenta na segunda (ordens_compra)
-    if (!purchaseOrder && order.purchaseOrderId) {
-      // Verificar se ordensCompra é um array e tem elementos
+    if (order.purchaseOrderId) {
+      // Primeiro, verificar ordensCompra (tabela principal)
       const ordensArray = Array.isArray(ordensCompra) ? ordensCompra : [];
-
-      if (ordensArray.length > 0) {
-        const ordemCompra = ordensArray.find(
-          (oc: any) => oc.id === order.purchaseOrderId,
+      const ordemCompra = ordensArray.find(
+        (oc: any) => oc.id === order.purchaseOrderId,
+      );
+      
+      if (ordemCompra) {
+        // Converte o formato da ordem de compra para o padrão esperado
+        purchaseOrder = {
+          id: ordemCompra.id,
+          orderNumber: ordemCompra.numero_ordem,
+          companyId: ordemCompra.empresa_id,
+          validUntil: ordemCompra.valido_ate,
+          status: ordemCompra.status || "Ativo",
+          userId: ordemCompra.usuario_id || 1,
+          createdAt: ordemCompra.data_criacao
+            ? new Date(ordemCompra.data_criacao)
+            : new Date(),
+        } as PurchaseOrder;
+      } else {
+        // Se não encontrou em ordens_compra, buscar em purchase_orders
+        const purchaseOrderFound = purchaseOrders.find(
+          (po) => po.id === order.purchaseOrderId,
         );
-        if (ordemCompra) {
-          // Converte o formato da ordem de compra para o padrão esperado
-          purchaseOrder = {
-            id: ordemCompra.id,
-            orderNumber: ordemCompra.numero_ordem,
-            companyId: ordemCompra.empresa_id,
-            validUntil: ordemCompra.valido_ate,
-            status: ordemCompra.status || "Ativo",
-            userId: ordemCompra.usuario_id || 1,
-            createdAt: ordemCompra.data_criacao
-              ? new Date(ordemCompra.data_criacao)
-              : new Date(),
-          } as PurchaseOrder;
+        if (purchaseOrderFound) {
+          purchaseOrder = purchaseOrderFound;
         }
       }
     }
