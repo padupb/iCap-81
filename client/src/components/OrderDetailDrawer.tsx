@@ -183,6 +183,32 @@ function SimpleTracker({
 
   return (
     <div className="space-y-4">
+      {/* Informações de Coordenadas */}
+      {trackingPoints.length > 0 && (
+        <div className="bg-muted/50 rounded-lg p-3 border">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">Latitude:</span>
+              <p className="font-mono font-medium">
+                {Number(coordinates.lat).toFixed(6)}
+              </p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Longitude:</span>
+              <p className="font-mono font-medium">
+                {Number(coordinates.lng).toFixed(6)}
+              </p>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            {trackingPoints.length > 1 
+              ? `Coordenadas do primeiro ponto (${trackingPoints.length} pontos no total)`
+              : "Coordenadas do ponto de rastreamento"
+            }
+          </div>
+        </div>
+      )}
+
       {/* Seção do Mapa */}
       <div className="space-y-8">
         <div className="border rounded-lg overflow-hidden">
@@ -198,6 +224,9 @@ function SimpleTracker({
       {/* Seção dos Pontos de Rastreamento */}
       {trackingPoints.length === 0 ? (
         <div className="text-center py-8">
+          <div className="text-muted-foreground text-sm">
+            Nenhum ponto de rastreamento encontrado para este pedido
+          </div>
         </div>
       ) : (
         <div className="space-y-8">
@@ -216,16 +245,11 @@ function SimpleTracker({
                   </div>
                   <div>
                     <p className="font-medium">
-                      {point.status || "Status não informado"}
+                      Ponto {index + 1}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {formatDate(point.created_at)}
                     </p>
-                    {point.comment && (
-                      <p className="text-sm text-muted-foreground italic">
-                        {point.comment}
-                      </p>
-                    )}
                   </div>
                 </div>
                 {point.latitude && point.longitude && (
@@ -1443,6 +1467,11 @@ export function OrderDetailDrawer({
                   <Card>
                     <CardHeader>
                       <CardTitle>Rastreamento do Pedido</CardTitle>
+                      {orderId && (
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Pedido: {orderDetails?.orderId || `ID ${orderId}`}
+                        </div>
+                      )}
                     </CardHeader>
                     <CardContent>
                       {orderId ? (
