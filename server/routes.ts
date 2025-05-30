@@ -1,4 +1,3 @@
-typescript
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -2073,12 +2072,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
   // Rota para buscar pontos de rastreamento de um pedido
   app.get("/api/tracking-points/:orderId", async (req, res) => {
     try {
-      console.log(`📥 Requisição recebida para tracking-points, orderId: ${req.params.orderId}`);
-
       const orderId = parseInt(req.params.orderId);
 
       if (isNaN(orderId)) {
-        console.log(`❌ ID de pedido inválido: ${req.params.orderId}`);
         return res.status(400).json({ 
           sucesso: false, 
           mensagem: "ID de pedido inválido" 
@@ -2087,31 +2083,21 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       console.log(`🔍 Buscando pontos de rastreamento para pedido ID: ${orderId}`);
 
-      // Verificar se o pedido existe - usando a estrutura correta da tabela
+      // Verificar se o pedido existe
       const orderCheck = await pool.query(
-        `SELECT id, "orderId" FROM orders WHERE id = $1`,
+        "SELECT id, order_id FROM orders WHERE id = $1",
         [orderId]
       );
 
       if (!orderCheck.rows.length) {
         console.log(`❌ Pedido ${orderId} não encontrado`);
-        return res.status(200).json([]); // Retorna array vazio em vez de erro 404
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
       }
 
-      console.log(`📦 Pedido encontrado: ${orderCheck.rows[0].orderId}`);
-
-      // Verificar se a tabela tracking_points existe
-      const tableExists = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_name = 'tracking_points'
-        );
-      `);
-
-      if (!tableExists.rows[0].exists) {
-        console.log(`📋 Tabela tracking_points não existe - retornando array vazio`);
-        return res.status(200).json([]);
-      }
+      console.log(`📦 Pedido encontrado: ${orderCheck.rows[0].order_id}`);
 
       // Buscar pontos de rastreamento ordenados por data de criação
       const result = await pool.query(
@@ -2132,9 +2118,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const trackingPoints = result.rows.map((row: any) => {
         const latitude = parseFloat(row.latitude);
         const longitude = parseFloat(row.longitude);
-
+        
         console.log(`🔍 Processando ponto: lat=${latitude}, lng=${longitude}`);
-
+        
         return {
           id: row.id,
           orderId: row.orderId,
