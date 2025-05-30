@@ -1467,22 +1467,6 @@ export function OrderDetailDrawer({
                   <Card>
                     <CardHeader>
                       <CardTitle>Rastreamento do Pedido</CardTitle>
-                      {orderId && trackingPoints.length > 0 && (
-                        <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground mt-2">
-                          <div>
-                            <span className="font-medium">Latitude:</span>
-                            <span className="ml-1 font-mono">
-                              {Number(trackingPoints[0].latitude).toFixed(6)}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-medium">Longitude:</span>
-                            <span className="ml-1 font-mono">
-                              {Number(trackingPoints[0].longitude).toFixed(6)}
-                            </span>
-                          </div>
-                        </div>
-                      )}
                     </CardHeader>
                     <CardContent>
                       {orderId ? (
