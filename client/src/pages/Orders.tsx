@@ -249,10 +249,10 @@ export default function Orders() {
   // Buscar ordens de compra ativas e válidas para a empresa do usuário
   const { data: purchaseOrders = [], isLoading: isLoadingPurchaseOrders } =
     useQuery<PurchaseOrderResponse[]>({
-      queryKey: ["/api/ordens-compra", user?.companyId],
+      queryKey: ["/api/ordens-compra", currentUser?.companyId],
       queryFn: async () => {
         // Montar URL com parâmetros de filtro para ordens ativas, válidas e da empresa do usuário
-        const url = `/api/ordens-compra?status=Ativo&apenasValidas=true${user?.companyId ? `&empresaId=${user.companyId}` : ""}`;
+        const url = `/api/ordens-compra?status=Ativo&apenasValidas=true${currentUser?.companyId ? `&empresaId=${currentUser.companyId}` : ""}`;
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error("Falha ao carregar ordens de compra");
@@ -260,7 +260,7 @@ export default function Orders() {
         return response.json();
       },
       // Só executar a consulta se o usuário estiver autenticado
-      enabled: !!user,
+      enabled: !!currentUser,
     });
 
   // Mutação para criar um novo pedido
@@ -269,7 +269,7 @@ export default function Orders() {
       const orderData = {
         ...data,
         deliveryDate: new Date(data.deliveryDate).toISOString(),
-        userId: user?.id || 1,
+        userId: currentUser?.id || 1,
       };
       console.log("Creating order:", orderData);
       return apiRequest("POST", "/api/orders", orderData);
@@ -501,7 +501,7 @@ export default function Orders() {
     const getOrderCoordinates = (orderId: number) => {
       const summary = trackingSummary[orderId];
       if (!summary || (summary.latitude === 0 && summary.longitude === 0)) return null;
-  
+
       return {
         latitude: summary.latitude,
         longitude: summary.longitude,
