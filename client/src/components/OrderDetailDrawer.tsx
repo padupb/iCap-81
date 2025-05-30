@@ -46,7 +46,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder } from "@shared/schema";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrderDetailDrawerProps {
   open: boolean;
