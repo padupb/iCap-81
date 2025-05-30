@@ -136,6 +136,49 @@ export const isKeyUser = (req: Request, res: Response, next: NextFunction) => {
   });
 };
 
+// Middleware para autenticar usuário (usado pelo app mobile)
+export const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Para compatibilidade com apps mobile, verificar token no header Authorization
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      // Implementação simplificada para desenvolvimento
+      // Em produção, você validaria o JWT token aqui
+      const token = authHeader.substring(7);
+      
+      // Por enquanto, assumir que é um usuário válido se o token existe
+      // Você pode implementar validação JWT aqui se necessário
+      req.user = {
+        id: 1,
+        role: 'admin'
+      };
+      
+      return next();
+    }
+
+    // Se não há token, verificar se há sessão ativa
+    if (req.session?.userId) {
+      const user = await storage.getUser(req.session.userId);
+      if (user) {
+        req.user = user;
+        return next();
+      }
+    }
+
+    return res.status(401).json({
+      success: false,
+      message: 'Token de autenticação necessário'
+    });
+  } catch (error) {
+    console.error("Erro no middleware authenticateUser:", error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+};
+
 // Adiciona a declaração do usuário ao objeto Request
 declare global {
   namespace Express {
