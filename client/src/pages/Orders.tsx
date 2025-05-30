@@ -51,14 +51,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Filter, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, AlertTriangle, Trash2, MapPin } from "lucide-react";
 import { getStatusColor, formatDate } from "@/lib/utils";
+
+// Tipo para tracking points
+type TrackingPoint = {
+  id: number;
+  orderId: number;
+  latitude: number;
+  longitude: number;
+  createdAt: string;
+};
 
 // Função para formatar números com vírgula (formato brasileiro)
 const formatNumber = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(numValue)) return value.toString();
-  
+
   // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
   return numValue.toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
@@ -152,7 +161,7 @@ export default function Orders() {
   const { canEdit } = useAuthorization();
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
-  
+
   // Verificar se o usuário é keyuser
   const isKeyUser = currentUser?.isKeyUser || currentUser?.isDeveloper;
   const [searchTerm, setSearchTerm] = useState("");
@@ -169,7 +178,7 @@ export default function Orders() {
   // Estado para controlar o drawer de detalhes do pedido
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  
+
   // Estados para verificação de urgência
   const [isUrgentOrder, setIsUrgentOrder] = useState(false);
   const [urgentDaysThreshold, setUrgentDaysThreshold] = useState(7);
@@ -199,18 +208,23 @@ export default function Orders() {
     },
   });
 
-  // Obter informações do usuário logado para filtrar ordens de compra pela empresa
-  const { user } = useAuth();
-
-  // Buscar configuração de dias para urgência
-  const { data: settings = [] } = useQuery({
-    queryKey: ["/api/settings"],
+  // Buscar resumo de coordenadas de todos os pedidos
+  const { data: trackingSummary = {} } = useQuery({
+    queryKey: ["/api/tracking-points-summary"],
     queryFn: async () => {
-      const response = await fetch("/api/settings");
-      if (!response.ok) throw new Error("Falha ao carregar configurações");
-      return response.json();
+      try {
+        const response = await fetch("/api/tracking-points-summary");
+        if (!response.ok) throw new Error("Falha ao buscar coordenadas");
+        return await response.json();
+      } catch (error) {
+        console.error("Erro ao buscar coordenadas:", error);
+        return {};
+      }
     },
+    refetchInterval: 60000, // Atualizar a cada minuto
   });
+
+  const { canEdit: hasPermission } = useAuthorization();
 
   // Atualizar threshold de urgência quando as configurações carregarem
   useEffect(() => {
@@ -274,12 +288,12 @@ export default function Orders() {
       const response = await fetch(`/api/orders/${orderId}`, {
         method: "DELETE",
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.message || "Erro ao excluir pedido");
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -322,7 +336,7 @@ export default function Orders() {
       const defaultDate = new Date();
       defaultDate.setDate(defaultDate.getDate() + urgentDaysThreshold + 1);
       const formattedDate = defaultDate.toISOString().split("T")[0];
-      
+
       form.reset({
         purchaseOrderId: undefined,
         productId: undefined,
@@ -386,7 +400,7 @@ export default function Orders() {
     if (purchaseOrderId && productId) {
       // Exibir "carregando" durante a verificação
       setProductBalance({ carregando: true });
-      
+
       fetch(`/api/ordens-compra/${purchaseOrderId}/produtos/${productId}/saldo`)
         .then((response) => response.json())
         .then((data) => {
@@ -398,7 +412,7 @@ export default function Orders() {
             quantidadeUsada: typeof data.quantidadeUsada
           });
           setProductBalance(data);
-          
+
           if (!data.sucesso) {
             setQuantityError("Erro ao verificar saldo disponível");
           } else {
@@ -423,7 +437,7 @@ export default function Orders() {
     if (quantity && productBalance?.sucesso) {
       const quantityValue = parseFloat(quantity);
       const saldoDisponivel = productBalance.saldo_disponivel || productBalance.saldoDisponivel || 0;
-      
+
       console.log("Validação de quantidade:", {
         quantity,
         quantityValue,
@@ -431,7 +445,7 @@ export default function Orders() {
         productBalance,
         comparison: quantityValue > saldoDisponivel
       });
-      
+
       if (quantityValue > saldoDisponivel) {
         const unidade = productBalance.unidade ? ` ${productBalance.unidade}` : '';
         setQuantityError(
@@ -446,13 +460,13 @@ export default function Orders() {
   // Verificar se o pedido é urgente baseado na data de entrega
   useEffect(() => {
     const deliveryDate = form.watch("deliveryDate");
-    
+
     if (deliveryDate) {
       const selectedDate = new Date(deliveryDate);
       const today = new Date();
       const diffTime = selectedDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       setIsUrgentOrder(diffDays <= urgentDaysThreshold);
     } else {
       setIsUrgentOrder(false);
@@ -472,6 +486,19 @@ export default function Orders() {
 
     return searchMatch && statusMatch;
   });
+
+    // Função para obter as coordenadas do pedido
+    const getOrderCoordinates = (orderId: number) => {
+      const summary = trackingSummary[orderId];
+      if (!summary || (summary.latitude === 0 && summary.longitude === 0)) return null;
+  
+      return {
+        latitude: summary.latitude,
+        longitude: summary.longitude,
+        totalPoints: summary.totalPoints,
+        lastUpdate: summary.lastUpdate
+      };
+    };
 
   // Função para abrir o drawer de detalhes do pedido
   const handleOpenDetails = (order: Order) => {
@@ -746,6 +773,7 @@ export default function Orders() {
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Data de Entrega</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Coordenadas</TableHead>
                     {isKeyUser && <TableHead className="text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -786,6 +814,36 @@ export default function Orders() {
                               Urgente
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const coordinates = getOrderCoordinates(order.id);
+                            if (!coordinates) {
+                              return (
+                                <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                                  <MapPin size={12} />
+                                  <span>Sem rastreamento</span>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-xs">
+                                  <MapPin size={12} className="text-blue-500" />
+                                  <span className="font-mono">
+                                    {coordinates.latitude.toFixed(4)}, {coordinates.longitude.toFixed(4)}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {coordinates.totalPoints} ponto{coordinates.totalPoints > 1 ? 's' : ''}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatDate(coordinates.lastUpdate)}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         {isKeyUser && (
                           <TableCell className="text-right">

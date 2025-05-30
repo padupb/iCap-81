@@ -2148,6 +2148,51 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
+  // Rota otimizada para buscar coordenadas de todos os pedidos
+  app.get("/api/tracking-points-summary", async (req, res) => {
+    try {
+      console.log(`🔍 Buscando resumo de coordenadas de todos os pedidos`);
+
+      // Buscar o último ponto de rastreamento de cada pedido
+      const result = await pool.query(
+        `SELECT DISTINCT ON (order_id)
+          order_id as "orderId",
+          CAST(latitude AS DECIMAL(10,6)) as latitude, 
+          CAST(longitude AS DECIMAL(11,6)) as longitude, 
+          created_at as "createdAt",
+          (SELECT COUNT(*) FROM tracking_points tp2 WHERE tp2.order_id = tp1.order_id) as "totalPoints"
+         FROM tracking_points tp1
+         ORDER BY order_id, created_at DESC`
+      );
+
+      console.log(`📍 Encontrados pontos para ${result.rows.length} pedidos`);
+
+      const summary = result.rows.reduce((acc: any, row: any) => {
+        const latitude = parseFloat(row.latitude);
+        const longitude = parseFloat(row.longitude);
+        
+        acc[row.orderId] = {
+          latitude: isNaN(latitude) ? 0 : latitude,
+          longitude: isNaN(longitude) ? 0 : longitude,
+          lastUpdate: row.createdAt,
+          totalPoints: parseInt(row.totalPoints)
+        };
+        
+        return acc;
+      }, {});
+
+      console.log(`📊 Resumo criado para ${Object.keys(summary).length} pedidos`);
+
+      res.json(summary);
+    } catch (error) {
+      console.error("Erro ao buscar resumo de coordenadas:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao buscar resumo de coordenadas" 
+      });
+    }
+  });
+
   // Funções auxiliares de validação
   function isValidLatitude(lat: number): boolean {
     return !isNaN(lat) && lat >= -90 && lat <= 90;
