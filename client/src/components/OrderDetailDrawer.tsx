@@ -182,88 +182,62 @@ function SimpleTracker({
   const coordinates = getMapCoordinates();
 
   return (
-    <div className="space-y-4">
-      {/* Informações de Coordenadas */}
-      {trackingPoints.length > 0 && (
-        <div className="bg-muted/50 rounded-lg p-3 border">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Latitude:</span>
-              <p className="font-mono font-medium">
-                {Number(coordinates.lat).toFixed(6)}
-              </p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Longitude:</span>
-              <p className="font-mono font-medium">
-                {Number(coordinates.lng).toFixed(6)}
-              </p>
-            </div>
+      <div className="space-y-4">
+        {/* Seção do Mapa */}
+        <div className="space-y-8">
+          <div className="border rounded-lg overflow-hidden">
+            <MapComponent lat={coordinates.lat} lng={coordinates.lng} />
           </div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            {trackingPoints.length > 1 
-              ? `Coordenadas do primeiro ponto (${trackingPoints.length} pontos no total)`
-              : "Coordenadas do ponto de rastreamento"
-            }
-          </div>
+          {trackingPoints.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center">
+              Mostrando localização do primeiro ponto de rastreamento
+            </p>
+          )}
         </div>
-      )}
 
-      {/* Seção do Mapa */}
-      <div className="space-y-8">
-        <div className="border rounded-lg overflow-hidden">
-          <MapComponent lat={coordinates.lat} lng={coordinates.lng} />
-        </div>
-        {trackingPoints.length > 0 && (
-          <p className="text-xs text-muted-foreground text-center">
-            Mostrando localização do primeiro ponto de rastreamento
-          </p>
+        {/* Seção dos Pontos de Rastreamento */}
+        {trackingPoints.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-muted-foreground text-sm">
+              Nenhum ponto de rastreamento encontrado para este pedido
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <h4 className="font-medium">
+              Pontos de Rastreamento ({trackingPoints.length})
+            </h4>
+            <div className="grid gap-3">
+              {trackingPoints.map((point, index) => (
+                <div
+                  key={point.id}
+                  className="flex items-center justify-between p-4 border rounded-lg bg-muted/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        Ponto {index + 1}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(point.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                  {point.latitude && point.longitude && (
+                    <div className="text-right text-sm text-muted-foreground">
+                      <p>Lat: {Number(point.latitude).toFixed(6)}</p>
+                      <p>Lng: {Number(point.longitude).toFixed(6)}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Seção dos Pontos de Rastreamento */}
-      {trackingPoints.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="text-muted-foreground text-sm">
-            Nenhum ponto de rastreamento encontrado para este pedido
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          <h4 className="font-medium">
-            Pontos de Rastreamento ({trackingPoints.length})
-          </h4>
-          <div className="grid gap-3">
-            {trackingPoints.map((point, index) => (
-              <div
-                key={point.id}
-                className="flex items-center justify-between p-4 border rounded-lg bg-muted/20"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium">
-                      Ponto {index + 1}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(point.created_at)}
-                    </p>
-                  </div>
-                </div>
-                {point.latitude && point.longitude && (
-                  <div className="text-right text-sm text-muted-foreground">
-                    <p>Lat: {Number(point.latitude).toFixed(6)}</p>
-                    <p>Lng: {Number(point.longitude).toFixed(6)}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -338,7 +312,7 @@ export function OrderDetailDrawer({
   const { data: ordensCompra = [] } = useQuery({
     queryKey: ["/api/ordens-compra"],
     enabled: !!orderId && open,
-  });
+    });
 
   // Montar os detalhes do pedido a partir dos dados obtidos
   const orderDetails = React.useMemo(() => {
@@ -1018,7 +992,8 @@ export function OrderDetailDrawer({
                   </Card>
                 </TabsContent>
 
-                {/* Aba de Documentos */}
+                {/* Aba de Documentos */}```text
+<replit_final_file>
                 <TabsContent value="documents" className="py-4">
                   <Card>
                     <CardHeader>
