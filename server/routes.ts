@@ -2099,7 +2099,24 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       console.log(`📦 Pedido encontrado: ${orderCheck.rows[0].order_id}`);
 
-      // Buscar pontos de rastreamento ordenados por data de criação
+      // Primeiro buscar o order_id (número do pedido) usando o ID
+      const orderResult = await pool.query(
+        "SELECT order_id FROM orders WHERE id = $1",
+        [orderId]
+      );
+
+      if (!orderResult.rows.length) {
+        console.log(`❌ Pedido ID ${orderId} não encontrado`);
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      const orderNumber = orderResult.rows[0].order_id;
+      console.log(`🔍 Buscando pontos para número do pedido: ${orderNumber}`);
+
+      // Buscar pontos de rastreamento usando o número do pedido
       const result = await pool.query(
         `SELECT 
           id, 
@@ -2110,7 +2127,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
          FROM tracking_points 
          WHERE order_id = $1 
          ORDER BY created_at ASC`,
-        [orderId]
+        [orderNumber]
       );
 
       console.log(`📍 Encontrados ${result.rows.length} pontos de rastreamento`);
