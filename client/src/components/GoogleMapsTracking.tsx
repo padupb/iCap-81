@@ -14,17 +14,8 @@ interface GoogleMapsTrackingProps {
   orderId: number | null;
 }
 
-// Declarar tipos do Google Maps
-declare global {
-  interface Window {
-    google: any;
-    initMap: () => void;
-  }
-}
-
 export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<any>(null);
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string>('');
@@ -72,18 +63,13 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     }
   }, [settings]);
 
-  // Carregar Google Maps API
+  // Carregar Google Maps API com os novos componentes gmp
   useEffect(() => {
     if (!googleMapsApiKey) {
       return; // Aguardar chave da API ser carregada
     }
 
     const loadGoogleMaps = () => {
-      if (window.google) {
-        setIsGoogleMapsLoaded(true);
-        return;
-      }
-
       // Verificar se já existe um script carregando
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
       if (existingScript) {
@@ -94,16 +80,12 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
       }
 
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=geometry,places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&callback=console.debug&libraries=maps,marker&v=beta`;
       script.async = true;
       script.defer = true;
       script.onload = () => {
         console.log('Google Maps API carregada com sucesso');
-        if (window.google && window.google.maps) {
-          setIsGoogleMapsLoaded(true);
-        } else {
-          setMapError('Google Maps API carregada mas não está disponível');
-        }
+        setIsGoogleMapsLoaded(true);
       };
       script.onerror = (error) => {
         console.error('Erro ao carregar Google Maps API:', error);
@@ -115,125 +97,18 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     loadGoogleMaps();
   }, [googleMapsApiKey]);
 
-  // Inicializar mapa quando Google Maps carregar
-  useEffect(() => {
-    if (!isGoogleMapsLoaded || !mapRef.current || map) return;
-
-    // Verificar se o Google Maps está realmente disponível
-    if (!window.google || !window.google.maps) {
-      setMapError('Google Maps API não está disponível');
-      return;
+  // Definir centro do mapa baseado nos pontos ou posição padrão
+  const getMapCenter = () => {
+    if (trackingPoints.length > 0) {
+      const firstPoint = trackingPoints[0];
+      return `${firstPoint.latitude},${firstPoint.longitude}`;
     }
+    return "-14.2621381,-56.0220111"; // Posição padrão (Cuiabá)
+  };
 
-    try {
-      console.log('Inicializando Google Maps...');
-      
-      // Posição padrão (centro do Brasil)
-      const defaultCenter = { lat: -15.7942, lng: -47.8825 };
-
-      const newMap = new window.google.maps.Map(mapRef.current, {
-        zoom: 6,
-        center: defaultCenter,
-        mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-        styles: [
-          {
-            featureType: 'all',
-            elementType: 'geometry.fill',
-            stylers: [{ color: '#f5f5f5' }]
-          },
-          {
-            featureType: 'water',
-            elementType: 'geometry',
-            stylers: [{ color: '#c9e2f0' }]
-          }
-        ]
-      });
-
-      console.log('Mapa inicializado com sucesso');
-      setMap(newMap);
-    } catch (error) {
-      console.error('Erro ao inicializar mapa:', error);
-      setMapError(`Erro ao inicializar o mapa: ${error.message || 'Erro desconhecido'}`);
-    }
-  }, [isGoogleMapsLoaded, map]);
-
-  // Atualizar mapa com pontos de rastreamento
-  useEffect(() => {
-    if (!map || !trackingPoints.length) return;
-
-    // Limpar marcadores existentes
-    if (map.markers) {
-      map.markers.forEach((marker: any) => marker.setMap(null));
-    }
-
-    const markers: any[] = [];
-    const path: any[] = [];
-
-    // Criar marcadores para cada ponto (todos iguais)
-    trackingPoints.forEach((point, index) => {
-      const position = { lat: point.latitude, lng: point.longitude };
-      path.push(position);
-
-      // Ícone padrão para todos os pontos
-      const icon = {
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" fill="#3B82F6" stroke="white" stroke-width="2"/>
-            <circle cx="12" cy="12" r="3" fill="white"/>
-          </svg>
-        `),
-        scaledSize: new window.google.maps.Size(24, 24),
-        anchor: new window.google.maps.Point(12, 12),
-      };
-
-      const marker = new window.google.maps.Marker({
-        position,
-        map,
-        icon,
-        title: `Ponto ${index + 1}`,
-      });
-
-      // InfoWindow com informações do ponto
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div style="padding: 8px;">
-            <h4 style="margin: 0 0 8px 0; font-weight: 600;">Ponto ${index + 1}</h4>
-            <p style="margin: 0; font-size: 12px; color: #666;">
-              ${new Date(point.createdAt).toLocaleString('pt-BR')}
-            </p>
-            <p style="margin: 4px 0 0 0; font-size: 11px; color: #888;">
-              ${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}
-            </p>
-          </div>
-        `,
-      });
-
-      marker.addListener('click', () => {
-        // Fechar outras InfoWindows
-        markers.forEach(m => m.infoWindow?.close());
-        infoWindow.open(map, marker);
-      });
-
-      marker.infoWindow = infoWindow;
-      markers.push(marker);
-    });
-
-    // Ajustar zoom para mostrar todos os pontos
-    if (path.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      path.forEach(point => bounds.extend(point));
-      map.fitBounds(bounds);
-
-      // Garantir zoom apropriado
-      const listener = window.google.maps.event.addListener(map, 'idle', () => {
-        if (map.getZoom() > 15) map.setZoom(15);
-        window.google.maps.event.removeListener(listener);
-      });
-    }
-
-    // Salvar referência dos marcadores
-    map.markers = markers;
-  }, [map, trackingPoints]);
+  const getMapZoom = () => {
+    return trackingPoints.length > 0 ? "12" : "6";
+  };
 
   // Exibir erro se houver problema com o mapa
   if (mapError) {
@@ -257,7 +132,6 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
             onClick={() => {
               setMapError(null);
               setIsGoogleMapsLoaded(false);
-              setMap(null);
             }}
             className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
           >
@@ -300,7 +174,22 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
 
   return (
     <div className="w-full h-full relative">
-      <div ref={mapRef} className="w-full h-full" />
+      <div className="w-full h-full" style={{ minHeight: '400px' }}>
+        <gmp-map 
+          center={getMapCenter()} 
+          zoom={getMapZoom()} 
+          map-id="TRACKING_MAP_ID"
+          style={{ height: '100%', width: '100%' }}
+        >
+          {trackingPoints.map((point, index) => (
+            <gmp-advanced-marker
+              key={point.id}
+              position={`${point.latitude},${point.longitude}`}
+              title={`Ponto ${index + 1} - ${new Date(point.createdAt).toLocaleString('pt-BR')}`}
+            />
+          ))}
+        </gmp-map>
+      </div>
       
       {/* Indicador de status */}
       <div className="absolute top-2 right-2 bg-white rounded-lg shadow-md p-2 border">
