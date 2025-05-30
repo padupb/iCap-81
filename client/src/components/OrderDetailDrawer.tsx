@@ -199,7 +199,6 @@ function SimpleTracker({
       {/* Seção dos Pontos de Rastreamento */}
       {trackingPoints.length === 0 ? (
         <div className="text-center py-6">
-          <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
         </div>
       ) : (
         <div className="space-y-4">
