@@ -1,4 +1,3 @@
-
 const { Pool } = require('pg');
 
 async function createTrackingTable() {
@@ -31,6 +30,12 @@ async function createTrackingTable() {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_tracking_points_created_at 
       ON tracking_points(created_at)
+    `);
+
+    // Adicionar índice composto para melhorar performance das queries de rastreamento
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_tracking_points_order_created 
+      ON tracking_points(order_id, created_at)
     `);
 
     console.log('✅ Tabela tracking_points criada/verificada com sucesso');
