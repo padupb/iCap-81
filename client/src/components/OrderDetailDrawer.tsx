@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { QRCodeComponent } from "./QRCodeComponent";
 
 interface OrderDetailDrawerProps {
   open: boolean;
@@ -769,71 +770,85 @@ export function OrderDetailDrawer({
 
                 {/* Aba de Detalhes */}
                 <TabsContent value="details" className="space-y-4 py-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        Produto
-                      </h4>
-                      <p className="text-base font-medium">
-                        {orderDetails.product?.name} -{" "}
-                        {formatNumber(orderDetails.quantity)}
-                      </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Coluna 1 - Informações do Produto */}
+                    <div className="md:col-span-2 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Produto
+                          </h4>
+                          <p className="text-base font-medium">
+                            {orderDetails.product?.name} -{" "}
+                            {formatNumber(orderDetails.quantity)}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Local da Obra
+                          </h4>
+                          <p className="text-base font-medium flex items-center gap-2">
+                            {orderDetails.workLocation}
+                            <a
+                              href={getGoogleMapsLink(orderDetails.workLocation)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:text-blue-700"
+                            >
+                              <ExternalLink size={14} />
+                            </a>
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Fornecedor
+                          </h4>
+                          <p className="text-base font-medium">
+                            {orderDetails.supplier?.name || "N/A"}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Data de Entrega
+                          </h4>
+                          <p className="text-base font-medium">
+                            {formatDate(orderDetails.deliveryDate.toString())}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Nº da Ordem de Compra
+                          </h4>
+                          <p className="text-base font-medium">
+                            {orderDetails.purchaseOrder?.orderNumber ||
+                              "Sem ordem de compra vinculada"}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Data de Criação
+                          </h4>
+                          <p className="text-base font-medium">
+                            {orderDetails.createdAt
+                              ? formatDate(orderDetails.createdAt.toString())
+                              : "N/A"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        Local da Obra
-                      </h4>
-                      <p className="text-base font-medium flex items-center gap-2">
-                        {orderDetails.workLocation}
-                        <a
-                          href={getGoogleMapsLink(orderDetails.workLocation)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        Fornecedor
-                      </h4>
-                      <p className="text-base font-medium">
-                        {orderDetails.supplier?.name || "N/A"}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        Data de Entrega
-                      </h4>
-                      <p className="text-base font-medium">
-                        {formatDate(orderDetails.deliveryDate.toString())}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        Nº da Ordem de Compra
-                      </h4>
-                      <p className="text-base font-medium">
-                        {orderDetails.purchaseOrder?.orderNumber ||
-                          "Sem ordem de compra vinculada"}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        Data de Criação
-                      </h4>
-                      <p className="text-base font-medium">
-                        {orderDetails.createdAt
-                          ? formatDate(orderDetails.createdAt.toString())
-                          : "N/A"}
-                      </p>
+                    {/* Coluna 2 - QR Code */}
+                    <div className="flex justify-center items-start">
+                      <QRCodeComponent 
+                        value={orderDetails.orderId}
+                        size={150}
+                        className="mt-4"
+                      />
                     </div>
                   </div>
 
