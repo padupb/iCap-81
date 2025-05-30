@@ -200,9 +200,6 @@ function SimpleTracker({
       {trackingPoints.length === 0 ? (
         <div className="text-center py-6">
           <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">
-            Nenhum ponto de rastreamento
-          </h3>
         </div>
       ) : (
         <div className="space-y-4">
