@@ -86,28 +86,26 @@ const formatNumber = (value: string | number): string => {
   });
 };
 
-// Componente do Mapa Google Maps
-function GoogleMapsTracker({ orderId }: { orderId: number }) {
-  const { settings } = useSettings();
-  const { toast } = useToast();
-  const [mapLoaded, setMapLoaded] = useState(false);
+// Componente de Rastreamento Simples
+function SimpleTracker({ orderId }: { orderId: number }) {
   const [trackingPoints, setTrackingPoints] = useState<TrackingPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const { toast } = useToast();
 
-  // Buscar detalhes do pedido incluindo tracking points
+  // Buscar pontos de rastreamento
   const fetchTrackingPoints = async () => {
     try {
       setError(null);
       setIsLoading(true);
-      const response = await fetch(`/api/pedidos/${orderId}/detalhes`);
+      console.log(`🔍 Buscando pontos de rastreamento para pedido: ${orderId}`);
+      const response = await fetch(`/api/tracking-points/${orderId}`);
       if (!response.ok) {
         throw new Error(`Erro ao buscar dados: ${response.statusText}`);
       }
       const data = await response.json();
-      setTrackingPoints(data.trackingPoints || []);
+      console.log(`📍 Pontos recebidos:`, data);
+      setTrackingPoints(data || []);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       console.error("Erro ao buscar tracking points:", errorMessage);
@@ -137,48 +135,17 @@ function GoogleMapsTracker({ orderId }: { orderId: number }) {
     return () => clearInterval(interval);
   }, [orderId]);
 
-  // Carregar Google Maps API
-  useEffect(() => {
-    if (!settings.googleMapsApiKey) {
-      setError("Chave da API do Google Maps não configurada");
-      toast({
-        title: "Erro de Configuração",
-        description: "Chave da API do Google Maps não configurada. Entre em contato com o administrador.",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
-    }
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-muted-foreground">Carregando rastreamento...</p>
+        </div>
+      </div>
+    );
+  }
 
-    const loadGoogleMaps = () => {
-      if ((window as any).google && (window as any).google.maps) {
-        setMapLoaded(true);
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${settings.googleMapsApiKey}&libraries=geometry`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => setMapLoaded(true);
-      script.onerror = (e) => {
-        const errorMessage = "Erro ao carregar API do Google Maps";
-        console.error(errorMessage, e);
-        setError(errorMessage);
-        toast({
-          title: "Erro",
-          description: errorMessage,
-          variant: "destructive"
-        });
-        setIsLoading(false);
-      };
-      document.head.appendChild(script);
-    };
-
-    loadGoogleMaps();
-  }, [settings.googleMapsApiKey]);
-
-  // Renderizar estados de erro e carregamento
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center p-6 space-y-4">
@@ -191,93 +158,44 @@ function GoogleMapsTracker({ orderId }: { orderId: number }) {
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-          <p className="text-muted-foreground">Carregando rastreamento...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!settings.googleMapsApiKey) {
-    return (
-      <div className="text-center py-6">
-        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">API do Google Maps não configurada</h3>
-        <p className="text-muted-foreground">
-          Configure a chave da API do Google Maps nas configurações do sistema para habilitar o rastreamento.
-        </p>
-      </div>
-    );
-  }
-
-  const validPoints = trackingPoints.filter((point: TrackingPoint) => 
-    point.latitude && point.longitude && 
-    !isNaN(Number(point.latitude)) && !isNaN(Number(point.longitude))
-  );
-
-  if (validPoints.length === 0) {
+  if (trackingPoints.length === 0) {
     return (
       <div className="text-center py-6">
         <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium mb-2">Nenhum ponto de rastreamento</h3>
         <p className="text-muted-foreground">
-          Este pedido ainda não possui pontos de rastreamento com coordenadas registradas.
+          Este pedido ainda não possui pontos de rastreamento registrados.
         </p>
-        {trackingPoints.length > 0 && (
-          <div className="mt-4 p-4 bg-muted rounded-lg">
-            <h4 className="font-medium mb-2">Eventos registrados:</h4>
-            <div className="space-y-2">
-              {trackingPoints.map((point, index) => (
-                <div key={point.id} className="text-sm">
-                  <span className="font-medium">{point.status}</span>
-                  {point.comment && <span className="text-muted-foreground"> - {point.comment}</span>}
-                  <span className="text-muted-foreground block">{formatDate(point.created_at)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div 
-        ref={mapRef} 
-        className="w-full h-64 rounded-lg border"
-        style={{ minHeight: '400px' }}
-      />
-      
-      {/* Lista de pontos */}
-      <div className="space-y-2">
-        <h4 className="font-medium">Pontos de Rastreamento ({validPoints.length})</h4>
-        <div className="grid gap-2">
-          {validPoints.map((point, index) => (
-            <div key={point.id} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
-                  {index + 1}
-                </div>
-                <div>
-                  <p className="font-medium">{point.status}</p>
-                  <p className="text-sm text-muted-foreground">{formatDate(point.created_at)}</p>
-                  {point.comment && (
-                    <p className="text-sm text-muted-foreground">{point.comment}</p>
-                  )}
-                </div>
+      <h4 className="font-medium">Pontos de Rastreamento ({trackingPoints.length})</h4>
+      <div className="grid gap-3">
+        {trackingPoints.map((point, index) => (
+          <div key={point.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                {index + 1}
               </div>
-              <div className="text-right text-sm text-muted-foreground">
-                <p>{Number(point.latitude).toFixed(6)}</p>
-                <p>{Number(point.longitude).toFixed(6)}</p>
+              <div>
+                <p className="font-medium">{point.status || 'Status não informado'}</p>
+                <p className="text-sm text-muted-foreground">{formatDate(point.created_at)}</p>
+                {point.comment && (
+                  <p className="text-sm text-muted-foreground italic">{point.comment}</p>
+                )}
               </div>
             </div>
-          ))}
-        </div>
+            {point.latitude && point.longitude && (
+              <div className="text-right text-sm text-muted-foreground">
+                <p>Lat: {Number(point.latitude).toFixed(6)}</p>
+                <p>Lng: {Number(point.longitude).toFixed(6)}</p>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1253,12 +1171,12 @@ export function OrderDetailDrawer({
                     <CardHeader>
                       <CardTitle>Rastreamento do Pedido</CardTitle>
                       <CardDescription>
-                        Acompanhe o status atual do pedido e atualizações de localização
+                        Acompanhe os pontos de rastreamento e atualizações do pedido
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       {orderId ? (
-                        <GoogleMapsTracker orderId={orderId} />
+                        <SimpleTracker orderId={orderId} />
                       ) : (
                         <div className="text-center py-6">
                           <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
