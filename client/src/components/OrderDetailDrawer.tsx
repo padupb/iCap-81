@@ -185,7 +185,6 @@ function SimpleTracker({
     <div className="space-y-4">
       {/* Seção do Mapa */}
       <div className="space-y-8">
-        <h4 className="font-medium">Localização no Mapa</h4>
         <div className="border rounded-lg overflow-hidden">
           <MapComponent lat={coordinates.lat} lng={coordinates.lng} />
         </div>
@@ -1444,10 +1443,6 @@ export function OrderDetailDrawer({
                   <Card>
                     <CardHeader>
                       <CardTitle>Rastreamento do Pedido</CardTitle>
-                      <CardDescription>
-                        Acompanhe os pontos de rastreamento e atualizações do
-                        pedido
-                      </CardDescription>
                     </CardHeader>
                     <CardContent>
                       {orderId ? (
