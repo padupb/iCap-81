@@ -224,6 +224,16 @@ export default function Orders() {
     refetchInterval: 60000, // Atualizar a cada minuto
   });
 
+  // Buscar configurações do sistema
+  const { data: settings = [] } = useQuery({
+    queryKey: ["/api/settings"],
+    queryFn: async () => {
+      const response = await fetch("/api/settings");
+      if (!response.ok) throw new Error("Falha ao carregar configurações");
+      return response.json();
+    },
+  });
+
   const { canEdit: hasPermission } = useAuthorization();
 
   // Atualizar threshold de urgência quando as configurações carregarem
