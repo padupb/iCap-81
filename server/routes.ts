@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db, pool } from "./db";
-import { isAuthenticated, hasPermission, isKeyUser, authenticateUser } from "./middleware/auth";
+import { isAuthenticated, hasPermission, isKeyUser } from "./middleware/auth";
 import { 
   insertUserSchema, insertCompanySchema, insertCompanyCategorySchema,
   insertUserRoleSchema, insertProductSchema, insertUnitSchema,
@@ -2148,38 +2148,21 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
-  // Funções auxiliares de validação
-  function isValidLatitude(lat: number): boolean {
-    return !isNaN(lat) && lat >= -90 && lat <= 90;
-  }
-
-  function isValidLongitude(lng: number): boolean {
-    return !isNaN(lng) && lng >= -180 && lng <= 180;
-  }
-
   // Rota para adicionar ponto de rastreamento (usado pelo app mobile)
-  app.post("/api/tracking-points", authenticateUser, async (req, res) => {
+  app.post("/api/tracking-points", async (req, res) => {
     try {
-      const { orderId, latitude, longitude, status, comment } = req.body;
+      const { orderId, latitude, longitude } = req.body;
 
-      if (!orderId || latitude === undefined || longitude === undefined) {
+      if (!orderId || !latitude || !longitude) {
         return res.status(400).json({
           sucesso: false,
           mensagem: "Dados incompletos: orderId, latitude e longitude são obrigatórios"
         });
       }
 
-      // Validação rigorosa das coordenadas
-      if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
-        return res.status(400).json({
-          sucesso: false,
-          mensagem: "Coordenadas inválidas. Latitude deve estar entre -90 e 90, e Longitude entre -180 e 180"
-        });
-      }
-
-      // Verificar se o pedido existe e se o usuário tem permissão
+      // Verificar se o pedido existe
       const orderCheck = await pool.query(
-        "SELECT id, order_id, user_id FROM orders WHERE id = $1",
+        "SELECT id, order_id FROM orders WHERE id = $1",
         [orderId]
       );
 
@@ -2190,69 +2173,32 @@ mensagem: "Erro interno do servidor ao processar o upload",
         });
       }
 
-      // Verificar permissão do usuário
-      const order = orderCheck.rows[0];
-      if (req.user.role !== 'admin' && req.user.id !== order.user_id) {
-        return res.status(403).json({
-          sucesso: false,
-          mensagem: "Sem permissão para adicionar pontos a este pedido"
-        });
-      }
-
-      // Inserir novo ponto de rastreamento com informações adicionais
+      // Inserir novo ponto de rastreamento
       const result = await pool.query(
-        `INSERT INTO tracking_points (
-          order_id, 
-          latitude, 
-          longitude, 
-          status,
-          comment,
-          user_id,
-          created_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
-        RETURNING 
-          id, 
-          order_id as "orderId", 
-          latitude, 
-          longitude, 
-          status,
-          comment,
-          user_id as "userId",
-          created_at as "createdAt"`,
-        [orderId, latitude, longitude, status || 'Em Rota', comment, req.user.id]
+        `INSERT INTO tracking_points (order_id, latitude, longitude, created_at)
+         VALUES ($1, $2, $3, NOW())
+         RETURNING id, order_id as "orderId", latitude, longitude, created_at as "createdAt"`,
+        [orderId, latitude, longitude]
       );
 
-      // Registrar no log do sistema
-      await pool.query(
-        `INSERT INTO system_logs (
-          item_type,
-          item_id,
-          action,
-          details,
-          user_id
-        ) VALUES ($1, $2, $3, $4, $5)`,
-        [
-          'order',
-          orderId,
-          'tracking_update',
-          `Novo ponto de rastreamento adicionado: ${status || 'Em Rota'}`,
-          req.user.id
-        ]
-      );
+      const newPoint = {
+        id: result.rows[0].id,
+        orderId: result.rows[0].orderId,
+        latitude: parseFloat(result.rows[0].latitude),
+        longitude: parseFloat(result.rows[0].longitude),
+        createdAt: result.rows[0].createdAt
+      };
 
       res.json({
         sucesso: true,
         mensagem: "Ponto de rastreamento adicionado com sucesso",
-        dados: result.rows[0]
+        ponto: newPoint
       });
-
     } catch (error) {
       console.error("Erro ao adicionar ponto de rastreamento:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao adicionar ponto de rastreamento",
-        erro: process.env.NODE_ENV === 'development' ? error.message : undefined
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao adicionar ponto de rastreamento"
       });
     }
   });

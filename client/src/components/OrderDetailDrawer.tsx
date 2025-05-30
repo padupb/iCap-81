@@ -28,7 +28,18 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { useSettings } from "@/context/SettingsContext";
+
+// Função para formatar números com vírgula (formato brasileiro)
+const formatNumber = (value: string | number): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return value.toString();
+
+  // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
+  return numValue.toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2, // Máximo 2 casas decimais
+  });
+};
 import { 
   Package, 
   CircleCheck, 
@@ -42,11 +53,10 @@ import {
   Upload,
   FileCheck,
   Clock,
-  Download,
-  AlertCircle
+  Download
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder } from "@shared/schema";
-import { useToast } from "@/components/ui/use-toast";
+import { GoogleMapsTracking } from "./GoogleMapsTracking";
 
 interface OrderDetailDrawerProps {
   open: boolean;
@@ -61,227 +71,6 @@ type OrderDetails = Order & {
   quantidadeRecebida?: string;
   documentosCarregados?: boolean;
 };
-
-// Tipo para tracking points
-type TrackingPoint = {
-  id: number;
-  status: string;
-  comment?: string;
-  user_id: number;
-  user_name?: string;
-  latitude: number;
-  longitude: number;
-  created_at: string;
-};
-
-// Função para formatar números com vírgula (formato brasileiro)
-const formatNumber = (value: string | number): string => {
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  if (isNaN(numValue)) return value.toString();
-
-  // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
-  return numValue.toLocaleString('pt-BR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2, // Máximo 2 casas decimais
-  });
-};
-
-// Componente do Mapa Google Maps
-function GoogleMapsTracker({ orderId }: { orderId: number }) {
-  const { settings } = useSettings();
-  const { toast } = useToast();
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [trackingPoints, setTrackingPoints] = useState<TrackingPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-
-  // Buscar detalhes do pedido incluindo tracking points
-  const fetchTrackingPoints = async () => {
-    try {
-      setError(null);
-      setIsLoading(true);
-      const response = await fetch(`/api/pedidos/${orderId}/detalhes`);
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar dados: ${response.statusText}`);
-      }
-      const data = await response.json();
-      setTrackingPoints(data.trackingPoints || []);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-      console.error("Erro ao buscar tracking points:", errorMessage);
-      setError(errorMessage);
-      toast({
-        title: "Erro ao carregar rastreamento",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Efeito para buscar dados iniciais
-  useEffect(() => {
-    if (orderId) {
-      fetchTrackingPoints();
-    }
-  }, [orderId]);
-
-  // Atualização em tempo real
-  useEffect(() => {
-    if (!orderId) return;
-
-    const interval = setInterval(fetchTrackingPoints, 30000); // Atualiza a cada 30 segundos
-    return () => clearInterval(interval);
-  }, [orderId]);
-
-  // Carregar Google Maps API
-  useEffect(() => {
-    if (!settings.googleMapsApiKey) {
-      setError("Chave da API do Google Maps não configurada");
-      toast({
-        title: "Erro de Configuração",
-        description: "Chave da API do Google Maps não configurada. Entre em contato com o administrador.",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    const loadGoogleMaps = () => {
-      if ((window as any).google && (window as any).google.maps) {
-        setMapLoaded(true);
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${settings.googleMapsApiKey}&libraries=geometry`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => setMapLoaded(true);
-      script.onerror = (e) => {
-        const errorMessage = "Erro ao carregar API do Google Maps";
-        console.error(errorMessage, e);
-        setError(errorMessage);
-        toast({
-          title: "Erro",
-          description: errorMessage,
-          variant: "destructive"
-        });
-        setIsLoading(false);
-      };
-      document.head.appendChild(script);
-    };
-
-    loadGoogleMaps();
-  }, [settings.googleMapsApiKey]);
-
-  // Renderizar estados de erro e carregamento
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center p-6 space-y-4">
-        <AlertCircle className="h-12 w-12 text-destructive" />
-        <div className="text-center">
-          <h3 className="text-lg font-medium">Erro ao carregar rastreamento</h3>
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-          <p className="text-muted-foreground">Carregando rastreamento...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!settings.googleMapsApiKey) {
-    return (
-      <div className="text-center py-6">
-        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">API do Google Maps não configurada</h3>
-        <p className="text-muted-foreground">
-          Configure a chave da API do Google Maps nas configurações do sistema para habilitar o rastreamento.
-        </p>
-      </div>
-    );
-  }
-
-  const validPoints = trackingPoints.filter((point: TrackingPoint) => 
-    point.latitude && point.longitude && 
-    !isNaN(Number(point.latitude)) && !isNaN(Number(point.longitude))
-  );
-
-  if (validPoints.length === 0) {
-    return (
-      <div className="text-center py-6">
-        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">Nenhum ponto de rastreamento</h3>
-        <p className="text-muted-foreground">
-          Este pedido ainda não possui pontos de rastreamento com coordenadas registradas.
-        </p>
-        {trackingPoints.length > 0 && (
-          <div className="mt-4 p-4 bg-muted rounded-lg">
-            <h4 className="font-medium mb-2">Eventos registrados:</h4>
-            <div className="space-y-2">
-              {trackingPoints.map((point, index) => (
-                <div key={point.id} className="text-sm">
-                  <span className="font-medium">{point.status}</span>
-                  {point.comment && <span className="text-muted-foreground"> - {point.comment}</span>}
-                  <span className="text-muted-foreground block">{formatDate(point.created_at)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div 
-        ref={mapRef} 
-        className="w-full h-64 rounded-lg border"
-        style={{ minHeight: '400px' }}
-      />
-      
-      {/* Lista de pontos */}
-      <div className="space-y-2">
-        <h4 className="font-medium">Pontos de Rastreamento ({validPoints.length})</h4>
-        <div className="grid gap-2">
-          {validPoints.map((point, index) => (
-            <div key={point.id} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
-                  {index + 1}
-                </div>
-                <div>
-                  <p className="font-medium">{point.status}</p>
-                  <p className="text-sm text-muted-foreground">{formatDate(point.created_at)}</p>
-                  {point.comment && (
-                    <p className="text-sm text-muted-foreground">{point.comment}</p>
-                  )}
-                </div>
-              </div>
-              <div className="text-right text-sm text-muted-foreground">
-                <p>{Number(point.latitude).toFixed(6)}</p>
-                <p>{Number(point.longitude).toFixed(6)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function OrderDetailDrawer({ 
   open, 
@@ -1253,18 +1042,41 @@ export function OrderDetailDrawer({
                     <CardHeader>
                       <CardTitle>Rastreamento do Pedido</CardTitle>
                       <CardDescription>
-                        Acompanhe o status atual do pedido e atualizações de localização
+                        Acompanhe o trajeto do pedido através do Google Maps
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {orderId ? (
-                        <GoogleMapsTracker orderId={orderId} />
-                      ) : (
-                        <div className="text-center py-6">
-                          <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-                          <p className="text-muted-foreground">ID do pedido não disponível</p>
+                      <div className="space-y-4">
+                        {/* Container do Google Maps */}
+                        <div className="w-full h-96 bg-gray-100 rounded-lg overflow-hidden relative">
+                          <GoogleMapsTracking orderId={orderId} />
                         </div>
-                      )}
+                        
+                        {/* Informações do rastreamento */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                          <div className="text-center p-4 border rounded-lg">
+                            <MapPin className="mx-auto text-blue-500 mb-2" size={24} />
+                            <p className="text-sm font-medium">Posição Atual</p>
+                            <p className="text-xs text-muted-foreground">
+                              {orderDetails?.status === 'Em Rota' ? 'Em movimento' : 'Parado'}
+                            </p>
+                          </div>
+                          <div className="text-center p-4 border rounded-lg">
+                            <Clock className="mx-auto text-orange-500 mb-2" size={24} />
+                            <p className="text-sm font-medium">Última Atualização</p>
+                            <p className="text-xs text-muted-foreground">
+                              Há poucos minutos
+                            </p>
+                          </div>
+                          <div className="text-center p-4 border rounded-lg">
+                            <MapPin className="mx-auto text-green-500 mb-2" size={24} />
+                            <p className="text-sm font-medium">Destino</p>
+                            <p className="text-xs text-muted-foreground">
+                              {orderDetails?.workLocation}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
