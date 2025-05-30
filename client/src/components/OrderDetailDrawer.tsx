@@ -992,8 +992,7 @@ export function OrderDetailDrawer({
                   </Card>
                 </TabsContent>
 
-                {/* Aba de Documentos */}```text
-<replit_final_file>
+                {/* Aba de Documentos */}
                 <TabsContent value="documents" className="py-4">
                   <Card>
                     <CardHeader>
