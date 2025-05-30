@@ -184,7 +184,7 @@ function SimpleTracker({
   return (
     <div className="space-y-4">
       {/* Seção do Mapa */}
-      <div className="space-y-2">
+      <div className="space-y-8">
         <h4 className="font-medium">Localização no Mapa</h4>
         <div className="border rounded-lg overflow-hidden">
           <MapComponent lat={coordinates.lat} lng={coordinates.lng} />
@@ -198,10 +198,10 @@ function SimpleTracker({
 
       {/* Seção dos Pontos de Rastreamento */}
       {trackingPoints.length === 0 ? (
-        <div className="text-center py-6">
+        <div className="text-center py-8">
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-8">
           <h4 className="font-medium">
             Pontos de Rastreamento ({trackingPoints.length})
           </h4>
