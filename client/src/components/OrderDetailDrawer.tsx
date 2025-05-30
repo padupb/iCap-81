@@ -42,9 +42,11 @@ import {
   Upload,
   FileCheck,
   Clock,
-  Download
+  Download,
+  AlertCircle
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder } from "@shared/schema";
+import { useToast } from "@/components/ui/use-toast";
 
 interface OrderDetailDrawerProps {
   open: boolean;
@@ -87,38 +89,63 @@ const formatNumber = (value: string | number): string => {
 // Componente do Mapa Google Maps
 function GoogleMapsTracker({ orderId }: { orderId: number }) {
   const { settings } = useSettings();
+  const { toast } = useToast();
   const [mapLoaded, setMapLoaded] = useState(false);
   const [trackingPoints, setTrackingPoints] = useState<TrackingPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
   // Buscar detalhes do pedido incluindo tracking points
-  useEffect(() => {
-    const fetchTrackingPoints = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/pedidos/${orderId}/detalhes`);
-        if (response.ok) {
-          const data = await response.json();
-          setTrackingPoints(data.trackingPoints || []);
-        }
-      } catch (error) {
-        console.error("Erro ao buscar tracking points:", error);
-      } finally {
-        setIsLoading(false);
+  const fetchTrackingPoints = async () => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      const response = await fetch(`/api/pedidos/${orderId}/detalhes`);
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar dados: ${response.statusText}`);
       }
-    };
+      const data = await response.json();
+      setTrackingPoints(data.trackingPoints || []);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("Erro ao buscar tracking points:", errorMessage);
+      setError(errorMessage);
+      toast({
+        title: "Erro ao carregar rastreamento",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Efeito para buscar dados iniciais
+  useEffect(() => {
     if (orderId) {
       fetchTrackingPoints();
     }
   }, [orderId]);
 
+  // Atualização em tempo real
+  useEffect(() => {
+    if (!orderId) return;
+
+    const interval = setInterval(fetchTrackingPoints, 30000); // Atualiza a cada 30 segundos
+    return () => clearInterval(interval);
+  }, [orderId]);
+
   // Carregar Google Maps API
   useEffect(() => {
     if (!settings.googleMapsApiKey) {
-      console.warn("Chave da API do Google Maps não configurada");
+      setError("Chave da API do Google Maps não configurada");
+      toast({
+        title: "Erro de Configuração",
+        description: "Chave da API do Google Maps não configurada. Entre em contato com o administrador.",
+        variant: "destructive"
+      });
       setIsLoading(false);
       return;
     }
@@ -134,8 +161,15 @@ function GoogleMapsTracker({ orderId }: { orderId: number }) {
       script.async = true;
       script.defer = true;
       script.onload = () => setMapLoaded(true);
-      script.onerror = () => {
-        console.error("Erro ao carregar Google Maps API");
+      script.onerror = (e) => {
+        const errorMessage = "Erro ao carregar API do Google Maps";
+        console.error(errorMessage, e);
+        setError(errorMessage);
+        toast({
+          title: "Erro",
+          description: errorMessage,
+          variant: "destructive"
+        });
         setIsLoading(false);
       };
       document.head.appendChild(script);
@@ -144,77 +178,18 @@ function GoogleMapsTracker({ orderId }: { orderId: number }) {
     loadGoogleMaps();
   }, [settings.googleMapsApiKey]);
 
-  // Inicializar mapa quando carregado
-  useEffect(() => {
-    if (!mapLoaded || !mapRef.current || !trackingPoints.length) return;
-
-    // Filtrar pontos com coordenadas válidas
-    const validPoints = trackingPoints.filter((point: TrackingPoint) => 
-      point.latitude && point.longitude && 
-      !isNaN(Number(point.latitude)) && !isNaN(Number(point.longitude))
+  // Renderizar estados de erro e carregamento
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 space-y-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <div className="text-center">
+          <h3 className="text-lg font-medium">Erro ao carregar rastreamento</h3>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
     );
-
-    if (validPoints.length === 0) return;
-
-    // Configurar centro do mapa (primeiro ponto ou média dos pontos)
-    const centerLat = validPoints.length === 1 
-      ? Number(validPoints[0].latitude)
-      : validPoints.reduce((sum: number, point: TrackingPoint) => sum + Number(point.latitude), 0) / validPoints.length;
-    
-    const centerLng = validPoints.length === 1
-      ? Number(validPoints[0].longitude)
-      : validPoints.reduce((sum: number, point: TrackingPoint) => sum + Number(point.longitude), 0) / validPoints.length;
-
-    // Criar mapa
-    const google = (window as any).google;
-    const map = new google.maps.Map(mapRef.current, {
-      center: { lat: centerLat, lng: centerLng },
-      zoom: validPoints.length === 1 ? 15 : 10,
-      mapTypeId: google.maps.MapTypeId.ROADMAP,
-    });
-
-    mapInstanceRef.current = map;
-
-    // Adicionar marcadores para cada ponto
-    validPoints.forEach((point, index) => {
-      const marker = new google.maps.Marker({
-        position: { 
-          lat: Number(point.latitude), 
-          lng: Number(point.longitude) 
-        },
-        map: map,
-        title: `Ponto ${index + 1}: ${point.status}`,
-        label: (index + 1).toString(),
-      });
-
-      // Info window com detalhes do ponto
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="padding: 8px; min-width: 200px;">
-            <h4 style="margin: 0 0 8px 0; color: #333;">${point.status}</h4>
-            <p style="margin: 4px 0; color: #666;"><strong>Data:</strong> ${formatDate(point.created_at)}</p>
-            <p style="margin: 4px 0; color: #666;"><strong>Usuário:</strong> ${point.user_name || 'Sistema'}</p>
-            ${point.comment ? `<p style="margin: 4px 0; color: #666;"><strong>Comentário:</strong> ${point.comment}</p>` : ''}
-            <p style="margin: 4px 0; color: #666;"><strong>Coordenadas:</strong> ${Number(point.latitude).toFixed(6)}, ${Number(point.longitude).toFixed(6)}</p>
-          </div>
-        `
-      });
-
-      marker.addListener('click', () => {
-        infoWindow.open(map, marker);
-      });
-    });
-
-    // Ajustar zoom para mostrar todos os pontos se houver múltiplos
-    if (validPoints.length > 1) {
-      const bounds = new google.maps.LatLngBounds();
-      validPoints.forEach((point: TrackingPoint) => {
-        bounds.extend(new google.maps.LatLng(Number(point.latitude), Number(point.longitude)));
-      });
-      map.fitBounds(bounds);
-    }
-
-  }, [mapLoaded, trackingPoints]);
+  }
 
   if (isLoading) {
     return (
