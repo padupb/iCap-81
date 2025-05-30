@@ -690,6 +690,385 @@ export function OrderDetailDrawer({
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
   };
 
+  // Função para imprimir o pedido
+  const handlePrintOrder = () => {
+    if (!orderDetails) return;
+
+    // Criar uma nova janela para impressão
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) return;
+
+    // Gerar o QR code como data URL
+    const canvas = document.createElement('canvas');
+    import('qrcode').then((QRCode) => {
+      QRCode.toCanvas(canvas, orderDetails.orderId, {
+        width: 120,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      }, (error) => {
+        if (error) {
+          console.error('Erro ao gerar QR code:', error);
+          return;
+        }
+
+        const qrCodeDataUrl = canvas.toDataURL();
+        
+        // HTML do layout de impressão
+        const printHTML = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Pedido ${orderDetails.orderId}</title>
+              <style>
+                * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+                }
+                
+                body {
+                  font-family: Arial, sans-serif;
+                  font-size: 12px;
+                  line-height: 1.4;
+                  color: #333;
+                  padding: 20px;
+                }
+                
+                .header {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 30px;
+                  padding-bottom: 20px;
+                  border-bottom: 2px solid #333;
+                }
+                
+                .logo {
+                  max-height: 60px;
+                  max-width: 200px;
+                }
+                
+                .company-info {
+                  text-align: center;
+                  flex-grow: 1;
+                  margin: 0 20px;
+                }
+                
+                .company-name {
+                  font-size: 18px;
+                  font-weight: bold;
+                  margin-bottom: 5px;
+                }
+                
+                .qr-section {
+                  text-align: center;
+                }
+                
+                .qr-code {
+                  border: 1px solid #ddd;
+                  padding: 5px;
+                  background: white;
+                }
+                
+                .order-title {
+                  font-size: 24px;
+                  font-weight: bold;
+                  text-align: center;
+                  margin: 20px 0;
+                  color: #2563eb;
+                }
+                
+                .details-grid {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 20px;
+                  margin-bottom: 30px;
+                }
+                
+                .detail-item {
+                  margin-bottom: 15px;
+                }
+                
+                .detail-label {
+                  font-weight: bold;
+                  color: #666;
+                  margin-bottom: 3px;
+                }
+                
+                .detail-value {
+                  font-size: 14px;
+                  font-weight: 500;
+                }
+                
+                .status-badge {
+                  display: inline-block;
+                  padding: 4px 12px;
+                  border-radius: 20px;
+                  font-size: 11px;
+                  font-weight: bold;
+                  text-transform: uppercase;
+                  background: #e5e7eb;
+                  color: #374151;
+                }
+                
+                .status-entregue { background: #10b981; color: white; }
+                .status-carregado { background: #3b82f6; color: white; }
+                .status-em-rota { background: #f59e0b; color: white; }
+                .status-registrado { background: #6b7280; color: white; }
+                .status-recusado { background: #ef4444; color: white; }
+                
+                .progress-section {
+                  margin: 30px 0;
+                  padding: 20px;
+                  border: 1px solid #ddd;
+                  border-radius: 8px;
+                  background: #f9fafb;
+                }
+                
+                .progress-title {
+                  font-size: 16px;
+                  font-weight: bold;
+                  margin-bottom: 20px;
+                  text-align: center;
+                }
+                
+                .progress-steps {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  position: relative;
+                  margin: 20px 0;
+                }
+                
+                .progress-line {
+                  position: absolute;
+                  top: 20px;
+                  left: 0;
+                  right: 0;
+                  height: 2px;
+                  background: #e5e7eb;
+                  z-index: 1;
+                }
+                
+                .progress-step {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  text-align: center;
+                  position: relative;
+                  z-index: 2;
+                  background: white;
+                  padding: 0 10px;
+                }
+                
+                .step-circle {
+                  width: 40px;
+                  height: 40px;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: bold;
+                  margin-bottom: 8px;
+                  background: #e5e7eb;
+                  color: #6b7280;
+                }
+                
+                .step-circle.completed {
+                  background: #10b981;
+                  color: white;
+                }
+                
+                .step-circle.current {
+                  background: #3b82f6;
+                  color: white;
+                }
+                
+                .step-label {
+                  font-size: 11px;
+                  font-weight: bold;
+                }
+                
+                .step-description {
+                  font-size: 10px;
+                  color: #666;
+                }
+                
+                .footer {
+                  margin-top: 40px;
+                  padding-top: 20px;
+                  border-top: 1px solid #ddd;
+                  text-align: center;
+                  font-size: 10px;
+                  color: #666;
+                }
+                
+                @media print {
+                  body { padding: 10px; }
+                  .header { margin-bottom: 20px; }
+                  .order-title { margin: 15px 0; }
+                  .details-grid { margin-bottom: 20px; }
+                  .progress-section { margin: 20px 0; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <img src="/public/uploads/logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
+                <div class="company-info">
+                  <div class="company-name">iCAP 7.0</div>
+                  <div>Sistema de Gestão de Pedidos</div>
+                </div>
+                <div class="qr-section">
+                  <img src="${qrCodeDataUrl}" alt="QR Code" class="qr-code">
+                  <div style="font-size: 10px; margin-top: 5px;">Pedido ${orderDetails.orderId}</div>
+                </div>
+              </div>
+              
+              <h1 class="order-title">DETALHES DO PEDIDO ${orderDetails.orderId}</h1>
+              
+              <div class="details-grid">
+                <div>
+                  <div class="detail-item">
+                    <div class="detail-label">Produto</div>
+                    <div class="detail-value">${orderDetails.product?.name || 'N/A'}</div>
+                  </div>
+                  
+                  <div class="detail-item">
+                    <div class="detail-label">Quantidade</div>
+                    <div class="detail-value">${formatNumber(orderDetails.quantity)}</div>
+                  </div>
+                  
+                  <div class="detail-item">
+                    <div class="detail-label">Fornecedor</div>
+                    <div class="detail-value">${orderDetails.supplier?.name || 'N/A'}</div>
+                  </div>
+                  
+                  <div class="detail-item">
+                    <div class="detail-label">Nº da Ordem de Compra</div>
+                    <div class="detail-value">${orderDetails.purchaseOrder?.orderNumber || 'Sem ordem de compra vinculada'}</div>
+                  </div>
+                </div>
+                
+                <div>
+                  <div class="detail-item">
+                    <div class="detail-label">Local da Obra</div>
+                    <div class="detail-value">${orderDetails.workLocation}</div>
+                  </div>
+                  
+                  <div class="detail-item">
+                    <div class="detail-label">Data de Entrega</div>
+                    <div class="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
+                  </div>
+                  
+                  <div class="detail-item">
+                    <div class="detail-label">Data de Criação</div>
+                    <div class="detail-value">${orderDetails.createdAt ? formatDate(orderDetails.createdAt.toString()) : 'N/A'}</div>
+                  </div>
+                  
+                  <div class="detail-item">
+                    <div class="detail-label">Status</div>
+                    <div class="detail-value">
+                      <span class="status-badge status-${orderDetails.status.toLowerCase().replace(' ', '-')}">${orderDetails.status}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="progress-section">
+                <div class="progress-title">Progresso do Pedido</div>
+                <div class="progress-steps">
+                  <div class="progress-line"></div>
+                  
+                  <div class="progress-step">
+                    <div class="step-circle ${getStepClass('Registrado', orderDetails.status)}">1</div>
+                    <div class="step-label">Registrado</div>
+                    <div class="step-description">Pedido criado</div>
+                  </div>
+                  
+                  <div class="progress-step">
+                    <div class="step-circle ${getStepClass('Carregado', orderDetails.status)}">2</div>
+                    <div class="step-label">Carregado</div>
+                    <div class="step-description">Documentos enviados</div>
+                  </div>
+                  
+                  <div class="progress-step">
+                    <div class="step-circle ${getStepClass('Em Rota', orderDetails.status)}">3</div>
+                    <div class="step-label">Em Rota</div>
+                    <div class="step-description">A caminho do destino</div>
+                  </div>
+                  
+                  <div class="progress-step">
+                    <div class="step-circle ${getStepClass('Entregue', orderDetails.status)}">4</div>
+                    <div class="step-label">Entregue</div>
+                    <div class="step-description">Pedido finalizado</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="footer">
+                <div>Documento gerado em ${new Date().toLocaleString('pt-BR')}</div>
+                <div>iCAP 7.0 - Sistema de Gestão de Pedidos</div>
+              </div>
+            </body>
+          </html>
+        `;
+
+        // Função auxiliar para determinar classe do step
+        function getStepClass(stepName, currentStatus) {
+          const statusHierarchy = {
+            'Registrado': 0,
+            'Carregado': 1,
+            'Em Rota': 2,
+            'Em transporte': 2,
+            'Entregue': 3,
+            'Recusado': -1
+          };
+
+          const stepHierarchy = {
+            'Registrado': 0,
+            'Carregado': 1,
+            'Em Rota': 2,
+            'Entregue': 3
+          };
+
+          const currentLevel = statusHierarchy[currentStatus] ?? 0;
+          const stepLevel = stepHierarchy[stepName] ?? 0;
+
+          if (currentStatus === 'Recusado') {
+            return stepName === 'Registrado' ? 'completed' : '';
+          }
+
+          if (currentLevel > stepLevel) {
+            return 'completed';
+          } else if (currentLevel === stepLevel) {
+            if (currentStatus === 'Entregue' && stepName === 'Entregue') {
+              return 'completed';
+            }
+            return 'current';
+          } else {
+            return '';
+          }
+        }
+
+        // Escrever o HTML na nova janela
+        printWindow.document.write(printHTML);
+        printWindow.document.close();
+
+        // Aguardar o carregamento da imagem do logo e então imprimir
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+          }, 500);
+        };
+      });
+    });
+  };
+
   if (!orderId) return null;
 
   return (
@@ -699,21 +1078,46 @@ export function OrderDetailDrawer({
           <DrawerHeader>
             <DrawerTitle className="flex items-center justify-between">
               <span>Pedido {orderDetails?.orderId}</span>
-              {orderDetails?.status && (
-                <Badge
-                  className={
-                    orderDetails.status === "Entregue"
-                      ? "bg-green-500 hover:bg-green-600"
-                      : orderDetails.status === "Recusado"
-                        ? "bg-red-500 hover:bg-red-600"
-                        : orderDetails.status === "Em Rota"
-                          ? "bg-amber-500 hover:bg-amber-600"
-                          : ""
-                  }
+              <div className="flex items-center gap-2">
+                {orderDetails?.status && (
+                  <Badge
+                    className={
+                      orderDetails.status === "Entregue"
+                        ? "bg-green-500 hover:bg-green-600"
+                        : orderDetails.status === "Recusado"
+                          ? "bg-red-500 hover:bg-red-600"
+                          : orderDetails.status === "Em Rota"
+                            ? "bg-amber-500 hover:bg-amber-600"
+                            : ""
+                    }
+                  >
+                    {orderDetails.status}
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handlePrintOrder()}
+                  className="h-8 w-8"
+                  title="Imprimir pedido"
                 >
-                  {orderDetails.status}
-                </Badge>
-              )}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6,9 6,2 18,2 18,9" />
+                    <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
+                    <rect x="6" y="14" width="12" height="8" />
+                  </svg>
+                </Button>
+              </div>
             </DrawerTitle>
             <DrawerDescription>Detalhes completos do pedido</DrawerDescription>
           </DrawerHeader>
