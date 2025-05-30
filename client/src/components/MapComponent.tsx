@@ -8,7 +8,7 @@ type Props = {
 
 const containerStyle = {
   width: "100%",
-  height: "460px",
+  height: "420px",
 };
 
 const MapComponent: React.FC<Props> = ({ lat, lng }) => {
