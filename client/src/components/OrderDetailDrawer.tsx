@@ -86,8 +86,10 @@ const formatNumber = (value: string | number): string => {
   });
 };
 
-// Componente de Rastreamento Simples
-function SimpleTracker({ orderId }: { orderId: number }) {
+import MapComponent from './MapComponent';
+
+// Componente de Rastreamento com Mapa
+function SimpleTracker({ orderId, orderDetails }: { orderId: number; orderDetails: OrderDetails | null }) {
   const [trackingPoints, setTrackingPoints] = useState<TrackingPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +137,23 @@ function SimpleTracker({ orderId }: { orderId: number }) {
     return () => clearInterval(interval);
   }, [orderId]);
 
+  // Coordenadas padrão (Cuiabá - MT) ou do primeiro ponto de rastreamento
+  const getMapCoordinates = () => {
+    if (trackingPoints.length > 0) {
+      const firstPoint = trackingPoints[0];
+      return {
+        lat: Number(firstPoint.latitude),
+        lng: Number(firstPoint.longitude)
+      };
+    }
+    
+    // Coordenadas padrão de Cuiabá - MT
+    return {
+      lat: -15.601410,
+      lng: -56.097891
+    };
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -158,45 +177,61 @@ function SimpleTracker({ orderId }: { orderId: number }) {
     );
   }
 
-  if (trackingPoints.length === 0) {
-    return (
-      <div className="text-center py-6">
-        <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">Nenhum ponto de rastreamento</h3>
-        <p className="text-muted-foreground">
-          Este pedido ainda não possui pontos de rastreamento registrados.
-        </p>
-      </div>
-    );
-  }
+  const coordinates = getMapCoordinates();
 
   return (
     <div className="space-y-4">
-      <h4 className="font-medium">Pontos de Rastreamento ({trackingPoints.length})</h4>
-      <div className="grid gap-3">
-        {trackingPoints.map((point, index) => (
-          <div key={point.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                {index + 1}
-              </div>
-              <div>
-                <p className="font-medium">{point.status || 'Status não informado'}</p>
-                <p className="text-sm text-muted-foreground">{formatDate(point.created_at)}</p>
-                {point.comment && (
-                  <p className="text-sm text-muted-foreground italic">{point.comment}</p>
+      {/* Seção do Mapa */}
+      <div className="space-y-2">
+        <h4 className="font-medium">Localização no Mapa</h4>
+        <div className="border rounded-lg overflow-hidden">
+          <MapComponent lat={coordinates.lat} lng={coordinates.lng} />
+        </div>
+        <p className="text-xs text-muted-foreground text-center">
+          {trackingPoints.length > 0 
+            ? `Mostrando localização do primeiro ponto de rastreamento`
+            : `Mostrando localização padrão (Cuiabá - MT)`}
+        </p>
+      </div>
+
+      {/* Seção dos Pontos de Rastreamento */}
+      {trackingPoints.length === 0 ? (
+        <div className="text-center py-6">
+          <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium mb-2">Nenhum ponto de rastreamento</h3>
+          <p className="text-muted-foreground">
+            Este pedido ainda não possui pontos de rastreamento registrados.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <h4 className="font-medium">Pontos de Rastreamento ({trackingPoints.length})</h4>
+          <div className="grid gap-3">
+            {trackingPoints.map((point, index) => (
+              <div key={point.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="font-medium">{point.status || 'Status não informado'}</p>
+                    <p className="text-sm text-muted-foreground">{formatDate(point.created_at)}</p>
+                    {point.comment && (
+                      <p className="text-sm text-muted-foreground italic">{point.comment}</p>
+                    )}
+                  </div>
+                </div>
+                {point.latitude && point.longitude && (
+                  <div className="text-right text-sm text-muted-foreground">
+                    <p>Lat: {Number(point.latitude).toFixed(6)}</p>
+                    <p>Lng: {Number(point.longitude).toFixed(6)}</p>
+                  </div>
                 )}
               </div>
-            </div>
-            {point.latitude && point.longitude && (
-              <div className="text-right text-sm text-muted-foreground">
-                <p>Lat: {Number(point.latitude).toFixed(6)}</p>
-                <p>Lng: {Number(point.longitude).toFixed(6)}</p>
-              </div>
-            )}
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1176,7 +1211,7 @@ export function OrderDetailDrawer({
                     </CardHeader>
                     <CardContent>
                       {orderId ? (
-                        <SimpleTracker orderId={orderId} />
+                        <SimpleTracker orderId={orderId} orderDetails={orderDetails} />
                       ) : (
                         <div className="text-center py-6">
                           <MapPin size={48} className="mx-auto text-muted-foreground mb-4" />
