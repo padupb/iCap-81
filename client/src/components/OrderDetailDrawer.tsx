@@ -189,11 +189,11 @@ function SimpleTracker({
         <div className="border rounded-lg overflow-hidden">
           <MapComponent lat={coordinates.lat} lng={coordinates.lng} />
         </div>
-        <p className="text-xs text-muted-foreground text-center">
-          {trackingPoints.length > 0
-            ? `Mostrando localização do primeiro ponto de rastreamento`
-            : `Mostrando localização padrão (Cuiabá - MT)`}
-        </p>
+        {trackingPoints.length > 0 && (
+          <p className="text-xs text-muted-foreground text-center">
+            Mostrando localização do primeiro ponto de rastreamento
+          </p>
+        )}
       </div>
 
       {/* Seção dos Pontos de Rastreamento */}
