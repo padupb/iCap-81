@@ -18,7 +18,7 @@ type TrackingPoint = {
 type Unit = {
   id: number;
   name: string;
-  symbol: string;
+  abbreviation: string;
 };
 
 type DashboardTrackingData = {
@@ -57,6 +57,11 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
   // Buscar unidades
   const { data: units = [] } = useQuery<Unit[]>({
     queryKey: ["/api/units"],
+    queryFn: async () => {
+      const response = await fetch("/api/units");
+      if (!response.ok) throw new Error("Falha ao carregar unidades");
+      return response.json();
+    },
   });
 
   // Filtrar pedidos "Em Rota" e "Em transporte"
@@ -309,7 +314,7 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
                   <span className="font-medium">{data.order.orderId}</span>
                 </div>
                 <span className="text-muted-foreground truncate ml-2">
-                  {data.product?.name || 'Produto'} - {data.order.quantity}{data.unit?.symbol || ''}
+                  {data.product?.name || 'Produto'} - {data.order.quantity}{data.unit?.abbreviation || ''}
                 </span>
               </div>
             ))}
