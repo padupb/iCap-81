@@ -26,14 +26,29 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { getStatusColor, formatDate } from "@/lib/utils";
-import type { Order } from "@shared/schema";
+import type { Order, Product, Company } from "@shared/schema";
+import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
 
 export default function Dashboard() {
   const [showOrdersCard, setShowOrdersCard] = useState(true);
   const [showTrackingCard, setShowTrackingCard] = useState(true);
   
+  // Estado para controlar o drawer de detalhes do pedido
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  
   const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
+  });
+
+  // Buscar produtos para exibir os nomes corretamente
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
+  // Buscar empresas para exibir os nomes dos fornecedores
+  const { data: companies = [] } = useQuery<Company[]>({
+    queryKey: ["/api/companies"],
   });
 
   // Calculate only pending stats for alert
@@ -44,12 +59,25 @@ export default function Dashboard() {
     .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
     .slice(0, 5);
 
+  // Função para abrir o drawer de detalhes do pedido
+  const handleOpenDetails = (order: Order) => {
+    setSelectedOrderId(order.id);
+    setDrawerOpen(true);
+  };
+
   if (ordersLoading) {
     return <DashboardSkeleton />;
   }
 
   return (
     <div className="space-y-8">
+      {/* Drawer para detalhes do pedido */}
+      <OrderDetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        orderId={selectedOrderId}
+      />
+
       {/* Removidos botões de ação rápida para manter o layout limpo */}
       {/* Conteúdo Principal em Coluna */}
       <div className="flex flex-col space-y-8">
@@ -103,52 +131,45 @@ export default function Dashboard() {
                       <TableRow>
                         <TableHead className="text-muted-foreground">ID</TableHead>
                         <TableHead className="text-muted-foreground">Produto</TableHead>
-                        <TableHead className="text-muted-foreground">Local</TableHead>
                         <TableHead className="text-muted-foreground">Status</TableHead>
-                        <TableHead className="text-muted-foreground">Data</TableHead>
-                        <TableHead className="text-muted-foreground">Ações</TableHead>
+                        <TableHead className="text-muted-foreground">Data de Entrega</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {recentOrders.map((order) => (
-                        <TableRow key={order.id} className="hover:bg-muted/50 transition-colors">
-                          <TableCell className="font-mono text-sm text-foreground">
-                            {order.orderId}
-                          </TableCell>
-                          <TableCell className="text-foreground">
-                            {order.productName || `Produto ID: ${order.productId}`}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {order.workLocation}
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={getStatusColor(order.status)}>
-                              {order.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {formatDate(order.createdAt!)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-muted-foreground hover:text-primary"
-                              >
-                                <Eye size={16} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-muted-foreground hover:text-green-500"
-                              >
-                                <Edit size={16} />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {recentOrders.map((order) => {
+                        const product = products.find(
+                          (p) => p.id === order.productId,
+                        );
+
+                        return (
+                          <TableRow 
+                            key={order.id} 
+                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                            onClick={() => handleOpenDetails(order)}
+                          >
+                            <TableCell className="font-mono text-sm text-foreground">
+                              {order.orderId}
+                            </TableCell>
+                            <TableCell className="text-foreground">
+                              {product?.name || `Produto ID: ${order.productId}`}
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={getStatusColor(order.status)}>
+                                {order.status}
+                              </Badge>
+                              {order.isUrgent && (
+                                <Badge variant="destructive" className="ml-2">
+                                  <AlertTriangle size={12} className="mr-1" />
+                                  Urgente
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {formatDate(order.deliveryDate)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -192,7 +213,7 @@ export default function Dashboard() {
                 <div className="mt-4 text-sm text-muted-foreground space-y-1">
                   <p className="flex items-center">
                     <Truck className="text-primary mr-2" size={16} />
-                    {orders.filter(o => o.status === "Em Trânsito").length} entregas em trânsito
+                    {orders.filter(o => o.status === "Em Rota" || o.status === "Em transporte").length} entregas em trânsito
                   </p>
                   <p className="flex items-center">
                     <Clock className="text-yellow-500 mr-2" size={16} />
