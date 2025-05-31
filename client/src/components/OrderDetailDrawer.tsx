@@ -310,6 +310,12 @@ export function OrderDetailDrawer({
     enabled: !!orderId && open,
   });
 
+  // Buscar usuários para exibir nomes no histórico
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    enabled: !!orderId && open,
+  });
+
   // Tentar buscar das duas rotas possíveis de ordens de compra
   const { data: purchaseOrders = [] } = useQuery<PurchaseOrder[]>({
     queryKey: ["/api/purchase-orders"],
@@ -725,6 +731,13 @@ export function OrderDetailDrawer({
         variant: "destructive",
       });
     }
+  };
+
+  // Função para buscar nome do usuário por ID
+  const getUserNameById = (userId: number | undefined): string => {
+    if (!userId) return "Sistema";
+    const user = users.find((u: any) => u.id === userId);
+    return user?.name || `Usuário ID: ${userId}`;
   };
 
   // Função para gerar link do Google Maps
@@ -1884,8 +1897,8 @@ export function OrderDetailDrawer({
                             <div className="text-sm text-muted-foreground">
                               {/* Nome do usuário que criou */}
                               {orderDetails.purchaseOrder?.userId
-                                ? `ID do usuário: ${orderDetails.purchaseOrder.userId}`
-                                : ""}
+                                ? getUserNameById(orderDetails.purchaseOrder.userId)
+                                : "Sistema"}
                             </div>
                           </div>
                           <div className="p-3 border-t pt-[5px] pb-[5px]">
@@ -1922,8 +1935,8 @@ export function OrderDetailDrawer({
                             <div className="text-sm text-muted-foreground">
                               {/* Nome do usuário que criou */}
                               {orderDetails.userId
-                                ? `ID do usuário: ${orderDetails.userId}`
-                                : ""}
+                                ? getUserNameById(orderDetails.userId)
+                                : "Sistema"}
                             </div>
                           </div>
                           <div className="p-3 border-t pt-[5px] pb-[5px]">
@@ -1956,8 +1969,8 @@ export function OrderDetailDrawer({
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 {orderDetails.userId
-                                  ? `ID do usuário: ${orderDetails.userId}`
-                                  : ""}
+                                  ? getUserNameById(orderDetails.userId)
+                                  : "Sistema"}
                               </div>
                             </div>
                             <div className="p-3 border-t pt-[5px] pb-[5px]">
