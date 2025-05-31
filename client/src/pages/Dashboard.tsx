@@ -17,7 +17,6 @@ import {
   Clock, 
   Truck, 
   CheckCircle, 
-  Eye, 
   Edit,
   Plus,
   FileText,
@@ -112,19 +111,16 @@ export default function Dashboard() {
         
         {/* Recent Orders Table */}
         <Card className="rounded-lg border text-card-foreground shadow-sm bg-card border-border">
-          <CardHeader className="space-y-1.5 p-6 border-b border-border flex flex-row items-center justify-between">
-            <div>
+          <CardHeader 
+            className="space-y-1.5 p-6 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => setShowOrdersCard(!showOrdersCard)}
+          >
+            <div className="flex flex-row items-center justify-between">
               <CardTitle className="text-foreground">Pedidos Recentes</CardTitle>
+              <div className="text-muted-foreground">
+                {showOrdersCard ? '−' : '+'}
+              </div>
             </div>
-            <Button 
-              onClick={() => setShowOrdersCard(!showOrdersCard)} 
-              variant="ghost" 
-              size="sm" 
-              className="h-9 w-9 p-0 rounded-full"
-            >
-              <Eye className={`h-4 w-4 ${!showOrdersCard ? 'opacity-50' : ''}`} />
-              <span className="sr-only">Mostrar/Ocultar</span>
-            </Button>
           </CardHeader>
           <CardContent className="p-0">
             {showOrdersCard && (
@@ -185,19 +181,16 @@ export default function Dashboard() {
 
         {/* Map Placeholder */}
         <Card className="rounded-lg border text-card-foreground shadow-sm bg-card border-border">
-          <CardHeader className="space-y-1.5 p-6 border-b border-border flex flex-row items-center justify-between">
-            <div>
+          <CardHeader 
+            className="space-y-1.5 p-6 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => setShowTrackingCard(!showTrackingCard)}
+          >
+            <div className="flex flex-row items-center justify-between">
               <CardTitle className="text-foreground">Rastreamento</CardTitle>
+              <div className="text-muted-foreground">
+                {showTrackingCard ? '−' : '+'}
+              </div>
             </div>
-            <Button 
-              onClick={() => setShowTrackingCard(!showTrackingCard)}
-              variant="ghost" 
-              size="sm" 
-              className="h-9 w-9 p-0 rounded-full"
-            >
-              <Eye className={`h-4 w-4 ${!showTrackingCard ? 'opacity-50' : ''}`} />
-              <span className="sr-only">Mostrar/Ocultar</span>
-            </Button>
           </CardHeader>
           <CardContent className="p-6">
             {showTrackingCard && (
