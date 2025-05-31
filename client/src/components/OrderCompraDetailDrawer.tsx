@@ -211,6 +211,11 @@ export function OrderCompraDetailDrawer({
                     {/* Informações à esquerda */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                       <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">ID da Ordem</h4>
+                        <p className="text-base font-medium">#{ordemAtual.id}</p>
+                      </div>
+
+                      <div className="space-y-2">
                         <h4 className="text-sm font-medium text-muted-foreground">Número da Ordem</h4>
                         <p className="text-base font-medium">{ordemAtual.numero_ordem}</p>
                       </div>
@@ -221,7 +226,7 @@ export function OrderCompraDetailDrawer({
                           <Building size={16} className="text-muted-foreground" />
                           {ordemAtual.empresa_nome}
                         </p>
-                      </div>
+                      </div></div>
 
                       <div className="space-y-2">
                         <h4 className="text-sm font-medium text-muted-foreground">Válido Até</h4>
