@@ -364,13 +364,13 @@ export function OrderDetailDrawer({
         // Buscar a empresa da ordem de compra
         purchaseOrderCompany = companies.find((c) => c.id === ordemCompra.empresa_id);
         
-        // Buscar a obra de destino usando o obra_id da ordem de compra
-        console.log("🎯 Debug obra_id da ordem:", ordemCompra.obra_id);
-        if (ordemCompra.obra_id) {
-          workDestination = companies.find((c) => c.id === ordemCompra.obra_id);
+        // Buscar a obra de destino usando o cnpj da ordem de compra
+        console.log("🎯 Debug cnpj da obra na ordem:", ordemCompra.cnpj);
+        if (ordemCompra.cnpj) {
+          workDestination = companies.find((c) => c.cnpj === ordemCompra.cnpj);
           console.log("🏗️ Debug obra de destino encontrada:", workDestination);
         } else {
-          console.log("⚠️ obra_id não definido na ordem de compra");
+          console.log("⚠️ cnpj não definido na ordem de compra");
         }
       } else {
         // Se não encontrou em ordens_compra, buscar em purchase_orders

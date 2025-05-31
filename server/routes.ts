@@ -796,7 +796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oc.id,
           oc.numero_ordem,
           oc.empresa_id,
-          oc.obra_id,
+          oc.cnpj,
           c.name as empresa_nome,
           obra.name as obra_nome,
           oc.valido_ate,
@@ -804,15 +804,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oc.data_criacao
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
-        LEFT JOIN companies obra ON oc.obra_id = obra.id
+        LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
         ORDER BY oc.data_criacao DESC
       `);
 
-      console.log("📊 Debug: ordens de compra com obra_id:", result.rows.map(row => ({
+      console.log("📊 Debug: ordens de compra com cnpj:", result.rows.map(row => ({
         id: row.id,
         numero_ordem: row.numero_ordem,
         empresa_id: row.empresa_id,
-        obra_id: row.obra_id,
+        cnpj: row.cnpj,
         obra_nome: row.obra_nome
       })));
 
@@ -821,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: row.id,
         numero_ordem: row.numero_ordem,
         empresa_id: row.empresa_id,
-        obra_id: row.obra_id,
+        cnpj: row.cnpj,
         empresa_nome: row.empresa_nome || "Empresa não encontrada",
         obra_nome: row.obra_nome || null,
         valido_ate: row.valido_ate ? new Date(row.valido_ate).toISOString() : new Date().toISOString(),
@@ -850,7 +850,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oc.id,
           oc.numero_ordem as order_number,
           oc.empresa_id as company_id,
-          oc.obra_id,
+          oc.cnpj,
           c.name as empresa_nome,
           obra.name as obra_nome,
           oc.valido_ate as valid_until,
@@ -858,7 +858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oc.data_criacao as created_at
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
-        LEFT JOIN companies obra ON oc.obra_id = obra.id
+        LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
         ORDER BY oc.data_criacao DESC
       `);
 
@@ -867,7 +867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: row.id,
         order_number: row.order_number,
         company_id: row.company_id,
-        obra_id: row.obra_id,
+        cnpj: row.cnpj,
         empresa_nome: row.empresa_nome || "Empresa não encontrada",
         obra_nome: row.obra_nome || null,
         valid_until: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
@@ -890,9 +890,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Criar nova ordem de compra
   app.post("/api/ordem-compra-nova", async (req, res) => {
     try {
-      const { numeroOrdem, empresaId, obraId, validoAte, produtos } = req.body;
+      const { numeroOrdem, empresaId, cnpj, validoAte, produtos } = req.body;
 
-      if (!numeroOrdem || !empresaId || !validoAte || !produtos || !produtos.length) {
+      if (!numeroOrdem || !empresaId || !cnpj || !validoAte || !produtos || !produtos.length) {
         return res.status(400).json({
           sucesso: false,
           mensagem: "Dados incompletos para criar ordem de compra"
@@ -906,9 +906,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const ordemResult = await pool.query(
         `INSERT INTO ordens_compra 
-         (numero_ordem, empresa_id, obra_id, usuario_id, valido_ate, status, data_criacao) 
+         (numero_ordem, empresa_id, cnpj, usuario_id, valido_ate, status, data_criacao) 
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [numeroOrdem, empresaId, obraId, userId, validoAte, "Ativo", new Date()]
+        [numeroOrdem, empresaId, cnpj, userId, validoAte, "Ativo", new Date()]
       );
 
       const novaOrdem = ordemResult.rows[0];
@@ -1075,7 +1075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { numeroOrdem, empresaId, obraId, validoAte, items } = req.body;
+      const { numeroOrdem, empresaId, cnpj, validoAte, items } = req.body;
 
       // Verificar se a ordem existe
       const checkOrdem = await pool.query(
@@ -1093,9 +1093,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Atualizar a ordem
       await pool.query(
         `UPDATE ordens_compra 
-         SET numero_ordem = $1, empresa_id = $2, obra_id = $3, valido_ate = $4
+         SET numero_ordem = $1, empresa_id = $2, cnpj = $3, valido_ate = $4
          WHERE id = $5`,
-        [numeroOrdem, empresaId, obraId, validoAte, id]
+        [numeroOrdem, empresaId, cnpj, validoAte, id]
       );
 
       // Remover itens antigos
