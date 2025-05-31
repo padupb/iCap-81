@@ -40,7 +40,7 @@ import {
   Download,
   AlertCircle,
 } from "lucide-react";
-import { Order, Product, Company, PurchaseOrder } from "@shared/schema";
+import { Order, Product, Company, PurchaseOrder, Unit } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeComponent } from "./QRCodeComponent";
 
@@ -304,6 +304,12 @@ export function OrderDetailDrawer({
     enabled: !!orderId && open,
   });
 
+  // Buscar unidades para exibir junto com o produto
+  const { data: units = [] } = useQuery<Unit[]>({
+    queryKey: ["/api/units"],
+    enabled: !!orderId && open,
+  });
+
   // Tentar buscar das duas rotas possíveis de ordens de compra
   const { data: purchaseOrders = [] } = useQuery<PurchaseOrder[]>({
     queryKey: ["/api/purchase-orders"],
@@ -324,9 +330,11 @@ export function OrderDetailDrawer({
 
     const product = products.find((p) => p.id === order.productId);
     const supplier = companies.find((c) => c.id === order.supplierId);
+    const unit = product ? units.find((u) => u.id === product.unitId) : null;
 
     // Buscar ordem de compra: primeiro na tabela ordens_compra, depois em purchase_orders
     let purchaseOrder = null;
+    let purchaseOrderCompany = null;
 
     if (order.purchaseOrderId) {
       // Primeiro, verificar ordensCompra (tabela principal)
@@ -348,6 +356,9 @@ export function OrderDetailDrawer({
             ? new Date(ordemCompra.data_criacao)
             : new Date(),
         } as PurchaseOrder;
+        
+        // Buscar a empresa da ordem de compra
+        purchaseOrderCompany = companies.find((c) => c.id === ordemCompra.empresa_id);
       } else {
         // Se não encontrou em ordens_compra, buscar em purchase_orders
         const purchaseOrderFound = purchaseOrders.find(
@@ -355,6 +366,8 @@ export function OrderDetailDrawer({
         );
         if (purchaseOrderFound) {
           purchaseOrder = purchaseOrderFound;
+          // Buscar a empresa da ordem de compra
+          purchaseOrderCompany = companies.find((c) => c.id === purchaseOrderFound.companyId);
         }
       }
     }
@@ -364,8 +377,19 @@ export function OrderDetailDrawer({
       product,
       supplier,
       purchaseOrder,
-    } as OrderDetails;
-  }, [orderId, orders, products, companies, purchaseOrders, ordensCompra]);
+      purchaseOrderCompany,
+      unit,
+    } as OrderDetails & { purchaseOrderCompany?: Company; unit?: Unit };
+  }, [orderId, orders, products, companies, purchaseOrders, ordensCompra, units]);
+
+  // Função para formatar produto com quantidade e unidade
+  const formatProductWithUnit = (orderDetails: any) => {
+    const productName = orderDetails.product?.name || "Produto não encontrado";
+    const quantity = formatNumber(orderDetails.quantity);
+    const unitAbbreviation = orderDetails.unit?.abbreviation || "";
+    
+    return `${productName} - ${quantity} ${unitAbbreviation}`.trim();
+  };
 
   // Reset state when drawer opens
   useEffect(() => {
@@ -698,6 +722,19 @@ export function OrderDetailDrawer({
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) return;
 
+    // Calcular progresso baseado no status atual
+    const getStatusProgress = (status: string) => {
+      const statusProgress: { [key: string]: number } = {
+        Registrado: 0,
+        Carregado: 33.33,
+        "Em Rota": 66.66,
+        "Em transporte": 66.66,
+        Entregue: 100,
+        Recusado: 0,
+      };
+      return statusProgress[status] || 0;
+    };
+
     // Gerar o QR code como data URL
     const canvas = document.createElement('canvas');
     import('qrcode').then((QRCode) => {
@@ -708,13 +745,14 @@ export function OrderDetailDrawer({
           dark: '#000000',
           light: '#FFFFFF'
         }
-      }, (error) => {
+      }, (error: any) => {
         if (error) {
           console.error('Erro ao gerar QR code:', error);
           return;
         }
 
         const qrCodeDataUrl = canvas.toDataURL();
+        const currentProgress = getStatusProgress(orderDetails.status);
 
         // HTML do layout de impressão
         const printHTML = `
@@ -744,11 +782,6 @@ export function OrderDetailDrawer({
                   margin-bottom: 30px;
                   padding-bottom: 20px;
                   border-bottom: 2px solid #333;
-                }
-
-                .logo {
-                  max-height: 60px;
-                  max-width: 200px;
                 }
 
                 .company-info {
@@ -803,23 +836,6 @@ export function OrderDetailDrawer({
                   font-weight: 500;
                 }
 
-                .status-badge {
-                  display: inline-block;
-                  padding: 4px 12px;
-                  border-radius: 20px;
-                  font-size: 11px;
-                  font-weight: bold;
-                  text-transform: uppercase;
-                  background: #e5e7eb;
-                  color: #374151;
-                }
-
-                .status-entregue { background: #10b981; color: white; }
-                .status-carregado { background: #3b82f6; color: white; }
-                .status-em-rota { background: #f59e0b; color: white; }
-                .status-registrado { background: #6b7280; color: white; }
-                .status-recusado { background: #ef4444; color: white; }
-
                 .progress-section {
                   margin: 30px 0;
                   padding: 20px;
@@ -853,13 +869,23 @@ export function OrderDetailDrawer({
                   z-index: 1;
                 }
 
+                .progress-line-filled {
+                  position: absolute;
+                  top: 20px;
+                  left: 0;
+                  height: 2px;
+                  background: #3b82f6;
+                  z-index: 2;
+                  width: ${currentProgress}%;
+                }
+
                 .progress-step {
                   display: flex;
                   flex-direction: column;
                   align-items: center;
                   text-align: center;
                   position: relative;
-                  z-index: 2;
+                  z-index: 3;
                   background: white;
                   padding: 0 10px;
                 }
@@ -892,11 +918,6 @@ export function OrderDetailDrawer({
                   font-weight: bold;
                 }
 
-                .step-description {
-                  font-size: 10px;
-                  color: #666;
-                }
-
                 .footer {
                   margin-top: 40px;
                   padding-top: 20px;
@@ -905,19 +926,10 @@ export function OrderDetailDrawer({
                   font-size: 10px;
                   color: #666;
                 }
-
-                @media print {
-                  body { padding: 10px; }
-                  .header { margin-bottom: 20px; }
-                  .order-title { margin: 15px 0; }
-                  .details-grid { margin-bottom: 20px; }
-                  .progress-section { margin: 20px 0; }
-                }
               </style>
             </head>
             <body>
               <div class="header">
-                <img src="/public/uploads/logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
                 <div class="company-info">
                   <div class="company-name">iCAP 7.0</div>
                   <div>Sistema de Gestão de Pedidos</div>
@@ -934,29 +946,22 @@ export function OrderDetailDrawer({
                 <div>
                   <div class="detail-item">
                     <div class="detail-label">Produto</div>
-                    <div class="detail-value">${orderDetails.product?.name || 'N/A'}</div>
+                    <div class="detail-value">${formatProductWithUnit(orderDetails)}</div>
                   </div>
 
                   <div class="detail-item">
-                    <div class="detail-label">Quantidade</div>
-                    <div class="detail-value">${formatNumber(orderDetails.quantity)}</div>
+                    <div class="detail-label">Destino</div>
+                    <div class="detail-value">${orderDetails.workLocation}</div>
+                  </div>
+
+                  <div class="detail-item">
+                    <div class="detail-label">Conforme ordem de compra</div>
+                    <div class="detail-value">${(orderDetails as any)?.purchaseOrderCompany?.name || "Obra não informada"}</div>
                   </div>
 
                   <div class="detail-item">
                     <div class="detail-label">Fornecedor</div>
-                    <div class="detail-value">${orderDetails.supplier?.name || 'N/A'}</div>
-                  </div>
-
-                  <div class="detail-item">
-                    <div class="detail-label">Nº da Ordem de Compra</div>
-                    <div class="detail-value">${orderDetails.purchaseOrder?.orderNumber || 'Sem ordem de compra vinculada'}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="detail-item">
-                    <div class="detail-label">Local da Obra</div>
-                    <div class="detail-value">${orderDetails.workLocation}</div>
+                    <div class="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
                   </div>
 
                   <div class="detail-item">
@@ -965,15 +970,13 @@ export function OrderDetailDrawer({
                   </div>
 
                   <div class="detail-item">
-                    <div class="detail-label">Data de Criação</div>
-                    <div class="detail-value">${orderDetails.createdAt ? formatDate(orderDetails.createdAt.toString()) : 'N/A'}</div>
+                    <div class="detail-label">Nº da Ordem de Compra</div>
+                    <div class="detail-value">${orderDetails.purchaseOrder?.orderNumber || "Sem ordem de compra vinculada"}</div>
                   </div>
 
                   <div class="detail-item">
-                    <div class="detail-label">Status</div>
-                    <div class="detail-value">
-                      <span class="status-badge status-${orderDetails.status.toLowerCase().replace(' ', '-')}">${orderDetails.status}</span>
-                    </div>
+                    <div class="detail-label">Data de Criação</div>
+                    <div class="detail-value">${orderDetails.createdAt ? formatDate(orderDetails.createdAt.toString()) : "N/A"}</div>
                   </div>
                 </div>
               </div>
@@ -982,82 +985,43 @@ export function OrderDetailDrawer({
                 <div class="progress-title">Progresso do Pedido</div>
                 <div class="progress-steps">
                   <div class="progress-line"></div>
-
+                  <div class="progress-line-filled"></div>
+                  
                   <div class="progress-step">
-                    <div class="step-circle ${getStepClass('Registrado', orderDetails.status)}">1</div>
+                    <div class="step-circle completed">1</div>
                     <div class="step-label">Registrado</div>
-                    <div class="step-description">Pedido criado</div>
                   </div>
-
+                  
                   <div class="progress-step">
-                    <div class="step-circle ${getStepClass('Carregado', orderDetails.status)}">2</div>
+                    <div class="step-circle ${currentProgress >= 33.33 ? 'completed' : ''}">2</div>
                     <div class="step-label">Carregado</div>
-                    <div class="step-description">Documentos enviados</div>
                   </div>
-
+                  
                   <div class="progress-step">
-                    <div class="step-circle ${getStepClass('Em Rota', orderDetails.status)}">3</div>
-                    <div class="step-label">Em Rota                    <div class="step-description">A caminho do destino</div>
+                    <div class="step-circle ${currentProgress >= 66.66 ? 'completed' : ''}">3</div>
+                    <div class="step-label">Em Rota</div>
                   </div>
-
+                  
                   <div class="progress-step">
-                    <div class="step-circle ${getStepClass('Entregue', orderDetails.status)}">4</div>
+                    <div class="step-circle ${currentProgress >= 100 ? 'completed' : ''}">4</div>
                     <div class="step-label">Entregue</div>
-                    <div class="step-description">Pedido finalizado</div>
                   </div>
                 </div>
               </div>
 
               <div class="footer">
-                <div>Documento gerado em ${new Date().toLocaleString('pt-BR')}</div>
-                <div>iCAP 7.0 - Sistema de Gestão de Pedidos</div>
+                <p>Sistema iCAP 7.0 - Gestão de Pedidos</p>
+                <p>Documento gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
               </div>
             </body>
           </html>
         `;
 
-        // Função auxiliar para determinar classe do step
-        function getStepClass(stepName, currentStatus) {
-          const statusHierarchy = {
-            'Registrado': 0,
-            'Carregado': 1,
-            'Em Rota': 2,
-            'Em transporte': 2,
-            'Entregue': 3,
-            'Recusado': -1
-          };
-
-          const stepHierarchy = {
-            'Registrado': 0,
-            'Carregado': 1,
-            'Em Rota': 2,
-            'Entregue': 3
-          };
-
-          const currentLevel = statusHierarchy[currentStatus] ?? 0;
-          const stepLevel = stepHierarchy[stepName] ?? 0;
-
-          if (currentStatus === 'Recusado') {
-            return stepName === 'Registrado' ? 'completed' : '';
-          }
-
-          if (currentLevel > stepLevel) {
-            return 'completed';
-          } else if (currentLevel === stepLevel) {
-            if (currentStatus === 'Entregue' && stepName === 'Entregue') {
-              return 'completed';
-            }
-            return 'current';
-          } else {
-            return '';
-          }
-        }
-
         // Escrever o HTML na nova janela
         printWindow.document.write(printHTML);
         printWindow.document.close();
 
-        // Aguardar o carregamento da imagem do logo e então imprimir
+        // Aguardar o carregamento e então imprimir
         printWindow.onload = () => {
           setTimeout(() => {
             printWindow.print();
@@ -1082,13 +1046,13 @@ export function OrderDetailDrawer({
                 variant="outline"
                 size="icon"
                 onClick={() => handlePrintOrder()}
-                className="h-8 w-8"
+                className="h-12 w-12"
                 title="Imprimir pedido"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
+                  width="32"
+                  height="32"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -1166,14 +1130,13 @@ export function OrderDetailDrawer({
                             Produto
                           </h4>
                           <p className="text-base font-medium">
-                            {orderDetails.product?.name} -{" "}
-                            {formatNumber(orderDetails.quantity)}
+                            {formatProductWithUnit(orderDetails)}
                           </p>
                         </div>
 
                         <div className="space-y-2">
                           <h4 className="text-sm font-medium text-muted-foreground">
-                            Local da Obra
+                            Destino
                           </h4>
                           <p className="text-base font-medium flex items-center gap-2">
                             {orderDetails.workLocation}
@@ -1185,6 +1148,15 @@ export function OrderDetailDrawer({
                             >
                               <ExternalLink size={14} />
                             </a>
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Conforme ordem de compra
+                          </h4>
+                          <p className="text-base font-medium">
+                            {(orderDetails as any)?.purchaseOrderCompany?.name || "Obra não informada"}
                           </p>
                         </div>
 
