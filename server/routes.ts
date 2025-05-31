@@ -935,10 +935,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                  companyCategory.receivesPurchaseOrders;
             
             if (hasAnyCriteria) {
-              // Filtrar apenas ordens de compra da empresa do usuário
-              query += ` WHERE oc.empresa_id = $1`;
-              queryParams.push(req.user.companyId);
-              console.log(`🔒 Ordens de compra - visualização restrita à empresa ${userCompany.name}`);
+              // Filtrar ordens de compra onde:
+              // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
+              // 2. OU a empresa é a obra de destino (cnpj corresponde ao CNPJ da empresa do usuário)
+              query += ` WHERE (oc.empresa_id = $1 OR oc.cnpj = $2)`;
+              queryParams.push(req.user.companyId, userCompany.cnpj);
+              console.log(`🔒 Ordens de compra - visualização restrita à empresa ${userCompany.name} (fornecedora ou obra)`);
             } else {
               console.log(`🔓 Ordens de compra - visualização irrestrita (empresa ${userCompany.name} sem critérios)`);
             }
@@ -1021,10 +1023,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                  companyCategory.receivesPurchaseOrders;
             
             if (hasAnyCriteria) {
-              // Filtrar apenas ordens de compra da empresa do usuário
-              query += ` WHERE oc.empresa_id = $1`;
-              queryParams.push(req.user.companyId);
-              console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name}`);
+              // Filtrar ordens de compra onde:
+              // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
+              // 2. OU a empresa é a obra de destino (cnpj corresponde ao CNPJ da empresa do usuário)
+              query += ` WHERE (oc.empresa_id = $1 OR oc.cnpj = $2)`;
+              queryParams.push(req.user.companyId, userCompany.cnpj);
+              console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name} (fornecedora ou obra)`);
             }
           }
         }
