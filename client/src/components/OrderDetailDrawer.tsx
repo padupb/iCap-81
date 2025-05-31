@@ -335,6 +335,7 @@ export function OrderDetailDrawer({
     // Buscar ordem de compra: primeiro na tabela ordens_compra, depois em purchase_orders
     let purchaseOrder = null;
     let purchaseOrderCompany = null;
+    let workDestination = null; // Nova variável para armazenar a obra de destino
 
     if (order.purchaseOrderId) {
       // Primeiro, verificar ordensCompra (tabela principal)
@@ -359,6 +360,11 @@ export function OrderDetailDrawer({
         
         // Buscar a empresa da ordem de compra
         purchaseOrderCompany = companies.find((c) => c.id === ordemCompra.empresa_id);
+        
+        // Buscar a obra de destino usando o obra_id da ordem de compra
+        if (ordemCompra.obra_id) {
+          workDestination = companies.find((c) => c.id === ordemCompra.obra_id);
+        }
       } else {
         // Se não encontrou em ordens_compra, buscar em purchase_orders
         const purchaseOrderFound = purchaseOrders.find(
@@ -379,7 +385,12 @@ export function OrderDetailDrawer({
       purchaseOrder,
       purchaseOrderCompany,
       unit,
-    } as OrderDetails & { purchaseOrderCompany?: Company; unit?: Unit };
+      workDestination, // Adicionar a obra de destino aos dados retornados
+    } as OrderDetails & { 
+      purchaseOrderCompany?: Company; 
+      unit?: Unit; 
+      workDestination?: Company; 
+    };
   }, [orderId, orders, products, companies, purchaseOrders, ordensCompra, units]);
 
   // Função para formatar produto com quantidade e unidade
@@ -944,39 +955,39 @@ export function OrderDetailDrawer({
 
               <div class="details-grid">
                 <div>
-                  <div class="detail-item">
-                    <div class="detail-label">Produto</div>
-                    <div class="detail-value">${formatProductWithUnit(orderDetails)}</div>
+                  <div className="detail-item">
+                    <div className="detail-label">Produto</div>
+                    <div className="detail-value">${formatProductWithUnit(orderDetails)}</div>
                   </div>
 
-                  <div class="detail-item">
-                    <div class="detail-label">Destino</div>
-                    <div class="detail-value">${orderDetails.workLocation}</div>
+                  <div className="detail-item">
+                    <div className="detail-label">Destino</div>
+                    <div className="detail-value">${(orderDetails as any)?.workDestination?.name || orderDetails.workLocation}</div>
                   </div>
 
-                  <div class="detail-item">
-                    <div class="detail-label">Conforme ordem de compra</div>
-                    <div class="detail-value">${(orderDetails as any)?.purchaseOrderCompany?.name || "Obra não informada"}</div>
+                  <div className="detail-item">
+                    <div className="detail-label">Conforme ordem de compra</div>
+                    <div className="detail-value">${(orderDetails as any)?.purchaseOrderCompany?.name || "Obra não informada"}</div>
                   </div>
 
-                  <div class="detail-item">
-                    <div class="detail-label">Fornecedor</div>
-                    <div class="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
+                  <div className="detail-item">
+                    <div className="detail-label">Fornecedor</div>
+                    <div className="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
                   </div>
 
-                  <div class="detail-item">
-                    <div class="detail-label">Data de Entrega</div>
-                    <div class="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
+                  <div className="detail-item">
+                    <div className="detail-label">Data de Entrega</div>
+                    <div className="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
                   </div>
 
-                  <div class="detail-item">
-                    <div class="detail-label">Nº da Ordem de Compra</div>
-                    <div class="detail-value">${orderDetails.purchaseOrder?.orderNumber || "Sem ordem de compra vinculada"}</div>
+                  <div className="detail-item">
+                    <div className="detail-label">Nº da Ordem de Compra</div>
+                    <div className="detail-value">${orderDetails.purchaseOrder?.orderNumber || "Sem ordem de compra vinculada"}</div>
                   </div>
 
-                  <div class="detail-item">
-                    <div class="detail-label">Data de Criação</div>
-                    <div class="detail-value">${orderDetails.createdAt ? formatDate(orderDetails.createdAt.toString()) : "N/A"}</div>
+                  <div className="detail-item">
+                    <div className="detail-label">Data de Criação</div>
+                    <div className="detail-value">${orderDetails.createdAt ? formatDate(orderDetails.createdAt.toString()) : "N/A"}</div>
                   </div>
                 </div>
               </div>
@@ -1139,9 +1150,9 @@ export function OrderDetailDrawer({
                             Destino
                           </h4>
                           <p className="text-base font-medium flex items-center gap-2">
-                            {orderDetails.workLocation}
+                            {(orderDetails as any)?.workDestination?.name || orderDetails.workLocation}
                             <a
-                              href={getGoogleMapsLink(orderDetails.workLocation)}
+                              href={getGoogleMapsLink((orderDetails as any)?.workDestination?.name || orderDetails.workLocation)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 hover:text-blue-700"
@@ -1985,7 +1996,7 @@ export function OrderDetailDrawer({
                             <div className="p-3 border-t pt-[5px] pb-[5px]">
                               <p className="text-sm">
                                 Carga em transporte para destino:{" "}
-                                <strong>{orderDetails.workLocation}</strong>
+                                <strong>{(orderDetails as any)?.workDestination?.name || orderDetails.workLocation}</strong>
                               </p>
                             </div>
                           </div>
