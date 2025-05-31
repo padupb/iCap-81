@@ -134,9 +134,9 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     id: data.order.id,
     lat: data.lastTrackingPoint!.latitude,
     lng: data.lastTrackingPoint!.longitude,
-    title: `Pedido #${data.order.id}`,
+    title: `Pedido ${data.order.orderId}`,
     content: `${data.product?.name || 'Produto'} - ${data.order.status}`,
-    orderId: data.order.id.toString(),
+    orderId: data.order.orderId,
     status: data.order.status,
     color: data.color,
   }));

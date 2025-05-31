@@ -140,7 +140,7 @@ const MapComponent: React.FC<Props> = ({
           <Marker
             key={marker.id}
             position={{ lat: marker.lat, lng: marker.lng }}
-            title={`Pedido #${marker.id}`}
+            title={`Pedido ${marker.orderId || marker.id}`}
             icon={icon}
             onClick={() => handleMarkerClick(marker)}
           />
