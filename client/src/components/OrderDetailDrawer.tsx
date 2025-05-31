@@ -1901,7 +1901,7 @@ export function OrderDetailDrawer({
                                 : "Sistema"}
                             </div>
                           </div>
-                          <div className="p-3 border-t pt-[5px] pb-[5px]">
+                          <div className="p-3 pt-[5px] pb-[5px]">
                             <p className="text-sm">
                               Ordem de compra{" "}
                               <strong>
@@ -1939,7 +1939,7 @@ export function OrderDetailDrawer({
                                 : "Sistema"}
                             </div>
                           </div>
-                          <div className="p-3 border-t pt-[5px] pb-[5px]">
+                          <div className="p-3 pt-[5px] pb-[5px]">
                             <p className="text-sm">
                               Pedido <strong>{orderDetails.orderId}</strong> foi
                               criado para o produto{" "}
@@ -1973,7 +1973,7 @@ export function OrderDetailDrawer({
                                   : "Sistema"}
                               </div>
                             </div>
-                            <div className="p-3 border-t pt-[5px] pb-[5px]">
+                            <div className="p-3 pt-[5px] pb-[5px]">
                               <p className="text-sm">
                                 Documentos do pedido foram carregados e
                                 verificados
@@ -2004,7 +2004,7 @@ export function OrderDetailDrawer({
                                 Sistema
                               </div>
                             </div>
-                            <div className="p-3 border-t pt-[5px] pb-[5px]">
+                            <div className="p-3 pt-[5px] pb-[5px]">
                               <p className="text-sm">
                                 Carga em transporte para destino:{" "}
                                 <strong>{(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</strong>
@@ -2033,7 +2033,7 @@ export function OrderDetailDrawer({
                                 {user?.name || "Usuário do sistema"}
                               </div>
                             </div>
-                            <div className="p-3 border-t pt-[5px] pb-[5px]">
+                            <div className="p-3 pt-[5px] pb-[5px]">
                               <p className="text-sm">
                                 Entrega confirmada com quantidade{" "}
                                 {formatNumber(
