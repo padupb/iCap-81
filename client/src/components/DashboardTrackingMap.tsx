@@ -15,10 +15,17 @@ type TrackingPoint = {
   comment?: string;
 };
 
+type Unit = {
+  id: number;
+  name: string;
+  symbol: string;
+};
+
 type DashboardTrackingData = {
   order: Order;
   product?: Product;
   company?: Company;
+  unit?: Unit;
   lastTrackingPoint?: TrackingPoint;
   color?: string;
 };
@@ -45,6 +52,11 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
   // Buscar empresas
   const { data: companies = [] } = useQuery<Company[]>({
     queryKey: ["/api/companies"],
+  });
+
+  // Buscar unidades
+  const { data: units = [] } = useQuery<Unit[]>({
+    queryKey: ["/api/units"],
   });
 
   // Filtrar pedidos "Em Rota" e "Em transporte"
@@ -82,11 +94,13 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
 
             const product = products.find(p => p.id === order.productId);
             const company = companies.find(c => c.id === order.supplierId);
+            const unit = units.find(u => u.id === product?.unitId);
 
             return {
               order,
               product,
               company,
+              unit,
               lastTrackingPoint: lastPoint || undefined,
               color: generateColorFromId(order.id),
             };
@@ -115,7 +129,7 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     };
 
     fetchAllTrackingData();
-  }, [ordersInRoute.length, products.length, companies.length]);
+  }, [ordersInRoute.length, products.length, companies.length, units.length]);
 
   // Atualização automática a cada 3000 segundos (50 minutos)
   useEffect(() => {
@@ -287,17 +301,15 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
                 onClick={() => onOrderClick?.(data.order.id)}
               >
                 <div className="flex items-center">
-                  {/* Círculo colorido com número do pedido */}
+                  {/* Círculo colorido sem número */}
                   <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold mr-2 border-2 border-white shadow-sm"
+                    className="w-6 h-6 rounded-full mr-2 border-2 border-white shadow-sm"
                     style={{ backgroundColor: data.color }}
-                  >
-                    {data.order.id}
-                  </div>
+                  ></div>
                   <span className="font-medium">{data.order.orderId}</span>
                 </div>
                 <span className="text-muted-foreground truncate ml-2">
-                  {data.product?.name || 'Produto'} → {data.order.workLocation}
+                  {data.product?.name || 'Produto'} - {data.order.quantity}{data.unit?.symbol || ''}
                 </span>
               </div>
             ))}
