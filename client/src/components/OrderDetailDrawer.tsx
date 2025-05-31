@@ -344,6 +344,9 @@ export function OrderDetailDrawer({
         (oc: any) => oc.id === order.purchaseOrderId,
       );
 
+      console.log("🔍 Debug ordem de compra encontrada:", ordemCompra);
+      console.log("🏢 Debug empresas disponíveis:", companies);
+
       if (ordemCompra) {
         // Converte o formato da ordem de compra para o padrão esperado
         purchaseOrder = {
@@ -362,8 +365,12 @@ export function OrderDetailDrawer({
         purchaseOrderCompany = companies.find((c) => c.id === ordemCompra.empresa_id);
         
         // Buscar a obra de destino usando o obra_id da ordem de compra
+        console.log("🎯 Debug obra_id da ordem:", ordemCompra.obra_id);
         if (ordemCompra.obra_id) {
           workDestination = companies.find((c) => c.id === ordemCompra.obra_id);
+          console.log("🏗️ Debug obra de destino encontrada:", workDestination);
+        } else {
+          console.log("⚠️ obra_id não definido na ordem de compra");
         }
       } else {
         // Se não encontrou em ordens_compra, buscar em purchase_orders

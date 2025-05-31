@@ -796,21 +796,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oc.id,
           oc.numero_ordem,
           oc.empresa_id,
+          oc.obra_id,
           c.name as empresa_nome,
+          obra.name as obra_nome,
           oc.valido_ate,
           oc.status,
           oc.data_criacao
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
+        LEFT JOIN companies obra ON oc.obra_id = obra.id
         ORDER BY oc.data_criacao DESC
       `);
+
+      console.log("📊 Debug: ordens de compra com obra_id:", result.rows.map(row => ({
+        id: row.id,
+        numero_ordem: row.numero_ordem,
+        empresa_id: row.empresa_id,
+        obra_id: row.obra_id,
+        obra_nome: row.obra_nome
+      })));
 
       // Formatar os dados para o frontend
       const formattedOrders = result.rows.map((row: any) => ({
         id: row.id,
         numero_ordem: row.numero_ordem,
         empresa_id: row.empresa_id,
+        obra_id: row.obra_id,
         empresa_nome: row.empresa_nome || "Empresa não encontrada",
+        obra_nome: row.obra_nome || null,
         valido_ate: row.valido_ate ? new Date(row.valido_ate).toISOString() : new Date().toISOString(),
         status: row.status || "Ativo",
         data_criacao: row.data_criacao ? new Date(row.data_criacao).toISOString() : new Date().toISOString()
@@ -837,12 +850,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oc.id,
           oc.numero_ordem as order_number,
           oc.empresa_id as company_id,
+          oc.obra_id,
           c.name as empresa_nome,
+          obra.name as obra_nome,
           oc.valido_ate as valid_until,
           oc.status,
           oc.data_criacao as created_at
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
+        LEFT JOIN companies obra ON oc.obra_id = obra.id
         ORDER BY oc.data_criacao DESC
       `);
 
@@ -851,7 +867,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: row.id,
         order_number: row.order_number,
         company_id: row.company_id,
+        obra_id: row.obra_id,
         empresa_nome: row.empresa_nome || "Empresa não encontrada",
+        obra_nome: row.obra_nome || null,
         valid_until: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
         status: row.status || "Ativo",
         created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
