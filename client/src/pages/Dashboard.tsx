@@ -28,6 +28,7 @@ import {
 import { getStatusColor, formatDate } from "@/lib/utils";
 import type { Order, Product, Company } from "@shared/schema";
 import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
+import { DashboardTrackingMap } from "@/components/DashboardTrackingMap";
 
 export default function Dashboard() {
   const [showOrdersCard, setShowOrdersCard] = useState(true);
@@ -62,6 +63,12 @@ export default function Dashboard() {
   // Função para abrir o drawer de detalhes do pedido
   const handleOpenDetails = (order: Order) => {
     setSelectedOrderId(order.id);
+    setDrawerOpen(true);
+  };
+
+  // Função para abrir drawer pelo ID do pedido (para o mapa)
+  const handleOpenOrderById = (orderId: number) => {
+    setSelectedOrderId(orderId);
     setDrawerOpen(true);
   };
 
@@ -108,9 +115,6 @@ export default function Dashboard() {
           <CardHeader className="space-y-1.5 p-6 border-b border-border flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-foreground">Pedidos Recentes</CardTitle>
-              <p className="text-muted-foreground text-sm">
-                Últimas movimentações do sistema
-              </p>
             </div>
             <Button 
               onClick={() => setShowOrdersCard(!showOrdersCard)} 
@@ -184,9 +188,6 @@ export default function Dashboard() {
           <CardHeader className="space-y-1.5 p-6 border-b border-border flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-foreground">Rastreamento</CardTitle>
-              <p className="text-muted-foreground text-sm">
-                Acompanhamento de entregas via Google Maps
-              </p>
             </div>
             <Button 
               onClick={() => setShowTrackingCard(!showTrackingCard)}
@@ -200,27 +201,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="p-6">
             {showTrackingCard && (
-              <>
-                <div className="bg-input rounded-xl h-48 flex items-center justify-center border border-border">
-                  <div className="text-center">
-                    <MapPin className="mx-auto text-4xl text-muted-foreground mb-3" size={48} />
-                    <p className="text-muted-foreground">Mapa de Rastreamento</p>
-                    <p className="text-muted-foreground text-sm mt-1">
-                      Integração Google Maps
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 text-sm text-muted-foreground space-y-1">
-                  <p className="flex items-center">
-                    <Truck className="text-primary mr-2" size={16} />
-                    {orders.filter(o => o.status === "Em Rota" || o.status === "Em transporte").length} entregas em trânsito
-                  </p>
-                  <p className="flex items-center">
-                    <Clock className="text-yellow-500 mr-2" size={16} />
-                    3 com atraso previsto
-                  </p>
-                </div>
-              </>
+              <DashboardTrackingMap onOrderClick={handleOpenOrderById} />
             )}
           </CardContent>
         </Card>
