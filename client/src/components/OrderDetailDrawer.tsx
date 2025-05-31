@@ -966,8 +966,8 @@ export function OrderDetailDrawer({
                   </div>
 
                   <div className="detail-item">
-                    <div className="detail-label">Conforme ordem de compra</div>
-                    <div className="detail-value">${(orderDetails as any)?.purchaseOrderCompany?.name || "Obra não informada"}</div>
+                    <div className="detail-label">{(orderDetails as any)?.purchaseOrderCompany?.name || "Conforme ordem de compra"}</div>
+                    <div className="detail-value">${(orderDetails as any)?.purchaseOrderCompany?.name || "Empresa da Ordem de Compra"}</div>
                   </div>
 
                   <div className="detail-item">
@@ -1164,10 +1164,10 @@ export function OrderDetailDrawer({
 
                         <div className="space-y-2">
                           <h4 className="text-sm font-medium text-muted-foreground">
-                            Conforme ordem de compra
+                            {(orderDetails as any)?.purchaseOrderCompany?.name || "Conforme ordem de compra"}
                           </h4>
                           <p className="text-base font-medium">
-                            {(orderDetails as any)?.purchaseOrderCompany?.name || "Obra não informada"}
+                            {(orderDetails as any)?.purchaseOrderCompany?.name || "Empresa da Ordem de Compra"}
                           </p>
                         </div>
 
