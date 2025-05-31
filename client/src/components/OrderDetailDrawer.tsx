@@ -1171,15 +1171,6 @@ export function OrderDetailDrawer({
 
                         <div className="space-y-2">
                           <h4 className="text-sm font-medium text-muted-foreground">
-                            {(orderDetails as any)?.purchaseOrderCompany?.name || "Conforme ordem de compra"}
-                          </h4>
-                          <p className="text-base font-medium">
-                            {(orderDetails as any)?.purchaseOrderCompany?.name || "Empresa da Ordem de Compra"}
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-muted-foreground">
                             Fornecedor
                           </h4>
                           <p className="text-base font-medium">
