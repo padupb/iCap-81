@@ -141,16 +141,54 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     color: data.color,
   }));
 
-  // Calcular centro do mapa baseado nos markers
-  const center = React.useMemo(() => {
+  // Calcular centro e zoom do mapa baseado em todas as cargas
+  const mapSettings = React.useMemo(() => {
     if (markers.length === 0) {
-      return { lat: -14.235, lng: -51.9253 }; // Centro do Brasil como fallback
+      return { 
+        center: { lat: -14.235, lng: -51.9253 }, // Centro do Brasil como fallback
+        zoom: 6 
+      };
     }
 
-    const avgLat = markers.reduce((sum, marker) => sum + marker.lat, 0) / markers.length;
-    const avgLng = markers.reduce((sum, marker) => sum + marker.lng, 0) / markers.length;
+    if (markers.length === 1) {
+      return {
+        center: { lat: markers[0].lat, lng: markers[0].lng },
+        zoom: 12
+      };
+    }
+
+    // Calcular bounding box (maior e menor latitude/longitude)
+    const latitudes = markers.map(marker => marker.lat);
+    const longitudes = markers.map(marker => marker.lng);
     
-    return { lat: avgLat, lng: avgLng };
+    const minLat = Math.min(...latitudes);
+    const maxLat = Math.max(...latitudes);
+    const minLng = Math.min(...longitudes);
+    const maxLng = Math.max(...longitudes);
+    
+    // Calcular centro do bounding box
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+    
+    // Calcular diferenças para determinar zoom apropriado
+    const latDiff = maxLat - minLat;
+    const lngDiff = maxLng - minLng;
+    const maxDiff = Math.max(latDiff, lngDiff);
+    
+    // Calcular zoom baseado na diferença (com margem de segurança)
+    let zoom = 10; // zoom padrão
+    if (maxDiff > 10) zoom = 4;       // muito distante
+    else if (maxDiff > 5) zoom = 5;   // distante
+    else if (maxDiff > 2) zoom = 6;   // médio-distante
+    else if (maxDiff > 1) zoom = 7;   // médio
+    else if (maxDiff > 0.5) zoom = 8; // próximo
+    else if (maxDiff > 0.2) zoom = 9; // muito próximo
+    else zoom = 10;                   // bem próximo
+    
+    return {
+      center: { lat: centerLat, lng: centerLng },
+      zoom: zoom
+    };
   }, [markers]);
 
   const handleMarkerClick = (marker: any) => {
@@ -217,8 +255,9 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
       {/* Mapa */}
       <div className="border rounded-lg overflow-hidden" style={{ height: '400px' }}>
         <MapComponent
-          lat={center.lat}
-          lng={center.lng}
+          lat={mapSettings.center.lat}
+          lng={mapSettings.center.lng}
+          zoom={mapSettings.zoom}
           markers={markers}
           onMarkerClick={handleMarkerClick}
         />
