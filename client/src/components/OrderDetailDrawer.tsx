@@ -962,7 +962,7 @@ export function OrderDetailDrawer({
 
                   <div className="detail-item">
                     <div className="detail-label">Destino</div>
-                    <div className="detail-value">${(orderDetails as any)?.workDestination?.name || orderDetails.workLocation}</div>
+                    <div className="detail-value">${(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</div>
                   </div>
 
                   <div className="detail-item">
@@ -1150,9 +1150,9 @@ export function OrderDetailDrawer({
                             Destino
                           </h4>
                           <p className="text-base font-medium flex items-center gap-2">
-                            {(orderDetails as any)?.workDestination?.name || orderDetails.workLocation}
+                            {(orderDetails as any)?.workDestination?.name || "Obra não especificada"}
                             <a
-                              href={getGoogleMapsLink((orderDetails as any)?.workDestination?.name || orderDetails.workLocation)}
+                              href={getGoogleMapsLink((orderDetails as any)?.workDestination?.name || "Obra não especificada")}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 hover:text-blue-700"
@@ -1996,7 +1996,7 @@ export function OrderDetailDrawer({
                             <div className="p-3 border-t pt-[5px] pb-[5px]">
                               <p className="text-sm">
                                 Carga em transporte para destino:{" "}
-                                <strong>{(orderDetails as any)?.workDestination?.name || orderDetails.workLocation}</strong>
+                                <strong>{(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</strong>
                               </p>
                             </div>
                           </div>
