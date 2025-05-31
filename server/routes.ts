@@ -597,9 +597,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                  companyCategory.receivesPurchaseOrders;
             
             if (hasAnyCriteria) {
-              // Filtrar apenas pedidos da empresa do usuário
-              orders = orders.filter(order => order.supplierId === req.user.companyId);
-              console.log(`🔒 Usuário da empresa ${userCompany.name} - visualização restrita a pedidos da própria empresa`);
+              // Filtrar pedidos onde a empresa é fornecedora OU obra de destino
+              const filteredOrders = [];
+              
+              for (const order of orders) {
+                // 1. Incluir pedidos criados pela empresa (fornecedor)
+                if (order.supplierId === req.user.companyId) {
+                  filteredOrders.push(order);
+                  continue;
+                }
+                
+                // 2. Incluir pedidos destinados à empresa (obra de destino)
+                if (order.purchaseOrderId) {
+                  try {
+                    // Buscar a ordem de compra para verificar o CNPJ de destino
+                    const ordemCompraResult = await pool.query(
+                      "SELECT cnpj FROM ordens_compra WHERE id = $1",
+                      [order.purchaseOrderId]
+                    );
+                    
+                    if (ordemCompraResult.rows.length > 0) {
+                      const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+                      
+                      // Verificar se o CNPJ de destino corresponde à empresa do usuário
+                      if (cnpjDestino === userCompany.cnpj) {
+                        filteredOrders.push(order);
+                      }
+                    }
+                  } catch (error) {
+                    console.error(`Erro ao verificar destino do pedido ${order.orderId}:`, error);
+                  }
+                }
+              }
+              
+              orders = filteredOrders;
+              console.log(`🔒 Usuário da empresa ${userCompany.name} - visualização restrita a pedidos próprios e destinados à empresa`);
             } else {
               console.log(`🔓 Usuário da empresa ${userCompany.name} - visualização irrestrita (empresa sem critérios)`);
             }
@@ -634,9 +666,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                  companyCategory.receivesPurchaseOrders;
             
             if (hasAnyCriteria) {
-              // Filtrar apenas pedidos urgentes da empresa do usuário
-              urgentOrders = urgentOrders.filter(order => order.supplierId === req.user.companyId);
-              console.log(`🔒 Pedidos urgentes - visualização restrita à empresa ${userCompany.name}`);
+              // Filtrar pedidos urgentes onde a empresa é fornecedora OU obra de destino
+              const filteredUrgentOrders = [];
+              
+              for (const order of urgentOrders) {
+                // 1. Incluir pedidos criados pela empresa (fornecedor)
+                if (order.supplierId === req.user.companyId) {
+                  filteredUrgentOrders.push(order);
+                  continue;
+                }
+                
+                // 2. Incluir pedidos destinados à empresa (obra de destino)
+                if (order.purchaseOrderId) {
+                  try {
+                    // Buscar a ordem de compra para verificar o CNPJ de destino
+                    const ordemCompraResult = await pool.query(
+                      "SELECT cnpj FROM ordens_compra WHERE id = $1",
+                      [order.purchaseOrderId]
+                    );
+                    
+                    if (ordemCompraResult.rows.length > 0) {
+                      const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+                      
+                      // Verificar se o CNPJ de destino corresponde à empresa do usuário
+                      if (cnpjDestino === userCompany.cnpj) {
+                        filteredUrgentOrders.push(order);
+                      }
+                    }
+                  } catch (error) {
+                    console.error(`Erro ao verificar destino do pedido urgente ${order.orderId}:`, error);
+                  }
+                }
+              }
+              
+              urgentOrders = filteredUrgentOrders;
+              console.log(`🔒 Pedidos urgentes - visualização restrita à empresa ${userCompany.name} (próprios e destinados)`);
             }
           }
         }
