@@ -988,8 +988,7 @@ export default function OrdensCompra() {
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          const status =```text
-getRealStatus(ordem);
+                          const status = getRealStatus(ordem);
                           return (
                             <Badge variant={getStatusColor(status)}>
                               {status}
