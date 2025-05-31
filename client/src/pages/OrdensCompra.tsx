@@ -968,7 +968,11 @@ export default function OrdensCompra() {
               </TableHeader>
               <TableBody>
                 {ordensFiltradas.map((ordem) => (
-                  <TableRow key={ordem.id}>
+                  <TableRow 
+                    key={ordem.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => showOrderDetails(ordem.id)}
+                  >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                           {ordem.numero_ordem}
@@ -998,20 +1002,16 @@ export default function OrdensCompra() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          title="Ver detalhes da ordem"
-                          onClick={() => showOrderDetails(ordem.id)}
-                        >
-                          <Info className="h-4 w-4" />
-                        </Button>
-
                         {/* Botão de exclusão apenas para keyuser */}
                         {isKeyUser && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" title="Excluir ordem">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                title="Excluir ordem"
+                                onClick={(e) => e.stopPropagation()} // Evita que o clique abra o drawer
+                              >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </AlertDialogTrigger>
