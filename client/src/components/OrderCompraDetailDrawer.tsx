@@ -242,6 +242,14 @@ export function OrderCompraDetailDrawer({
                           {formatDate(ordemAtual.data_criacao)}
                         </p>
                       </div>
+
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">Obra de Destino</h4>
+                        <p className="text-base font-medium flex items-center gap-2">
+                          <Building size={16} className="text-muted-foreground" />
+                          {ordemAtual.obra_nome || "Obra não especificada"}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Botão à direita */}
