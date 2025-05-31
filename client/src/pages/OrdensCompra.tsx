@@ -144,6 +144,7 @@ type Company = {
     receivesPurchaseOrders: boolean;
     requiresContract: boolean;
   };
+  cnpj?: string;
 };
 
 // Definir tipo para produto
@@ -332,11 +333,17 @@ export default function OrdensCompra() {
 
       setIsSubmitting(true);
 
+      // Buscar o CNPJ da obra selecionada
+      const obraSelecionada = obras.find(obra => obra.id === parseInt(data.obraId));
+      if (!obraSelecionada) {
+        throw new Error("Obra selecionada não encontrada");
+      }
+
       // Formatar dados para envio
       const formattedData = {
         numeroOrdem: data.orderNumber,
         empresaId: parseInt(data.companyId),
-        obraId: parseInt(data.obraId),
+        cnpj: obraSelecionada.cnpj, // CNPJ da obra de destino
         validoAte: new Date(data.validUntil).toISOString(),
         produtos: data.items.map(item => ({
           id: parseInt(item.productId),
@@ -981,7 +988,8 @@ export default function OrdensCompra() {
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          const status = getRealStatus(ordem);
+                          const status =```text
+getRealStatus(ordem);
                           return (
                             <Badge variant={getStatusColor(status)}>
                               {status}

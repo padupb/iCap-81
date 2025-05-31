@@ -92,12 +92,18 @@ export default function PurchaseOrdersNovo() {
       try {
         const { items, ...purchaseOrderData } = data;
         
+        // Buscar o CNPJ da obra selecionada
+        const obraSelecionada = obras.find(obra => obra.id === parseInt(purchaseOrderData.obraId.toString()));
+        if (!obraSelecionada) {
+          throw new Error("Obra selecionada não encontrada");
+        }
+
         // NOVO FORMATO SIMPLIFICADO
         const dadosFormatados = {
-          numero: purchaseOrderData.orderNumber.trim(),
-          empresa: parseInt(purchaseOrderData.companyId.toString()),
-          obra: parseInt(purchaseOrderData.obraId.toString()),
-          validade: new Date(data.validUntil).toISOString(),
+          numeroOrdem: purchaseOrderData.orderNumber.trim(),
+          empresaId: parseInt(purchaseOrderData.companyId.toString()),
+          cnpj: obraSelecionada.cnpj, // CNPJ da obra de destino
+          validoAte: new Date(data.validUntil).toISOString(),
           produtos: items
             .filter(item => item.productId && item.quantity)
             .map(item => ({

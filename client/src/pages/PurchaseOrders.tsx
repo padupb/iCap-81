@@ -70,11 +70,18 @@ export default function PurchaseOrders() {
       try {
         const { items, ...purchaseOrderData } = data;
         
+        // Buscar o CNPJ da empresa selecionada
+        const empresaSelecionada = companies.find(company => company.id === parseInt(purchaseOrderData.companyId.toString()));
+        if (!empresaSelecionada) {
+          throw new Error("Empresa selecionada não encontrada");
+        }
+
         // Preparar dados no novo formato
         const dadosFormatados = {
-          numero: purchaseOrderData.orderNumber.trim(),
-          empresa: parseInt(purchaseOrderData.companyId.toString()),
-          validade: new Date(data.validUntil).toISOString(),
+          numeroOrdem: purchaseOrderData.orderNumber.trim(),
+          empresaId: parseInt(purchaseOrderData.companyId.toString()),
+          cnpj: empresaSelecionada.cnpj, // CNPJ da empresa fornecedora
+          validoAte: new Date(data.validUntil).toISOString(),
           produtos: items
             .filter(item => item.productId && item.quantity)
             .map(item => ({
