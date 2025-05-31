@@ -26,36 +26,51 @@ const containerStyle = {
   height: "500px",
 };
 
-// Função para gerar cores únicas baseadas no ID do pedido
+// Função para gerar cores únicas baseadas no ID do pedido (cores escuras para contraste)
 const generateColorFromId = (id: number): string => {
   const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-    '#DDA0DD', '#FF7F50', '#87CEEB', '#98D8C8', '#F7DC6F',
-    '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA', '#F1948A',
-    '#AED6F1', '#A9DFBF', '#F9E79F', '#D7BDE2', '#A3E4D7'
+    '#DC2626', // Vermelho escuro
+    '#1D4ED8', // Azul escuro
+    '#059669', // Verde escuro
+    '#92400E', // Marrom
+    '#1F2937', // Cinza escuro
+    '#7C2D12', // Marrom avermelhado
+    '#6B21A8', // Roxo escuro
+    '#B45309', // Laranja escuro
+    '#BE123C', // Rosa escuro
+    '#064E3B', // Verde escuro 2
+    '#1E3A8A', // Azul marinho
+    '#7F1D1D', // Vermelho vinho
+    '#365314', // Verde oliva
+    '#4C1D95', // Roxo índigo
+    '#831843', // Rosa vinho
+    '#0F766E', // Teal escuro
+    '#A16207', // Amarelo escuro
+    '#9A3412', // Laranja queimado
+    '#581C87', // Violeta escuro
+    '#166534'  // Verde floresta
   ];
   return colors[id % colors.length];
 };
 
-// Função para criar ícone numerado com cor
-const createNumberedIcon = (id: number, color: string): any => {
-  const iconSvg = `
-    <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+// Função para criar ponto colorido simples
+const createColoredDot = (id: number, color: string): any => {
+  const dotSvg = `
+    <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.4)"/>
+          <feDropShadow dx="1" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.5)"/>
         </filter>
       </defs>
-      <circle cx="18" cy="18" r="15" fill="${color}" stroke="white" stroke-width="3" filter="url(#shadow-${id})"/>
-      <text x="18" y="23" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">${id}</text>
+      <circle cx="8" cy="8" r="6" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow-${id})"/>
     </svg>
   `;
 
   return {
-    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(iconSvg),
-    scaledSize: { width: 36, height: 36 },
+    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(dotSvg),
+    scaledSize: { width: 16, height: 16 },
     origin: { x: 0, y: 0 },
-    anchor: { x: 18, y: 36 },
+    anchor: { x: 8, y: 8 },
   };
 };
 
@@ -119,13 +134,13 @@ const MapComponent: React.FC<Props> = ({
       {/* Múltiplos marcadores */}
       {markers.map((marker) => {
         const color = marker.color || generateColorFromId(marker.id);
-        const icon = marker.icon || createNumberedIcon(marker.id, color);
+        const icon = marker.icon || createColoredDot(marker.id, color);
         
         return (
           <Marker
             key={marker.id}
             position={{ lat: marker.lat, lng: marker.lng }}
-            title={marker.title}
+            title={`Pedido #${marker.id}`}
             icon={icon}
             onClick={() => handleMarkerClick(marker)}
           />
