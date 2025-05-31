@@ -577,11 +577,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Orders routes (Pedidos)
-  app.get("/api/orders", async (req, res) => {
+  app.get("/api/orders", isAuthenticated, async (req, res) => {
     try {
-      const orders = await storage.getAllOrders();
+      let orders = await storage.getAllOrders();
 
-
+      // Aplicar restrição baseada nos critérios da empresa do usuário
+      if (req.user && req.user.companyId) {
+        // Buscar a empresa do usuário
+        const userCompany = await storage.getCompany(req.user.companyId);
+        
+        if (userCompany) {
+          // Buscar a categoria da empresa
+          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+          
+          if (companyCategory) {
+            // Verificar se a empresa tem pelo menos 1 critério ativo
+            const hasAnyCriteria = companyCategory.requiresApprover || 
+                                 companyCategory.requiresContract || 
+                                 companyCategory.receivesPurchaseOrders;
+            
+            if (hasAnyCriteria) {
+              // Filtrar apenas pedidos da empresa do usuário
+              orders = orders.filter(order => order.supplierId === req.user.companyId);
+              console.log(`🔒 Usuário da empresa ${userCompany.name} - visualização restrita a pedidos da própria empresa`);
+            } else {
+              console.log(`🔓 Usuário da empresa ${userCompany.name} - visualização irrestrita (empresa sem critérios)`);
+            }
+          }
+        }
+      }
 
       res.json(orders);
     } catch (error) {
@@ -590,11 +614,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders/urgent", async (req, res) => {
+  app.get("/api/orders/urgent", isAuthenticated, async (req, res) => {
     try {
-      const urgentOrders = await storage.getUrgentOrders();
+      let urgentOrders = await storage.getUrgentOrders();
 
-
+      // Aplicar restrição baseada nos critérios da empresa do usuário
+      if (req.user && req.user.companyId) {
+        // Buscar a empresa do usuário
+        const userCompany = await storage.getCompany(req.user.companyId);
+        
+        if (userCompany) {
+          // Buscar a categoria da empresa
+          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+          
+          if (companyCategory) {
+            // Verificar se a empresa tem pelo menos 1 critério ativo
+            const hasAnyCriteria = companyCategory.requiresApprover || 
+                                 companyCategory.requiresContract || 
+                                 companyCategory.receivesPurchaseOrders;
+            
+            if (hasAnyCriteria) {
+              // Filtrar apenas pedidos urgentes da empresa do usuário
+              urgentOrders = urgentOrders.filter(order => order.supplierId === req.user.companyId);
+              console.log(`🔒 Pedidos urgentes - visualização restrita à empresa ${userCompany.name}`);
+            }
+          }
+        }
+      }
 
       res.json(urgentOrders);
     } catch (error) {
@@ -783,7 +829,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchase Orders routes
-  app.get("/api/ordens-compra", async (req, res) => {
+  app.get("/api/ordens-compra", isAuthenticated, async (req, res) => {
     try {
       // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
       if (!pool) {
@@ -791,7 +837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
 
-      const result = await pool.query(`
+      let query = `
         SELECT 
           oc.id,
           oc.numero_ordem,
@@ -805,8 +851,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
         LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
-        ORDER BY oc.data_criacao DESC
-      `);
+      `;
+
+      let queryParams: any[] = [];
+
+      // Aplicar restrição baseada nos critérios da empresa do usuário
+      if (req.user && req.user.companyId) {
+        // Buscar a empresa do usuário
+        const userCompany = await storage.getCompany(req.user.companyId);
+        
+        if (userCompany) {
+          // Buscar a categoria da empresa
+          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+          
+          if (companyCategory) {
+            // Verificar se a empresa tem pelo menos 1 critério ativo
+            const hasAnyCriteria = companyCategory.requiresApprover || 
+                                 companyCategory.requiresContract || 
+                                 companyCategory.receivesPurchaseOrders;
+            
+            if (hasAnyCriteria) {
+              // Filtrar apenas ordens de compra da empresa do usuário
+              query += ` WHERE oc.empresa_id = $1`;
+              queryParams.push(req.user.companyId);
+              console.log(`🔒 Ordens de compra - visualização restrita à empresa ${userCompany.name}`);
+            } else {
+              console.log(`🔓 Ordens de compra - visualização irrestrita (empresa ${userCompany.name} sem critérios)`);
+            }
+          }
+        }
+      }
+
+      query += ` ORDER BY oc.data_criacao DESC`;
+
+      const result = await pool.query(query, queryParams);
 
       console.log("📊 Debug: ordens de compra com cnpj:", result.rows.map(row => ({
         id: row.id,
@@ -837,7 +915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rota de compatibilidade para o frontend que ainda usa /api/purchase-orders
-  app.get("/api/purchase-orders", async (req, res) => {
+  app.get("/api/purchase-orders", isAuthenticated, async (req, res) => {
     try {
       // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
       if (!pool) {
@@ -845,7 +923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
 
-      const result = await pool.query(`
+      let query = `
         SELECT 
           oc.id,
           oc.numero_ordem as order_number,
@@ -859,8 +937,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
         LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
-        ORDER BY oc.data_criacao DESC
-      `);
+      `;
+
+      let queryParams: any[] = [];
+
+      // Aplicar restrição baseada nos critérios da empresa do usuário
+      if (req.user && req.user.companyId) {
+        // Buscar a empresa do usuário
+        const userCompany = await storage.getCompany(req.user.companyId);
+        
+        if (userCompany) {
+          // Buscar a categoria da empresa
+          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+          
+          if (companyCategory) {
+            // Verificar se a empresa tem pelo menos 1 critério ativo
+            const hasAnyCriteria = companyCategory.requiresApprover || 
+                                 companyCategory.requiresContract || 
+                                 companyCategory.receivesPurchaseOrders;
+            
+            if (hasAnyCriteria) {
+              // Filtrar apenas ordens de compra da empresa do usuário
+              query += ` WHERE oc.empresa_id = $1`;
+              queryParams.push(req.user.companyId);
+              console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name}`);
+            }
+          }
+        }
+      }
+
+      query += ` ORDER BY oc.data_criacao DESC`;
+
+      const result = await pool.query(query, queryParams);
 
       // Formatar os dados para o frontend no formato esperado
       const formattedOrders = result.rows.map((row: any) => ({
