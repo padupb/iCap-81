@@ -86,7 +86,7 @@ export interface IStorage {
   getSetting(key: string): Promise<Setting | undefined>;
   getAllSettings(): Promise<Setting[]>;
   createOrUpdateSetting(setting: InsertSetting): Promise<Setting>;
-  
+
   // Documents
   getDocumentsByOrderId(orderId: number): Promise<Document[]>;
   getDocument(id: number): Promise<Document | undefined>;
@@ -357,12 +357,12 @@ export class MemStorage implements IStorage {
     const id = this.currentId++;
     const now = new Date();
     const orderId = this.generateOrderId();
-    
+
     // Check if order is urgent (delivery date < 7 days)
     const deliveryDate = new Date(insertOrder.deliveryDate);
     const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
     const isUrgent = daysDiff < 7;
-    
+
     const order: Order = {
       ...insertOrder,
       id,
@@ -371,7 +371,7 @@ export class MemStorage implements IStorage {
       status: isUrgent ? "Em Aprovação" : "Registrado",
       createdAt: now
     };
-    
+
     this.orders.set(id, order);
     return order;
   }
@@ -395,7 +395,7 @@ export class MemStorage implements IStorage {
     const year = String(now.getFullYear()).slice(-2);
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
-    
+
     return `CAV${day}${month}${year}${hours}${minutes}`;
   }
 
@@ -403,7 +403,7 @@ export class MemStorage implements IStorage {
   async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
     return this.purchaseOrders.get(id);
   }
-  
+
   async getPurchaseOrderByNumber(orderNumber: string): Promise<PurchaseOrder | undefined> {
     return Array.from(this.purchaseOrders.values()).find(order => order.orderNumber === orderNumber);
   }
@@ -735,7 +735,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(orders)
       .leftJoin(products, eq(orders.productId, products.id));
-    
+
     return result.map(row => ({
       id: row.id,
       orderId: row.orderId,
@@ -777,7 +777,7 @@ export class DatabaseStorage implements IStorage {
       .from(orders)
       .leftJoin(products, eq(orders.productId, products.id))
       .where(eq(orders.isUrgent, true));
-    
+
     return result.map(row => ({
       id: row.id,
       orderId: row.orderId,
@@ -829,10 +829,10 @@ export class DatabaseStorage implements IStorage {
     const [purchaseOrder] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
     return purchaseOrder || undefined;
   }
-  
+
   async getPurchaseOrderByNumber(orderNumber: string): Promise<PurchaseOrder | undefined> {
     const [purchaseOrder] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.orderNumber, orderNumber));
-    return purchaseOrder || undefined;
+    return purchaseOrder|| undefined;
   }
 
   async getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
@@ -842,7 +842,7 @@ export class DatabaseStorage implements IStorage {
   async createPurchaseOrder(insertPurchaseOrder: InsertPurchaseOrder): Promise<PurchaseOrder> {
     try {
       console.log("Storage: criar purchase order com dados:", JSON.stringify(insertPurchaseOrder, null, 2));
-      
+
       // O número da ordem agora vem do frontend, enviado pelo usuário
       // Garantir que todos os campos estejam no formato correto
       const orderData = {
@@ -852,9 +852,9 @@ export class DatabaseStorage implements IStorage {
         userId: Number(insertPurchaseOrder.userId || 1),
         status: insertPurchaseOrder.status || "Ativo"
       };
-      
+
       console.log("Storage: dados formatados para insert:", JSON.stringify(orderData, null, 2));
-      
+
       // Inserção direta usando executar SQL para evitar problemas de tipagem
       const { pool } = await import("./db");
       const result = await pool.query(`
@@ -869,7 +869,7 @@ export class DatabaseStorage implements IStorage {
         orderData.userId,
         orderData.status
       ]);
-      
+
       // Formatar resultado para o formato esperado
       if (result.rows.length > 0) {
         const row = result.rows[0];
@@ -882,7 +882,7 @@ export class DatabaseStorage implements IStorage {
           userId: row.user_id,
           createdAt: row.created_at
         };
-        
+
         console.log("Storage: ordem criada com sucesso:", JSON.stringify(purchaseOrder, null, 2));
         return purchaseOrder;
       } else {
@@ -911,16 +911,16 @@ export class DatabaseStorage implements IStorage {
   async createPurchaseOrderItem(insertItem: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
     try {
       console.log("Storage: criar item de ordem com dados:", JSON.stringify(insertItem, null, 2));
-      
+
       // Garantir que todos os campos estejam no formato correto
       const itemData = {
         purchaseOrderId: Number(insertItem.purchaseOrderId),
         productId: Number(insertItem.productId),
         quantity: typeof insertItem.quantity === 'string' ? parseFloat(insertItem.quantity) : Number(insertItem.quantity)
       };
-      
+
       console.log("Storage: dados formatados para item:", JSON.stringify(itemData, null, 2));
-      
+
       // Inserção direta usando SQL para evitar problemas de tipagem
       const { pool } = await import("./db");
       const result = await pool.query(`
@@ -933,7 +933,7 @@ export class DatabaseStorage implements IStorage {
         itemData.productId,
         itemData.quantity
       ]);
-      
+
       // Formatar resultado para o formato esperado
       if (result.rows.length > 0) {
         const row = result.rows[0];
@@ -943,7 +943,7 @@ export class DatabaseStorage implements IStorage {
           productId: row.product_id,
           quantity: row.quantity
         };
-        
+
         console.log("Storage: item criado com sucesso:", JSON.stringify(item, null, 2));
         return item;
       } else {
@@ -984,7 +984,7 @@ export class DatabaseStorage implements IStorage {
   async createOrUpdateSetting(insertSetting: InsertSetting): Promise<Setting> {
     // Verificar se a configuração já existe
     const existingSetting = await this.getSetting(insertSetting.key);
-    
+
     if (existingSetting) {
       // Atualizar configuração existente
       const [setting] = await db.update(settings)

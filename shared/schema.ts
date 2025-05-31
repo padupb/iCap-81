@@ -297,3 +297,13 @@ export type Setting = typeof settings.$inferSelect;
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
 export type TrackingPoint = typeof trackingPoints.$inferSelect;
 export type InsertTrackingPoint = z.infer<typeof insertTrackingPointSchema>;
+
+export const insertCompanySchemaZod = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  cnpj: z.string().min(1, "CNPJ é obrigatório"),
+  razaoSocial: z.string().optional(),
+  address: z.string().min(1, "Endereço é obrigatório"),
+  categoryId: z.number().min(1, "Categoria é obrigatória"),
+  approverId: z.number().optional(),
+  contractNumber: z.string().optional(),
+});

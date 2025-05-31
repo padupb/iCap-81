@@ -223,7 +223,7 @@ export default function Companies() {
             <DialogHeader className="p-6 pb-2">
               <DialogTitle>Cadastrar Nova Empresa</DialogTitle>
             </DialogHeader>
-            
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6 pt-2">
                 <FormField
@@ -339,7 +339,7 @@ export default function Companies() {
                     )}
                   />
                 )}
-                
+
                 {requiresContract && (
                   <FormField
                     control={form.control}
@@ -390,7 +390,7 @@ export default function Companies() {
             <DialogHeader className="p-6 pb-2">
               <DialogTitle>Editar Empresa</DialogTitle>
             </DialogHeader>
-            
+
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6 p-6 pt-2">
                 <FormField
@@ -506,7 +506,7 @@ export default function Companies() {
                     )}
                   />
                 )}
-                
+
                 {editRequiresContract && (
                   <FormField
                     control={editForm.control}
@@ -604,7 +604,7 @@ export default function Companies() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex flex-col items-center justify-center space-y-3">
                         <Building className="text-muted-foreground/50 h-8 w-8" />
                         <p className="text-muted-foreground">Carregando empresas...</p>
@@ -613,7 +613,7 @@ export default function Companies() {
                   </TableRow>
                 ) : filteredCompanies.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex flex-col items-center justify-center space-y-3">
                         <Building className="text-muted-foreground/50 h-8 w-8" />
                         <p className="text-muted-foreground">Nenhuma empresa encontrada</p>
