@@ -226,7 +226,7 @@ export function OrderCompraDetailDrawer({
                           <Building size={16} className="text-muted-foreground" />
                           {ordemAtual.empresa_nome}
                         </p>
-                      </div></div>
+                      </div>
 
                       <div className="space-y-2">
                         <h4 className="text-sm font-medium text-muted-foreground">Válido Até</h4>
