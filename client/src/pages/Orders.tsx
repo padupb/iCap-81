@@ -51,17 +51,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Filter, AlertTriangle, Trash2, MapPin } from "lucide-react";
+import { Plus, Search, Filter, AlertTriangle, Trash2 } from "lucide-react";
 import { getStatusColor, formatDate } from "@/lib/utils";
-
-// Tipo para tracking points
-type TrackingPoint = {
-  id: number;
-  orderId: number;
-  latitude: number;
-  longitude: number;
-  createdAt: string;
-};
 
 // Função para formatar números com vírgula (formato brasileiro)
 const formatNumber = (value: string | number): string => {
@@ -206,22 +197,6 @@ export default function Orders() {
       if (!response.ok) throw new Error("Falha ao carregar unidades");
       return response.json();
     },
-  });
-
-  // Buscar resumo de coordenadas de todos os pedidos
-  const { data: trackingSummary = {} } = useQuery({
-    queryKey: ["/api/tracking-points-summary"],
-    queryFn: async () => {
-      try {
-        const response = await fetch("/api/tracking-points-summary");
-        if (!response.ok) throw new Error("Falha ao buscar coordenadas");
-        return await response.json();
-      } catch (error) {
-        console.error("Erro ao buscar coordenadas:", error);
-        return {};
-      }
-    },
-    refetchInterval: 60000, // Atualizar a cada minuto
   });
 
   // Buscar configurações do sistema
@@ -497,19 +472,6 @@ export default function Orders() {
     return searchMatch && statusMatch;
   });
 
-    // Função para obter as coordenadas do pedido
-    const getOrderCoordinates = (orderId: number) => {
-      const summary = trackingSummary[orderId];
-      if (!summary || (summary.latitude === 0 && summary.longitude === 0)) return null;
-
-      return {
-        latitude: summary.latitude,
-        longitude: summary.longitude,
-        totalPoints: summary.totalPoints,
-        lastUpdate: summary.lastUpdate
-      };
-    };
-
   // Função para abrir o drawer de detalhes do pedido
   const handleOpenDetails = (order: Order) => {
     setSelectedOrderId(order.id);
@@ -783,7 +745,6 @@ export default function Orders() {
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Data de Entrega</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Coordenadas</TableHead>
                     {isKeyUser && <TableHead className="text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -824,36 +785,6 @@ export default function Orders() {
                               Urgente
                             </Badge>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const coordinates = getOrderCoordinates(order.id);
-                            if (!coordinates) {
-                              return (
-                                <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                                  <MapPin size={12} />
-                                  <span>Sem rastreamento</span>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-1 text-xs">
-                                  <MapPin size={12} className="text-blue-500" />
-                                  <span className="font-mono">
-                                    {coordinates.latitude.toFixed(4)}, {coordinates.longitude.toFixed(4)}
-                                  </span>
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {coordinates.totalPoints} ponto{coordinates.totalPoints > 1 ? 's' : ''}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {formatDate(coordinates.lastUpdate)}
-                                </div>
-                              </div>
-                            );
-                          })()}
                         </TableCell>
                         {isKeyUser && (
                           <TableCell className="text-right">
