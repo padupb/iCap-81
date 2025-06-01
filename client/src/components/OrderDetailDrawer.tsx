@@ -729,6 +729,7 @@ export function OrderDetailDrawer({
             ? error.message
             : "Falha ao processar confirmação de entrega",
         variant: "destructive",
+        
       });
     }
   };
@@ -995,7 +996,7 @@ export function OrderDetailDrawer({
                     <div className="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
                   </div>
 
-                  <div className="detail-item">
+                  <div className="detail-item">```text
                     <div className="detail-label">Data de Entrega</div>
                     <div className="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
                   </div>
@@ -1092,7 +1093,7 @@ export function OrderDetailDrawer({
                   strokeLinejoin="round"
                 >
                   <polyline points="6,9 6,2 18,2 18,9" />
-                  <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2,2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
+                  <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2,2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2-2H18" />
                   <rect x="6" y="14" width="12" height="8" />
                 </svg>
               </Button>
@@ -1129,11 +1130,6 @@ export function OrderDetailDrawer({
                         return true;
                       }
 
-                      // 2. Verificar se o usuário tem permissão can_confirm_delivery
-                      if (!user?.canConfirmDelivery) {
-                        return true;
-                      }
-
                       // 3. Verificar se é pedido urgente e não foi aprovado
                       const deliveryDate = new Date(orderDetails.deliveryDate);
                       const today = new Date();
@@ -1157,6 +1153,11 @@ export function OrderDetailDrawer({
                     disabled={(() => {
                       // 1. Se o pedido for cancelado, bloquear todas as abas
                       if (orderDetails.quantidade === 0) {
+                        return true;
+                      }
+                      
+                      //Verificar se o usuário tem permissão can_confirm_delivery
+                      if (!user?.canConfirmDelivery) {
                         return true;
                       }
 
@@ -1484,12 +1485,7 @@ export function OrderDetailDrawer({
                             return "Este pedido foi cancelado e não pode prosseguir com o envio de documentos.";
                           }
 
-                          // 2. Verificar se o usuário tem permissão can_confirm_delivery
-                          if (!user?.canConfirmDelivery) {
-                            return "Você não tem permissão para acessar os documentos. Apenas usuários autorizados podem visualizar esta seção.";
-                          }
-
-                          // 3. Verificar se é pedido urgente e não foi aprovado
+                          // 2. Verificar se é pedido urgente e não foi aprovado
                           const deliveryDate = new Date(orderDetails.deliveryDate);
                           const today = new Date();
                           const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1515,24 +1511,6 @@ export function OrderDetailDrawer({
                               </h3>
                               <p className="text-sm text-red-700 text-center max-w-md">
                                 Este pedido foi cancelado e não pode ser processado.
-                              </p>
-                            </div>
-                          );
-                        }
-
-                        // 2. Verificar se o usuário tem permissão can_confirm_delivery
-                        if (!user?.canConfirmDelivery) {
-                          return (
-                            <div className="flex flex-col items-center justify-center p-8 border border-red-200 rounded-lg bg-red-50">
-                              <AlertCircle className="h-16 w-16 text-red-600 mb-4" />
-                              <h3 className="text-xl font-medium text-red-800 mb-2">
-                                Acesso Negado
-                              </h3>
-                              <p className="text-sm text-red-700 text-center max-w-md">
-                                Você não possui permissão para acessar os documentos do pedido. Esta funcionalidade está restrita a usuários autorizados.
-                              </p>
-                              <p className="text-xs text-red-600 text-center mt-3">
-                                Entre em contato com o administrador do sistema para solicitar acesso.
                               </p>
                             </div>
                           );
@@ -1567,11 +1545,6 @@ export function OrderDetailDrawer({
                       })()}
 
                       {(() => {
-                        // 1. Verificar se o usuário tem permissão can_confirm_delivery
-                        if (!user?.canConfirmDelivery) {
-                          return null;
-                        }
-
                         // 2. Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = new Date(orderDetails.deliveryDate);
                         const today = new Date();
@@ -1927,11 +1900,6 @@ export function OrderDetailDrawer({
                         return null;
                       }
 
-                      // 2. Verificar se o usuário tem permissão can_confirm_delivery
-                      if (!user?.canConfirmDelivery) {
-                        return null;
-                      }
-
                       // 3. Verificar se é pedido urgente e não foi aprovado
                       const deliveryDate = new Date(orderDetails.deliveryDate);
                       const today = new Date();
@@ -2027,7 +1995,7 @@ export function OrderDetailDrawer({
                         </div>
                       )}
                     </CardContent>
-                    {orderDetails.status !== "Entregue" && (
+                    {orderDetails.status !== "Entregue" && canConfirmDelivery() && (
                       <CardFooter className="flex justify-between">
                         <Button
                           variant="destructive"
