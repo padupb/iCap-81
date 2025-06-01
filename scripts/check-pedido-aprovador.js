@@ -1,5 +1,6 @@
 
-const { Pool } = require('pg');
+import pkg from 'pg';
+const { Pool } = pkg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -113,6 +114,36 @@ async function checkPedidoAprovador() {
     console.log(`Pedido: ${pedido.order_id}`);
     console.log(`Status: ${pedido.status}`);
     console.log(`Urgente: ${pedido.is_urgent ? 'Sim' : 'Não'}`);
+    
+    // 6. Query completa para debug
+    console.log('\n🔍 QUERY COMPLETA:');
+    const queryCompleta = await pool.query(`
+      SELECT 
+        o.order_id as "pedido",
+        o.status as "status_pedido",
+        oc.numero_ordem as "ordem_compra",
+        oc.cnpj as "cnpj_destino",
+        obra.name as "nome_obra",
+        obra.approver_id as "aprovador_id",
+        u.name as "nome_aprovador",
+        u.email as "email_aprovador"
+      FROM orders o
+      LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+      LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
+      LEFT JOIN users u ON obra.approver_id = u.id
+      WHERE o.order_id = $1
+    `, ['CAP0106250248']);
+    
+    if (queryCompleta.rows.length > 0) {
+      const resultado = queryCompleta.rows[0];
+      console.log('📋 Resultado completo:', resultado);
+      
+      if (resultado.nome_aprovador) {
+        console.log(`\n🎯 RESPOSTA: O aprovador do pedido ${resultado.pedido} é ${resultado.nome_aprovador} (${resultado.email_aprovador})`);
+      } else {
+        console.log(`\n❌ RESPOSTA: O pedido ${resultado.pedido} não possui aprovador definido`);
+      }
+    }
     
   } catch (error) {
     console.error('❌ Erro na análise:', error);
