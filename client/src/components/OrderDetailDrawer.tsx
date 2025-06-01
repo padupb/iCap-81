@@ -366,10 +366,10 @@ export function OrderDetailDrawer({
             ? new Date(ordemCompra.data_criacao)
             : new Date(),
         } as PurchaseOrder;
-        
+
         // Buscar a empresa da ordem de compra
         purchaseOrderCompany = companies.find((c) => c.id === ordemCompra.empresa_id);
-        
+
         // Buscar a obra de destino usando o cnpj da ordem de compra
         console.log("🎯 Debug cnpj da obra na ordem:", ordemCompra.cnpj);
         if (ordemCompra.cnpj) {
@@ -411,7 +411,7 @@ export function OrderDetailDrawer({
     const productName = orderDetails.product?.name || "Produto não encontrado";
     const quantity = formatNumber(orderDetails.quantity);
     const unitAbbreviation = orderDetails.unit?.abbreviation || "";
-    
+
     return `${productName} - ${quantity} ${unitAbbreviation}`.trim();
   };
 
@@ -995,6 +995,1009 @@ export function OrderDetailDrawer({
                     <div className="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
                   </div>
 
+                  ```text
+The code has been modified to implement flow rules for QR codes and tabs based on the order status, document uploads, and user permissions.
+</text>
+<replit_final_file>
+import React, { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+} from "@/components/ui/drawer";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "@/hooks/use-toast";
+import { formatDate } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { useSettings } from "@/context/SettingsContext";
+import {
+  Package,
+  CircleCheck,
+  MapPin,
+  History,
+  ExternalLink,
+  CheckCircle,
+  Circle,
+  X,
+  FileText,
+  Upload,
+  FileCheck,
+  Clock,
+  Download,
+  AlertCircle,
+} from "lucide-react";
+import { Order, Product, Company, PurchaseOrder, Unit } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { QRCodeComponent } from "./QRCodeComponent";
+
+interface OrderDetailDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  orderId: number | null;
+}
+
+type OrderDetails = Order & {
+  product?: Product;
+  supplier?: Company;
+  purchaseOrder?: PurchaseOrder;
+  quantidadeRecebida?: string;
+  documentosCarregados?: boolean;
+};
+
+// Tipo para tracking points
+type TrackingPoint = {
+  id: number;
+  status: string;
+  comment?: string;
+  user_id: number;
+  user_name?: string;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+};
+
+// Função para formatar números com vírgula (formato brasileiro)
+const formatNumber = (value: string | number): string => {
+  const numValue = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(numValue)) return value.toString();
+
+  // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
+  return numValue.toLocaleString("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2, // Máximo 2 casas decimais
+  });
+};
+
+import MapComponent from "./MapComponent";
+
+// Componente de Rastreamento com Mapa
+function SimpleTracker({
+  orderId,
+  orderDetails,
+}: {
+  orderId: number;
+  orderDetails: OrderDetails | null;
+}) {
+  const [trackingPoints, setTrackingPoints] = useState<TrackingPoint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Buscar pontos de rastreamento
+  const fetchTrackingPoints = async () => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      console.log(`🔍 Buscando pontos de rastreamento para pedido: ${orderId}`);
+      const response = await fetch(`/api/tracking-points/${orderId}`);
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar dados: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log(`📍 Pontos recebidos:`, data);
+      setTrackingPoints(data || []);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("Erro ao buscar tracking points:", errorMessage);
+      setError(errorMessage);
+      toast({
+        title: "Erro ao carregar rastreamento",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Efeito para buscar dados iniciais
+  useEffect(() => {
+    if (orderId) {
+      fetchTrackingPoints();
+    }
+  }, [orderId]);
+
+  // Atualização em tempo real
+  useEffect(() => {
+    if (!orderId) return;
+
+    const interval = setInterval(fetchTrackingPoints, 30000); // Atualiza a cada 30 segundos
+    return () => clearInterval(interval);
+  }, [orderId]);
+
+  // Coordenadas padrão (Cuiabá - MT) ou do primeiro ponto de rastreamento
+  const getMapCoordinates = () => {
+    if (trackingPoints.length > 0) {
+      const firstPoint = trackingPoints[0];
+      return {
+        lat: Number(firstPoint.latitude),
+        lng: Number(firstPoint.longitude),
+      };
+    }
+
+    // Coordenadas padrão de Cuiabá - MT
+    return {
+      lat: -15.60141,
+      lng: -56.097891,
+    };
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-muted-foreground">Carregando rastreamento...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 space-y-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <div className="text-center">
+          <h3 className="text-lg font-medium">Erro ao carregar rastreamento</h3>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const coordinates = getMapCoordinates();
+
+  return (
+      <div className="space-y-4">
+        {/* Seção do Mapa */}
+        <div className="space-y-8">
+          <div className="border rounded-lg overflow-hidden">
+            <MapComponent lat={coordinates.lat} lng={coordinates.lng} />
+          </div>
+          {trackingPoints.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center">
+              Mostrando localização do primeiro ponto de rastreamento
+            </p>
+          )}
+        </div>
+
+        {/* Seção dos Pontos de Rastreamento */}
+        {trackingPoints.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-muted-foreground text-sm">
+              Nenhum ponto de rastreamento encontrado para este pedido
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <h4 className="font-medium">
+              Pontos de Rastreamento ({trackingPoints.length})
+            </h4>
+            <div className="grid gap-3">
+              {trackingPoints.map((point, index) => (
+                <div
+                  key={point.id}
+                  className="flex items-center justify-between p-4 border rounded-lg bg-muted/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        Ponto {index + 1}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(point.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                  {point.latitude && point.longitude && (
+                    <div className="text-right text-sm text-muted-foreground">
+                      <p>Lat: {Number(point.latitude).toFixed(6)}</p>
+                      <p>Lng: {Number(point.longitude).toFixed(6)}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+  );
+}
+
+export function OrderDetailDrawer({
+  open,
+  onOpenChange,
+  orderId,
+}: OrderDetailDrawerProps) {
+  const { user } = useAuth();
+  // Definir um valor inicial diferente de "details" para forçar a renderização adequada
+  const [activeTab, setActiveTab] = useState("details");
+  const [confirmedQuantity, setConfirmedQuantity] = useState("");
+
+  // Refs para os inputs de arquivo
+  const notaPdfRef = useRef<HTMLInputElement>(null);
+  const notaXmlRef = useRef<HTMLInputElement>(null);
+  const certificadoPdfRef = useRef<HTMLInputElement>(null);
+
+  // Debug dos refs (apenas quando necessário)
+  useEffect(() => {
+    if (open && activeTab === "documents") {
+      console.log("Aba de documentos aberta, verificando refs:", {
+        notaPdfRef: !!notaPdfRef.current,
+        notaXmlRef: !!notaXmlRef.current,
+        certificadoPdfRef: !!certificadoPdfRef.current,
+      });
+    }
+  }, [open, activeTab]);
+
+  // Estado para os arquivos
+  const [notaPdf, setNotaPdf] = useState<File | null>(null);
+  const [notaXml, setNotaXml] = useState<File | null>(null);
+  const [certificadoPdf, setCertificadoPdf] = useState<File | null>(null);
+
+  // Estado para controlar se os documentos foram carregados
+  const [documentsLoaded, setDocumentsLoaded] = useState(false);
+
+  // Estado para tracking de histórico
+  const [orderHistory, setOrderHistory] = useState<
+    Array<{
+      etapa: string;
+      data: string;
+      usuario: string;
+      descricao?: string;
+    }>
+  >([]);
+
+  const queryClient = useQueryClient();
+
+  // Buscar pedidos, produtos e empresas
+  const { data: orders = [] } = useQuery<Order[]>({
+    queryKey: ["/api/orders"],
+    enabled: !!orderId && open,
+  });
+
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+    enabled: !!orderId && open,
+  });
+
+  const { data: companies = [] } = useQuery<Company[]>({
+    queryKey: ["/api/companies"],
+    enabled: !!orderId && open,
+  });
+
+  // Buscar unidades para exibir junto com o produto
+  const { data: units = [] } = useQuery<Unit[]>({
+    queryKey: ["/api/units"],
+    enabled: !!orderId && open,
+  });
+
+  // Buscar usuários para exibir nomes no histórico
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    enabled: !!orderId && open,
+  });
+
+  // Tentar buscar das duas rotas possíveis de ordens de compra
+  const { data: purchaseOrders = [] } = useQuery<PurchaseOrder[]>({
+    queryKey: ["/api/purchase-orders"],
+    enabled: !!orderId && open,
+  });
+
+  const { data: ordensCompra = [] } = useQuery({
+    queryKey: ["/api/ordens-compra"],
+    enabled: !!orderId && open,
+    });
+
+  // Montar os detalhes do pedido a partir dos dados obtidos
+  const orderDetails = React.useMemo(() => {
+    if (!orderId) return null;
+
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+
+    const product = products.find((p) => p.id === order.productId);
+    const supplier = companies.find((c) => c.id === order.supplierId);
+    const unit = product ? units.find((u) => u.id === product.unitId) : null;
+
+    // Buscar ordem de compra: primeiro na tabela ordens_compra, depois em purchase_orders
+    let purchaseOrder = null;
+    let purchaseOrderCompany = null;
+    let workDestination = null; // Nova variável para armazenar a obra de destino
+
+    if (order.purchaseOrderId) {
+      // Primeiro, verificar ordensCompra (tabela principal)
+      const ordensArray = Array.isArray(ordensCompra) ? ordensCompra : [];
+      const ordemCompra = ordensArray.find(
+        (oc: any) => oc.id === order.purchaseOrderId,
+      );
+
+      console.log("🔍 Debug ordem de compra encontrada:", ordemCompra);
+      console.log("🏢 Debug empresas disponíveis:", companies);
+
+      if (ordemCompra) {
+        // Converte o formato da ordem de compra para o padrão esperado
+        purchaseOrder = {
+          id: ordemCompra.id,
+          orderNumber: ordemCompra.numero_ordem,
+          companyId: ordemCompra.empresa_id,
+          validUntil: ordemCompra.valido_ate,
+          status: ordemCompra.status || "Ativo",
+          userId: ordemCompra.usuario_id || 1,
+          createdAt: ordemCompra.data_criacao
+            ? new Date(ordemCompra.data_criacao)
+            : new Date(),
+        } as PurchaseOrder;
+
+        // Buscar a empresa da ordem de compra
+        purchaseOrderCompany = companies.find((c) => c.id === ordemCompra.empresa_id);
+
+        // Buscar a obra de destino usando o cnpj da ordem de compra
+        console.log("🎯 Debug cnpj da obra na ordem:", ordemCompra.cnpj);
+        if (ordemCompra.cnpj) {
+          workDestination = companies.find((c) => c.cnpj === ordemCompra.cnpj);
+          console.log("🏗️ Debug obra de destino encontrada:", workDestination);
+        } else {
+          console.log("⚠️ cnpj não definido na ordem de compra");
+        }
+      } else {
+        // Se não encontrou em ordens_compra, buscar em purchase_orders
+        const purchaseOrderFound = purchaseOrders.find(
+          (po) => po.id === order.purchaseOrderId,
+        );
+        if (purchaseOrderFound) {
+          purchaseOrder = purchaseOrderFound;
+          // Buscar a empresa da ordem de compra
+          purchaseOrderCompany = companies.find((c) => c.id === purchaseOrderFound.companyId);
+        }
+      }
+    }
+
+    return {
+      ...order,
+      product,
+      supplier,
+      purchaseOrder,
+      purchaseOrderCompany,
+      unit,
+      workDestination, // Adicionar a obra de destino aos dados retornados
+    } as OrderDetails & { 
+      purchaseOrderCompany?: Company; 
+      unit?: Unit; 
+      workDestination?: Company; 
+    };
+  }, [orderId, orders, products, companies, purchaseOrders, ordensCompra, units]);
+
+  // Função para formatar produto com quantidade e unidade
+  const formatProductWithUnit = (orderDetails: any) => {
+    const productName = orderDetails.product?.name || "Produto não encontrado";
+    const quantity = formatNumber(orderDetails.quantity);
+    const unitAbbreviation = orderDetails.unit?.abbreviation || "";
+
+    return `${productName} - ${quantity} ${unitAbbreviation}`.trim();
+  };
+
+  // Reset state when drawer opens
+  useEffect(() => {
+    if (open && orderDetails) {
+      // Não resetamos a aba ativa aqui para manter a navegação entre abas
+      setConfirmedQuantity("");
+
+      // Verificar se os documentos já foram carregados com base no status do pedido
+      if (
+        orderDetails.documentosCarregados ||
+        orderDetails.status === "Carregado" ||
+        orderDetails.status === "Em Rota" ||
+        orderDetails.status === "Em transporte" ||
+        orderDetails.status === "Entregue"
+      ) {
+        setDocumentsLoaded(true);
+      } else {
+        setDocumentsLoaded(false);
+      }
+    }
+
+    if (!open) {
+      // Quando o drawer fecha, resetar os arquivos
+      setNotaPdf(null);
+      setNotaXml(null);
+      setCertificadoPdf(null);
+      setDocumentsLoaded(false);
+    }
+  }, [
+    open,
+    orderDetails?.id,
+    orderDetails?.status,
+    orderDetails?.documentosCarregados,
+  ]);
+
+  // Verificar se o usuário pode confirmar entregas
+  const canConfirmDelivery = () => {
+    if (!user) return false;
+
+    // Usuário admin pode confirmar qualquer entrega
+    if (user.email.endsWith("@admin.icap")) return true;
+
+    // Verificar se o usuário tem permissão específica para confirmar entregas
+    return !!user.canConfirmDelivery;
+  };
+
+  // Consulta para buscar documentos já existentes quando o drawer é aberto
+  const { data: documentosData } = useQuery({
+    queryKey: [`/api/pedidos/${orderId}/documentos`],
+    queryFn: async () => {
+      if (!orderId) return null;
+
+      const response = await fetch(`/api/pedidos/${orderId}/documentos`);
+      if (!response.ok) {
+        console.error("Erro ao buscar documentos:", response.statusText);
+        return null;
+      }
+
+      return await response.json();
+    },
+    enabled: !!orderId && open,
+  });
+
+  // Efeito para processar os dados dos documentos quando eles são carregados
+  React.useEffect(() => {
+    if (documentosData?.temDocumentos) {
+      setDocumentsLoaded(true);
+      console.log(
+        "Documentos carregados do servidor:",
+        documentosData.documentos,
+      );
+    }
+  }, [documentosData]);
+
+  // Mutation para upload de documentos - agora usando o servidor real
+  const documentUploadMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      if (!orderId) {
+        throw new Error("ID do pedido não encontrado");
+      }
+
+      try {
+        const response = await fetch(`/api/pedidos/${orderId}/documentos`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          // Clonar a resposta para poder ler o corpo múltiplas vezes
+          const responseClone = response.clone();
+          try {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.mensagem || "Falha ao fazer upload dos documentos",
+            );
+          } catch (jsonError) {
+            // Se não conseguir interpretar como JSON, use o texto da resposta clonada
+            try {
+              const errorText = await responseClone.text();
+              throw new Error(
+                errorText || `Erro no servidor: ${response.status}`,
+              );
+            } catch (textError) {
+              throw new Error(`Erro no servidor: ${response.status}`);
+            }
+          }
+        }
+
+        const data = await response.json();
+        console.log("Resposta do servidor:", data);
+        return data;
+      } catch (error) {
+        console.error("Erro no upload:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      // Atualizar o estado local
+      setDocumentsLoaded(true);
+
+      // Invalidar as queries para atualizar os dados
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
+
+      // Notificar o usuário
+      toast({
+        title: "Sucesso",
+        description: data.mensagem || "Documentos enviados com sucesso",
+      });
+
+      // Atualizar a tab para mostrar os documentos carregados
+      setActiveTab("tracking");
+      setTimeout(() => setActiveTab("documents"), 100);
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description:
+          error instanceof Error ? error.message : "Falha ao enviar documentos",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Efeito para verificar se o pedido já tem documentos carregados
+  React.useEffect(() => {
+    if (orderDetails?.documentosCarregados) {
+      setDocumentsLoaded(true);
+    }
+  }, [orderDetails?.documentosCarregados]);
+
+  // Função para fazer upload de todos os documentos
+  const handleUploadDocuments = () => {
+    console.log("Iniciando upload de documentos para pedido:", orderId);
+
+    if (!orderId) {
+      toast({
+        title: "Erro",
+        description: "ID do pedido não encontrado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se todos os três documentos foram selecionados (obrigatórios)
+    if (!notaPdf || !notaXml || !certificadoPdf) {
+      toast({
+        title: "Atenção",
+        description:
+          "Todos os três documentos são obrigatórios (Nota Fiscal PDF, Nota Fiscal XML e Certificado PDF)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar tipos de arquivo
+    if (notaPdf && notaPdf.type !== "application/pdf") {
+      toast({
+        title: "Formato Inválido",
+        description: "O arquivo da Nota Fiscal deve estar em formato PDF",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      notaXml &&
+      !notaXml.name.endsWith(".xml") &&
+      notaXml.type !== "text/xml" &&
+      notaXml.type !== "application/xml"
+    ) {
+      toast({
+        title: "Formato Inválido",
+        description: "O arquivo da Nota Fiscal deve estar em formato XML",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (certificadoPdf && certificadoPdf.type !== "application/pdf") {
+      toast({
+        title: "Formato Inválido",
+        description: "O certificado deve estar em formato PDF",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar tamanho (máximo 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (
+      (notaPdf && notaPdf.size > maxSize) ||
+      (notaXml && notaXml.size > maxSize) ||
+      (certificadoPdf && certificadoPdf.size > maxSize)
+    ) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O tamanho máximo permitido para cada arquivo é 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    // Garantir que os arquivos não sejam nulos antes de anexá-los
+    if (notaPdf) {
+      formData.append("nota_pdf", notaPdf as Blob);
+    }
+    if (notaXml) {
+      formData.append("nota_xml", notaXml as Blob);
+    }
+    if (certificadoPdf) {
+      formData.append("certificado_pdf", certificadoPdf as Blob);
+    }
+
+    toast({
+      title: "Enviando documentos",
+      description: "Aguarde enquanto os documentos são enviados...",
+    });
+
+    documentUploadMutation.mutate(formData);
+  };
+
+  // Função para lidar com a seleção de arquivos
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setFile: React.Dispatch<React.SetStateAction<File | null>>,
+  ) => {
+    console.log("handleFileChange chamado", e.target.files);
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      console.log("Arquivo selecionado:", file.name, file.type, file.size);
+      setFile(file);
+      toast({
+        title: "Arquivo selecionado",
+        description: `${file.name} (${Math.round(file.size / 1024)} KB)`,
+      });
+    } else {
+      console.log("Nenhum arquivo selecionado");
+    }
+  };
+
+  // Função para confirmar entrega
+  const handleConfirmDelivery = async (status: "aprovado" | "rejeitado") => {
+    if (!orderId) return;
+
+    try {
+      // Validar quantidade recebida
+      if (status === "aprovado" && !confirmedQuantity) {
+        toast({
+          title: "Atenção",
+          description: "Por favor, informe a quantidade recebida",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`/api/pedidos/${orderId}/confirmar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: status,
+          quantidadeRecebida: confirmedQuantity,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.mensagem || "Falha ao confirmar entrega");
+      }
+
+      // Invalidar queries para atualizar os dados
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
+
+      toast({
+        title: "Sucesso",
+        description:
+          status === "aprovado"
+            ? "Entrega confirmada com sucesso!"
+            : "Entrega rejeitada com sucesso!",
+      });
+
+      // Fechar o drawer após confirmar
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Falha ao processar confirmação de entrega",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para buscar nome do usuário por ID
+  const getUserNameById = (userId: number | undefined): string => {
+    if (!userId) return "Sistema";
+    const user = users.find((u: any) => u.id === userId);
+    return user?.name || `Usuário ID: ${userId}`;
+  };
+
+  // Função para gerar link do Google Maps
+  const getGoogleMapsLink = (location: string) => {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+  };
+
+  // Função para imprimir o pedido
+  const handlePrintOrder = () => {
+    if (!orderDetails) return;
+
+    // Criar uma nova janela para impressão
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) return;
+
+    // Calcular progresso baseado no status atual
+    const getStatusProgress = (status: string) => {
+      const statusProgress: { [key: string]: number } = {
+        Registrado: 0,
+        Carregado: 33.33,
+        "Em Rota": 66.66,
+        "Em transporte": 66.66,
+        Entregue: 100,
+        Recusado: 0,
+      };
+      return statusProgress[status] || 0;
+    };
+
+    // Gerar o QR code como data URL
+    const canvas = document.createElement('canvas');
+    import('qrcode').then((QRCode) => {
+      QRCode.toCanvas(canvas, orderDetails.orderId, {
+        width: 120,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      }, (error: any) => {
+        if (error) {
+          console.error('Erro ao gerar QR code:', error);
+          return;
+        }
+
+        const qrCodeDataUrl = canvas.toDataURL();
+        const currentProgress = getStatusProgress(orderDetails.status);
+
+        // HTML do layout de impressão
+        const printHTML = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Pedido ${orderDetails.orderId}</title>
+              <style>
+                * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+                }
+
+                body {
+                  font-family: Arial, sans-serif;
+                  font-size: 12px;
+                  line-height: 1.4;
+                  color: #333;
+                  padding: 20px;
+                }
+
+                .header {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 30px;
+                  padding-bottom: 20px;
+                  border-bottom: 2px solid #333;
+                }
+
+                .company-info {
+                  text-align: center;
+                  flex-grow: 1;
+                  margin: 0 20px;
+                }
+
+                .company-name {
+                  font-size: 18px;
+                  font-weight: bold;
+                  margin-bottom: 5px;
+                }
+
+                .qr-section {
+                  text-align: center;
+                }
+
+                .qr-code {
+                  border: 1px solid #ddd;
+                  padding: 5px;
+                  background: white;
+                }
+
+                .order-title {
+                  font-size: 24px;
+                  font-weight: bold;
+                  text-align: center;
+                  margin: 20px 0;
+                  color: #2563eb;
+                }
+
+                .details-grid {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 20px;
+                  margin-bottom: 30px;
+                }
+
+                .detail-item {
+                  margin-bottom: 15px;
+                }
+
+                .detail-label {
+                  font-weight: bold;
+                  color: #666;
+                  margin-bottom: 3px;
+                }
+
+                .detail-value {
+                  font-size: 14px;
+                  font-weight: 500;
+                }
+
+                .progress-section {
+                  margin: 30px 0;
+                  padding: 20px;
+                  border: 1px solid #ddd;
+                  border-radius: 8px;
+                  background: #f9fafb;
+                }
+
+                .progress-title {
+                  font-size: 16px;
+                  font-weight: bold;
+                  margin-bottom: 20px;
+                  text-align: center;
+                }
+
+                .progress-steps {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  position: relative;
+                  margin: 20px 0;
+                }
+
+                .progress-line {
+                  position: absolute;
+                  top: 20px;
+                  left: 0;
+                  right: 0;
+                  height: 2px;
+                  background: #e5e7eb;
+                  z-index: 1;
+                }
+
+                .progress-line-filled {
+                  position: absolute;
+                  top: 20px;
+                  left: 0;
+                  height: 2px;
+                  background: #3b82f6;
+                  z-index: 2;
+                  width: ${currentProgress}%;
+                }
+
+                .progress-step {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  text-align: center;
+                  position: relative;
+                  z-index: 3;
+                  background: white;
+                  padding: 0 10px;
+                }
+
+                .step-circle {
+                  width: 40px;
+                  height: 40px;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: bold;
+                  margin-bottom: 8px;
+                  background: #e5e7eb;
+                  color: #6b7280;
+                }
+
+                .step-circle.completed {
+                  background: #10b981;
+                  color: white;
+                }
+
+                .step-circle.current {
+                  background: #3b82f6;
+                  color: white;
+                }
+
+                .step-label {
+                  font-size: 11px;
+                  font-weight: bold;
+                }
+
+                .footer {
+                  margin-top: 40px;
+                  padding-top: 20px;
+                  border-top: 1px solid #ddd;
+                  text-align: center;
+                  font-size: 10px;
+                  color: #666;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <div class="company-info">
+                  <div class="company-name">iCAP 7.0</div>
+                  <div>Sistema de Gestão de Pedidos</div>
+                </div>
+                <div class="qr-section">
+                  <img src="${qrCodeDataUrl}" alt="QR Code" class="qr-code">
+                  <div style="font-size: 10px; margin-top: 5px;">Pedido ${orderDetails.orderId}</div>
+                </div>
+              </div>
+
+              <h1 class="order-title">DETALHES DO PEDIDO ${orderDetails.orderId}</h1>
+
+              <div class="details-grid">
+                <div>
+                  <div className="detail-item">
+                    <div className="detail-label">Produto</div>
+                    <div className="detail-value">${formatProductWithUnit(orderDetails)}</div>
+                  </div>
+
+                  <div className="detail-item">
+                    <div className="detail-label">Destino</div>
+                    <div className="detail-value">${(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</div>
+                  </div>
+
+                  <div className="detail-item">
+                    <div className="detail-label">{(orderDetails as any)?.purchaseOrderCompany?.name || "Conforme ordem de compra"}</div>
+                    <div className="detail-value">${(orderDetails as any)?.purchaseOrderCompany?.name || "Empresa da Ordem de Compra"}</div>
+                  </div>
+
+                  <div className="detail-item">
+                    <div className="detail-label">Fornecedor</div>
+                    <div className="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
+                  </div>
+
+                  ```text
+
                   <div className="detail-item">
                     <div className="detail-label">Data de Entrega</div>
                     <div className="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
@@ -1017,22 +2020,22 @@ export function OrderDetailDrawer({
                 <div class="progress-steps">
                   <div class="progress-line"></div>
                   <div class="progress-line-filled"></div>
-                  
+
                   <div class="progress-step">
                     <div class="step-circle completed">1</div>
                     <div class="step-label">Registrado</div>
                   </div>
-                  
+
                   <div class="progress-step">
                     <div class="step-circle ${currentProgress >= 33.33 ? 'completed' : ''}">2</div>
                     <div class="step-label">Carregado</div>
                   </div>
-                  
+
                   <div class="progress-step">
                     <div class="step-circle ${currentProgress >= 66.66 ? 'completed' : ''}">3</div>
                     <div class="step-label">Em Rota</div>
                   </div>
-                  
+
                   <div class="progress-step">
                     <div class="step-circle ${currentProgress >= 100 ? 'completed' : ''}">4</div>
                     <div class="step-label">Entregue</div>
