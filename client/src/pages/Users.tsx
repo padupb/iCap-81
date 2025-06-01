@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +31,17 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { insertUserSchema, type User as UserType, type Company, type UserRole } from "@shared/schema";
 import { z } from "zod";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const userFormSchema = insertUserSchema;
 
@@ -163,6 +174,41 @@ export default function Users() {
     setIsEditDialogOpen(true);
   };
 
+  const handleResetPassword = async (userId: number | undefined) => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Sucesso",
+          description: "Senha redefinida para icap123. O usuário precisará alterar a senha no próximo login."
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: data.message,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao redefinir senha",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleDelete = (id: number) => {
     if (confirm("Tem certeza que deseja excluir este usuário?")) {
       deleteUserMutation.mutate(id);
@@ -173,10 +219,10 @@ export default function Users() {
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesCompany = companyFilter === "all" || 
                           (user.companyId && user.companyId.toString() === companyFilter);
-    
+
     return matchesSearch && matchesCompany;
   });
 
@@ -195,7 +241,7 @@ export default function Users() {
             <DialogHeader>
               <DialogTitle>Cadastrar Novo Usuário</DialogTitle>
             </DialogHeader>
-            
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -383,7 +429,7 @@ export default function Users() {
             <DialogHeader>
               <DialogTitle>Editar Usuário</DialogTitle>
             </DialogHeader>
-            
+
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -529,8 +575,31 @@ export default function Users() {
                   )}
                 />
 
-                <div className="flex justify-end space-x-4 pt-4 border-t border-border">
-                  <Button
+                <div className="flex gap-2 justify-between">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button type="button" variant="destructive">
+                              Esquecer senha
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Deseja redefinir a senha do usuário para o padrão icap123? Esta ação exigirá uma nova senha no próximo login.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleResetPassword(selectedUser?.id)}>
+                                Confirmar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
+                        <div className="flex gap-2">
+                          <Button
                     type="button"
                     variant="outline"
                     onClick={() => setIsEditDialogOpen(false)}
@@ -542,9 +611,10 @@ export default function Users() {
                     className="bg-primary hover:bg-primary/90"
                     disabled={updateUserMutation.isPending}
                   >
-                    {updateUserMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+                    {updateUserMutation.isPending ? "Salvar Alterações" : "Salvar Alterações"}
                   </Button>
-                </div>
+                        </div>
+                      </div>
               </form>
             </Form>
           </DialogContent>
@@ -599,7 +669,7 @@ export default function Users() {
                 {filteredUsers.map((user) => {
                   const company = companies.find(c => c.id === user.companyId);
                   const role = roles.find(r => r.id === user.roleId);
-                  
+
                   return (
                     <TableRow key={user.id} className="hover:bg-muted/50">
                       <TableCell>
@@ -655,7 +725,7 @@ export default function Users() {
               </TableBody>
             </Table>
           </div>
-          
+
           {filteredUsers.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               {searchTerm 

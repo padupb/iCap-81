@@ -22,7 +22,7 @@ type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean | { success: boolean; requiresPasswordChange: boolean; message?: string; }>;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
 };
@@ -63,14 +63,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const userData = await response.json();
-      
+
       // Verificar se o usuário é o administrador/keyuser
       if (userData.success && userData.user && userData.user.isKeyUser) {
         // Adicionar propriedade isDeveloper para compatibilidade com o sistema de autorização
         userData.user.isDeveloper = true;
         userData.user.permissions = ['*']; // Permissão total
       }
-      
+
       if (userData.success && userData.user) {
         setUser(userData.user);
         return true;
@@ -87,33 +87,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fazer login
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json"
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
         credentials: "include"
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Falha na autenticação" }));
-        throw new Error(errorData.message || "Credenciais inválidas");
-      }
+      const data = await response.json();
 
-      const userData = await response.json();
-      
-      // Verificar se o usuário é o administrador/keyuser
-      if (userData.user && userData.user.isKeyUser) {
-        // Adicionar propriedade isDeveloper para compatibilidade com o sistema de autorização
-        userData.user.isDeveloper = true;
+      if (data.success) {
+        setUser(data.user);
+        return { 
+          success: true, 
+          requiresPasswordChange: data.requiresPasswordChange 
+        };
+      } else {
+        return { success: false, message: data.message };
       }
-      
-      setUser(userData.user);
-      return true;
     } catch (error) {
-      console.error("Erro no login", error);
-      throw error;
+      return { success: false, message: 'Erro ao fazer login' };
     }
   };
 
@@ -124,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         method: "POST",
         credentials: "include"
       });
-      
+
       setUser(null);
       navigate("/login");
       toast({
@@ -149,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

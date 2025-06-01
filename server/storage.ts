@@ -513,6 +513,7 @@ export class MemStorage implements IStorage {
 // Substituindo o armazenamento em memória pelo de banco de dados
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import bcrypt from 'bcrypt';
 
 // Implementação de armazenamento com banco de dados
 export class DatabaseStorage implements IStorage {
@@ -531,13 +532,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
+    // Definir senha padrão se não fornecida
+    const passwordToHash = insertUser.password || 'icap123';
+    const hashedPassword = await bcrypt.hash(passwordToHash, 10);
+
     // Garantir que campos opcionais sejam null em vez de undefined
     const safeInsertUser = {
       ...insertUser,
+      password: hashedPassword,
       phone: insertUser.phone ?? null,
       companyId: insertUser.companyId ?? null,
       roleId: insertUser.roleId ?? null,
-      canConfirmDelivery: insertUser.canConfirmDelivery ?? false
+      canConfirmDelivery: insertUser.canConfirmDelivery ?? false,
+      primeiroLogin: true // Sempre true para novos usuários
     };
     const [user] = await db.insert(users).values(safeInsertUser).returning();
     return user;

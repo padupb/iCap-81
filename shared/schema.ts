@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   companyId: integer("company_id"),
   roleId: integer("role_id"),
   canConfirmDelivery: boolean("can_confirm_delivery").default(false),
+  primeiroLogin: boolean("primeiro_login").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -272,7 +273,7 @@ export const insertTrackingPointSchema = createInsertSchema(trackingPoints)
 
 // Types
 export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUser = typeof users.$inferInsert;
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type CompanyCategory = typeof companyCategories.$inferSelect;

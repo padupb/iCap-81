@@ -20,6 +20,7 @@ import Logs from "./pages/Logs";
 
 import Login from "./pages/Login";
 import NotFound from "@/pages/not-found";
+import FirstPasswordChange from "./pages/FirstPasswordChange";
 
 // Componente para proteger rotas privadas com verificação de permissões
 const ProtectedRoute = ({ 
@@ -96,7 +97,7 @@ function Router() {
       <Route path="/login">
         {isAuthenticated ? <Redirect to="/" /> : <Login />}
       </Route>
-      
+
       {/* Rotas Protegidas com verificação de permissões */}
       {/* Rota raiz com proteção de autenticação */}
       <Route path="/">
@@ -109,7 +110,7 @@ function Router() {
           area="dashboard"
         />
       </Route>
-      
+
       {/* Pedidos - Requer permissão de 'orders' */}
       <Route path="/pedidos">
         <ProtectedRoute 
@@ -121,7 +122,7 @@ function Router() {
           area="orders"
         />
       </Route>
-      
+
       {/* Aprovações - Requer permissão de 'approvals' */}
       <Route path="/aprovacoes">
         <ProtectedRoute 
@@ -133,7 +134,7 @@ function Router() {
           area="approvals"
         />
       </Route>
-      
+
       {/* Ordens de Compra - Requer permissão de 'purchase_orders' */}
       <Route path="/ordens-compra">
         <ProtectedRoute 
@@ -145,7 +146,7 @@ function Router() {
           area="purchase_orders"
         />
       </Route>
-      
+
       {/* Empresas - Requer permissão de 'companies' */}
       <Route path="/empresas">
         <ProtectedRoute 
@@ -157,7 +158,7 @@ function Router() {
           area="companies"
         />
       </Route>
-      
+
       {/* Usuários - Requer permissão de 'users' */}
       <Route path="/usuarios">
         <ProtectedRoute 
@@ -169,7 +170,7 @@ function Router() {
           area="users"
         />
       </Route>
-      
+
       {/* Produtos - Requer permissão de 'products' */}
       <Route path="/produtos">
         <ProtectedRoute 
@@ -181,7 +182,7 @@ function Router() {
           area="products"
         />
       </Route>
-      
+
       {/* Desenvolvedor - Acesso especial para keyuser */}
       <Route path="/dev">
         {isAuthenticated ? (
@@ -192,7 +193,7 @@ function Router() {
           <Redirect to="/login" />
         )}
       </Route>
-      
+
       {/* Logs/Relatórios - Requer permissão de 'logs' */}
       <Route path="/logs">
         <ProtectedRoute 
@@ -204,7 +205,7 @@ function Router() {
           area="logs"
         />
       </Route>
-      
+
       {/* Configurações - Requer permissão de 'settings' */}
       <Route path="/configuracoes">
         <ProtectedRoute 
@@ -216,7 +217,7 @@ function Router() {
           area="settings"
         />
       </Route>
-      
+
       {/* Rota para página não encontrada */}
       <Route>
         <ProtectedRoute 

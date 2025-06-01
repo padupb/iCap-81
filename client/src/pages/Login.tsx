@@ -113,6 +113,14 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = () => {
+    toast({
+      title: "Esqueci minha senha",
+      description: "Entre em contato com o administrador da conta e solicite a restauração da senha.",
+      duration: 5000
+    });
+  };
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-muted/50">
       <Card className="w-full max-w-md shadow-lg border-border bg-card">
@@ -132,7 +140,7 @@ export default function Login() {
             </div>
           )}
         </CardHeader>
-        
+
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -155,7 +163,7 @@ export default function Login() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="password"
@@ -190,7 +198,7 @@ export default function Login() {
                   Manter conectado
                 </label>
               </div>
-              
+
               <Button 
                 type="submit" 
                 className="w-full bg-primary hover:bg-primary/90" 
@@ -205,10 +213,11 @@ export default function Login() {
                   "Entrar"
                 )}
               </Button>
+
             </form>
           </Form>
         </CardContent>
-        
+
         <CardFooter className="flex justify-center border-t border-border pt-4">
           <p className="text-sm text-muted-foreground">
             Sistema de Gestão Logística {settings.appName}
