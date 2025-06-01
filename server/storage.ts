@@ -838,7 +838,8 @@ export class DatabaseStorage implements IStorage {
     // Importar pool dinamicamente
     const { pool } = await import("./db");
     
-    // Buscar pedidos urgentes que precisam de aprovação baseado no critério empresa/obra
+    // Buscar pedidos urgentes que precisam de aprovação baseado no critério obra de destino
+    // O usuário deve ser aprovador da empresa que corresponde ao CNPJ da obra de destino
     const result = await pool.query(`
       SELECT DISTINCT
         o.id,
@@ -853,19 +854,24 @@ export class DatabaseStorage implements IStorage {
         o.status,
         o.is_urgent as "isUrgent",
         o.user_id as "userId",
-        o.created_at as "createdAt"
+        o.created_at as "createdAt",
+        c_obra_destino.name as "obraDestinoNome"
       FROM orders o
       LEFT JOIN products p ON o.product_id = p.id
       LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
-      LEFT JOIN companies c_empresa ON oc.empresa_id = c_empresa.id
-      LEFT JOIN companies c_obra ON oc.obra_id = c_obra.id
+      LEFT JOIN companies c_obra_destino ON oc.cnpj = c_obra_destino.cnpj
       WHERE o.is_urgent = true 
         AND o.status = 'Registrado'
-        AND (c_empresa.approver_id = $1 OR c_obra.approver_id = $1)
+        AND c_obra_destino.approver_id = $1
       ORDER BY o.created_at DESC
     `, [userId]);
 
-    console.log(`📊 Storage: encontrados ${result.rows.length} pedidos urgentes para aprovador ${userId}`);
+    console.log(`📊 Storage: encontrados ${result.rows.length} pedidos urgentes onde usuário ${userId} é aprovador da obra de destino`);
+    
+    // Log detalhado para debug
+    result.rows.forEach((row: any) => {
+      console.log(`  - Pedido ${row.orderId}: obra destino "${row.obraDestinoNome}"`);
+    });
     
     return result.rows.map((row: any) => ({
       id: row.id,
