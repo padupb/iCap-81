@@ -2059,8 +2059,6 @@ export function OrderDetailDrawer({
                     <div className="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
                   </div>
 
-                  ```text
-
                   <div className="detail-item">
                     <div className="detail-label">Data de Entrega</div>
                     <div className="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
