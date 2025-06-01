@@ -21,6 +21,33 @@ export default function FirstPasswordChange() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log("🔄 Iniciando alteração de senha...");
+    console.log("👤 Usuário:", user);
+    console.log("📝 Dados do formulário:", {
+      newPasswordLength: formData.newPassword?.length,
+      confirmPasswordLength: formData.confirmPassword?.length,
+      passwordsMatch: formData.newPassword === formData.confirmPassword
+    });
+
+    // Validações básicas
+    if (!formData.newPassword || formData.newPassword.trim() === "") {
+      toast({
+        title: "Erro",
+        description: "Nova senha é obrigatória",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.confirmPassword || formData.confirmPassword.trim() === "") {
+      toast({
+        title: "Erro",
+        description: "Confirmação de senha é obrigatória",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (formData.newPassword !== formData.confirmPassword) {
       toast({
         title: "Erro",
@@ -39,22 +66,42 @@ export default function FirstPasswordChange() {
       return;
     }
 
+    if (!user?.id) {
+      toast({
+        title: "Erro",
+        description: "Usuário não identificado. Faça login novamente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      const requestData = {
+        userId: user.id,
+        newPassword: formData.newPassword.trim(),
+        confirmPassword: formData.confirmPassword.trim()
+      };
+
+      console.log("📤 Enviando dados:", {
+        userId: requestData.userId,
+        newPasswordLength: requestData.newPassword.length,
+        confirmPasswordLength: requestData.confirmPassword.length
+      });
+
       const response = await fetch('/api/auth/change-first-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userId: user?.id,
-          newPassword: formData.newPassword,
-          confirmPassword: formData.confirmPassword
-        }),
+        body: JSON.stringify(requestData),
       });
 
+      console.log("📥 Resposta recebida:", response.status);
+
       const data = await response.json();
+      console.log("📋 Dados da resposta:", data);
 
       if (data.success) {
         toast({
@@ -68,14 +115,15 @@ export default function FirstPasswordChange() {
       } else {
         toast({
           title: "Erro",
-          description: data.message,
+          description: data.message || "Erro ao alterar senha",
           variant: "destructive"
         });
       }
     } catch (error) {
+      console.error("❌ Erro na requisição:", error);
       toast({
         title: "Erro",
-        description: "Erro ao alterar senha",
+        description: "Erro de comunicação com o servidor",
         variant: "destructive"
       });
     } finally {

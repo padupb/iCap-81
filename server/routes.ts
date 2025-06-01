@@ -375,16 +375,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota para alterar senha no primeiro login
   app.post("/api/auth/change-first-password", async (req, res) => {
     try {
+      console.log("📝 Dados recebidos para alteração de senha:", req.body);
+      
       const { userId, newPassword, confirmPassword } = req.body;
 
-      if (!userId || !newPassword || !confirmPassword) {
+      // Validação mais detalhada dos dados
+      console.log("🔍 Verificando dados:", {
+        userId: userId,
+        hasNewPassword: !!newPassword,
+        newPasswordLength: newPassword?.length,
+        hasConfirmPassword: !!confirmPassword,
+        confirmPasswordLength: confirmPassword?.length
+      });
+
+      if (!userId) {
+        console.log("❌ UserId não fornecido");
         return res.status(400).json({
           success: false,
-          message: "Dados obrigatórios não fornecidos"
+          message: "ID do usuário é obrigatório"
+        });
+      }
+
+      if (!newPassword || newPassword.trim() === "") {
+        console.log("❌ Nova senha não fornecida");
+        return res.status(400).json({
+          success: false,
+          message: "Nova senha é obrigatória"
+        });
+      }
+
+      if (!confirmPassword || confirmPassword.trim() === "") {
+        console.log("❌ Confirmação de senha não fornecida");
+        return res.status(400).json({
+          success: false,
+          message: "Confirmação de senha é obrigatória"
         });
       }
 
       if (newPassword !== confirmPassword) {
+        console.log("❌ Senhas não coincidem");
         return res.status(400).json({
           success: false,
           message: "As senhas não coincidem"
@@ -392,6 +421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (newPassword.length < 6) {
+        console.log("❌ Senha muito curta");
         return res.status(400).json({
           success: false,
           message: "A senha deve ter pelo menos 6 caracteres"
@@ -401,21 +431,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Buscar o usuário
       const user = await storage.getUser(userId);
       if (!user) {
+        console.log("❌ Usuário não encontrado:", userId);
         return res.status(404).json({
           success: false,
           message: "Usuário não encontrado"
         });
       }
 
+      console.log("👤 Usuário encontrado:", user.name);
+
       // Hash da nova senha
       const bcrypt = await import('bcrypt');
       const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      console.log("🔐 Senha hasheada com sucesso");
 
       // Atualizar senha e marcar primeiro_login como false
       await storage.updateUser(userId, {
         password: hashedPassword,
         primeiroLogin: false
       });
+
+      console.log("✅ Usuário atualizado no banco de dados");
 
       // Log da ação
       await storage.createLog({
@@ -426,13 +463,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: "Usuário alterou senha no primeiro acesso"
       });
 
+      console.log("📝 Log criado com sucesso");
+
       res.json({
         success: true,
         message: "Senha alterada com sucesso"
       });
 
     } catch (error) {
-      console.error("Erro ao alterar senha no primeiro login:", error);
+      console.error("❌ Erro ao alterar senha no primeiro login:", error);
       res.status(500).json({
         success: false,
         message: "Erro interno do servidor"
