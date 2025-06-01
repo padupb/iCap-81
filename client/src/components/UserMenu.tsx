@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, User, Key } from 'lucide-react';
@@ -20,6 +21,7 @@ export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Função para obter as iniciais do nome do usuário
   const getInitials = (name: string | undefined) => {
@@ -50,7 +52,7 @@ export function UserMenu() {
   // Definir cargo/função do usuário
   const role = user?.role?.name || (user?.isKeyUser ? "Super Administrador" : "Usuário");
 
-  const handleChangePassword = async () => {
+  const handleChangePassword = () => {
     try {
       if (!user?.id) {
         toast({
@@ -61,81 +63,19 @@ export function UserMenu() {
         return;
       }
 
-      console.log("🔄 Iniciando reset de senha para usuário:", user.id);
-
-      // Fazer a requisição para resetar a senha
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          userId: user.id
-        })
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        console.log("✅ Senha resetada com sucesso");
-
-        toast({
-          title: "Senha resetada",
-          description: "Sua senha foi redefinida para 'icap123'. Você será redirecionado para fazer login novamente.",
-          duration: 3000
-        });
-
-        // Aguardar um pouco para o usuário ler a mensagem
-        setTimeout(async () => {
-          console.log("🔄 Iniciando processo de logout após reset de senha");
-          
-          try {
-            // Fechar o menu primeiro
-            setIsOpen(false);
-            
-            // Tentar fazer logout usando a função do contexto
-            console.log("🚪 Tentando logout via contexto...");
-            await logout();
-            console.log("✅ Logout via contexto realizado");
-            
-          } catch (logoutError) {
-            console.error("❌ Erro no logout via contexto:", logoutError);
-            
-            try {
-              // Fallback: fazer logout manual via API
-              console.log("🔄 Tentando logout manual via API...");
-              const logoutResponse = await fetch("/api/auth/logout", {
-                method: "POST",
-                credentials: "include"
-              });
-              
-              if (logoutResponse.ok) {
-                console.log("✅ Logout manual realizado");
-              }
-            } catch (manualLogoutError) {
-              console.error("❌ Erro no logout manual:", manualLogoutError);
-            }
-            
-            // Forçar redirecionamento independente do resultado
-            console.log("🔄 Forçando redirecionamento para /login");
-            window.location.replace('/login');
-          }
-        }, 2500);
-
-      } else {
-        console.error("❌ Erro ao resetar senha:", result.message);
-        toast({
-          title: "Erro",
-          description: result.message || "Erro ao resetar senha",
-          variant: "destructive"
-        });
-      }
+      console.log("🔄 Redirecionando para alteração de senha:", user.id);
+      
+      // Fechar o menu
+      setIsOpen(false);
+      
+      // Redirecionar diretamente para a página de alteração de senha
+      setLocation('/first-password-change');
+      
     } catch (error) {
-      console.error("❌ Erro na requisição de reset:", error);
+      console.error("❌ Erro ao redirecionar:", error);
       toast({
         title: "Erro",
-        description: "Erro de comunicação com o servidor",
+        description: "Erro ao acessar página de alteração de senha",
         variant: "destructive"
       });
     }
@@ -186,7 +126,7 @@ export function UserMenu() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Alterar senha</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Faça login novamente com a senha icap123 para definir nova senha.
+                    Você será redirecionado para a página de alteração de senha.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
