@@ -61,6 +61,7 @@ export interface IStorage {
   getAllOrders(): Promise<Order[]>;
   getOrdersByStatus(status: string): Promise<Order[]>;
   getUrgentOrders(): Promise<Order[]>;
+  getUrgentOrdersForApprover(userId: number): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: number, order: Partial<Order>): Promise<Order | undefined>;
   deleteOrder(id: number): Promise<boolean>;
@@ -508,6 +509,11 @@ export class MemStorage implements IStorage {
   async deleteDocument(id: number): Promise<boolean> {
     return true;
   }
+
+  async getUrgentOrdersForApprover(userId: number): Promise<Order[]> {
+    // Para MemStorage, retornar lista vazia
+    return [];
+  }
 }
 
 // Substituindo o armazenamento em memória pelo de banco de dados
@@ -810,6 +816,55 @@ export class DatabaseStorage implements IStorage {
     });
 
     return result.map(row => ({
+      id: row.id,
+      orderId: row.orderId,
+      purchaseOrderId: row.purchaseOrderId,
+      productId: row.productId,
+      productName: row.productName,
+      quantity: row.quantity,
+      supplierId: row.supplierId,
+      workLocation: row.workLocation,
+      deliveryDate: row.deliveryDate,
+      status: row.status,
+      isUrgent: row.isUrgent,
+      userId: row.userId,
+      createdAt: row.createdAt,
+    })) as Order[];
+  }
+
+  async getUrgentOrdersForApprover(userId: number): Promise<Order[]> {
+    console.log(`🔍 Buscando pedidos urgentes para aprovador ID: ${userId}`);
+    
+    // Buscar pedidos urgentes que precisam de aprovação baseado no critério empresa/obra
+    const result = await pool.query(`
+      SELECT DISTINCT
+        o.id,
+        o.order_id as "orderId",
+        o.purchase_order_id as "purchaseOrderId",
+        o.product_id as "productId",
+        p.name as "productName",
+        o.quantity,
+        o.supplier_id as "supplierId",
+        o.work_location as "workLocation",
+        o.delivery_date as "deliveryDate",
+        o.status,
+        o.is_urgent as "isUrgent",
+        o.user_id as "userId",
+        o.created_at as "createdAt"
+      FROM orders o
+      LEFT JOIN products p ON o.product_id = p.id
+      LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+      LEFT JOIN companies c_empresa ON oc.empresa_id = c_empresa.id
+      LEFT JOIN companies c_obra ON oc.obra_id = c_obra.id
+      WHERE o.is_urgent = true 
+        AND o.status = 'Registrado'
+        AND (c_empresa.approver_id = $1 OR c_obra.approver_id = $1)
+      ORDER BY o.created_at DESC
+    `, [userId]);
+
+    console.log(`📊 Storage: encontrados ${result.rows.length} pedidos urgentes para aprovador ${userId}`);
+    
+    return result.rows.map((row: any) => ({
       id: row.id,
       orderId: row.orderId,
       purchaseOrderId: row.purchaseOrderId,

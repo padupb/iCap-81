@@ -872,94 +872,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // CONTROLE DE ACESSO PARA PEDIDOS URGENTES
       // Apenas usuários com perfil específico podem visualizar pedidos urgentes
-      let hasAccessToUrgentOrders = false;
       
       // 1. Verificar se é o usuário KeyUser (ID = 1)
       if (req.user.id === 1 || req.user.isKeyUser === true) {
-        hasAccessToUrgentOrders = true;
         console.log(`🔑 Acesso liberado para pedidos urgentes - KeyUser: ${req.user.name}`);
-      } else if (req.user.companyId) {
-        // 2. Verificar se o usuário é aprovador da empresa
-        const userCompany = await storage.getCompany(req.user.companyId);
         
-        if (userCompany && userCompany.approverId === req.user.id) {
-          hasAccessToUrgentOrders = true;
-          console.log(`✅ Acesso liberado para pedidos urgentes - Aprovador da empresa: ${userCompany.name}`);
-        }
-      }
-      
-      // Se não tem acesso, retornar array vazio
-      if (!hasAccessToUrgentOrders) {
-        console.log(`🔒 Acesso negado para pedidos urgentes - Usuário: ${req.user.name} (ID: ${req.user.id})`);
-        return res.json([]);
-      }
-
-      // Buscar pedidos urgentes
-      let urgentOrders = await storage.getUrgentOrders();
-      
-      console.log(`📊 Total de pedidos urgentes encontrados: ${urgentOrders.length}`);
-
-      // Para KeyUser, mostrar todos os pedidos urgentes sem filtro adicional
-      if (req.user.id === 1 || req.user.isKeyUser === true) {
+        // KeyUser vê todos os pedidos urgentes
+        const urgentOrders = await storage.getUrgentOrders();
         console.log(`🔑 KeyUser - exibindo todos os ${urgentOrders.length} pedidos urgentes`);
         return res.json(urgentOrders);
       }
 
-      // Para aprovadores, aplicar filtros baseados na empresa
-      if (req.user && req.user.companyId) {
-        // Buscar a empresa do usuário
-        const userCompany = await storage.getCompany(req.user.companyId);
-        
-        if (userCompany) {
-          // Buscar a categoria da empresa
-          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
-          
-          if (companyCategory) {
-            // Verificar se a empresa tem pelo menos 1 critério ativo
-            const hasAnyCriteria = companyCategory.requiresApprover || 
-                                 companyCategory.requiresContract || 
-                                 companyCategory.receivesPurchaseOrders;
-            
-            if (hasAnyCriteria) {
-              // Filtrar pedidos urgentes onde a empresa é fornecedora OU obra de destino
-              const filteredUrgentOrders = [];
-              
-              for (const order of urgentOrders) {
-                // 1. Incluir pedidos criados pela empresa (fornecedor)
-                if (order.supplierId === req.user.companyId) {
-                  filteredUrgentOrders.push(order);
-                  continue;
-                }
-                
-                // 2. Incluir pedidos destinados à empresa (obra de destino)
-                if (order.purchaseOrderId) {
-                  try {
-                    // Buscar a ordem de compra para verificar o CNPJ de destino
-                    const ordemCompraResult = await pool.query(
-                      "SELECT cnpj FROM ordens_compra WHERE id = $1",
-                      [order.purchaseOrderId]
-                    );
-                    
-                    if (ordemCompraResult.rows.length > 0) {
-                      const cnpjDestino = ordemCompraResult.rows[0].cnpj;
-                      
-                      // Verificar se o CNPJ de destino corresponde à empresa do usuário
-                      if (cnpjDestino === userCompany.cnpj) {
-                        filteredUrgentOrders.push(order);
-                      }
-                    }
-                  } catch (error) {
-                    console.error(`Erro ao verificar destino do pedido urgente ${order.orderId}:`, error);
-                  }
-                }
-              }
-              
-              urgentOrders = filteredUrgentOrders;
-              console.log(`🔒 Aprovador da empresa ${userCompany.name} - ${urgentOrders.length} pedidos urgentes filtrados`);
-            }
-          }
-        }
+      // 2. Verificar se o usuário é aprovador de alguma empresa/obra
+      const approverResult = await pool.query(`
+        SELECT COUNT(*) as total
+        FROM companies 
+        WHERE approver_id = $1
+      `, [req.user.id]);
+
+      const isApprover = parseInt(approverResult.rows[0].total) > 0;
+      
+      if (!isApprover) {
+        console.log(`🔒 Acesso negado para pedidos urgentes - Usuário ${req.user.name} (ID: ${req.user.id}) não é aprovador`);
+        return res.json([]);
       }
+
+      console.log(`✅ Acesso liberado para pedidos urgentes - Usuário ${req.user.name} é aprovador`);
+
+      // 3. Buscar pedidos urgentes específicos para este aprovador
+      const urgentOrders = await storage.getUrgentOrdersForApprover(req.user.id);
+      
+      console.log(`📊 Total de pedidos urgentes para aprovador ${req.user.name}: ${urgentOrders.length}`);
 
       res.json(urgentOrders);
     } catch (error) {
