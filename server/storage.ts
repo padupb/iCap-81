@@ -765,6 +765,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUrgentOrders(): Promise<Order[]> {
+    console.log('🔍 Buscando pedidos urgentes na storage...');
+    
     const result = await db
       .select({
         id: orders.id,
@@ -787,6 +789,25 @@ export class DatabaseStorage implements IStorage {
         eq(orders.isUrgent, true),
         eq(orders.status, "Registrado")
       ));
+
+    console.log(`📊 Storage: encontrados ${result.length} pedidos urgentes com status Registrado`);
+    
+    // Debug adicional: buscar TODOS os pedidos urgentes, independente do status
+    const allUrgent = await db
+      .select({
+        id: orders.id,
+        orderId: orders.orderId,
+        status: orders.status,
+        isUrgent: orders.isUrgent,
+        deliveryDate: orders.deliveryDate
+      })
+      .from(orders)
+      .where(eq(orders.isUrgent, true));
+    
+    console.log(`🔍 Debug: total de pedidos marcados como urgentes (todos os status):`, allUrgent.length);
+    allUrgent.forEach(order => {
+      console.log(`  - ${order.orderId}: status=${order.status}, isUrgent=${order.isUrgent}, entrega=${order.deliveryDate}`);
+    });
 
     return result.map(row => ({
       id: row.id,

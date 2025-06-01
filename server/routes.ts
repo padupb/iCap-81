@@ -3080,6 +3080,69 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
+  // Rota de debug para investigar pedidos urgentes
+  app.get("/api/debug/urgent-orders", async (req, res) => {
+    try {
+      console.log("🔍 Debug: Investigando pedidos urgentes");
+
+      // Buscar todos os pedidos diretamente do banco
+      const allOrdersResult = await pool.query(`
+        SELECT 
+          id, order_id, status, is_urgent, delivery_date, created_at,
+          EXTRACT(DAY FROM (delivery_date - CURRENT_DATE)) as days_to_delivery
+        FROM orders 
+        ORDER BY created_at DESC
+      `);
+
+      const allOrders = allOrdersResult.rows;
+      console.log(`📊 Total de pedidos na base: ${allOrders.length}`);
+
+      // Analisar urgência
+      const urgentOrders = allOrders.filter(order => order.is_urgent);
+      const registeredUrgent = urgentOrders.filter(order => order.status === 'Registrado');
+      
+      console.log(`🔥 Pedidos marcados como urgentes: ${urgentOrders.length}`);
+      console.log(`📋 Pedidos urgentes com status Registrado: ${registeredUrgent.length}`);
+
+      // Debug detalhado
+      const analysis = allOrders.map(order => {
+        const daysToDelivery = order.days_to_delivery;
+        const shouldBeUrgent = daysToDelivery !== null && daysToDelivery <= 7;
+        
+        return {
+          id: order.id,
+          orderId: order.order_id,
+          status: order.status,
+          isUrgent: order.is_urgent,
+          deliveryDate: order.delivery_date,
+          daysToDelivery: daysToDelivery,
+          shouldBeUrgent: shouldBeUrgent,
+          urgencyMismatch: shouldBeUrgent !== order.is_urgent
+        };
+      });
+
+      const mismatchedOrders = analysis.filter(order => order.urgencyMismatch);
+
+      res.json({
+        success: true,
+        totalOrders: allOrders.length,
+        urgentOrders: urgentOrders.length,
+        registeredUrgentOrders: registeredUrgent.length,
+        mismatchedOrders: mismatchedOrders.length,
+        analysis: analysis.slice(0, 10), // Primeiros 10 para debug
+        urgentOrdersDetails: urgentOrders,
+        mismatchedOrdersDetails: mismatchedOrders
+      });
+    } catch (error) {
+      console.error("❌ Erro ao investigar pedidos urgentes:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao investigar pedidos urgentes",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // System menus route - para configuração de permissões
   app.get("/api/system-menus", async (req, res) => {
     try {
