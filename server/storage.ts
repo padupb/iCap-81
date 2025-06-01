@@ -377,18 +377,6 @@ export class MemStorage implements IStorage {
     return order;
   }
 
-  async updateOrder(id: number, updateData: Partial<Order>): Promise<Order | undefined> {
-    const order = this.orders.get(id);
-    if (!order) return undefined;
-    const updated = { ...order, ...updateData };
-    this.orders.set(id, updated);
-    return updated;
-  }
-
-  async deleteOrder(id: number): Promise<boolean> {
-    return this.orders.delete(id);
-  }
-
   private generateOrderId(): string {
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
@@ -397,7 +385,27 @@ export class MemStorage implements IStorage {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
 
-    return `CAV${day}${month}${year}${hours}${minutes}`;
+    let baseOrderId = `CAV${day}${month}${year}${hours}${minutes}`;
+    let counter = 0;
+    let orderId = baseOrderId;
+
+    // Verificar se o ID já existe na memória e incrementar se necessário
+    while (Array.from(this.orders.values()).some(order => order.orderId === orderId)) {
+      counter++;
+
+      // Extrair os últimos 2 dígitos e somar o counter
+      const baseNumber = parseInt(baseOrderId.slice(-2));
+      const newNumber = (baseNumber + counter).toString().padStart(2, '0');
+
+      if (baseNumber + counter > 99) {
+        const newNumberStr = (baseNumber + counter).toString();
+        orderId = baseOrderId.slice(0, -2) + newNumberStr;
+      } else {
+        orderId = baseOrderId.slice(0, -2) + newNumber;
+      }
+    }
+
+    return orderId;
   }
 
   // Purchase Orders
@@ -772,7 +780,7 @@ export class DatabaseStorage implements IStorage {
 
   async getUrgentOrders(): Promise<Order[]> {
     console.log('🔍 Buscando pedidos urgentes na storage...');
-    
+
     const result = await db
       .select({
         id: orders.id,
@@ -797,7 +805,7 @@ export class DatabaseStorage implements IStorage {
       ));
 
     console.log(`📊 Storage: encontrados ${result.length} pedidos urgentes com status Registrado`);
-    
+
     // Debug adicional: buscar TODOS os pedidos urgentes, independente do status
     const allUrgent = await db
       .select({
@@ -809,7 +817,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(orders)
       .where(eq(orders.isUrgent, true));
-    
+
     console.log(`🔍 Debug: total de pedidos marcados como urgentes (todos os status):`, allUrgent.length);
     allUrgent.forEach(order => {
       console.log(`  - ${order.orderId}: status=${order.status}, isUrgent=${order.isUrgent}, entrega=${order.deliveryDate}`);
@@ -826,6 +834,7 @@ export class DatabaseStorage implements IStorage {
       workLocation: row.workLocation,
       deliveryDate: row.deliveryDate,
       status: row.status,
+      ```text
       isUrgent: row.isUrgent,
       userId: row.userId,
       createdAt: row.createdAt,
@@ -834,20 +843,20 @@ export class DatabaseStorage implements IStorage {
 
   async getUrgentOrdersForApprover(userId: number): Promise<Order[]> {
     console.log(`🔍 Buscando pedidos urgentes para aprovador ID: ${userId}`);
-    
+
     // Importar pool dinamicamente
     const { pool } = await import("./db");
-    
+
     // Primeiro, verificar de quais empresas o usuário é aprovador
     const approverCompaniesResult = await pool.query(`
       SELECT id, name, cnpj FROM companies WHERE approver_id = $1
     `, [userId]);
-    
+
     console.log(`👔 Usuário ${userId} é aprovador de ${approverCompaniesResult.rows.length} empresa(s):`);
     approverCompaniesResult.rows.forEach((company: any) => {
       console.log(`  - ${company.name} (CNPJ: ${company.cnpj})`);
     });
-    
+
     // Buscar pedidos urgentes que precisam de aprovação baseado no critério obra de destino
     // O usuário deve ser aprovador da empresa que corresponde ao CNPJ da obra de destino
     const result = await pool.query(`
@@ -880,7 +889,7 @@ export class DatabaseStorage implements IStorage {
     `, [userId]);
 
     console.log(`📊 Storage: encontrados ${result.rows.length} pedidos urgentes onde usuário ${userId} é aprovador da obra de destino`);
-    
+
     // Log detalhado para debug
     if (result.rows.length > 0) {
       console.log(`📋 Detalhes dos pedidos urgentes:`);
@@ -894,7 +903,7 @@ export class DatabaseStorage implements IStorage {
       });
     } else {
       console.log(`🤔 Nenhum pedido encontrado. Verificando todos os pedidos urgentes...`);
-      
+
       // Debug: mostrar todos os pedidos urgentes registrados
       const allUrgentResult = await pool.query(`
         SELECT 
@@ -910,13 +919,13 @@ export class DatabaseStorage implements IStorage {
         LEFT JOIN companies c ON oc.cnpj = c.cnpj
         WHERE o.is_urgent = true AND o.status = 'Registrado'
       `);
-      
+
       console.log(`🔍 Todos os pedidos urgentes registrados (${allUrgentResult.rows.length}):`);
       allUrgentResult.rows.forEach((row: any) => {
         console.log(`  - ${row.order_id}: obra "${row.obra_nome}" (aprovador: ${row.approver_id})`);
       });
     }
-    
+
     return result.rows.map((row: any) => ({
       id: row.id,
       orderId: row.orderId,
@@ -937,19 +946,19 @@ export class DatabaseStorage implements IStorage {
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     // Gerar OrderID automático
     const orderId = this.generateOrderId();
-    
+
     // Calcular se o pedido é urgente baseado na data de entrega
     const now = new Date();
     const deliveryDate = new Date(insertOrder.deliveryDate);
     const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
     const isUrgent = daysDiff <= 7; // Pedidos com entrega em 7 dias ou menos são urgentes
-    
+
     console.log(`📅 Verificação de urgência para pedido ${orderId}:`, {
       deliveryDate: deliveryDate.toISOString(),
       daysDiff,
       isUrgent
     });
-    
+
     const [order] = await db.insert(orders).values({
       ...insertOrder,
       orderId,
@@ -974,7 +983,18 @@ export class DatabaseStorage implements IStorage {
     const prefix = "CAP";
     const datePart = `${now.getDate().toString().padStart(2, '0')}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getFullYear().toString().slice(2)}`;
     const timePart = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
-    return `${prefix}${datePart}${timePart}`;
+
+     // Implementar a lógica para evitar duplicidade de IDs de pedidos, adicionando +1 ao último número quando um ID já existir.
+    let baseOrderId = `${prefix}${datePart}${timePart}`;
+    let counter = 0;
+    let orderId = baseOrderId;
+    while (Array.from(this.orders.values()).some(order => order.orderId === orderId)) {
+      counter++;
+      const newNumber = counter.toString().padStart(3, '0'); // Pad to 3 digits
+      orderId = `${baseOrderId}${newNumber}`; // Append the counter
+    }
+
+    return orderId;
   }
 
   async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
