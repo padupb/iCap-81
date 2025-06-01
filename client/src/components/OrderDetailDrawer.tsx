@@ -995,10 +995,73 @@ export function OrderDetailDrawer({
                     <div className="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
                   </div>
 
-                  ```text
-The code has been modified to implement flow rules for QR codes and tabs based on the order status, document uploads, and user permissions.
-</text>
-<replit_final_file>
+                  <div className="detail-item">
+                    <div className="detail-label">Data de Entrega</div>
+                    <div className="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
+                  </div>
+
+                  <div className="detail-item">
+                    <div className="detail-label">Nº da Ordem de Compra</div>
+                    <div className="detail-value">${orderDetails.purchaseOrder?.orderNumber || "Sem ordem de compra vinculada"}</div>
+                  </div>
+
+                  <div className="detail-item">
+                    <div className="detail-label">Data de Criação</div>
+                    <div className="detail-value">${orderDetails.createdAt ? formatDate(orderDetails.createdAt.toString()) : "N/A"}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="progress-section">
+                <div class="progress-title">Progresso do Pedido</div>
+                <div class="progress-steps">
+                  <div class="progress-line"></div>
+                  <div class="progress-line-filled"></div>
+
+                  <div class="progress-step">
+                    <div class="step-circle completed">1</div>
+                    <div class="step-label">Registrado</div>
+                  </div>
+
+                  <div class="progress-step">
+                    <div class="step-circle ${currentProgress >= 33.33 ? 'completed' : ''}">2</div>
+                    <div class="step-label">Carregado</div>
+                  </div>
+
+                  <div class="progress-step">
+                    <div class="step-circle ${currentProgress >= 66.66 ? 'completed' : ''}">3</div>
+                    <div class="step-label">Em Rota</div>
+                  </div>
+
+                  <div class="progress-step">
+                    <div class="step-circle ${currentProgress >= 100 ? 'completed' : ''}">4</div>
+                    <div class="step-label">Entregue</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="footer">
+                <p>Sistema iCAP 7.0 - Gestão de Pedidos</p>
+                <p>Documento gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
+              </div>
+            </body>
+          </html>
+        `;
+
+        // Escrever o HTML na nova janela
+        printWindow.document.write(printHTML);
+        printWindow.document.close();
+
+        // Aguardar o carregamento e então imprimir
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+          }, 500);
+        };
+      });
+    });
+  };</old_str>
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
