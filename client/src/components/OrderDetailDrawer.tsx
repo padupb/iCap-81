@@ -1124,7 +1124,12 @@ export function OrderDetailDrawer({
                     value="documents"
                     className="flex items-center gap-1"
                     disabled={(() => {
-                      // Verificar se é pedido urgente e não foi aprovado
+                      // 1. Verificar se o usuário tem permissão can_confirm_delivery
+                      if (!user?.canConfirmDelivery) {
+                        return true;
+                      }
+                      
+                      // 2. Verificar se é pedido urgente e não foi aprovado
                       const deliveryDate = new Date(orderDetails.deliveryDate);
                       const today = new Date();
                       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1438,6 +1443,11 @@ export function OrderDetailDrawer({
                       <CardTitle>Documentos do Pedido</CardTitle>
                       <CardDescription>
                         {(() => {
+                          // Verificar se o usuário tem permissão can_confirm_delivery
+                          if (!user?.canConfirmDelivery) {
+                            return "Você não tem permissão para acessar os documentos. Apenas usuários autorizados podem visualizar esta seção.";
+                          }
+                          
                           // Verificar se é pedido urgente e não foi aprovado
                           const deliveryDate = new Date(orderDetails.deliveryDate);
                           const today = new Date();
@@ -1454,7 +1464,25 @@ export function OrderDetailDrawer({
                     </CardHeader>
                     <CardContent>
                       {(() => {
-                        // Verificar se é pedido urgente e não foi aprovado
+                        // 1. Verificar se o usuário tem permissão can_confirm_delivery
+                        if (!user?.canConfirmDelivery) {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-8 border border-red-200 rounded-lg bg-red-50">
+                              <AlertCircle className="h-16 w-16 text-red-600 mb-4" />
+                              <h3 className="text-xl font-medium text-red-800 mb-2">
+                                Acesso Negado
+                              </h3>
+                              <p className="text-sm text-red-700 text-center max-w-md">
+                                Você não possui permissão para acessar os documentos do pedido. Esta funcionalidade está restrita a usuários autorizados.
+                              </p>
+                              <p className="text-xs text-red-600 text-center mt-3">
+                                Entre em contato com o administrador do sistema para solicitar acesso.
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        // 2. Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = new Date(orderDetails.deliveryDate);
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1483,7 +1511,12 @@ export function OrderDetailDrawer({
                       })()}
                       
                       {(() => {
-                        // Verificar se é pedido urgente e não foi aprovado
+                        // 1. Verificar se o usuário tem permissão can_confirm_delivery
+                        if (!user?.canConfirmDelivery) {
+                          return null;
+                        }
+                        
+                        // 2. Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = new Date(orderDetails.deliveryDate);
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1833,7 +1866,12 @@ export function OrderDetailDrawer({
                       })()}
                     </CardContent>
                     {(() => {
-                      // Verificar se é pedido urgente e não foi aprovado
+                      // 1. Verificar se o usuário tem permissão can_confirm_delivery
+                      if (!user?.canConfirmDelivery) {
+                        return null;
+                      }
+                      
+                      // 2. Verificar se é pedido urgente e não foi aprovado
                       const deliveryDate = new Date(orderDetails.deliveryDate);
                       const today = new Date();
                       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
