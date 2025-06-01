@@ -4,17 +4,6 @@ import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, User, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 export function UserMenu() {
   const { user, logout } = useAuth();
@@ -53,32 +42,16 @@ export function UserMenu() {
   const role = user?.role?.name || (user?.isKeyUser ? "Super Administrador" : "Usuário");
 
   const handleChangePassword = () => {
-    try {
-      if (!user?.id) {
-        toast({
-          title: "Erro",
-          description: "Usuário não identificado",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log("🔄 Redirecionando para alteração de senha:", user.id);
-      
-      // Fechar o menu
-      setIsOpen(false);
-      
-      // Redirecionar diretamente para a página de alteração de senha
+    console.log("🔄 Clicou em alterar senha - redirecionando...");
+    
+    // Fechar o menu primeiro
+    setIsOpen(false);
+    
+    // Redirecionar para a página de alteração de senha
+    setTimeout(() => {
       setLocation('/first-password-change');
-      
-    } catch (error) {
-      console.error("❌ Erro ao redirecionar:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao acessar página de alteração de senha",
-        variant: "destructive"
-      });
-    }
+      console.log("✅ Redirecionamento executado para /first-password-change");
+    }, 100);
   };
 
 
@@ -115,28 +88,13 @@ export function UserMenu() {
           </div>
 
           <div className="border-t border-border">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2">
-                  <Key className="mr-2 h-4 w-4" />
-                  <span>Alterar senha</span>
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Alterar senha</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Você será redirecionado para a página de alteração de senha.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleChangePassword}>
-                    Continuar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <button 
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+              onClick={handleChangePassword}
+            >
+              <Key className="mr-2 h-4 w-4" />
+              <span>Alterar senha</span>
+            </button></div>
 
             <button 
               className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2"
