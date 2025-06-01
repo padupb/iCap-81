@@ -98,6 +98,10 @@ function Router() {
         {isAuthenticated ? <Redirect to="/" /> : <Login />}
       </Route>
 
+      <Route path="/first-password-change">
+        <FirstPasswordChange />
+      </Route>
+
       {/* Rotas Protegidas com verificação de permissões */}
       {/* Rota raiz com proteção de autenticação */}
       <Route path="/">

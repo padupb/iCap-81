@@ -99,11 +99,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await response.json();
 
       if (data.success) {
-        setUser(data.user);
-        return { 
-          success: true, 
-          requiresPasswordChange: data.requiresPasswordChange 
-        };
+        if (data.requiresPasswordChange) {
+          // Definir usuário temporariamente para a tela de mudança de senha
+          setUser(data.user);
+          return { 
+            success: true, 
+            requiresPasswordChange: true,
+            message: data.message
+          };
+        } else {
+          setUser(data.user);
+          return { 
+            success: true, 
+            requiresPasswordChange: false 
+          };
+        }
       } else {
         return { success: false, message: data.message };
       }

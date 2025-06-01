@@ -210,8 +210,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Se o usuário não tem senha, por compatibilidade, verificamos se a senha é igual ao email
         senhaCorreta = password === email;
       } else {
-        // Verificar a senha fornecida com a senha armazenada
-        senhaCorreta = password === user.password;
+        // Verificar se a senha está hasheada ou em texto plano
+        const bcrypt = require('bcrypt');
+        try {
+          // Tentar verificar como hash bcrypt
+          senhaCorreta = await bcrypt.compare(password, user.password);
+        } catch (error) {
+          // Se falhar, verificar como texto plano (compatibilidade)
+          senhaCorreta = password === user.password;
+        }
       }
 
       if (!senhaCorreta) {
@@ -223,6 +230,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("✅ Senha correta para usuário:", email);
+
+      // Verificar se é o primeiro login
+      if (user.primeiroLogin) {
+        return res.json({
+          success: true,
+          requiresPasswordChange: true,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email
+          },
+          message: "Primeiro login detectado - altere sua senha"
+        });
+      }
 
       // NOVA REGRA: Se o usuário tem ID = 1, dar permissões de keyuser
       const isKeyUser = user.id === 1;
@@ -347,6 +368,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(401).json({ 
         success: false, 
         message: "Não autenticado" 
+      });
+    }
+  });
+
+  // Rota para alterar senha no primeiro login
+  app.post("/api/auth/change-first-password", async (req, res) => {
+    try {
+      const { userId, newPassword, confirmPassword } = req.body;
+
+      if (!userId || !newPassword || !confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Dados obrigatórios não fornecidos"
+        });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "As senhas não coincidem"
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "A senha deve ter pelo menos 6 caracteres"
+        });
+      }
+
+      // Buscar o usuário
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Usuário não encontrado"
+        });
+      }
+
+      // Hash da nova senha
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Atualizar senha e marcar primeiro_login como false
+      await storage.updateUser(userId, {
+        password: hashedPassword,
+        primeiroLogin: false
+      });
+
+      // Log da ação
+      await storage.createLog({
+        userId: userId,
+        action: "Alteração de senha no primeiro login",
+        itemType: "user",
+        itemId: userId.toString(),
+        details: "Usuário alterou senha no primeiro acesso"
+      });
+
+      res.json({
+        success: true,
+        message: "Senha alterada com sucesso"
+      });
+
+    } catch (error) {
+      console.error("Erro ao alterar senha no primeiro login:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro interno do servidor"
+      });
+    }
+  });
+
+  // Rota para redefinir senha do usuário
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do usuário é obrigatório"
+        });
+      }
+
+      // Buscar o usuário
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Usuário não encontrado"
+        });
+      }
+
+      // Hash da senha padrão
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('icap123', 10);
+
+      // Atualizar senha para padrão e marcar primeiro_login como true
+      await storage.updateUser(userId, {
+        password: hashedPassword,
+        primeiroLogin: true
+      });
+
+      // Log da ação
+      await storage.createLog({
+        userId: req.session.userId || 1,
+        action: "Redefinição de senha",
+        itemType: "user",
+        itemId: userId.toString(),
+        details: `Senha do usuário ${user.name} foi redefinida para o padrão`
+      });
+
+      res.json({
+        success: true,
+        message: "Senha redefinida com sucesso"
+      });
+
+    } catch (error) {
+      console.error("Erro ao redefinir senha:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro interno do servidor"
       });
     }
   });

@@ -72,36 +72,51 @@ export default function Login() {
         credentials: "include" // Importante para a sessão ser mantida
       });
 
+      const loginResult = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || "Falha na autenticação");
+        throw new Error(loginResult?.message || "Falha na autenticação");
       }
 
-      // Gerenciar credenciais salvas
-      if (keepConnected) {
-        localStorage.setItem('loginCredentials', JSON.stringify({
-          email: data.email,
-          password: data.password
-        }));
+      if (loginResult.success) {
+        if (loginResult.requiresPasswordChange) {
+          // Primeiro login - redirecionar para mudança de senha
+          toast({
+            title: "Primeiro acesso",
+            description: "É necessário alterar sua senha"
+          });
+          navigate("/first-password-change", { replace: true });
+          return;
+        }
+
+        // Gerenciar credenciais salvas
+        if (keepConnected) {
+          localStorage.setItem('loginCredentials', JSON.stringify({
+            email: data.email,
+            password: data.password
+          }));
+        } else {
+          localStorage.removeItem('loginCredentials');
+        }
+
+        // Buscar os dados do usuário para confirmar autenticação
+        await fetch("/api/auth/me", { credentials: "include" });
+
+        toast({
+          title: "Login realizado com sucesso",
+          description: "Você será redirecionado para o dashboard"
+        });
+
+        // Adicionar um pequeno atraso para garantir que a sessão seja estabelecida
+        setTimeout(() => {
+          // Navegar para o dashboard
+          navigate("/", { replace: true });
+          // Forçar um recarregamento da página para garantir que todos os componentes reconheçam o estado de autenticação
+          window.location.reload();
+        }, 500);
       } else {
-        localStorage.removeItem('loginCredentials');
+        throw new Error(loginResult.message || "Falha na autenticação");
       }
-
-      // Buscar os dados do usuário para confirmar autenticação
-      await fetch("/api/auth/me", { credentials: "include" });
-
-      toast({
-        title: "Login realizado com sucesso",
-        description: "Você será redirecionado para o dashboard"
-      });
-
-      // Adicionar um pequeno atraso para garantir que a sessão seja estabelecida
-      setTimeout(() => {
-        // Navegar para o dashboard
-        navigate("/", { replace: true });
-        // Forçar um recarregamento da página para garantir que todos os componentes reconheçam o estado de autenticação
-        window.location.reload();
-      }, 500);
     } catch (error) {
       toast({
         title: "Erro ao realizar login",
