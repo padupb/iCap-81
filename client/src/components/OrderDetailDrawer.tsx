@@ -996,7 +996,6 @@ export function OrderDetailDrawer({
                   </div>
 
                   <div className="detail-item">
-                    <```typescript
                     <div className="detail-label">Data de Entrega</div>
                     <div className="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
                   </div>
