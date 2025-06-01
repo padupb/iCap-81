@@ -491,14 +491,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rota para redefinir senha do usuário
-  app.post("/api/auth/reset-password", async (req, res) => {
+  app.post("/api/auth/reset-password", isAuthenticated, async (req, res) => {
     try {
       const { userId } = req.body;
+
+      console.log("🔄 Reset de senha solicitado para usuário:", userId);
+      console.log("📝 Usuário da sessão:", req.session.userId);
 
       if (!userId) {
         return res.status(400).json({
           success: false,
           message: "ID do usuário é obrigatório"
+        });
+      }
+
+      // Verificar se o usuário pode resetar a própria senha ou se é um administrador
+      if (req.user.id !== parseInt(userId) && !req.user.isKeyUser) {
+        return res.status(403).json({
+          success: false,
+          message: "Você só pode resetar sua própria senha"
         });
       }
 
@@ -511,35 +522,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      console.log("👤 Usuário encontrado para reset:", user.name);
+
       // Hash da senha padrão
       const bcrypt = await import('bcrypt');
       const hashedPassword = await bcrypt.hash('icap123', 10);
 
+      console.log("🔐 Hash da senha padrão gerado");
+
       // Atualizar senha para padrão e marcar primeiro_login como true
-      await storage.updateUser(userId, {
+      await storage.updateUser(parseInt(userId), {
         password: hashedPassword,
         primeiroLogin: true
       });
 
+      console.log("✅ Usuário atualizado - senha resetada e primeiro_login = true");
+
       // Log da ação
       await storage.createLog({
-        userId: req.session.userId || 1,
+        userId: req.session.userId || req.user.id,
         action: "Redefinição de senha",
         itemType: "user",
         itemId: userId.toString(),
-        details: `Senha do usuário ${user.name} foi redefinida para o padrão`
+        details: `Senha do usuário ${user.name} foi redefinida para icap123`
       });
+
+      console.log("📝 Log da ação criado");
 
       res.json({
         success: true,
-        message: "Senha redefinida com sucesso"
+        message: "Senha redefinida com sucesso para 'icap123'"
       });
 
     } catch (error) {
-      console.error("Erro ao redefinir senha:", error);
+      console.error("❌ Erro ao redefinir senha:", error);
       res.status(500).json({
         success: false,
-        message: "Erro interno do servidor"
+        message: "Erro interno do servidor",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }
   });

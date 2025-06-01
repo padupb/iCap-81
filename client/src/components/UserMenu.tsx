@@ -52,37 +52,66 @@ export function UserMenu() {
 
   const handleChangePassword = async () => {
     try {
+      if (!user?.id) {
+        toast({
+          title: "Erro",
+          description: "Usuário não identificado",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log("🔄 Iniciando reset de senha para usuário:", user.id);
+
+      // Fazer a requisição para resetar a senha
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId: user?.id }),
+        credentials: 'include',
+        body: JSON.stringify({
+          userId: user.id
+        })
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (data.success) {
+      if (response.ok && result.success) {
+        console.log("✅ Senha resetada com sucesso");
+
         toast({
-          title: "Senha redefinida",
-          description: "Faça login novamente com a senha icap123 para definir nova senha."
+          title: "Senha resetada",
+          description: "Sua senha foi redefinida para 'icap123'. Você será redirecionado para fazer login novamente.",
+          duration: 3000
         });
 
-        // Fazer logout após 2 segundos
-        setTimeout(() => {
-          logout();
+        // Aguardar um pouco para o usuário ler a mensagem
+        setTimeout(async () => {
+          try {
+            // Fazer logout e redirecionar para login
+            await logout();
+            setIsOpen(false);
+          } catch (logoutError) {
+            console.error("Erro no logout:", logoutError);
+            // Mesmo com erro no logout, redirecionar
+            window.location.href = '/login';
+          }
         }, 2000);
+
       } else {
+        console.error("❌ Erro ao resetar senha:", result.message);
         toast({
           title: "Erro",
-          description: data.message,
+          description: result.message || "Erro ao resetar senha",
           variant: "destructive"
         });
       }
     } catch (error) {
+      console.error("❌ Erro na requisição de reset:", error);
       toast({
         title: "Erro",
-        description: "Erro ao redefinir senha",
+        description: "Erro de comunicação com o servidor",
         variant: "destructive"
       });
     }
