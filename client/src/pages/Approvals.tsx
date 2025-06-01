@@ -108,7 +108,6 @@ export default function Approvals() {
       <Card className="bg-card border-border">
         <CardHeader className="border-b border-border">
           <CardTitle className="flex items-center">
-            <AlertTriangle className="text-yellow-500 mr-2" size={20} />
             Pedidos Urgentes ({urgentOrders.length})
           </CardTitle>
           <p className="text-muted-foreground text-sm">
@@ -141,10 +140,7 @@ export default function Approvals() {
                   return (
                     <TableRow key={order.id} className="hover:bg-muted/50">
                       <TableCell className="font-mono text-sm">
-                        <div className="flex items-center">
-                          {order.orderId}
-                          <AlertTriangle className="ml-2 text-yellow-500" size={14} />
-                        </div>
+                        {order.orderId}
                       </TableCell>
                       <TableCell>{order.productName || `Produto ID: ${order.productId}`}</TableCell>
                       <TableCell>{order.quantity}</TableCell>
