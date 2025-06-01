@@ -94,7 +94,7 @@ export function UserMenu() {
             >
               <Key className="mr-2 h-4 w-4" />
               <span>Alterar senha</span>
-            </button></div>
+            </button>
 
             <button 
               className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2"
