@@ -944,7 +944,7 @@ export class DatabaseStorage implements IStorage {
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     // Gerar OrderID automático
-    const orderId = this.generateOrderId();
+    const orderId = await this.generateOrderId();
 
     // Calcular se o pedido é urgente baseado na data de entrega
     const now = new Date();
@@ -977,17 +977,30 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  private generateOrderId(): string {
+  private async generateOrderId(): Promise<string> {
     const now = new Date();
     const prefix = "CAP";
     const datePart = `${now.getDate().toString().padStart(2, '0')}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getFullYear().toString().slice(2)}`;
     const timePart = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
 
-     // Implementar a lógica para evitar duplicidade de IDs de pedidos, adicionando +1 ao último número quando um ID já existir.
+    // Implementar a lógica para evitar duplicidade de IDs de pedidos, adicionando +1 ao último número quando um ID já existir.
     let baseOrderId = `${prefix}${datePart}${timePart}`;
     let counter = 0;
     let orderId = baseOrderId;
-    while (Array.from(this.orders.values()).some(order => order.orderId === orderId)) {
+    
+    // Usar query do banco de dados para verificar se o ID já existe
+    const { pool } = await import("./db");
+    
+    while (true) {
+      const existingOrder = await pool.query(
+        "SELECT id FROM orders WHERE order_id = $1 LIMIT 1",
+        [orderId]
+      );
+      
+      if (existingOrder.rows.length === 0) {
+        break; // ID não existe, pode usar
+      }
+      
       counter++;
       const newNumber = counter.toString().padStart(3, '0'); // Pad to 3 digits
       orderId = `${baseOrderId}${newNumber}`; // Append the counter
