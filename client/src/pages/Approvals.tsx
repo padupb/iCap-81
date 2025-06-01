@@ -113,7 +113,7 @@ export default function Approvals() {
             Pedidos Urgentes Pendentes ({filteredOrders.length} de {urgentOrders.length})
           </CardTitle>
           <p className="text-muted-foreground text-sm">
-            Pedidos marcados como urgentes que necessitam aprovação. Acesso restrito a KeyUsers e aprovadores de empresas.
+            Pedidos com entrega em até 7 dias que necessitam aprovação. Acesso restrito a KeyUsers e aprovadores de empresas.
           </p>
         </CardHeader>
         <CardContent className="p-0">

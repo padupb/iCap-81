@@ -783,7 +783,10 @@ export class DatabaseStorage implements IStorage {
       })
       .from(orders)
       .leftJoin(products, eq(orders.productId, products.id))
-      .where(eq(orders.isUrgent, true));
+      .where(and(
+        eq(orders.isUrgent, true),
+        eq(orders.status, "Registrado")
+      ));
 
     return result.map(row => ({
       id: row.id,
@@ -805,10 +808,23 @@ export class DatabaseStorage implements IStorage {
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     // Gerar OrderID automático
     const orderId = this.generateOrderId();
+    
+    // Calcular se o pedido é urgente baseado na data de entrega
+    const now = new Date();
+    const deliveryDate = new Date(insertOrder.deliveryDate);
+    const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+    const isUrgent = daysDiff <= 7; // Pedidos com entrega em 7 dias ou menos são urgentes
+    
+    console.log(`📅 Verificação de urgência para pedido ${orderId}:`, {
+      deliveryDate: deliveryDate.toISOString(),
+      daysDiff,
+      isUrgent
+    });
+    
     const [order] = await db.insert(orders).values({
       ...insertOrder,
       orderId,
-      isUrgent: false,
+      isUrgent,
       createdAt: new Date()
     }).returning();
     return order;

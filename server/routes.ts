@@ -1053,15 +1053,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Calcular se o pedido é urgente baseado na data de entrega
+      const now = new Date();
+      const deliveryDate = new Date(orderData.deliveryDate);
+      const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+      const isUrgent = daysDiff <= 7;
+      const status = isUrgent ? "Registrado" : "Registrado"; // Pedidos urgentes ficam "Registrado" aguardando aprovação
+
+      console.log(`📋 Criando pedido:`, {
+        deliveryDate: deliveryDate.toISOString(),
+        daysDiff,
+        isUrgent,
+        status
+      });
+
       // Criar o pedido usando o storage
       const newOrder = await storage.createOrder({
         purchaseOrderId: orderData.purchaseOrderId,
         productId: orderData.productId,
         quantity: orderData.quantity,
         supplierId: orderData.supplierId,
-        deliveryDate: new Date(orderData.deliveryDate),
+        deliveryDate: deliveryDate,
         userId: orderData.userId || req.session.userId || 1,
-        status: "Registrado",
+        status: status,
         workLocation: orderData.workLocation || "Conforme ordem de compra"
       });
 
