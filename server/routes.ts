@@ -1006,11 +1006,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         quantidadeTotal = parseFloat(saldoResult.rows[0].quantidade);
 
-        // Buscar quantidade já usada em pedidos
+        // Buscar quantidade já usada em pedidos (excluindo cancelados)
         const usadoResult = await pool.query(
           `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
            FROM orders 
-           WHERE purchase_order_id = $1 AND product_id = $2`,
+           WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
           [orderData.purchaseOrderId, orderData.productId]
         );
 
@@ -1843,7 +1843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pedidosResult = await pool.query(
         `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
          FROM orders 
-         WHERE purchase_order_id = $1 AND product_id = $2`,
+         WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
         [ordemId, produtoId]
       );
 

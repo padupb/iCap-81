@@ -958,22 +958,44 @@ export class DatabaseStorage implements IStorage {
       isUrgent
     });
 
+    // Inserir a ordem no banco de dados
     const [order] = await db.insert(orders).values({
       ...insertOrder,
       orderId,
       isUrgent,
       createdAt: new Date()
     }).returning();
+
+    // Após inserir a ordem, recalcular o saldo disponível da ordem de compra
+    if (insertOrder.purchaseOrderId && insertOrder.productId) {
+      await this.recalculatePurchaseOrderBalance(insertOrder.purchaseOrderId, insertOrder.productId);
+    }
+
     return order;
   }
 
   async updateOrder(id: number, updateData: Partial<Order>): Promise<Order | undefined> {
     const [order] = await db.update(orders).set(updateData).where(eq(orders.id, id)).returning();
+
+    // Recalcular o saldo disponível da ordem de compra após atualizar a ordem
+    if (order && order.purchaseOrderId && order.productId) {
+      await this.recalculatePurchaseOrderBalance(order.purchaseOrderId, order.productId);
+    }
+
     return order;
   }
 
   async deleteOrder(id: number): Promise<boolean> {
+    // Antes de deletar a ordem, obter informações para recalcular o balanço
+    const [orderToDelete] = await db.select().from(orders).where(eq(orders.id, id));
+
     const result = await db.delete(orders).where(eq(orders.id, id));
+
+    // Recalcular o saldo disponível da ordem de compra após deletar a ordem
+    if (orderToDelete && orderToDelete.purchaseOrderId && orderToDelete.productId) {
+      await this.recalculatePurchaseOrderBalance(orderToDelete.purchaseOrderId, orderToDelete.productId);
+    }
+
     return true;
   }
 
@@ -987,20 +1009,20 @@ export class DatabaseStorage implements IStorage {
     let baseOrderId = `${prefix}${datePart}${timePart}`;
     let counter = 0;
     let orderId = baseOrderId;
-    
+
     // Usar query do banco de dados para verificar se o ID já existe
     const { pool } = await import("./db");
-    
+
     while (true) {
       const existingOrder = await pool.query(
         "SELECT id FROM orders WHERE order_id = $1 LIMIT 1",
         [orderId]
       );
-      
+
       if (existingOrder.rows.length === 0) {
         break; // ID não existe, pode usar
       }
-      
+
       counter++;
       const newNumber = counter.toString().padStart(3, '0'); // Pad to 3 digits
       orderId = `${baseOrderId}${newNumber}`; // Append the counter
@@ -1107,6 +1129,60 @@ export class DatabaseStorage implements IStorage {
 
       // Inserção direta usando SQL para evitar problemas de tipagem
       const { pool } = await import("./db");
+
+      // Buscar os dados da ordem de compra e do produto
+      const purchaseOrderResult = await pool.query(
+        "SELECT id, order_number FROM purchase_orders WHERE id = $1",
+        [itemData.purchaseOrderId]
+      );
+
+      const productResult = await pool.query(
+        "SELECT id, name FROM products WHERE id = $1",
+        [itemData.productId]
+      );
+
+      if (purchaseOrderResult.rows.length === 0 || productResult.rows.length === 0) {
+        throw new Error("Ordem de compra ou produto não encontrados");
+      }
+
+      const purchaseOrderData = purchaseOrderResult.rows[0];
+      const productData = productResult.rows[0];
+
+      // Buscar a quantidade total aprovada na ordem de compra
+      const totalAprovadoResult = await pool.query(
+        `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_aprovado
+         FROM purchase_order_items 
+         WHERE purchase_order_id = $1 AND product_id = $2`,
+        [itemData.purchaseOrderId, itemData.productId]
+      );
+
+      const totalAprovado = totalAprovadoResult.rows[0].total_aprovado || 0;
+
+      // Buscar quantidade já usada em pedidos (excluindo cancelados)
+      const usadoResult = await pool.query(
+        `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
+         FROM orders 
+         WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
+        [itemData.purchaseOrderId, itemData.productId]
+      );
+
+      const totalUsado = usadoResult.rows[0].total_usado || 0;
+
+      // Calcular o saldo disponível
+      const saldoDisponivel = totalAprovado - totalUsado;
+
+      console.log(`📊 Balanço da ordem ${purchaseOrderData.order_number}, produto ${productData.name}:`, {
+        totalAprovado,
+        totalUsado,
+        saldoDisponivel,
+        novaQuantidade: itemData.quantity
+      });
+
+      // Verificar se a quantidade do novo item excede o saldo disponível
+      if (itemData.quantity > saldoDisponivel) {
+        throw new Error(`Quantidade solicitada excede o saldo disponível (${saldoDisponivel})`);
+      }
+
       const result = await pool.query(`
         INSERT INTO purchase_order_items 
         (purchase_order_id, product_id, quantity) 
@@ -1129,6 +1205,10 @@ export class DatabaseStorage implements IStorage {
         };
 
         console.log("Storage: item criado com sucesso:", JSON.stringify(item, null, 2));
+
+        // Recalcular o saldo da ordem de compra
+        await this.recalculatePurchaseOrderBalance(itemData.purchaseOrderId, itemData.productId);
+
         return item;
       } else {
         throw new Error("Falha ao criar item da ordem de compra");
@@ -1140,8 +1220,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePurchaseOrderItem(id: number): Promise<boolean> {
+    // Antes de deletar, pegar os dados do item para recalcular o balanço
+    const [itemToDelete] = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.id, id));
+
     const result = await db.delete(purchaseOrderItems).where(eq(purchaseOrderItems.id, id));
+
+    // Recalcular o saldo disponível da ordem de compra após deletar o item
+    if (itemToDelete && itemToDelete.purchaseOrderId && itemToDelete.productId) {
+      await this.recalculatePurchaseOrderBalance(itemToDelete.purchaseOrderId, itemToDelete.productId);
+    }
+
     return true;
+  }
+
+  // Função utilitária para recalcular o balanço da ordem de compra
+  private async recalculatePurchaseOrderBalance(purchaseOrderId: number, productId: number): Promise<void> {
+    const { pool } = await import("./db");
+
+    console.log(`🔄 Recalculando balanço da OC ${purchaseOrderId}, produto ${productId}...`);
+
+    // Buscar a quantidade total aprovada na ordem de compra
+    const totalAprovadoResult = await pool.query(
+      `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_aprovado
+       FROM purchase_order_items 
+       WHERE purchase_order_id = $1 AND product_id = $2`,
+      [purchaseOrderId, productId]
+    );
+
+    const totalAprovado = totalAprovadoResult.rows[0].total_aprovado || 0;
+
+    // Buscar quantidade já usada em pedidos (excluindo cancelados)
+    const usadoResult = await pool.query(
+      `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
+       FROM orders 
+       WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
+      [purchaseOrderId, productId]
+    );
+
+    const totalUsado = usadoResult.rows[0].total_usado || 0;
+
+    // Calcular o saldo disponível
+    const saldoDisponivel = totalAprovado - totalUsado;
+
+    console.log(`📊 Novo balanço da OC ${purchaseOrderId}, produto ${productId}:`, {
+      totalAprovado,
+      totalUsado,
+      saldoDisponivel
+    });
   }
 
   async getAllLogs(): Promise<SystemLog[]> {
