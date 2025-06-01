@@ -1,4 +1,3 @@
-
 const { Pool } = require('pg');
 
 async function resetAllPasswords() {
@@ -11,7 +10,7 @@ async function resetAllPasswords() {
 
   try {
     console.log('🔄 Resetando todas as senhas do banco de dados...\n');
-    
+
     // Verificar se a tabela users existe
     const tableExists = await pool.query(`
       SELECT EXISTS (
@@ -27,7 +26,7 @@ async function resetAllPasswords() {
 
     // Buscar todos os usuários
     const usersResult = await pool.query('SELECT id, name, email FROM users ORDER BY id');
-    
+
     if (usersResult.rows.length === 0) {
       console.log('⚠️ Nenhum usuário encontrado na tabela');
       return;
@@ -42,9 +41,9 @@ async function resetAllPasswords() {
 
     // Importar bcrypt dinamicamente
     const bcrypt = await import('bcrypt');
-    
+
     // Hash da senha padrão
-    const hashedPassword = await bcrypt.hash('170824', 10);
+    const hashedPassword = await bcrypt.hash('icap123', 10);
 
     // Atualizar todas as senhas
     const updateResult = await pool.query(`
@@ -53,7 +52,7 @@ async function resetAllPasswords() {
       WHERE id IS NOT NULL
     `, [hashedPassword]);
 
-    console.log(`✅ ${updateResult.rowCount} senhas foram resetadas para: 170824`);
+    console.log(`✅ ${updateResult.rowCount} senhas foram resetadas para: icap123`);
     console.log('✅ Todos os usuários foram marcados como primeiro_login = true');
 
     // Verificar se existe o usuário keyuser configurado
@@ -74,14 +73,14 @@ async function resetAllPasswords() {
       console.log(`✅ Usuário keyuser criado:`, newKeyuser.rows[0]);
     } else {
       console.log(`\n✅ Usuário keyuser encontrado: ID ${keyuserExists.rows[0].id}`);
-      
+
       // Garantir que o keyuser tem primeiro_login = false
       await pool.query(`
         UPDATE users 
         SET primeiro_login = false 
         WHERE email = $1
       `, [keyuserEmail]);
-      
+
       console.log('✅ Keyuser configurado com primeiro_login = false');
     }
 
@@ -99,8 +98,8 @@ async function resetAllPasswords() {
 
     console.log('\n🎉 Reset de senhas concluído!');
     console.log('📧 Email para login: padupb@admin.icap');
-    console.log('🔑 Senha para todos os usuários: 170824');
-    
+    console.log('🔑 Senha para todos os usuários: icap123');
+
   } catch (error) {
     console.error('❌ Erro ao resetar senhas:', error.message);
     console.error('Stack trace:', error.stack);
