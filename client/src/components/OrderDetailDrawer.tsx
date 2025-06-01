@@ -1123,6 +1123,20 @@ export function OrderDetailDrawer({
                   <TabsTrigger
                     value="documents"
                     className="flex items-center gap-1"
+                    disabled={(() => {
+                      // Verificar se é pedido urgente e não foi aprovado
+                      const deliveryDate = new Date(orderDetails.deliveryDate);
+                      const today = new Date();
+                      const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                      const isUrgent = daysDiff <= 7;
+                      
+                      // Se é urgente e ainda está "Registrado", bloquear acesso
+                      if (isUrgent && orderDetails.status === "Registrado") {
+                        return true;
+                      }
+                      
+                      return false;
+                    })()}
                   >
                     <FileText size={16} />
                     <span>Documentos</span>
@@ -1225,11 +1239,37 @@ export function OrderDetailDrawer({
 
                     {/* Coluna 2 - QR Code */}
                     <div className="flex justify-center items-start">
-                      <QRCodeComponent 
-                        value={orderDetails.orderId}
-                        size={150}
-                        className="mt-4"
-                      />
+                      {(() => {
+                        // Verificar se é pedido urgente e não foi aprovado
+                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        const today = new Date();
+                        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const isUrgent = daysDiff <= 7;
+                        
+                        // Se é urgente e ainda está "Registrado", não mostrar QR Code
+                        if (isUrgent && orderDetails.status === "Registrado") {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-6 border border-yellow-200 rounded-lg bg-yellow-50 mt-4">
+                              <AlertCircle className="h-12 w-12 text-yellow-600 mb-2" />
+                              <h3 className="text-lg font-medium text-yellow-800 text-center">
+                                Pedido Urgente
+                              </h3>
+                              <p className="text-sm text-yellow-700 text-center mt-2">
+                                Aguardando aprovação para liberação
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        // Para pedidos normais ou já aprovados, mostrar QR Code
+                        return (
+                          <QRCodeComponent 
+                            value={orderDetails.orderId}
+                            size={150}
+                            className="mt-4"
+                          />
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1397,16 +1437,70 @@ export function OrderDetailDrawer({
                     <CardHeader>
                       <CardTitle>Documentos do Pedido</CardTitle>
                       <CardDescription>
-                        Faça upload dos documentos necessários para prosseguir
-                        com o pedido
+                        {(() => {
+                          // Verificar se é pedido urgente e não foi aprovado
+                          const deliveryDate = new Date(orderDetails.deliveryDate);
+                          const today = new Date();
+                          const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                          const isUrgent = daysDiff <= 7;
+                          
+                          if (isUrgent && orderDetails.status === "Registrado") {
+                            return "Este pedido urgente precisa ser aprovado antes de permitir o upload de documentos";
+                          }
+                          
+                          return "Faça upload dos documentos necessários para prosseguir com o pedido";
+                        })()}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {documentsLoaded ||
-                      orderDetails.status === "Carregado" ||
-                      orderDetails.status === "Em Rota" ||
-                      orderDetails.status === "Em transporte" ||
-                      orderDetails.status === "Entregue" ? (
+                      {(() => {
+                        // Verificar se é pedido urgente e não foi aprovado
+                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        const today = new Date();
+                        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const isUrgent = daysDiff <= 7;
+                        
+                        // Se é urgente e ainda está "Registrado", mostrar aviso de bloqueio
+                        if (isUrgent && orderDetails.status === "Registrado") {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-8 border border-yellow-200 rounded-lg bg-yellow-50">
+                              <AlertCircle className="h-16 w-16 text-yellow-600 mb-4" />
+                              <h3 className="text-xl font-medium text-yellow-800 mb-2">
+                                Pedido Urgente Aguardando Aprovação
+                              </h3>
+                              <p className="text-sm text-yellow-700 text-center max-w-md">
+                                Este pedido possui entrega em {daysDiff} dias e precisa ser aprovado por um responsável antes de permitir o upload de documentos.
+                              </p>
+                              <p className="text-xs text-yellow-600 text-center mt-3">
+                                Apenas KeyUsers e aprovadores de empresas podem liberar pedidos urgentes.
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        // Para pedidos não urgentes ou já aprovados, seguir lógica normal
+                        return null;
+                      })()}
+                      
+                      {(() => {
+                        // Verificar se é pedido urgente e não foi aprovado
+                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        const today = new Date();
+                        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const isUrgent = daysDiff <= 7;
+                        
+                        // Se é urgente e não aprovado, não mostrar o conteúdo normal
+                        if (isUrgent && orderDetails.status === "Registrado") {
+                          return null;
+                        }
+                        
+                        // Lógica normal para documentos
+                        if (documentsLoaded ||
+                            orderDetails.status === "Carregado" ||
+                            orderDetails.status === "Em Rota" ||
+                            orderDetails.status === "Em transporte" ||
+                            orderDetails.status === "Entregue") {
+                          return (
                         <div className="space-y-4">
                           <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
                             <FileCheck
@@ -1592,8 +1686,10 @@ export function OrderDetailDrawer({
                             </div>
                           </div>
                         </div>
-                      ) : (
-                        <div className="space-y-6">
+                          );
+                        } else {
+                          return (
+                            <div className="space-y-6">
                           <div className="space-y-4">
                             <div className="flex items-center space-x-3">
                               <button
@@ -1732,13 +1828,29 @@ export function OrderDetailDrawer({
                             </div>
                           </div>
                         </div>
-                      )}
+                          );
+                        }
+                      })()}
                     </CardContent>
-                    {!documentsLoaded &&
-                      orderDetails.status !== "Carregado" &&
-                      orderDetails.status !== "Em Rota" &&
-                      orderDetails.status !== "Em transporte" &&
-                      orderDetails.status !== "Entregue" && (
+                    {(() => {
+                      // Verificar se é pedido urgente e não foi aprovado
+                      const deliveryDate = new Date(orderDetails.deliveryDate);
+                      const today = new Date();
+                      const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                      const isUrgent = daysDiff <= 7;
+                      
+                      // Se é urgente e não aprovado, não mostrar botão de upload
+                      if (isUrgent && orderDetails.status === "Registrado") {
+                        return null;
+                      }
+                      
+                      // Mostrar botão apenas se documentos não estão carregados
+                      if (!documentsLoaded &&
+                          orderDetails.status !== "Carregado" &&
+                          orderDetails.status !== "Em Rota" &&
+                          orderDetails.status !== "Em transporte" &&
+                          orderDetails.status !== "Entregue") {
+                        return (
                         <CardFooter className="flex justify-end">
                           <Button
                             variant="default"
@@ -1759,7 +1871,11 @@ export function OrderDetailDrawer({
                             </span>
                           </Button>
                         </CardFooter>
-                      )}
+                        );
+                      }
+                      
+                      return null;
+                    })()}
                   </Card>
                 </TabsContent>
 

@@ -2293,6 +2293,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        // Verificar se é pedido urgente não aprovado
+        const deliveryDate = new Date(order.deliveryDate);
+        const today = new Date();
+        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+        const isUrgent = daysDiff <= 7;
+        
+        if (isUrgent && order.status === "Registrado") {
+          return res.status(403).json({
+            sucesso: false,
+            mensagem: "Pedidos urgentes devem ser aprovados antes de permitir upload de documentos"
+          });
+        }
+
         // Verificar se o usuário está autenticado
         if (!req.session.userId) {
           return res.status(401).json({
