@@ -803,61 +803,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let orders = await storage.getAllOrders();
 
-      // Aplicar restrição baseada nos critérios da empresa do usuário
-      if (req.user && req.user.companyId) {
-        // Buscar a empresa do usuário
-        const userCompany = await storage.getCompany(req.user.companyId);
+      // NOVA REGRA: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
+      const isApprover = await pool.query(`
+        SELECT COUNT(*) as total
+        FROM companies 
+        WHERE approver_id = $1
+      `, [req.user.id]);
+
+      const userIsApprover = parseInt(isApprover.rows[0].total) > 0;
+
+      if (userIsApprover && req.user.id !== 1 && !req.user.isKeyUser) {
+        console.log(`🔒 Usuário ${req.user.name} (ID: ${req.user.id}) é aprovador - aplicando filtro restritivo`);
         
-        if (userCompany) {
-          // Buscar a categoria da empresa
-          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
-          
-          if (companyCategory) {
-            // Verificar se a empresa tem pelo menos 1 critério ativo
-            const hasAnyCriteria = companyCategory.requiresApprover || 
-                                 companyCategory.requiresContract || 
-                                 companyCategory.receivesPurchaseOrders;
-            
-            if (hasAnyCriteria) {
-              // Filtrar pedidos onde a empresa é fornecedora OU obra de destino
-              const filteredOrders = [];
+        // Filtrar apenas pedidos onde o usuário é aprovador da obra de destino
+        const filteredOrders = [];
+        
+        for (const order of orders) {
+          if (order.purchaseOrderId) {
+            try {
+              // Verificar se o usuário é aprovador da obra de destino
+              const approverCheck = await pool.query(`
+                SELECT c.id, c.name, c.approver_id
+                FROM orders o
+                LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+                LEFT JOIN companies c ON oc.cnpj = c.cnpj
+                WHERE o.id = $1 AND c.approver_id = $2
+              `, [order.id, req.user.id]);
               
-              for (const order of orders) {
-                // 1. Incluir pedidos criados pela empresa (fornecedor)
-                if (order.supplierId === req.user.companyId) {
-                  filteredOrders.push(order);
-                  continue;
-                }
-                
-                // 2. Incluir pedidos destinados à empresa (obra de destino)
-                if (order.purchaseOrderId) {
-                  try {
-                    // Buscar a ordem de compra para verificar o CNPJ de destino
-                    const ordemCompraResult = await pool.query(
-                      "SELECT cnpj FROM ordens_compra WHERE id = $1",
-                      [order.purchaseOrderId]
-                    );
-                    
-                    if (ordemCompraResult.rows.length > 0) {
-                      const cnpjDestino = ordemCompraResult.rows[0].cnpj;
-                      
-                      // Verificar se o CNPJ de destino corresponde à empresa do usuário
-                      if (cnpjDestino === userCompany.cnpj) {
-                        filteredOrders.push(order);
-                      }
-                    }
-                  } catch (error) {
-                    console.error(`Erro ao verificar destino do pedido ${order.orderId}:`, error);
-                  }
-                }
+              if (approverCheck.rows.length > 0) {
+                filteredOrders.push(order);
+                console.log(`✅ Pedido ${order.orderId} incluído - usuário é aprovador da obra ${approverCheck.rows[0].name}`);
               }
-              
-              orders = filteredOrders;
-              console.log(`🔒 Usuário da empresa ${userCompany.name} - visualização restrita a pedidos próprios e destinados à empresa`);
-            } else {
-              console.log(`🔓 Usuário da empresa ${userCompany.name} - visualização irrestrita (empresa sem critérios)`);
+            } catch (error) {
+              console.error(`Erro ao verificar aprovação do pedido ${order.orderId}:`, error);
             }
           }
+        }
+        
+        orders = filteredOrders;
+        console.log(`🔒 Aprovador ${req.user.name} - visualização restrita a ${orders.length} pedidos onde é aprovador`);
+        
+      } else {
+        // Aplicar restrição baseada nos critérios da empresa do usuário (para não-aprovadores)
+        if (req.user && req.user.companyId && req.user.id !== 1 && !req.user.isKeyUser) {
+          // Buscar a empresa do usuário
+          const userCompany = await storage.getCompany(req.user.companyId);
+          
+          if (userCompany) {
+            // Buscar a categoria da empresa
+            const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+            
+            if (companyCategory) {
+              // Verificar se a empresa tem pelo menos 1 critério ativo
+              const hasAnyCriteria = companyCategory.requiresApprover || 
+                                   companyCategory.requiresContract || 
+                                   companyCategory.receivesPurchaseOrders;
+              
+              if (hasAnyCriteria) {
+                // Filtrar pedidos onde a empresa é fornecedora OU obra de destino
+                const filteredOrders = [];
+                
+                for (const order of orders) {
+                  // 1. Incluir pedidos criados pela empresa (fornecedor)
+                  if (order.supplierId === req.user.companyId) {
+                    filteredOrders.push(order);
+                    continue;
+                  }
+                  
+                  // 2. Incluir pedidos destinados à empresa (obra de destino)
+                  if (order.purchaseOrderId) {
+                    try {
+                      // Buscar a ordem de compra para verificar o CNPJ de destino
+                      const ordemCompraResult = await pool.query(
+                        "SELECT cnpj FROM ordens_compra WHERE id = $1",
+                        [order.purchaseOrderId]
+                      );
+                      
+                      if (ordemCompraResult.rows.length > 0) {
+                        const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+                        
+                        // Verificar se o CNPJ de destino corresponde à empresa do usuário
+                        if (cnpjDestino === userCompany.cnpj) {
+                          filteredOrders.push(order);
+                        }
+                      }
+                    } catch (error) {
+                      console.error(`Erro ao verificar destino do pedido ${order.orderId}:`, error);
+                    }
+                  }
+                }
+                
+                orders = filteredOrders;
+                console.log(`🔒 Usuário da empresa ${userCompany.name} - visualização restrita a pedidos próprios e destinados à empresa`);
+              } else {
+                console.log(`🔓 Usuário da empresa ${userCompany.name} - visualização irrestrita (empresa sem critérios)`);
+              }
+            }
+          }
+        } else {
+          console.log(`🔓 Usuário ${req.user.name} (ID: ${req.user.id}) - visualização irrestrita (KeyUser ou não tem empresa)`);
         }
       }
 
