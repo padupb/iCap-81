@@ -24,10 +24,13 @@ import {
 import { getStatusColor, formatDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import type { Order } from "@shared/schema";
+import OrderDetailDrawer from "@/components/OrderDetailDrawer";
 
 export default function Approvals() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const { data: urgentOrders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders/urgent"],
@@ -92,6 +95,11 @@ export default function Approvals() {
     rejectMutation.mutate(orderId);
   };
 
+  const handleOpenDetails = (order: Order) => {
+    setSelectedOrder(order);
+    setIsDrawerOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -110,9 +118,6 @@ export default function Approvals() {
           <CardTitle className="flex items-center">
             Pedidos Urgentes ({urgentOrders.length})
           </CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Pedidos com entrega em até 7 dias que necessitam aprovação. Acesso restrito a KeyUsers e aprovadores de empresas.
-          </p>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -138,7 +143,11 @@ export default function Approvals() {
                   );
 
                   return (
-                    <TableRow key={order.id} className="hover:bg-muted/50">
+                    <TableRow 
+                      key={order.id} 
+                      className="hover:bg-muted/50 cursor-pointer"
+                      onClick={() => handleOpenDetails(order)}
+                    >
                       <TableCell className="font-mono text-sm">
                         {order.orderId}
                       </TableCell>
@@ -164,15 +173,11 @@ export default function Approvals() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-muted-foreground hover:text-primary"
-                          >
-                            <Eye size={16} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
                             className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900"
-                            onClick={() => handleApprove(order.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleApprove(order.id);
+                            }}
                             disabled={approveMutation.isPending}
                           >
                             <CheckCircle size={16} />
@@ -181,7 +186,10 @@ export default function Approvals() {
                             variant="ghost"
                             size="sm"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900"
-                            onClick={() => handleReject(order.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReject(order.id);
+                            }}
                             disabled={rejectMutation.isPending}
                           >
                             <XCircle size={16} />
@@ -216,6 +224,12 @@ export default function Approvals() {
           )}
         </CardContent>
       </Card>
+
+      <OrderDetailDrawer
+        order={selectedOrder}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
     </div>
   );
 }
