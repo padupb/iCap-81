@@ -24,7 +24,7 @@ import {
 import { getStatusColor, formatDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import type { Order } from "@shared/schema";
-import OrderDetailDrawer from "@/components/OrderDetailDrawer";
+import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
 
 export default function Approvals() {
   const queryClient = useQueryClient();
@@ -226,9 +226,9 @@ export default function Approvals() {
       </Card>
 
       <OrderDetailDrawer
-        order={selectedOrder}
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
+        open={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
+        orderId={selectedOrder?.id || null}
       />
     </div>
   );
