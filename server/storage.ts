@@ -834,7 +834,6 @@ export class DatabaseStorage implements IStorage {
       workLocation: row.workLocation,
       deliveryDate: row.deliveryDate,
       status: row.status,
-      ```text
       isUrgent: row.isUrgent,
       userId: row.userId,
       createdAt: row.createdAt,
