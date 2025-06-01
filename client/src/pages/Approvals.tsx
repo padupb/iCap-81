@@ -32,7 +32,7 @@ export default function Approvals() {
   const { data: urgentOrders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders/urgent"],
   });
-  
+
   // Filtrar pedidos baseado no termo de busca
   const filteredOrders = urgentOrders.filter(order => 
     order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -94,15 +94,14 @@ export default function Approvals() {
 
   return (
     <div className="space-y-6">
-      {/* Campo de busca */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
-        <Input
-          placeholder="Buscar por ID, local da obra ou produto..."
-          className="pl-10 bg-input border-border"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Aprovações</h1>
+          <p className="text-muted-foreground">
+            Gerencie pedidos urgentes e aprovações necessárias
+          </p>
+        </div>
       </div>
 
       {/* Urgent Orders Table */}
@@ -110,7 +109,7 @@ export default function Approvals() {
         <CardHeader className="border-b border-border">
           <CardTitle className="flex items-center">
             <AlertTriangle className="text-yellow-500 mr-2" size={20} />
-            Pedidos Urgentes Pendentes ({filteredOrders.length} de {urgentOrders.length})
+            Pedidos Urgentes ({urgentOrders.length})
           </CardTitle>
           <p className="text-muted-foreground text-sm">
             Pedidos com entrega em até 7 dias que necessitam aprovação. Acesso restrito a KeyUsers e aprovadores de empresas.
@@ -138,7 +137,7 @@ export default function Approvals() {
                   const daysRemaining = Math.ceil(
                     (deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24)
                   );
-                  
+
                   return (
                     <TableRow key={order.id} className="hover:bg-muted/50">
                       <TableCell className="font-mono text-sm">
@@ -199,7 +198,7 @@ export default function Approvals() {
               </TableBody>
             </Table>
           </div>
-          
+
           {urgentOrders.length === 0 && !isLoading && (
             <div className="text-center py-12 text-muted-foreground">
               <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
@@ -219,48 +218,6 @@ export default function Approvals() {
               <p className="text-sm">Carregando pedidos urgentes...</p>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Guidelines Card */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle>Diretrizes de Aprovação</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4 text-sm text-muted-foreground">
-            <div className="flex items-start space-x-3">
-              <AlertTriangle className="text-yellow-500 mt-0.5" size={16} />
-              <div>
-                <p className="font-medium text-foreground">Critérios para Urgência</p>
-                <p>Pedidos com data de entrega inferior a 7 dias são automaticamente marcados como urgentes</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3">
-              <Clock className="text-primary mt-0.5" size={16} />
-              <div>
-                <p className="font-medium text-foreground">Tempo Limite</p>
-                <p>Aprovações devem ser processadas em até 48 horas após a criação do pedido</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3">
-              <CheckCircle className="text-green-500 mt-0.5" size={16} />
-              <div>
-                <p className="font-medium text-foreground">Aprovação</p>
-                <p>Aprovação muda o status do pedido para "Aprovado" e permite prosseguir para execução</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3">
-              <XCircle className="text-red-500 mt-0.5" size={16} />
-              <div>
-                <p className="font-medium text-foreground">Rejeição</p>
-                <p>Rejeição altera o status do pedido para "Cancelado" permanentemente</p>
-              </div>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
