@@ -211,8 +211,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         senhaCorreta = password === email;
       } else {
         // Verificar se a senha está hasheada ou em texto plano
-        const bcrypt = require('bcrypt');
         try {
+          const bcrypt = await import('bcrypt');
           // Tentar verificar como hash bcrypt
           senhaCorreta = await bcrypt.compare(password, user.password);
         } catch (error) {
@@ -408,7 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Hash da nova senha
-      const bcrypt = require('bcrypt');
+      const bcrypt = await import('bcrypt');
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       // Atualizar senha e marcar primeiro_login como false
@@ -462,7 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Hash da senha padrão
-      const bcrypt = require('bcrypt');
+      const bcrypt = await import('bcrypt');
       const hashedPassword = await bcrypt.hash('icap123', 10);
 
       // Atualizar senha para padrão e marcar primeiro_login como true
