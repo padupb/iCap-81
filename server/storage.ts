@@ -835,6 +835,9 @@ export class DatabaseStorage implements IStorage {
   async getUrgentOrdersForApprover(userId: number): Promise<Order[]> {
     console.log(`🔍 Buscando pedidos urgentes para aprovador ID: ${userId}`);
     
+    // Importar pool dinamicamente
+    const { pool } = await import("./db");
+    
     // Buscar pedidos urgentes que precisam de aprovação baseado no critério empresa/obra
     const result = await pool.query(`
       SELECT DISTINCT
