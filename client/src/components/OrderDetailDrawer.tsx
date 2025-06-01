@@ -1124,12 +1124,17 @@ export function OrderDetailDrawer({
                     value="documents"
                     className="flex items-center gap-1"
                     disabled={(() => {
-                      // 1. Verificar se o usuário tem permissão can_confirm_delivery
+                      // 1. Se o pedido for cancelado, bloquear todas as abas
+                      if (orderDetails.quantidade === 0) {
+                        return true;
+                      }
+
+                      // 2. Verificar se o usuário tem permissão can_confirm_delivery
                       if (!user?.canConfirmDelivery) {
                         return true;
                       }
 
-                      // 2. Verificar se é pedido urgente e não foi aprovado
+                      // 3. Verificar se é pedido urgente e não foi aprovado
                       const deliveryDate = new Date(orderDetails.deliveryDate);
                       const today = new Date();
                       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1149,6 +1154,14 @@ export function OrderDetailDrawer({
                   <TabsTrigger
                     value="confirm"
                     className="flex items-center gap-1"
+                    disabled={(() => {
+                      // 1. Se o pedido for cancelado, bloquear todas as abas
+                      if (orderDetails.quantidade === 0) {
+                        return true;
+                      }
+
+                      return false;
+                    })()}
                   >
                     <CircleCheck size={16} />
                     <span>Confirmar Entrega</span>
@@ -1156,6 +1169,14 @@ export function OrderDetailDrawer({
                   <TabsTrigger
                     value="tracking"
                     className="flex items-center gap-1"
+                    disabled={(() => {
+                      // 1. Se o pedido for cancelado, bloquear todas as abas
+                      if (orderDetails.quantidade === 0) {
+                        return true;
+                      }
+
+                      return false;
+                    })()}
                   >
                     <MapPin size={16} />
                     <span>Rastreamento</span>
@@ -1245,7 +1266,22 @@ export function OrderDetailDrawer({
                     {/* Coluna 2 - QR Code */}
                     <div className="flex justify-center items-start">
                       {(() => {
-                        // Verificar se é pedido urgente e não foi aprovado
+                        // Verificar se o pedido foi cancelado
+                        if (orderDetails.quantidade === 0) {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-6 border border-red-200 rounded-lg bg-red-50 mt-4">
+                              <AlertCircle className="h-12 w-12 text-red-600 mb-2" />
+                              <h3 className="text-lg font-medium text-red-800 text-center">
+                                Pedido Cancelado
+                              </h3>
+                              <p className="text-sm text-red-700 text-center mt-2">
+                                Este pedido foi cancelado e não pode ser processado.
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        // 3. Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = new Date(orderDetails.deliveryDate);
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1443,12 +1479,17 @@ export function OrderDetailDrawer({
                       <CardTitle>Documentos do Pedido</CardTitle>
                       <CardDescription>
                         {(() => {
-                          // Verificar se o usuário tem permissão can_confirm_delivery
+                          // 1. Se o pedido for cancelado, informar que não pode prosseguir
+                          if (orderDetails.quantidade === 0) {
+                            return "Este pedido foi cancelado e não pode prosseguir com o envio de documentos.";
+                          }
+
+                          // 2. Verificar se o usuário tem permissão can_confirm_delivery
                           if (!user?.canConfirmDelivery) {
                             return "Você não tem permissão para acessar os documentos. Apenas usuários autorizados podem visualizar esta seção.";
                           }
 
-                          // Verificar se é pedido urgente e não foi aprovado
+                          // 3. Verificar se é pedido urgente e não foi aprovado
                           const deliveryDate = new Date(orderDetails.deliveryDate);
                           const today = new Date();
                           const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1464,7 +1505,22 @@ export function OrderDetailDrawer({
                     </CardHeader>
                     <CardContent>
                       {(() => {
-                        // 1. Verificar se o usuário tem permissão can_confirm_delivery
+                        // 1. Se o pedido for cancelado, mostrar aviso de cancelamento
+                        if (orderDetails.quantidade === 0) {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-8 border border-red-200 rounded-lg bg-red-50">
+                              <AlertCircle className="h-16 w-16 text-red-600 mb-4" />
+                              <h3 className="text-xl font-medium text-red-800 mb-2">
+                                Pedido Cancelado
+                              </h3>
+                              <p className="text-sm text-red-700 text-center max-w-md">
+                                Este pedido foi cancelado e não pode ser processado.
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        // 2. Verificar se o usuário tem permissão can_confirm_delivery
                         if (!user?.canConfirmDelivery) {
                           return (
                             <div className="flex flex-col items-center justify-center p-8 border border-red-200 rounded-lg bg-red-50">
@@ -1482,7 +1538,7 @@ export function OrderDetailDrawer({
                           );
                         }
 
-                        // 2. Verificar se é pedido urgente e não foi aprovado
+                        // 3. Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = new Date(orderDetails.deliveryDate);
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1866,12 +1922,17 @@ export function OrderDetailDrawer({
                       })()}
                     </CardContent>
                     {(() => {
-                      // 1. Verificar se o usuário tem permissão can_confirm_delivery
+                      // 1. Se o pedido for cancelado, não mostrar o botão de upload
+                      if (orderDetails.quantidade === 0) {
+                        return null;
+                      }
+
+                      // 2. Verificar se o usuário tem permissão can_confirm_delivery
                       if (!user?.canConfirmDelivery) {
                         return null;
                       }
 
-                      // 2. Verificar se é pedido urgente e não foi aprovado
+                      // 3. Verificar se é pedido urgente e não foi aprovado
                       const deliveryDate = new Date(orderDetails.deliveryDate);
                       const today = new Date();
                       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime())/(1000 * 3600 * 24));
