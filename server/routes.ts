@@ -1359,11 +1359,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Buscar informações da ordem de compra
-      const ordemResult = await pool.query(
-        "SELECT numero_ordem, pdf_url FROM ordens_compra WHERE id = $1",
-        [id]
-      );
+      // Buscar informações da ordem de compra (verificar se coluna pdf_url existe)
+      let ordemResult;
+      try {
+        ordemResult = await pool.query(
+          "SELECT numero_ordem, pdf_url FROM ordens_compra WHERE id = $1",
+          [id]
+        );
+      } catch (columnError) {
+        // Se a coluna pdf_url não existir, buscar apenas o número da ordem
+        console.log("⚠️ Coluna pdf_url não existe, buscando apenas numero_ordem");
+        ordemResult = await pool.query(
+          "SELECT numero_ordem FROM ordens_compra WHERE id = $1",
+          [id]
+        );
+      }
 
       if (!ordemResult.rows.length) {
         return res.status(404).json({
@@ -1373,29 +1383,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const ordem = ordemResult.rows[0];
+      console.log(`🔍 Buscando PDF para ordem: ${ordem.numero_ordem}`);
 
-      // Verificar se existe PDF_URL na base de dados
+      // 1. Verificar se existe PDF_URL na base de dados (se a coluna existir)
       if (ordem.pdf_url) {
-        const pdfPath = path.join(process.cwd(), "public", ordem.pdf_url);
+        console.log(`📁 Tentando PDF pelo pdf_url: ${ordem.pdf_url}`);
+        let pdfPath;
+        
+        // Se começar com /, é um caminho absoluto do sistema
+        if (ordem.pdf_url.startsWith('/')) {
+          pdfPath = path.join(process.cwd(), "public", ordem.pdf_url);
+        } else {
+          pdfPath = path.join(process.cwd(), ordem.pdf_url);
+        }
+        
         if (fs.existsSync(pdfPath)) {
+          console.log(`✅ PDF encontrado em: ${pdfPath}`);
           res.setHeader("Content-Type", "application/pdf");
           res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
           return res.sendFile(pdfPath);
+        } else {
+          console.log(`❌ PDF não encontrado em: ${pdfPath}`);
         }
       }
 
-      // Tentar buscar o arquivo na pasta uploads usando o número da ordem
+      // 2. Tentar buscar o arquivo na pasta uploads usando o número da ordem
       const uploadsPath = path.join(process.cwd(), "uploads", `${ordem.numero_ordem}.pdf`);
+      console.log(`📁 Tentando PDF em uploads: ${uploadsPath}`);
+      
       if (fs.existsSync(uploadsPath)) {
+        console.log(`✅ PDF encontrado em uploads: ${uploadsPath}`);
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
         return res.sendFile(uploadsPath);
+      } else {
+        console.log(`❌ PDF não encontrado em uploads: ${uploadsPath}`);
+      }
+
+      // 3. Listar arquivos disponíveis para debug
+      const uploadsDir = path.join(process.cwd(), "uploads");
+      if (fs.existsSync(uploadsDir)) {
+        const files = fs.readdirSync(uploadsDir).filter(f => f.endsWith('.pdf'));
+        console.log(`📋 PDFs disponíveis em uploads:`, files);
       }
 
       // Se não encontrar o arquivo
       return res.status(404).json({
         sucesso: false,
-        mensagem: "PDF da ordem de compra não encontrado"
+        mensagem: `PDF da ordem de compra ${ordem.numero_ordem} não encontrado. Verifique se o arquivo foi enviado.`
       });
 
     } catch (error) {
