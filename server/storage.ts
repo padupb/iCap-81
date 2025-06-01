@@ -838,6 +838,16 @@ export class DatabaseStorage implements IStorage {
     // Importar pool dinamicamente
     const { pool } = await import("./db");
     
+    // Primeiro, verificar de quais empresas o usuário é aprovador
+    const approverCompaniesResult = await pool.query(`
+      SELECT id, name, cnpj FROM companies WHERE approver_id = $1
+    `, [userId]);
+    
+    console.log(`👔 Usuário ${userId} é aprovador de ${approverCompaniesResult.rows.length} empresa(s):`);
+    approverCompaniesResult.rows.forEach((company: any) => {
+      console.log(`  - ${company.name} (CNPJ: ${company.cnpj})`);
+    });
+    
     // Buscar pedidos urgentes que precisam de aprovação baseado no critério obra de destino
     // O usuário deve ser aprovador da empresa que corresponde ao CNPJ da obra de destino
     const result = await pool.query(`
@@ -855,7 +865,10 @@ export class DatabaseStorage implements IStorage {
         o.is_urgent as "isUrgent",
         o.user_id as "userId",
         o.created_at as "createdAt",
-        c_obra_destino.name as "obraDestinoNome"
+        oc.numero_ordem as "numeroOrdem",
+        oc.cnpj as "cnpjDestino",
+        c_obra_destino.name as "obraDestinoNome",
+        c_obra_destino.approver_id as "obraApproverId"
       FROM orders o
       LEFT JOIN products p ON o.product_id = p.id
       LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
@@ -869,9 +882,40 @@ export class DatabaseStorage implements IStorage {
     console.log(`📊 Storage: encontrados ${result.rows.length} pedidos urgentes onde usuário ${userId} é aprovador da obra de destino`);
     
     // Log detalhado para debug
-    result.rows.forEach((row: any) => {
-      console.log(`  - Pedido ${row.orderId}: obra destino "${row.obraDestinoNome}"`);
-    });
+    if (result.rows.length > 0) {
+      console.log(`📋 Detalhes dos pedidos urgentes:`);
+      result.rows.forEach((row: any) => {
+        console.log(`  - Pedido ${row.orderId}:`);
+        console.log(`    • Ordem: ${row.numeroOrdem}`);
+        console.log(`    • CNPJ destino: ${row.cnpjDestino}`);
+        console.log(`    • Obra: ${row.obraDestinoNome}`);
+        console.log(`    • Aprovador da obra: ${row.obraApproverId}`);
+        console.log(`    • Status: ${row.status}`);
+      });
+    } else {
+      console.log(`🤔 Nenhum pedido encontrado. Verificando todos os pedidos urgentes...`);
+      
+      // Debug: mostrar todos os pedidos urgentes registrados
+      const allUrgentResult = await pool.query(`
+        SELECT 
+          o.order_id,
+          o.status,
+          o.is_urgent,
+          oc.numero_ordem,
+          oc.cnpj,
+          c.name as obra_nome,
+          c.approver_id
+        FROM orders o
+        LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+        LEFT JOIN companies c ON oc.cnpj = c.cnpj
+        WHERE o.is_urgent = true AND o.status = 'Registrado'
+      `);
+      
+      console.log(`🔍 Todos os pedidos urgentes registrados (${allUrgentResult.rows.length}):`);
+      allUrgentResult.rows.forEach((row: any) => {
+        console.log(`  - ${row.order_id}: obra "${row.obra_nome}" (aprovador: ${row.approver_id})`);
+      });
+    }
     
     return result.rows.map((row: any) => ({
       id: row.id,
