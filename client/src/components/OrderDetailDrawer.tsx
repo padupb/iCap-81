@@ -996,8 +996,7 @@ export function OrderDetailDrawer({
                     <div className="detail-value">${orderDetails.supplier?.name || "N/A"}</div>
                   </div>
 
-                  <div className="detail-item">```text
-
+                  <div className="detail-item">
                     <div className="detail-label">Data de Entrega</div>
                     <div className="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
                   </div>
@@ -1872,7 +1871,8 @@ export function OrderDetailDrawer({
                                 <label className="text-sm font-medium">
                                   Certificado de Qualidade (PDF)
                                 </label>
-                                <p className="text-xs text-muted-foreground">                                  {certificadoPdf
+                                <p className="text-xs text-muted-foreground">
+                                  {certificadoPdf
                                     ? `${certificadoPdf.name} (${Math.round(certificadoPdf.size / 1024)} KB)`
                                     : "Clique no ícone para selecionar o certificado de qualidade do produto"}
                                 </p>
