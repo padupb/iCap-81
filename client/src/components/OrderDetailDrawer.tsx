@@ -2227,3 +2227,124 @@ export function OrderDetailDrawer({
     </Drawer>
   );
 }
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
+import { X, MapPin, Calendar, Package, Building2, User } from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import type { Order } from "@shared/schema";
+
+interface OrderDetailDrawerProps {
+  order: Order | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function OrderDetailDrawer({ order, isOpen, onClose }: OrderDetailDrawerProps) {
+  if (!order) return null;
+
+  return (
+    <Drawer open={isOpen} onOpenChange={onClose}>
+      <DrawerContent className="max-h-[90vh]">
+        <DrawerHeader className="border-b">
+          <div className="flex items-center justify-between">
+            <DrawerTitle className="text-xl font-semibold">
+              Detalhes do Pedido {order.orderId}
+            </DrawerTitle>
+            <DrawerClose asChild>
+              <Button variant="ghost" size="sm">
+                <X size={16} />
+              </Button>
+            </DrawerClose>
+          </div>
+        </DrawerHeader>
+
+        <div className="p-6 space-y-6 overflow-y-auto">
+          {/* Status e Informações Básicas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center">
+                <Package className="mr-2" size={16} />
+                Produto
+              </h3>
+              <p className="text-sm">{order.productName || `Produto ID: ${order.productId}`}</p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground">Quantidade</h3>
+              <p className="text-sm">{order.quantity}</p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center">
+                <MapPin className="mr-2" size={16} />
+                Local da Obra
+              </h3>
+              <p className="text-sm">{order.workLocation}</p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center">
+                <Calendar className="mr-2" size={16} />
+                Data de Entrega
+              </h3>
+              <p className="text-sm">{formatDate(order.deliveryDate)}</p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+              <Badge variant="secondary">{order.status}</Badge>
+            </div>
+
+            {order.isUrgent && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground">Prioridade</h3>
+                <Badge variant="destructive">Urgente</Badge>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Informações Adicionais */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Informações Adicionais</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Data de Criação</h4>
+                <p className="text-sm">{formatDate(order.createdAt)}</p>
+              </div>
+
+              {order.updatedAt && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground">Última Atualização</h4>
+                  <p className="text-sm">{formatDate(order.updatedAt)}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Dias Restantes */}
+          <div className="bg-muted/50 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-muted-foreground mb-2">Prazo de Entrega</h4>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Dias restantes:</span>
+              <Badge 
+                variant={
+                  Math.ceil((new Date(order.deliveryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) <= 2 
+                    ? "destructive" 
+                    : "secondary"
+                }
+              >
+                {Math.ceil((new Date(order.deliveryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))} dias
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
