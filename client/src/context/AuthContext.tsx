@@ -125,22 +125,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fazer logout
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", {
+      console.log("🚪 Iniciando processo de logout...");
+      
+      // Fazer requisição de logout
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include"
       });
 
+      console.log("📡 Resposta do logout:", response.status);
+
+      // Limpar estado local independente da resposta
       setUser(null);
+      
+      // Navegar para login
       navigate("/login");
-      toast({
-        title: "Logout realizado",
-        description: "Você foi desconectado com sucesso"
-      });
+      
+      // Mostrar toast apenas se não estiver em um processo de reset de senha
+      if (!window.location.pathname.includes('reset')) {
+        toast({
+          title: "Logout realizado",
+          description: "Você foi desconectado com sucesso"
+        });
+      }
+      
+      console.log("✅ Logout concluído com sucesso");
+      
     } catch (error) {
-      console.error("Erro ao fazer logout", error);
+      console.error("❌ Erro ao fazer logout:", error);
+      
       // Mesmo com erro, desconectar o usuário localmente
       setUser(null);
       navigate("/login");
+      
+      console.log("🔄 Logout forçado devido a erro");
     }
   };
 

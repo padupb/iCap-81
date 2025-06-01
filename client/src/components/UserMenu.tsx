@@ -88,16 +88,40 @@ export function UserMenu() {
 
         // Aguardar um pouco para o usuário ler a mensagem
         setTimeout(async () => {
+          console.log("🔄 Iniciando processo de logout após reset de senha");
+          
           try {
-            // Fazer logout e redirecionar para login
-            await logout();
+            // Fechar o menu primeiro
             setIsOpen(false);
+            
+            // Tentar fazer logout usando a função do contexto
+            console.log("🚪 Tentando logout via contexto...");
+            await logout();
+            console.log("✅ Logout via contexto realizado");
+            
           } catch (logoutError) {
-            console.error("Erro no logout:", logoutError);
-            // Mesmo com erro no logout, redirecionar
-            window.location.href = '/login';
+            console.error("❌ Erro no logout via contexto:", logoutError);
+            
+            try {
+              // Fallback: fazer logout manual via API
+              console.log("🔄 Tentando logout manual via API...");
+              const logoutResponse = await fetch("/api/auth/logout", {
+                method: "POST",
+                credentials: "include"
+              });
+              
+              if (logoutResponse.ok) {
+                console.log("✅ Logout manual realizado");
+              }
+            } catch (manualLogoutError) {
+              console.error("❌ Erro no logout manual:", manualLogoutError);
+            }
+            
+            // Forçar redirecionamento independente do resultado
+            console.log("🔄 Forçando redirecionamento para /login");
+            window.location.replace('/login');
           }
-        }, 2000);
+        }, 2500);
 
       } else {
         console.error("❌ Erro ao resetar senha:", result.message);

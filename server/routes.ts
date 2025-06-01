@@ -354,25 +354,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", (req, res) => {
+    console.log("🚪 Requisição de logout recebida. Session userId:", req.session.userId);
+    
     if (req.session.userId) {
+      const userId = req.session.userId;
+      
       req.session.destroy((err) => {
         if (err) {
-          console.error("Erro ao fazer logout:", err);
+          console.error("❌ Erro ao destruir sessão no logout:", err);
           return res.status(500).json({ 
             success: false, 
             message: "Erro ao fazer logout" 
           });
         }
 
+        console.log(`✅ Logout realizado com sucesso para usuário ${userId}`);
+        
         res.json({ 
           success: true, 
           message: "Logout realizado com sucesso" 
         });
       });
     } else {
-      res.status(401).json({ 
-        success: false, 
-        message: "Não autenticado" 
+      console.log("⚠️ Tentativa de logout sem sessão ativa");
+      
+      // Mesmo sem sessão, retornar sucesso para não bloquear o logout no frontend
+      res.json({ 
+        success: true, 
+        message: "Logout realizado (sem sessão ativa)" 
       });
     }
   });
