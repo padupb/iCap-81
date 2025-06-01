@@ -359,17 +359,22 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const orderId = this.generateOrderId();
 
-    // Check if order is urgent (delivery date < 7 days)
+    // Check if order is urgent (delivery date <= 7 days)
     const deliveryDate = new Date(insertOrder.deliveryDate);
     const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
-    const isUrgent = daysDiff < 7;
+    const isUrgent = daysDiff <= 7;
+
+    // Definir status baseado na urgência:
+    // - Pedidos urgentes: "Registrado" (precisam de aprovação)
+    // - Pedidos não urgentes: "Aprovado" (aprovação automática)
+    const status = isUrgent ? "Registrado" : "Aprovado";
 
     const order: Order = {
       ...insertOrder,
       id,
       orderId,
       isUrgent,
-      status: isUrgent ? "Em Aprovação" : "Registrado",
+      status,
       createdAt: now
     };
 
@@ -952,10 +957,16 @@ export class DatabaseStorage implements IStorage {
     const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
     const isUrgent = daysDiff <= 7; // Pedidos com entrega em 7 dias ou menos são urgentes
 
+    // Definir status baseado na urgência:
+    // - Pedidos urgentes: "Registrado" (precisam de aprovação)
+    // - Pedidos não urgentes: "Aprovado" (aprovação automática)
+    const status = isUrgent ? "Registrado" : "Aprovado";
+
     console.log(`📅 Verificação de urgência para pedido ${orderId}:`, {
       deliveryDate: deliveryDate.toISOString(),
       daysDiff,
-      isUrgent
+      isUrgent,
+      status
     });
 
     // Inserir a ordem no banco de dados
@@ -963,6 +974,7 @@ export class DatabaseStorage implements IStorage {
       ...insertOrder,
       orderId,
       isUrgent,
+      status,
       createdAt: new Date()
     }).returning();
 

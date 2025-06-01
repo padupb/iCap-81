@@ -1045,13 +1045,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deliveryDate = new Date(orderData.deliveryDate);
       const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
       const isUrgent = daysDiff <= 7;
-      const status = isUrgent ? "Registrado" : "Registrado"; // Pedidos urgentes ficam "Registrado" aguardando aprovação
+      
+      // Definir status baseado na urgência:
+      // - Pedidos urgentes: "Registrado" (precisam de aprovação)
+      // - Pedidos não urgentes: "Aprovado" (aprovação automática)
+      const status = isUrgent ? "Registrado" : "Aprovado";
 
       console.log(`📋 Criando pedido:`, {
         deliveryDate: deliveryDate.toISOString(),
         daysDiff,
         isUrgent,
-        status
+        status: status,
+        autoApproved: !isUrgent
       });
 
       // Criar o pedido usando o storage
@@ -1062,7 +1067,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supplierId: orderData.supplierId,
         deliveryDate: deliveryDate,
         userId: orderData.userId || req.session.userId || 1,
-        status: status,
         workLocation: orderData.workLocation || "Conforme ordem de compra"
       });
 
