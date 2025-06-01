@@ -512,7 +512,7 @@ export class MemStorage implements IStorage {
 
 // Substituindo o armazenamento em memória pelo de banco de dados
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import bcrypt from 'bcrypt';
 
 // Implementação de armazenamento com banco de dados

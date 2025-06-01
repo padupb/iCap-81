@@ -870,9 +870,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/orders/urgent", isAuthenticated, async (req, res) => {
     try {
-      let urgentOrders = await storage.getUrgentOrders();
+      // CONTROLE DE ACESSO PARA PEDIDOS URGENTES
+      // Apenas usuários com perfil específico podem visualizar pedidos urgentes
+      let hasAccessToUrgentOrders = false;
+      
+      // 1. Verificar se é o usuário KeyUser (ID = 1)
+      if (req.user.id === 1 || req.user.isKeyUser === true) {
+        hasAccessToUrgentOrders = true;
+        console.log(`🔑 Acesso liberado para pedidos urgentes - KeyUser: ${req.user.name}`);
+      } else if (req.user.companyId) {
+        // 2. Verificar se o usuário é aprovador da empresa
+        const userCompany = await storage.getCompany(req.user.companyId);
+        
+        if (userCompany && userCompany.approverId === req.user.id) {
+          hasAccessToUrgentOrders = true;
+          console.log(`✅ Acesso liberado para pedidos urgentes - Aprovador da empresa: ${userCompany.name}`);
+        }
+      }
+      
+      // Se não tem acesso, retornar array vazio
+      if (!hasAccessToUrgentOrders) {
+        console.log(`🔒 Acesso negado para pedidos urgentes - Usuário: ${req.user.name} (ID: ${req.user.id})`);
+        return res.json([]);
+      }
 
-      // Aplicar restrição baseada nos critérios da empresa do usuário
+      // Buscar pedidos urgentes
+      let urgentOrders = await storage.getUrgentOrders();
+      
+      console.log(`📊 Total de pedidos urgentes encontrados: ${urgentOrders.length}`);
+
+      // Para KeyUser, mostrar todos os pedidos urgentes sem filtro adicional
+      if (req.user.id === 1 || req.user.isKeyUser === true) {
+        console.log(`🔑 KeyUser - exibindo todos os ${urgentOrders.length} pedidos urgentes`);
+        return res.json(urgentOrders);
+      }
+
+      // Para aprovadores, aplicar filtros baseados na empresa
       if (req.user && req.user.companyId) {
         // Buscar a empresa do usuário
         const userCompany = await storage.getCompany(req.user.companyId);
@@ -922,7 +955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               urgentOrders = filteredUrgentOrders;
-              console.log(`🔒 Pedidos urgentes - visualização restrita à empresa ${userCompany.name} (próprios e destinados)`);
+              console.log(`🔒 Aprovador da empresa ${userCompany.name} - ${urgentOrders.length} pedidos urgentes filtrados`);
             }
           }
         }
@@ -2766,6 +2799,140 @@ mensagem: "Erro interno do servidor ao processar o upload",
         sucesso: false, 
         mensagem: "Erro ao adicionar ponto de rastreamento",
         erro: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  // Rota para aprovar pedido
+  app.put("/api/orders/:id/approve", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      // Verificar se o usuário tem permissão para aprovar
+      let hasApprovalPermission = false;
+      
+      if (req.user.id === 1 || req.user.isKeyUser === true) {
+        hasApprovalPermission = true;
+      } else if (req.user.companyId) {
+        const userCompany = await storage.getCompany(req.user.companyId);
+        if (userCompany && userCompany.approverId === req.user.id) {
+          hasApprovalPermission = true;
+        }
+      }
+
+      if (!hasApprovalPermission) {
+        return res.status(403).json({ 
+          sucesso: false, 
+          mensagem: "Sem permissão para aprovar pedidos" 
+        });
+      }
+
+      // Verificar se o pedido existe
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      // Atualizar status do pedido para "Aprovado"
+      await pool.query(
+        "UPDATE orders SET status = $1 WHERE id = $2",
+        ["Aprovado", id]
+      );
+
+      // Registrar log
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Aprovação de pedido",
+        itemType: "order",
+        itemId: id.toString(),
+        details: `Pedido ${order.orderId} foi aprovado`
+      });
+
+      res.json({ 
+        sucesso: true, 
+        mensagem: "Pedido aprovado com sucesso" 
+      });
+    } catch (error) {
+      console.error("Erro ao aprovar pedido:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao aprovar pedido" 
+      });
+    }
+  });
+
+  // Rota para rejeitar pedido
+  app.put("/api/orders/:id/reject", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      // Verificar se o usuário tem permissão para rejeitar
+      let hasApprovalPermission = false;
+      
+      if (req.user.id === 1 || req.user.isKeyUser === true) {
+        hasApprovalPermission = true;
+      } else if (req.user.companyId) {
+        const userCompany = await storage.getCompany(req.user.companyId);
+        if (userCompany && userCompany.approverId === req.user.id) {
+          hasApprovalPermission = true;
+        }
+      }
+
+      if (!hasApprovalPermission) {
+        return res.status(403).json({ 
+          sucesso: false, 
+          mensagem: "Sem permissão para rejeitar pedidos" 
+        });
+      }
+
+      // Verificar se o pedido existe
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      // Atualizar status do pedido para "Cancelado"
+      await pool.query(
+        "UPDATE orders SET status = $1 WHERE id = $2",
+        ["Cancelado", id]
+      );
+
+      // Registrar log
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Rejeição de pedido",
+        itemType: "order",
+        itemId: id.toString(),
+        details: `Pedido ${order.orderId} foi rejeitado`
+      });
+
+      res.json({ 
+        sucesso: true, 
+        mensagem: "Pedido rejeitado com sucesso" 
+      });
+    } catch (error) {
+      console.error("Erro ao rejeitar pedido:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao rejeitar pedido" 
       });
     }
   });

@@ -113,7 +113,7 @@ export default function Approvals() {
             Pedidos Urgentes Pendentes ({filteredOrders.length} de {urgentOrders.length})
           </CardTitle>
           <p className="text-muted-foreground text-sm">
-            Pedidos com data de entrega inferior a 7 dias que necessitam aprovação
+            Pedidos marcados como urgentes que necessitam aprovação. Acesso restrito a KeyUsers e aprovadores de empresas.
           </p>
         </CardHeader>
         <CardContent className="p-0">
@@ -200,13 +200,23 @@ export default function Approvals() {
             </Table>
           </div>
           
-          {urgentOrders.length === 0 && (
+          {urgentOrders.length === 0 && !isLoading && (
             <div className="text-center py-12 text-muted-foreground">
               <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
               <h3 className="text-lg font-medium mb-2">Nenhum pedido urgente pendente</h3>
               <p className="text-sm">
-                Todos os pedidos urgentes foram processados com sucesso!
+                Não há pedidos urgentes disponíveis para aprovação.
               </p>
+              <p className="text-xs mt-2 text-muted-foreground">
+                Apenas KeyUsers e aprovadores de empresas podem visualizar pedidos urgentes.
+              </p>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="text-center py-12 text-muted-foreground">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-sm">Carregando pedidos urgentes...</p>
             </div>
           )}
         </CardContent>
