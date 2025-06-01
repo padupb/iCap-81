@@ -44,8 +44,10 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const userFormSchema = insertUserSchema;
+const createUserFormSchema = insertUserSchema.omit({ password: true });
 
 type UserFormData = z.infer<typeof userFormSchema>;
+type CreateUserFormData = z.infer<typeof createUserFormSchema>;
 
 export default function Users() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -134,13 +136,12 @@ export default function Users() {
     },
   });
 
-  const form = useForm<UserFormData>({
-    resolver: zodResolver(userFormSchema),
+  const form = useForm<CreateUserFormData>({
+    resolver: zodResolver(createUserFormSchema),
     defaultValues: {
       name: "",
       email: "",
       phone: "",
-      password: "",
       companyId: undefined,
       roleId: undefined,
       canConfirmDelivery: false,
@@ -151,8 +152,13 @@ export default function Users() {
     resolver: zodResolver(userFormSchema.omit({ password: true })),
   });
 
-  const onSubmit = (data: UserFormData) => {
-    createUserMutation.mutate(data);
+  const onSubmit = (data: CreateUserFormData) => {
+    // Adicionar a senha padrão automaticamente
+    const userDataWithPassword = {
+      ...data,
+      password: "icap123"
+    };
+    createUserMutation.mutate(userDataWithPassword);
   };
 
   const onEditSubmit = (data: Omit<UserFormData, 'password'>) => {
@@ -283,48 +289,27 @@ export default function Users() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telefone</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="(11) 99999-9999"
-                            className="bg-input border-border"
-                            value={field.value === null ? "" : field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            ref={field.ref}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Senha</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="••••••••"
-                            className="bg-input border-border"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="(11) 99999-9999"
+                          className="bg-input border-border"
+                          value={field.value === null ? "" : field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
