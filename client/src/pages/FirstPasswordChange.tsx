@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,15 +14,46 @@ export default function FirstPasswordChange() {
     confirmPassword: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const { toast } = useToast();
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
+
+  // Buscar informações do usuário logado
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.user) {
+            setCurrentUser(data.user);
+            console.log("👤 Usuário identificado na tela de alteração de senha:", data.user);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar informações do usuário:", error);
+      }
+    };
+
+    // Usar o usuário do contexto se disponível, senão buscar via API
+    if (user) {
+      setCurrentUser(user);
+      console.log("👤 Usuário do contexto:", user);
+    } else {
+      fetchUserInfo();
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     console.log("🔄 Iniciando alteração de senha...");
-    console.log("👤 Usuário:", user);
+    console.log("👤 Usuário do contexto:", user);
+    console.log("👤 Usuário atual:", currentUser);
     console.log("📝 Dados do formulário:", {
       newPasswordLength: formData.newPassword?.length,
       confirmPasswordLength: formData.confirmPassword?.length,
@@ -66,12 +97,17 @@ export default function FirstPasswordChange() {
       return;
     }
 
-    if (!user?.id) {
+    // Usar currentUser ou user como fallback
+    const activeUser = currentUser || user;
+    
+    if (!activeUser?.id) {
       toast({
         title: "Erro",
         description: "Usuário não identificado. Faça login novamente.",
         variant: "destructive"
       });
+      // Redirecionar para login se não conseguir identificar o usuário
+      setLocation('/login');
       return;
     }
 
@@ -79,13 +115,14 @@ export default function FirstPasswordChange() {
 
     try {
       const requestData = {
-        userId: user.id,
+        userId: activeUser.id,
         newPassword: formData.newPassword.trim(),
         confirmPassword: formData.confirmPassword.trim()
       };
 
       console.log("📤 Enviando dados:", {
         userId: requestData.userId,
+        userName: activeUser.name,
         newPasswordLength: requestData.newPassword.length,
         confirmPasswordLength: requestData.confirmPassword.length
       });

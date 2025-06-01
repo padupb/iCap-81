@@ -233,6 +233,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar se é o primeiro login
       if (user.primeiroLogin) {
+        console.log("🔑 Primeiro login detectado para usuário:", user.name);
+        
+        // Salvar o ID do usuário na sessão mesmo no primeiro login
+        req.session.userId = user.id;
+        
         return res.json({
           success: true,
           requiresPasswordChange: true,
@@ -376,6 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/change-first-password", async (req, res) => {
     try {
       console.log("📝 Dados recebidos para alteração de senha:", req.body);
+      console.log("📝 Session userId:", req.session.userId);
       
       const { userId, newPassword, confirmPassword } = req.body;
 
@@ -388,13 +394,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         confirmPasswordLength: confirmPassword?.length
       });
 
-      if (!userId) {
-        console.log("❌ UserId não fornecido");
+      // Usar userId do body ou da sessão como fallback
+      const finalUserId = userId || req.session.userId;
+      
+      if (!finalUserId) {
+        console.log("❌ UserId não fornecido nem na requisição nem na sessão");
         return res.status(400).json({
           success: false,
           message: "ID do usuário é obrigatório"
         });
       }
+      
+      console.log("✅ Usando userId:", finalUserId);
 
       if (!newPassword || newPassword.trim() === "") {
         console.log("❌ Nova senha não fornecida");
@@ -429,9 +440,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Buscar o usuário
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(finalUserId);
       if (!user) {
-        console.log("❌ Usuário não encontrado:", userId);
+        console.log("❌ Usuário não encontrado:", finalUserId);
         return res.status(404).json({
           success: false,
           message: "Usuário não encontrado"
@@ -447,7 +458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🔐 Senha hasheada com sucesso");
 
       // Atualizar senha e marcar primeiro_login como false
-      await storage.updateUser(userId, {
+      await storage.updateUser(finalUserId, {
         password: hashedPassword,
         primeiroLogin: false
       });
@@ -456,10 +467,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Log da ação
       await storage.createLog({
-        userId: userId,
+        userId: finalUserId,
         action: "Alteração de senha no primeiro login",
         itemType: "user",
-        itemId: userId.toString(),
+        itemId: finalUserId.toString(),
         details: "Usuário alterou senha no primeiro acesso"
       });
 
