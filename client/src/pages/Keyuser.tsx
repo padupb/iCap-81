@@ -44,6 +44,10 @@ import {
   FileText,
   BarChart3,
   History,
+  Database,
+  Key,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -101,7 +105,7 @@ export default function Keyuser() {
   const [activeCategoryDialog, setActiveCategoryDialog] = useState(false);
   const [activeRoleDialog, setActiveRoleDialog] = useState(false);
   const [activeUnitDialog, setActiveUnitDialog] = useState(false);
-  
+
   // Estados para edição
   const [editingCategory, setEditingCategory] = useState<CompanyCategory | null>(null);
   const [editingRole, setEditingRole] = useState<UserRole | null>(null);
@@ -183,7 +187,7 @@ export default function Keyuser() {
       });
     },
   });
-  
+
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id: number) => {
       return apiRequest("DELETE", `/api/company-categories/${id}`, {});
@@ -227,7 +231,7 @@ export default function Keyuser() {
       });
     },
   });
-  
+
   const updateRoleMutation = useMutation({
     mutationFn: async (data: { id: number; role: UserRoleFormData }) => {
       return apiRequest("PUT", `/api/user-roles/${data.id}`, data.role);
@@ -549,7 +553,7 @@ export default function Keyuser() {
       }
 
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      
+
       toast({
         title: "Sucesso",
         description: "Logo enviado com sucesso",
@@ -586,7 +590,7 @@ export default function Keyuser() {
             <Package className="w-4 h-4" />
             Unidades
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
+                    <TabsTrigger value="settings" className="flex items-center gap-2">
             <SettingsIcon className="w-4 h-4" />
             Configurações
           </TabsTrigger>
@@ -634,7 +638,7 @@ export default function Keyuser() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <div className="space-y-3">
                         <FormField
                           control={categoryForm.control}
@@ -656,7 +660,7 @@ export default function Keyuser() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={categoryForm.control}
                           name="requiresContract"
@@ -677,7 +681,7 @@ export default function Keyuser() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={categoryForm.control}
                           name="receivesPurchaseOrders"
@@ -699,7 +703,7 @@ export default function Keyuser() {
                           )}
                         />
                       </div>
-                      
+
                       <div className="flex justify-end gap-2">
                         <Button type="button" variant="outline" onClick={() => setActiveCategoryDialog(false)}>
                           Cancelar
@@ -839,7 +843,7 @@ export default function Keyuser() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={roleForm.control}
                           name="categoryId"
@@ -878,7 +882,7 @@ export default function Keyuser() {
                         <FormDescription>
                           Selecione quais áreas do sistema esta função pode acessar
                         </FormDescription>
-                        
+
                         {/* Container com rolagem para a lista de permissões */}
                         <div className="border rounded-lg p-3 max-h-64 overflow-y-auto">
                           <div className="space-y-2">
@@ -886,12 +890,12 @@ export default function Keyuser() {
                               const permissionKey = `view_${menu.id}`;
                               const isChecked = roleForm.watch("permissions")?.includes(permissionKey) || false;
                               const IconComponent = menu.icon;
-                              
+
                               return (
                                 <div key={menu.id} className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded">
                                   {/* Ícone do menu */}
                                   <IconComponent className="w-4 h-4 text-gray-600" />
-                                  
+
                                   {/* Nome do menu */}
                                   <label 
                                     htmlFor={`permission-${menu.id}`}
@@ -899,7 +903,7 @@ export default function Keyuser() {
                                   >
                                     {menu.name}
                                   </label>
-                                  
+
                                   {/* Checkbox */}
                                   <Checkbox
                                     id={`permission-${menu.id}`}
@@ -907,13 +911,13 @@ export default function Keyuser() {
                                     onCheckedChange={(checked) => {
                                       const currentPermissions = roleForm.getValues("permissions") || [];
                                       let newPermissions;
-                                      
+
                                       if (checked) {
                                         newPermissions = [...currentPermissions, permissionKey];
                                       } else {
                                         newPermissions = currentPermissions.filter(p => p !== permissionKey);
                                       }
-                                      
+
                                       roleForm.setValue("permissions", newPermissions);
                                     }}
                                   />
@@ -922,7 +926,7 @@ export default function Keyuser() {
                             })}
                           </div>
                         </div>
-                        
+
                         {/* Botões de seleção rápida */}
                         <div className="flex gap-2 pt-2">
                           <Button
@@ -948,7 +952,7 @@ export default function Keyuser() {
                           </Button>
                         </div>
                       </div>
-                      
+
                       <div className="flex justify-end gap-2 pt-4 border-t">
                         <Button type="button" variant="outline" onClick={() => setActiveRoleDialog(false)}>
                           Cancelar
@@ -974,7 +978,7 @@ export default function Keyuser() {
                 <TableBody>
                   {roles.map((role) => {
                     const category = categories.find(c => c.id === role.categoryId);
-                    
+
                     return (
                       <TableRow key={role.id}>
                         <TableCell className="font-medium">{role.name}</TableCell>
@@ -1054,7 +1058,7 @@ export default function Keyuser() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={unitForm.control}
                         name="abbreviation"
@@ -1068,7 +1072,7 @@ export default function Keyuser() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <div className="flex justify-end gap-2">
                         <Button type="button" variant="outline" onClick={() => setActiveUnitDialog(false)}>
                           Cancelar
@@ -1124,7 +1128,7 @@ export default function Keyuser() {
           </Card>
         </TabsContent>
 
-        {/* Aba Configurações */}
+                {/* Aba Configurações */}
         <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
@@ -1268,4 +1272,4 @@ export default function Keyuser() {
       </Tabs>
     </div>
   );
-} 
+}
