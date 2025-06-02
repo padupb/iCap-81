@@ -1360,7 +1360,7 @@ export default function Keyuser() {
                       <div className="flex items-center gap-2">
                         <Input
                           type={showDatabasePasswords.google_maps_api_key ? "text" : "password"}
-                          value={settingsObject.google_maps_api_key || ""}
+                          value={apiKeys.google_maps_api_key}
                           onChange={(e) => handleApiKeyChange('google_maps_api_key', e.target.value)}
                           placeholder="AIza..."
                           className="bg-input border-border"
@@ -1392,7 +1392,7 @@ export default function Keyuser() {
                       <div className="flex items-center gap-2">
                         <Input
                           type={showDatabasePasswords.openai_api_key ? "text" : "password"}
-                          value={settingsObject.openai_api_key || ""}
+                          value={apiKeys.openai_api_key}
                           onChange={(e) => handleApiKeyChange('openai_api_key', e.target.value)}
                           placeholder="sk-..."
                           className="bg-input border-border"
@@ -1424,7 +1424,7 @@ export default function Keyuser() {
                       <div className="flex items-center gap-2">
                         <Input
                           type={showDatabasePasswords.github_token ? "text" : "password"}
-                          value={settingsObject.github_token || ""}
+                          value={apiKeys.github_token}
                           onChange={(e) => handleApiKeyChange('github_token', e.target.value)}
                           placeholder="github_pat_..."
                           className="bg-input border-border"
@@ -1454,7 +1454,7 @@ export default function Keyuser() {
                     <div>
                       <Label>Servidor SMTP</Label>
                       <Input
-                        value={settingsObject.smtp_host || ""}
+                        value={apiKeys.smtp_host}
                         onChange={(e) => handleApiKeyChange('smtp_host', e.target.value)}
                         placeholder="smtp.gmail.com"
                         className="bg-input border-border"
@@ -1463,7 +1463,7 @@ export default function Keyuser() {
                     <div>
                       <Label>Porta SMTP</Label>
                       <Input
-                        value={settingsObject.smtp_port || ""}
+                        value={apiKeys.smtp_port}
                         onChange={(e) => handleApiKeyChange('smtp_port', e.target.value)}
                         placeholder="587"
                         className="bg-input border-border"
@@ -1472,7 +1472,7 @@ export default function Keyuser() {
                     <div>
                       <Label>Usuário SMTP</Label>
                       <Input
-                        value={settingsObject.smtp_user || ""}
+                        value={apiKeys.smtp_user}
                         onChange={(e) => handleApiKeyChange('smtp_user', e.target.value)}
                         placeholder="seu-email@gmail.com"
                         className="bg-input border-border"
@@ -1483,7 +1483,7 @@ export default function Keyuser() {
                       <div className="flex items-center gap-2">
                         <Input
                           type={showDatabasePasswords.smtp_password ? "text" : "password"}
-                          value={settingsObject.smtp_password || ""}
+                          value={apiKeys.smtp_password}
                           onChange={(e) => handleApiKeyChange('smtp_password', e.target.value)}
                           placeholder="sua-senha-de-app"
                           className="bg-input border-border"
