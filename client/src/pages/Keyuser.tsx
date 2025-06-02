@@ -1283,10 +1283,10 @@ export default function Keyuser() {
                   <h3 className="text-lg font-medium text-foreground mb-4">
                     Banco de Dados
                   </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>DATABASE_URL</Label>
-                      <div className="flex items-center gap-2">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Label className="w-32 text-sm font-medium">DATABASE_URL:</Label>
+                      <div className="flex items-center gap-2 flex-1">
                         <Input
                           type={showPasswords.database_url ? "text" : "password"}
                           value={systemConfig.database_url}
@@ -1303,9 +1303,6 @@ export default function Keyuser() {
                           {showPasswords.database_url ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        String de conexão completa do PostgreSQL
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -1315,10 +1312,10 @@ export default function Keyuser() {
                   <h3 className="text-lg font-medium text-foreground mb-4">
                     APIs e Integrações
                   </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Google Maps API Key</Label>
-                      <div className="flex items-center gap-2">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Label className="w-32 text-sm font-medium">Google Maps:</Label>
+                      <div className="flex items-center gap-2 flex-1">
                         <Input
                           type={showPasswords.google_maps_api_key ? "text" : "password"}
                           value={systemConfig.google_maps_api_key}
@@ -1335,9 +1332,6 @@ export default function Keyuser() {
                           {showPasswords.google_maps_api_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Chave da API do Google Maps para funcionalidades de localização
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -1347,37 +1341,37 @@ export default function Keyuser() {
                   <h3 className="text-lg font-medium text-foreground mb-4">
                     Configurações de Email (SMTP)
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Servidor SMTP</Label>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Label className="w-32 text-sm font-medium">Servidor SMTP:</Label>
                       <Input
                         value={systemConfig.smtp_host}
                         onChange={(e) => handleSystemConfigChange('smtp_host', e.target.value)}
                         placeholder="smtp.gmail.com"
-                        className="bg-input border-border"
+                        className="bg-input border-border flex-1"
                       />
                     </div>
-                    <div>
-                      <Label>Porta SMTP</Label>
+                    <div className="flex items-center gap-3">
+                      <Label className="w-32 text-sm font-medium">Porta SMTP:</Label>
                       <Input
                         value={systemConfig.smtp_port}
                         onChange={(e) => handleSystemConfigChange('smtp_port', e.target.value)}
                         placeholder="587"
-                        className="bg-input border-border"
+                        className="bg-input border-border flex-1"
                       />
                     </div>
-                    <div>
-                      <Label>Usuário SMTP</Label>
+                    <div className="flex items-center gap-3">
+                      <Label className="w-32 text-sm font-medium">Usuário SMTP:</Label>
                       <Input
                         value={systemConfig.smtp_user}
                         onChange={(e) => handleSystemConfigChange('smtp_user', e.target.value)}
                         placeholder="seu-email@gmail.com"
-                        className="bg-input border-border"
+                        className="bg-input border-border flex-1"
                       />
                     </div>
-                    <div>
-                      <Label>Senha SMTP</Label>
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
+                      <Label className="w-32 text-sm font-medium">Senha SMTP:</Label>
+                      <div className="flex items-center gap-2 flex-1">
                         <Input
                           type={showPasswords.smtp_password ? "text" : "password"}
                           value={systemConfig.smtp_password}
