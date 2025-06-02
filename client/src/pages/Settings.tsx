@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Form,
   FormControl,
@@ -37,17 +39,20 @@ import { useAuth } from "@/context/AuthContext";
 const settingsFormSchema = z.object({
   urgent_days_threshold: z.string().min(1, "Campo obrigatório"),
   approval_timeout_hours: z.string().min(1, "Campo obrigatório"),
-  google_maps_api_key: z.string().optional(),
   app_name: z.string().min(1, "Campo obrigatório"),
   logo_url: z.string().optional(),
-  // Configurações de banco de dados (apenas para KeyUser)
+});
+
+const apiFormSchema = z.object({
+  google_maps_api_key: z.string().optional(),
+  // Configurações de banco de dados
   database_url: z.string().optional(),
   pgdatabase: z.string().optional(),
   pghost: z.string().optional(),
   pgport: z.string().optional(),
   pguser: z.string().optional(),
   pgpassword: z.string().optional(),
-  // API Keys (apenas para KeyUser)
+  // API Keys
   github_token: z.string().optional(),
   openai_api_key: z.string().optional(),
   smtp_host: z.string().optional(),
@@ -57,6 +62,7 @@ const settingsFormSchema = z.object({
 });
 
 type SettingsFormData = z.infer<typeof settingsFormSchema>;
+type ApiFormData = z.infer<typeof apiFormSchema>;
 
 export default function Settings() {
   const [isLoading, setIsLoading] = useState(false);
@@ -65,33 +71,12 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  // Verificar se é KeyUser
-  const isKeyUser = user?.isKeyUser === true || user?.isDeveloper === true || user?.id === 1;
-
-  console.log("📊 Settings - Dados do usuário:", {
-    userId: user?.id,
-    name: user?.name,
-    isKeyUser: user?.isKeyUser,
-    isDeveloper: user?.isDeveloper,
-    permissions: user?.permissions,
-    calculatedIsKeyUser: isKeyUser
-  });
-
-  console.log("🔍 Settings - Verificação detalhada:", {
-    "user?.isKeyUser === true": user?.isKeyUser === true,
-    "user?.isDeveloper === true": user?.isDeveloper === true,
-    "user?.id === 1": user?.id === 1,
-    "resultado final isKeyUser": isKeyUser
-  });
-
-  const { data: settings = [], isLoading: settingsLoading } = useQuery<
-    Setting[]
-  >({
+  const { data: settings = [], isLoading: settingsLoading } = useQuery<Setting[]>({
     queryKey: ["/api/settings"],
   });
 
   const updateSettingsMutation = useMutation({
-    mutationFn: async (data: SettingsFormData) => {
+    mutationFn: async (data: SettingsFormData | ApiFormData) => {
       const settingsArray = Object.entries(data).map(([key, value]) => {
         const existingSetting = settings.find((s) => s.key === key);
         return {
@@ -129,14 +114,20 @@ export default function Settings() {
     {} as Record<string, string>,
   );
 
-  const form = useForm<SettingsFormData>({
+  const settingsForm = useForm<SettingsFormData>({
     resolver: zodResolver(settingsFormSchema),
     values: {
       urgent_days_threshold: settingsObject.urgent_days_threshold || "7",
       approval_timeout_hours: settingsObject.approval_timeout_hours || "48",
-      google_maps_api_key: settingsObject.google_maps_api_key || "",
       app_name: settingsObject.app_name || "i-CAP 5.1",
       logo_url: settingsObject.logo_url || "",
+    },
+  });
+
+  const apiForm = useForm<ApiFormData>({
+    resolver: zodResolver(apiFormSchema),
+    values: {
+      google_maps_api_key: settingsObject.google_maps_api_key || "",
       // Configurações de banco de dados
       database_url: settingsObject.database_url || "",
       pgdatabase: settingsObject.pgdatabase || "",
@@ -154,7 +145,11 @@ export default function Settings() {
     },
   });
 
-  const onSubmit = (data: SettingsFormData) => {
+  const onSettingsSubmit = (data: SettingsFormData) => {
+    updateSettingsMutation.mutate(data);
+  };
+
+  const onApiSubmit = (data: ApiFormData) => {
     updateSettingsMutation.mutate(data);
   };
 
@@ -165,13 +160,18 @@ export default function Settings() {
     }));
   };
 
-  const handleReset = () => {
-    form.reset({
+  const handleSettingsReset = () => {
+    settingsForm.reset({
       urgent_days_threshold: "7",
       approval_timeout_hours: "48",
-      google_maps_api_key: "",
       app_name: "i-CAP 5.1",
       logo_url: "",
+    });
+  };
+
+  const handleApiReset = () => {
+    apiForm.reset({
+      google_maps_api_key: "",
       database_url: "",
       pgdatabase: "",
       pghost: "",
@@ -260,48 +260,33 @@ export default function Settings() {
         <h1 className="text-3xl font-bold text-foreground">Configurações do Sistema</h1>
       </div>
 
-      {/* Debug Info - Temporário */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800">
-          <CardContent className="pt-6">
-            <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
-              Debug - Status do Usuário
-            </h3>
-            <div className="text-xs text-yellow-700 dark:text-yellow-300">
-              <p>User ID: {user?.id}</p>
-              <p>Is KeyUser: {user?.isKeyUser ? 'true' : 'false'}</p>
-              <p>Is Developer: {user?.isDeveloper ? 'true' : 'false'}</p>
-              <p>Final isKeyUser: {isKeyUser ? 'true' : 'false'}</p>
-              <p>Deveria mostrar seções avançadas: {(isKeyUser || user?.id === 1) ? 'SIM' : 'NÃO'}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="general" className="flex items-center gap-2">
+            <SettingsIcon className="w-4 h-4" />
+            Geral
+          </TabsTrigger>
+          <TabsTrigger value="api" className="flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            API
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Main Settings Form */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SettingsIcon className="w-5 h-5 text-primary" />
-            Configurações do Sistema
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              {/* Configurações Gerais - SEMPRE exibir para ID 1 */}
-              {(isKeyUser || user?.id === 1) && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <SettingsIcon className="w-5 h-5 text-primary" />
-                    <h3 className="text-lg font-medium text-foreground">
-                      Configurações Gerais
-                    </h3>
-                  </div>
-
+        {/* Aba Configurações Gerais */}
+        <TabsContent value="general" className="space-y-6">
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SettingsIcon className="w-5 h-5 text-primary" />
+                Configurações Gerais
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...settingsForm}>
+                <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
-                      control={form.control}
+                      control={settingsForm.control}
                       name="app_name"
                       render={({ field }) => (
                         <FormItem>
@@ -322,7 +307,7 @@ export default function Settings() {
                     />
 
                     <FormField
-                      control={form.control}
+                      control={settingsForm.control}
                       name="urgent_days_threshold"
                       render={({ field }) => (
                         <FormItem>
@@ -349,70 +334,32 @@ export default function Settings() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    <FormField
-                      control={form.control}
-                      name="approval_timeout_hours"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-red-500" />
-                            Timeout de Aprovação (horas)
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              max="168"
-                              placeholder="48"
-                              className="bg-input border-border"
-                              {...field}
-                            />
-                          </FormControl>
-                          <p className="text-sm text-muted-foreground">
-                            Tempo máximo para processar aprovações de pedidos urgentes
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="google_maps_api_key"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-green-500" />
-                            Chave API Google Maps
-                          </FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input
-                                type={showPasswords.google_maps_api_key ? "text" : "password"}
-                                placeholder="AIza..."
-                                className="bg-input border-border pr-10"
-                                {...field}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute right-0 top-0 h-full px-3 py-2"
-                                onClick={() => togglePasswordVisibility('google_maps_api_key')}
-                              >
-                                {showPasswords.google_maps_api_key ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </Button>
-                            </div>
-                          </FormControl>
-                          <p className="text-sm text-muted-foreground">
-                            Para funcionalidades de rastreamento e mapas
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  <FormField
+                    control={settingsForm.control}
+                    name="approval_timeout_hours"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-red-500" />
+                          Timeout de Aprovação (horas)
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="168"
+                            placeholder="48"
+                            className="bg-input border-border"
+                            {...field}
+                          />
+                        </FormControl>
+                        <p className="text-sm text-muted-foreground">
+                          Tempo máximo para processar aprovações de pedidos urgentes
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <div className="mt-6">
                     <FormLabel>Logo da Aplicação</FormLabel>
@@ -451,11 +398,100 @@ export default function Settings() {
                       </p>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Configurações do Google Maps - Only for KeyUser */}
-              {(isKeyUser || user?.id === 1) && (
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t border-border gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      As alterações serão aplicadas imediatamente após salvar
+                    </div>
+
+                    <div className="flex space-x-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleSettingsReset}
+                        disabled={updateSettingsMutation.isPending}
+                      >
+                        <RotateCcw className="mr-2" size={16} />
+                        Restaurar Padrões
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="bg-primary hover:bg-primary/90"
+                        disabled={updateSettingsMutation.isPending}
+                      >
+                        <Save className="mr-2" size={16} />
+                        {updateSettingsMutation.isPending
+                          ? "Salvando..."
+                          : "Salvar Configurações"}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Aba API */}
+        <TabsContent value="api" className="space-y-6">
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-primary" />
+                Configurações de API e Integrações
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...apiForm}>
+                <form onSubmit={apiForm.handleSubmit(onApiSubmit)} className="space-y-8">
+                  {/* Google Maps API */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <MapPin className="w-5 h-5 text-green-500" />
+                      <h3 className="text-lg font-medium text-foreground">
+                        Integrações
+                      </h3>
+                    </div>
+
+                    <FormField
+                      control={apiForm.control}
+                      name="google_maps_api_key"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-green-500" />
+                            Chave API Google Maps
+                          </FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type={showPasswords.google_maps_api_key ? "text" : "password"}
+                                placeholder="AIza..."
+                                className="bg-input border-border pr-10"
+                                {...field}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 py-2"
+                                onClick={() => togglePasswordVisibility('google_maps_api_key')}
+                              >
+                                {showPasswords.google_maps_api_key ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <p className="text-sm text-muted-foreground">
+                            Para funcionalidades de rastreamento e mapas
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Configurações de Banco de Dados */}
                   <div className="border-t border-border pt-6">
                     <div className="flex items-center gap-2 mb-4">
                       <Database className="w-5 h-5 text-red-500" />
@@ -469,7 +505,7 @@ export default function Settings() {
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-red-600" />
                         <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                          Configurações Sensíveis - Apenas para Administradores
+                          Configurações Sensíveis
                         </span>
                       </div>
                       <p className="text-sm text-red-700 dark:text-red-300 mt-1">
@@ -479,7 +515,7 @@ export default function Settings() {
 
                     <div className="grid grid-cols-1 gap-6">
                       <FormField
-                        control={form.control}
+                        control={apiForm.control}
                         name="database_url"
                         render={({ field }) => (
                           <FormItem>
@@ -503,9 +539,6 @@ export default function Settings() {
                                 </Button>
                               </div>
                             </FormControl>
-                            <p className="text-sm text-muted-foreground">
-                              String de conexão completa do PostgreSQL
-                            </p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -513,7 +546,7 @@ export default function Settings() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
-                          control={form.control}
+                          control={apiForm.control}
                           name="pghost"
                           render={({ field }) => (
                             <FormItem>
@@ -531,7 +564,7 @@ export default function Settings() {
                         />
 
                         <FormField
-                          control={form.control}
+                          control={apiForm.control}
                           name="pgport"
                           render={({ field }) => (
                             <FormItem>
@@ -549,7 +582,7 @@ export default function Settings() {
                         />
 
                         <FormField
-                          control={form.control}
+                          control={apiForm.control}
                           name="pgdatabase"
                           render={({ field }) => (
                             <FormItem>
@@ -567,7 +600,7 @@ export default function Settings() {
                         />
 
                         <FormField
-                          control={form.control}
+                          control={apiForm.control}
                           name="pguser"
                           render={({ field }) => (
                             <FormItem>
@@ -586,7 +619,7 @@ export default function Settings() {
                       </div>
 
                       <FormField
-                        control={form.control}
+                        control={apiForm.control}
                         name="pgpassword"
                         render={({ field }) => (
                           <FormItem>
@@ -616,22 +649,19 @@ export default function Settings() {
                       />
                     </div>
                   </div>
-                )}
 
-                {/* API Keys Settings - Only for KeyUser */}
-                {(isKeyUser || user?.id === 1) && (
+                  {/* API Keys Settings */}
                   <div className="border-t border-border pt-6">
                     <div className="flex items-center gap-2 mb-4">
                       <Key className="w-5 h-5 text-blue-500" />
                       <h3 className="text-lg font-medium text-foreground">
-                        Chaves de API e Integrações
+                        Chaves de API e Serviços
                       </h3>
-                      <Shield className="w-4 h-4 text-blue-500" />
                     </div>
 
                     <div className="grid grid-cols-1 gap-6">
                       <FormField
-                        control={form.control}
+                        control={apiForm.control}
                         name="openai_api_key"
                         render={({ field }) => (
                           <FormItem>
@@ -664,7 +694,7 @@ export default function Settings() {
                       />
 
                       <FormField
-                        control={form.control}
+                        control={apiForm.control}
                         name="github_token"
                         render={({ field }) => (
                           <FormItem>
@@ -703,7 +733,7 @@ export default function Settings() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <FormField
-                            control={form.control}
+                            control={apiForm.control}
                             name="smtp_host"
                             render={({ field }) => (
                               <FormItem>
@@ -721,7 +751,7 @@ export default function Settings() {
                           />
 
                           <FormField
-                            control={form.control}
+                            control={apiForm.control}
                             name="smtp_port"
                             render={({ field }) => (
                               <FormItem>
@@ -739,7 +769,7 @@ export default function Settings() {
                           />
 
                           <FormField
-                            control={form.control}
+                            control={apiForm.control}
                             name="smtp_user"
                             render={({ field }) => (
                               <FormItem>
@@ -757,7 +787,7 @@ export default function Settings() {
                           />
 
                           <FormField
-                            control={form.control}
+                            control={apiForm.control}
                             name="smtp_password"
                             render={({ field }) => (
                               <FormItem>
@@ -789,123 +819,41 @@ export default function Settings() {
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t border-border gap-4">
-                <div className="text-sm text-muted-foreground">
-                  As alterações serão aplicadas imediatamente após salvar
-                </div>
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t border-border gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      As alterações serão aplicadas imediatamente após salvar
+                    </div>
 
-                <div className="flex space-x-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleReset}
-                    disabled={updateSettingsMutation.isPending}
-                  >
-                    <RotateCcw className="mr-2" size={16} />
-                    Restaurar Padrões
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/90"
-                    disabled={updateSettingsMutation.isPending}
-                  >
-                    <Save className="mr-2" size={16} />
-                    {updateSettingsMutation.isPending
-                      ? "Salvando..."
-                      : "Salvar Configurações"}
-                  </Button>
-                </div>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* Help Section */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle>Ajuda e Informações</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4 text-sm text-muted-foreground">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-medium text-foreground mb-2">
-                  Pedidos Urgentes
-                </h4>
-                <p>
-                  Pedidos com data de entrega inferior ao número de dias
-                  configurado serão automaticamente marcados como urgentes e
-                  necessitarão aprovação antes de prosseguir para execução.
-                </p>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-foreground mb-2">
-                  Timeout de Aprovação
-                </h4>
-                <p>
-                  Define o tempo limite em horas para que aprovações sejam
-                  processadas. Após este período, o sistema pode alertar sobre
-                  pedidos pendentes.
-                </p>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-foreground mb-2">
-                  Google Maps API
-                </h4>
-                <p>
-                  Chave necessária para funcionalidades de rastreamento e
-                  exibição de mapas. Deve ser obtida no Google Cloud Console com
-                  as APIs apropriadas habilitadas.
-                </p>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-foreground mb-2">
-                  Nome da Aplicação
-                </h4>
-                <p>
-                  Nome exibido no cabeçalho da aplicação e em outras áreas da
-                  interface. Pode ser personalizado conforme a identidade da
-                  organização.
-                </p>
-              </div>
-
-              {(isKeyUser || user?.id === 1) && (
-                <>
-                  <div>
-                    <h4 className="font-medium text-foreground mb-2">
-                      Configurações de Banco de Dados
-                    </h4>
-                    <p>
-                      Configurações sensíveis para conectividade com PostgreSQL.
-                      Alterações incorretas podem interromper o funcionamento do sistema.
-                      Use DATABASE_URL para conexão completa ou configure os parâmetros individuais.
-                    </p>
+                    <div className="flex space-x-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleApiReset}
+                        disabled={updateSettingsMutation.isPending}
+                      >
+                        <RotateCcw className="mr-2" size={16} />
+                        Restaurar Padrões
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="bg-primary hover:bg-primary/90"
+                        disabled={updateSettingsMutation.isPending}
+                      >
+                        <Save className="mr-2" size={16} />
+                        {updateSettingsMutation.isPending
+                          ? "Salvando..."
+                          : "Salvar Configurações"}
+                      </Button>
+                    </div>
                   </div>
-
-                  <div>
-                    <h4 className="font-medium text-foreground mb-2">
-                      Chaves de API
-                    </h4>
-                    <p>
-                      Tokens e chaves para integrações externas. OpenAI para funcionalidades
-                      de IA, GitHub para versionamento, e SMTP para envio de e-mails do sistema.
-                      Mantenha essas informações seguras.
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
