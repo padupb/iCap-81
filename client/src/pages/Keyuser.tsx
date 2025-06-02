@@ -115,31 +115,23 @@ export default function Keyuser() {
   // Estados para configurações
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
-  // Estados para configurações de banco de dados
-  const [databaseUrl, setDatabaseUrl] = useState("");
-  const [pgHost, setPgHost] = useState("");
-  const [pgPort, setPgPort] = useState("5432");
-  const [pgDatabase, setPgDatabase] = useState("");
-  const [pgUser, setPgUser] = useState("");
-  const [pgPassword, setPgPassword] = useState("");
-  const [pgSslMode, setPgSslMode] = useState("require");
-  const [isDatabaseSaving, setIsDatabaseSaving] = useState(false);
-
-  // Estados para API Keys
-  const [apiKeys, setApiKeys] = useState({
+  // Estados para configurações do sistema
+  const [systemConfig, setSystemConfig] = useState({
+    database_url: "",
     google_maps_api_key: "",
     openai_api_key: "",
     github_token: "",
     smtp_host: "",
     smtp_port: "",
     smtp_user: "",
-    smtp_password: ""
+    smtp_password: "",
+    app_name: "",
+    urgent_days_threshold: "7"
   });
-  const [isApiKeysSaving, setIsApiKeysSaving] = useState(false);
 
-  const [showDatabasePasswords, setShowDatabasePasswords] = useState({
+  const [isSystemConfigSaving, setIsSystemConfigSaving] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
     database_url: false,
-    pgpassword: false,
     google_maps_api_key: false,
     openai_api_key: false,
     github_token: false,
@@ -165,6 +157,38 @@ export default function Keyuser() {
   const { data: settings = [], isLoading: settingsLoading } = useQuery<Setting[]>({
     queryKey: ["/api/settings"],
   });
+
+  // Carregar configurações do sistema quando os settings mudarem
+  React.useEffect(() => {
+    if (settings.length > 0) {
+      const settingsObject = settings.reduce((acc, setting) => {
+        acc[setting.key] = setting.value;
+        return acc;
+      }, {} as Record<string, string>);
+
+      setSystemConfig({
+        database_url: settingsObject.database_url || "",
+        google_maps_api_key: settingsObject.google_maps_api_key || "",
+        openai_api_key: settingsObject.openai_api_key || "",
+        github_token: settingsObject.github_token || "",
+        smtp_host: settingsObject.smtp_host || "",
+        smtp_port: settingsObject.smtp_port || "",
+        smtp_user: settingsObject.smtp_user || "",
+        smtp_password: settingsObject.smtp_password || "",
+        app_name: settingsObject.app_name || "i-CAP 7",
+        urgent_days_threshold: settingsObject.urgent_days_threshold || "7"
+      });
+
+      // Mostrar campos que têm valores
+      setShowPasswords({
+        database_url: (settingsObject.database_url || "").length > 0,
+        google_maps_api_key: (settingsObject.google_maps_api_key || "").length > 0,
+        openai_api_key: (settingsObject.openai_api_key || "").length > 0,
+        github_token: (settingsObject.github_token || "").length > 0,
+        smtp_password: (settingsObject.smtp_password || "").length > 0
+      });
+    }
+  }, [settings]);
 
   // Mutations para categorias de empresa
   const createCategoryMutation = useMutation({
@@ -450,43 +474,6 @@ export default function Keyuser() {
     },
   });
 
-  // Carregar configurações do banco de dados e API Keys quando os settings mudarem
-  React.useEffect(() => {
-    if (settings.length > 0) {
-      const dbUrl = settingsObject.database_url || "";
-      const pgPass = settingsObject.pgpassword || "";
-
-      setDatabaseUrl(dbUrl);
-      setPgHost(settingsObject.pghost || "");
-      setPgPort(settingsObject.pgport || "5432");
-      setPgDatabase(settingsObject.pgdatabase || "");
-      setPgUser(settingsObject.pguser || "");
-      setPgPassword(pgPass);
-      setPgSslMode(settingsObject.pgsslmode || "require");
-
-      // Carregar API Keys
-      setApiKeys({
-        google_maps_api_key: settingsObject.google_maps_api_key || "",
-        openai_api_key: settingsObject.openai_api_key || "",
-        github_token: settingsObject.github_token || "",
-        smtp_host: settingsObject.smtp_host || "",
-        smtp_port: settingsObject.smtp_port || "",
-        smtp_user: settingsObject.smtp_user || "",
-        smtp_password: settingsObject.smtp_password || ""
-      });
-
-      // Iniciar campos visíveis se tiverem valores
-      setShowDatabasePasswords({
-        database_url: dbUrl.length > 0,
-        pgpassword: pgPass.length > 0,
-        google_maps_api_key: (settingsObject.google_maps_api_key || "").length > 0,
-        openai_api_key: (settingsObject.openai_api_key || "").length > 0,
-        github_token: (settingsObject.github_token || "").length > 0,
-        smtp_password: (settingsObject.smtp_password || "").length > 0
-      });
-    }
-  }, [settings, settingsObject]);
-
   // Funções de reset
   const resetCategoryForm = () => {
     categoryForm.reset({
@@ -639,27 +626,30 @@ export default function Keyuser() {
     }
   };
 
-  // Funções para configurações do banco de dados
-  const saveDatabaseSettings = async () => {
-    setIsDatabaseSaving(true);
+  // Funções para configurações do sistema
+  const handleSystemConfigChange = (key: string, value: string) => {
+    setSystemConfig(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const saveSystemConfig = async () => {
+    setIsSystemConfigSaving(true);
 
     try {
-      const databaseSettings = [
-        { key: "database_url", value: databaseUrl, description: "String de conexão completa do PostgreSQL" },
-        { key: "pghost", value: pgHost, description: "Servidor do banco de dados PostgreSQL" },
-        { key: "pgport", value: pgPort, description: "Porta do banco de dados PostgreSQL" },
-        { key: "pgdatabase", value: pgDatabase, description: "Nome do banco de dados PostgreSQL" },
-        { key: "pguser", value: pgUser, description: "Usuário do banco de dados PostgreSQL" },
-        { key: "pgpassword", value: pgPassword, description: "Senha do banco de dados PostgreSQL" },
-        { key: "pgsslmode", value: pgSslMode, description: "Modo SSL do PostgreSQL" }
-      ];
+      const configArray = Object.entries(systemConfig).map(([key, value]) => ({
+        key,
+        value: value || "",
+        description: getConfigDescription(key)
+      }));
 
       const response = await fetch("/api/settings", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(databaseSettings),
+        body: JSON.stringify(configArray),
       });
 
       if (!response.ok) {
@@ -670,104 +660,58 @@ export default function Keyuser() {
 
       toast({
         title: "Sucesso",
-        description: "Configurações do banco de dados salvas com sucesso",
+        description: "Configurações do sistema salvas com sucesso",
       });
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Erro ao salvar configurações do banco de dados",
+        description: "Erro ao salvar configurações do sistema",
         variant: "destructive",
       });
     } finally {
-      setIsDatabaseSaving(false);
+      setIsSystemConfigSaving(false);
     }
   };
 
-  const resetDatabaseForm = () => {
-    setDatabaseUrl(settingsObject.database_url || "");
-    setPgHost(settingsObject.pghost || "");
-    setPgPort(settingsObject.pgport || "5432");
-    setPgDatabase(settingsObject.pgdatabase || "");
-    setPgUser(settingsObject.pguser || "");
-    setPgPassword(settingsObject.pgpassword || "");
-    setPgSslMode(settingsObject.pgsslmode || "require");
-  };
+  const resetSystemConfig = () => {
+    const settingsObject = settings.reduce((acc, setting) => {
+      acc[setting.key] = setting.value;
+      return acc;
+    }, {} as Record<string, string>);
 
-  const toggleDatabasePasswordVisibility = (field: string) => {
-    setShowDatabasePasswords(prev => ({
-      ...prev,
-      [field]: !prev[field]
-    }));
-  };
-
-  // Funções para API Keys
-  const handleApiKeyChange = (key: string, value: string) => {
-    setApiKeys(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-
-  const saveApiKeys = async () => {
-    setIsApiKeysSaving(true);
-
-    try {
-      const apiKeySettings = Object.entries(apiKeys).map(([key, value]) => ({
-        key,
-        value: value || "",
-        description: getApiKeyDescription(key)
-      }));
-
-      const response = await fetch("/api/settings", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(apiKeySettings),
-      });
-
-      if (!response.ok) {
-        throw new Error("Erro ao salvar API Keys");
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-
-      toast({
-        title: "Sucesso",
-        description: "API Keys salvas com sucesso",
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao salvar API Keys",
-        variant: "destructive",
-      });
-    } finally {
-      setIsApiKeysSaving(false);
-    }
-  };
-
-  const resetApiKeysForm = () => {
-    setApiKeys({
+    setSystemConfig({
+      database_url: settingsObject.database_url || "",
       google_maps_api_key: settingsObject.google_maps_api_key || "",
       openai_api_key: settingsObject.openai_api_key || "",
       github_token: settingsObject.github_token || "",
       smtp_host: settingsObject.smtp_host || "",
       smtp_port: settingsObject.smtp_port || "",
       smtp_user: settingsObject.smtp_user || "",
-      smtp_password: settingsObject.smtp_password || ""
+      smtp_password: settingsObject.smtp_password || "",
+      app_name: settingsObject.app_name || "i-CAP 7",
+      urgent_days_threshold: settingsObject.urgent_days_threshold || "7"
     });
   };
 
-  const getApiKeyDescription = (key: string) => {
+  const togglePasswordVisibility = (field: string) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
+  const getConfigDescription = (key: string) => {
     const descriptions: Record<string, string> = {
+      database_url: "String de conexão completa do PostgreSQL",
       google_maps_api_key: "Chave da API do Google Maps para funcionalidades de localização",
       openai_api_key: "Chave da API do OpenAI para recursos de IA",
       github_token: "Token de acesso pessoal do GitHub para integrações",
       smtp_host: "Servidor SMTP para envio de e-mails",
       smtp_port: "Porta do servidor SMTP",
       smtp_user: "Usuário para autenticação SMTP",
-      smtp_password: "Senha para autenticação SMTP"
+      smtp_password: "Senha para autenticação SMTP",
+      app_name: "Nome da aplicação",
+      urgent_days_threshold: "Limite de dias para pedidos urgentes"
     };
     return descriptions[key] || `Configuração ${key}`;
   };
@@ -779,7 +723,7 @@ export default function Keyuser() {
       </div>
 
       <Tabs defaultValue="categories" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="categories" className="flex items-center gap-2">
             <Building className="w-4 h-4" />
             Categorias
@@ -792,17 +736,13 @@ export default function Keyuser() {
             <Package className="w-4 h-4" />
             Unidades
           </TabsTrigger>
-          <TabsTrigger value="apikeys" className="flex items-center gap-2">
-            <Key className="w-4 h-4" />
-            API Keys
-          </TabsTrigger>
-          <TabsTrigger value="database" className="flex items-center gap-2">
+          <TabsTrigger value="system-config" className="flex items-center gap-2">
             <Database className="w-4 h-4" />
-            Banco de Dados
+            Configurações do Sistema
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <SettingsIcon className="w-4 h-4" />
-            Configurações
+            Configurações Gerais
           </TabsTrigger>
         </TabsList>
 
@@ -1338,30 +1278,63 @@ export default function Keyuser() {
           </Card>
         </TabsContent>
 
-        {/* Aba API Keys */}
-        <TabsContent value="apikeys" className="space-y-6">
+        {/* Aba Configurações do Sistema */}
+        <TabsContent value="system-config" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5" />
-                Chaves de API e Tokens
+                <Database className="w-5 h-5" />
+                Configurações do Sistema
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {/* Google Maps API */}
+
+                {/* Banco de Dados */}
                 <div>
                   <h3 className="text-lg font-medium text-foreground mb-4">
-                    Integrações
+                    Banco de Dados
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>DATABASE_URL</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type={showPasswords.database_url ? "text" : "password"}
+                          value={systemConfig.database_url}
+                          onChange={(e) => handleSystemConfigChange('database_url', e.target.value)}
+                          placeholder="postgresql://user:password@host:port/database"
+                          className="bg-input border-border font-mono"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => togglePasswordVisibility('database_url')}
+                        >
+                          {showPasswords.database_url ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        String de conexão completa do PostgreSQL
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* APIs Externas */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    APIs e Integrações
                   </h3>
                   <div className="space-y-4">
                     <div>
                       <Label>Google Maps API Key</Label>
                       <div className="flex items-center gap-2">
                         <Input
-                          type={showDatabasePasswords.google_maps_api_key ? "text" : "password"}
-                          value={apiKeys.google_maps_api_key}
-                          onChange={(e) => handleApiKeyChange('google_maps_api_key', e.target.value)}
+                          type={showPasswords.google_maps_api_key ? "text" : "password"}
+                          value={systemConfig.google_maps_api_key}
+                          onChange={(e) => handleSystemConfigChange('google_maps_api_key', e.target.value)}
                           placeholder="AIza..."
                           className="bg-input border-border"
                         />
@@ -1369,31 +1342,23 @@ export default function Keyuser() {
                           variant="outline"
                           size="sm"
                           type="button"
-                          onClick={() => toggleDatabasePasswordVisibility('google_maps_api_key')}
+                          onClick={() => togglePasswordVisibility('google_maps_api_key')}
                         >
-                          {showDatabasePasswords.google_maps_api_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showPasswords.google_maps_api_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         Chave da API do Google Maps para funcionalidades de localização
                       </p>
                     </div>
-                  </div>
-                </div>
 
-                {/* APIs de IA */}
-                <div>
-                  <h3 className="text-lg font-medium text-foreground mb-4">
-                    Inteligência Artificial
-                  </h3>
-                  <div className="space-y-4">
                     <div>
                       <Label>OpenAI API Key</Label>
                       <div className="flex items-center gap-2">
                         <Input
-                          type={showDatabasePasswords.openai_api_key ? "text" : "password"}
-                          value={apiKeys.openai_api_key}
-                          onChange={(e) => handleApiKeyChange('openai_api_key', e.target.value)}
+                          type={showPasswords.openai_api_key ? "text" : "password"}
+                          value={systemConfig.openai_api_key}
+                          onChange={(e) => handleSystemConfigChange('openai_api_key', e.target.value)}
                           placeholder="sk-..."
                           className="bg-input border-border"
                         />
@@ -1401,31 +1366,23 @@ export default function Keyuser() {
                           variant="outline"
                           size="sm"
                           type="button"
-                          onClick={() => toggleDatabasePasswordVisibility('openai_api_key')}
+                          onClick={() => togglePasswordVisibility('openai_api_key')}
                         >
-                          {showDatabasePasswords.openai_api_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showPasswords.openai_api_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         Chave da API do OpenAI para recursos de IA
                       </p>
                     </div>
-                  </div>
-                </div>
 
-                {/* Desenvolvimento */}
-                <div>
-                  <h3 className="text-lg font-medium text-foreground mb-4">
-                    Desenvolvimento
-                  </h3>
-                  <div className="space-y-4">
                     <div>
                       <Label>GitHub Token</Label>
                       <div className="flex items-center gap-2">
                         <Input
-                          type={showDatabasePasswords.github_token ? "text" : "password"}
-                          value={apiKeys.github_token}
-                          onChange={(e) => handleApiKeyChange('github_token', e.target.value)}
+                          type={showPasswords.github_token ? "text" : "password"}
+                          value={systemConfig.github_token}
+                          onChange={(e) => handleSystemConfigChange('github_token', e.target.value)}
                           placeholder="github_pat_..."
                           className="bg-input border-border"
                         />
@@ -1433,9 +1390,9 @@ export default function Keyuser() {
                           variant="outline"
                           size="sm"
                           type="button"
-                          onClick={() => toggleDatabasePasswordVisibility('github_token')}
+                          onClick={() => togglePasswordVisibility('github_token')}
                         >
-                          {showDatabasePasswords.github_token ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showPasswords.github_token ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -1454,8 +1411,8 @@ export default function Keyuser() {
                     <div>
                       <Label>Servidor SMTP</Label>
                       <Input
-                        value={apiKeys.smtp_host}
-                        onChange={(e) => handleApiKeyChange('smtp_host', e.target.value)}
+                        value={systemConfig.smtp_host}
+                        onChange={(e) => handleSystemConfigChange('smtp_host', e.target.value)}
                         placeholder="smtp.gmail.com"
                         className="bg-input border-border"
                       />
@@ -1463,8 +1420,8 @@ export default function Keyuser() {
                     <div>
                       <Label>Porta SMTP</Label>
                       <Input
-                        value={apiKeys.smtp_port}
-                        onChange={(e) => handleApiKeyChange('smtp_port', e.target.value)}
+                        value={systemConfig.smtp_port}
+                        onChange={(e) => handleSystemConfigChange('smtp_port', e.target.value)}
                         placeholder="587"
                         className="bg-input border-border"
                       />
@@ -1472,8 +1429,8 @@ export default function Keyuser() {
                     <div>
                       <Label>Usuário SMTP</Label>
                       <Input
-                        value={apiKeys.smtp_user}
-                        onChange={(e) => handleApiKeyChange('smtp_user', e.target.value)}
+                        value={systemConfig.smtp_user}
+                        onChange={(e) => handleSystemConfigChange('smtp_user', e.target.value)}
                         placeholder="seu-email@gmail.com"
                         className="bg-input border-border"
                       />
@@ -1482,9 +1439,9 @@ export default function Keyuser() {
                       <Label>Senha SMTP</Label>
                       <div className="flex items-center gap-2">
                         <Input
-                          type={showDatabasePasswords.smtp_password ? "text" : "password"}
-                          value={apiKeys.smtp_password}
-                          onChange={(e) => handleApiKeyChange('smtp_password', e.target.value)}
+                          type={showPasswords.smtp_password ? "text" : "password"}
+                          value={systemConfig.smtp_password}
+                          onChange={(e) => handleSystemConfigChange('smtp_password', e.target.value)}
                           placeholder="sua-senha-de-app"
                           className="bg-input border-border"
                         />
@@ -1492,21 +1449,49 @@ export default function Keyuser() {
                           variant="outline"
                           size="sm"
                           type="button"
-                          onClick={() => toggleDatabasePasswordVisibility('smtp_password')}
+                          onClick={() => togglePasswordVisibility('smtp_password')}
                         >
-                          {showDatabasePasswords.smtp_password ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showPasswords.smtp_password ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Botões de Ação para API Keys */}
+                {/* Configurações da Aplicação */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    Configurações da Aplicação
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Nome da Aplicação</Label>
+                      <Input
+                        value={systemConfig.app_name}
+                        onChange={(e) => handleSystemConfigChange('app_name', e.target.value)}
+                        placeholder="i-CAP 7"
+                        className="bg-input border-border"
+                      />
+                    </div>
+                    <div>
+                      <Label>Limite de Urgência (dias)</Label>
+                      <Input
+                        type="number"
+                        value={systemConfig.urgent_days_threshold}
+                        onChange={(e) => handleSystemConfigChange('urgent_days_threshold', e.target.value)}
+                        placeholder="7"
+                        className="bg-input border-border"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botões de Ação */}
                 <div className="flex justify-end gap-4 pt-6 border-t border-border">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={resetApiKeysForm}
+                    onClick={resetSystemConfig}
                     className="flex items-center gap-2"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -1514,12 +1499,12 @@ export default function Keyuser() {
                   </Button>
                   <Button
                     type="button"
-                    onClick={saveApiKeys}
-                    disabled={isApiKeysSaving}
+                    onClick={saveSystemConfig}
+                    disabled={isSystemConfigSaving}
                     className="flex items-center gap-2"
                   >
                     <Save className="w-4 h-4" />
-                    {isApiKeysSaving ? "Salvando..." : "Salvar API Keys"}
+                    {isSystemConfigSaving ? "Salvando..." : "Salvar Configurações"}
                   </Button>
                 </div>
               </div>
@@ -1527,244 +1512,13 @@ export default function Keyuser() {
           </Card>
         </TabsContent>
 
-        {/* Aba Banco de Dados */}
-        <TabsContent value="database" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                Configurações do Banco de Dados
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                
-                {/* Lista de Configurações do Banco */}
-                <div>
-                  <h3 className="text-lg font-medium text-foreground mb-4">
-                    Configurações de Conexão PostgreSQL
-                  </h3>
-                  <div className="space-y-4">
-                    {/* DATABASE_URL */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label htmlFor="database_url" className="text-sm font-medium">DATABASE_URL</Label>
-                          <p className="text-xs text-muted-foreground">String de conexão completa do PostgreSQL</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          type="button"
-                          onClick={() => toggleDatabasePasswordVisibility('database_url')}
-                          className="h-8 w-8 p-0"
-                        >
-                          {showDatabasePasswords.database_url ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                      <Input
-                        id="database_url"
-                        type={showDatabasePasswords.database_url ? "text" : "password"}
-                        value={databaseUrl}
-                        onChange={(e) => setDatabaseUrl(e.target.value)}
-                        placeholder="postgresql://user:password@host:port/database"
-                        className="font-mono text-sm bg-background border-input"
-                      />
-                    </div>
-
-                    {/* PGHOST */}
-                    <div className="space-y-2">
-                      <div>
-                        <Label htmlFor="pghost" className="text-sm font-medium">PGHOST (Host)</Label>
-                        <p className="text-xs text-muted-foreground">Servidor do banco de dados PostgreSQL</p>
-                      </div>
-                      <Input
-                        id="pghost"
-                        type="text"
-                        value={pgHost}
-                        onChange={(e) => setPgHost(e.target.value)}
-                        placeholder="ep-sparkling-surf-a6zclzez.us-west-2.aws.neon.tech"
-                        className="font-mono text-sm bg-background border-input"
-                      />
-                    </div>
-
-                    {/* PGPORT */}
-                    <div className="space-y-2">
-                      <div>
-                        <Label htmlFor="pgport" className="text-sm font-medium">PGPORT (Porta)</Label>
-                        <p className="text-xs text-muted-foreground">Porta do banco de dados PostgreSQL</p>
-                      </div>
-                      <Input
-                        id="pgport"
-                        type="text"
-                        value={pgPort}
-                        onChange={(e) => setPgPort(e.target.value)}
-                        placeholder="5432"
-                        className="font-mono text-sm bg-background border-input"
-                      />
-                    </div>
-
-                    {/* PGDATABASE */}
-                    <div className="space-y-2">
-                      <div>
-                        <Label htmlFor="pgdatabase" className="text-sm font-medium">PGDATABASE (Database)</Label>
-                        <p className="text-xs text-muted-foreground">Nome do banco de dados PostgreSQL</p>
-                      </div>
-                      <Input
-                        id="pgdatabase"
-                        type="text"
-                        value={pgDatabase}
-                        onChange={(e) => setPgDatabase(e.target.value)}
-                        placeholder="neondb"
-                        className="font-mono text-sm bg-background border-input"
-                      />
-                    </div>
-
-                    {/* PGUSER */}
-                    <div className="space-y-2">
-                      <div>
-                        <Label htmlFor="pguser" className="text-sm font-medium">PGUSER (Usuário)</Label>
-                        <p className="text-xs text-muted-foreground">Usuário do banco de dados PostgreSQL</p>
-                      </div>
-                      <Input
-                        id="pguser"
-                        type="text"
-                        value={pgUser}
-                        onChange={(e) => setPgUser(e.target.value)}
-                        placeholder="neondb_owner"
-                        className="font-mono text-sm bg-background border-input"
-                      />
-                    </div>
-
-                    {/* PGPASSWORD */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label htmlFor="pgpassword" className="text-sm font-medium">PGPASSWORD (Senha)</Label>
-                          <p className="text-xs text-muted-foreground">Senha do banco de dados PostgreSQL</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          type="button"
-                          onClick={() => toggleDatabasePasswordVisibility('pgpassword')}
-                          className="h-8 w-8 p-0"
-                        >
-                          {showDatabasePasswords.pgpassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                      <Input
-                        id="pgpassword"
-                        type={showDatabasePasswords.pgpassword ? "text" : "password"}
-                        value={pgPassword}
-                        onChange={(e) => setPgPassword(e.target.value)}
-                        placeholder="Digite a senha do banco de dados"
-                        className="font-mono text-sm bg-background border-input"
-                      />
-                    </div>
-
-                    {/* PGSSLMODE */}
-                    <div className="space-y-2">
-                      <div>
-                        <Label htmlFor="pgsslmode" className="text-sm font-medium">SSL Mode</Label>
-                        <p className="text-xs text-muted-foreground">Modo SSL do PostgreSQL</p>
-                      </div>
-                      <Select value={pgSslMode} onValueChange={setPgSslMode}>
-                        <SelectTrigger className="bg-background border-input">
-                          <SelectValue placeholder="Selecione o modo SSL" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="require">require</SelectItem>
-                          <SelectItem value="prefer">prefer</SelectItem>
-                          <SelectItem value="allow">allow</SelectItem>
-                          <SelectItem value="disable">disable</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Botões de Ação para Banco de Dados */}
-                <div className="flex justify-end gap-4 pt-6 border-t border-border">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={resetDatabaseForm}
-                    className="flex items-center gap-2"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    Restaurar Valores
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={saveDatabaseSettings}
-                    disabled={isDatabaseSaving}
-                    className="flex items-center gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    {isDatabaseSaving ? "Salvando..." : "Salvar Configurações"}
-                  </Button>
-                </div>
-
-                {/* Informações de Status */}
-                <div>
-                  <h3 className="text-lg font-medium text-foreground mb-4">
-                    Status da Conexão
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span className="text-sm text-green-700 dark:text-green-300">
-                        Conectado ao PostgreSQL (Neon Database)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <MapPin className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm text-blue-700 dark:text-blue-300">
-                        Localização: us-west-2 (AWS Oregon)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                      <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                      <span className="text-sm text-yellow-700 dark:text-yellow-300">
-                        SSL habilitado (obrigatório para Neon)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ações de Manutenção */}
-                <div>
-                  <h3 className="text-lg font-medium text-foreground mb-4">
-                    Ações de Manutenção
-                  </h3>
-                  <div className="flex gap-3">
-                    <Button variant="outline" className="flex items-center gap-2">
-                      <Database className="w-4 h-4" />
-                      Testar Conexão
-                    </Button>
-                    <Button variant="outline" className="flex items-center gap-2">
-                      <Box className="w-4 h-4" />
-                      Verificar Estrutura
-                    </Button>
-                    <Button variant="outline" className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4" />
-                      Estatísticas
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Aba Configurações */}
+        {/* Aba Configurações Gerais */}
         <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <SettingsIcon className="w-5 h-5" />
-                Configurações do Sistema
+                Configurações Gerais
               </CardTitle>
             </CardHeader>
             <CardContent>
