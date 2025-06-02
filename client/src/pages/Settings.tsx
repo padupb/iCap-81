@@ -23,10 +23,16 @@ import {
   MapPin,
   AlertTriangle,
   Box,
+  Database,
+  Key,
+  Shield,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { Setting } from "@shared/schema";
 import { z } from "zod";
+import { useAuth } from "@/context/AuthContext";
 
 const settingsFormSchema = z.object({
   urgent_days_threshold: z.string().min(1, "Campo obrigatório"),
@@ -34,6 +40,20 @@ const settingsFormSchema = z.object({
   google_maps_api_key: z.string().optional(),
   app_name: z.string().min(1, "Campo obrigatório"),
   logo_url: z.string().optional(),
+  // Configurações de banco de dados (apenas para KeyUser)
+  database_url: z.string().optional(),
+  pgdatabase: z.string().optional(),
+  pghost: z.string().optional(),
+  pgport: z.string().optional(),
+  pguser: z.string().optional(),
+  pgpassword: z.string().optional(),
+  // API Keys (apenas para KeyUser)
+  github_token: z.string().optional(),
+  openai_api_key: z.string().optional(),
+  smtp_host: z.string().optional(),
+  smtp_port: z.string().optional(),
+  smtp_user: z.string().optional(),
+  smtp_password: z.string().optional(),
 });
 
 type SettingsFormData = z.infer<typeof settingsFormSchema>;
@@ -41,7 +61,12 @@ type SettingsFormData = z.infer<typeof settingsFormSchema>;
 export default function Settings() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Verificar se é KeyUser
+  const isKeyUser = user?.isKeyUser === true || user?.id === 1;
 
   const { data: settings = [], isLoading: settingsLoading } = useQuery<
     Setting[]
@@ -96,6 +121,20 @@ export default function Settings() {
       google_maps_api_key: settingsObject.google_maps_api_key || "",
       app_name: settingsObject.app_name || "i-CAP 5.1",
       logo_url: settingsObject.logo_url || "",
+      // Configurações de banco de dados
+      database_url: settingsObject.database_url || "",
+      pgdatabase: settingsObject.pgdatabase || "",
+      pghost: settingsObject.pghost || "",
+      pgport: settingsObject.pgport || "",
+      pguser: settingsObject.pguser || "",
+      pgpassword: settingsObject.pgpassword || "",
+      // API Keys
+      github_token: settingsObject.github_token || "",
+      openai_api_key: settingsObject.openai_api_key || "",
+      smtp_host: settingsObject.smtp_host || "",
+      smtp_port: settingsObject.smtp_port || "",
+      smtp_user: settingsObject.smtp_user || "",
+      smtp_password: settingsObject.smtp_password || "",
     },
   });
 
@@ -103,13 +142,32 @@ export default function Settings() {
     updateSettingsMutation.mutate(data);
   };
 
+  const togglePasswordVisibility = (field: string) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
   const handleReset = () => {
     form.reset({
       urgent_days_threshold: "7",
       approval_timeout_hours: "48",
       google_maps_api_key: "",
-      app_name: "i-CAP 5.0",
+      app_name: "i-CAP 5.1",
       logo_url: "",
+      database_url: "",
+      pgdatabase: "",
+      pghost: "",
+      pgport: "",
+      pguser: "",
+      pgpassword: "",
+      github_token: "",
+      openai_api_key: "",
+      smtp_host: "",
+      smtp_port: "",
+      smtp_user: "",
+      smtp_password: "",
     });
   };
 
@@ -335,6 +393,343 @@ export default function Settings() {
                     />
                   </div>
                 </div>
+
+                {/* Database Settings - Only for KeyUser */}
+                {isKeyUser && (
+                  <div className="border-t border-border pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Database className="w-5 h-5 text-red-500" />
+                      <h3 className="text-lg font-medium text-foreground">
+                        Configurações de Banco de Dados
+                      </h3>
+                      <Shield className="w-4 h-4 text-red-500" />
+                    </div>
+                    
+                    <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                        <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                          Configurações Sensíveis - Apenas para Administradores
+                        </span>
+                      </div>
+                      <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                        Alterações nesta seção podem afetar a conectividade com o banco de dados.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="database_url"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>DATABASE_URL (Conexão Completa)</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showPasswords.database_url ? "text" : "password"}
+                                  placeholder="postgresql://user:password@host:port/database"
+                                  className="bg-input border-border pr-10"
+                                  {...field}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-0 top-0 h-full px-3 py-2"
+                                  onClick={() => togglePasswordVisibility('database_url')}
+                                >
+                                  {showPasswords.database_url ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              String de conexão completa do PostgreSQL
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={form.control}
+                          name="pghost"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>PGHOST (Servidor)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="ep-sparkling-surf-a6zclzez.us-west-2.aws.neon.tech"
+                                  className="bg-input border-border"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="pgport"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>PGPORT (Porta)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="5432"
+                                  className="bg-input border-border"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="pgdatabase"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>PGDATABASE (Nome do Banco)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="neondb"
+                                  className="bg-input border-border"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="pguser"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>PGUSER (Usuário)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="neondb_owner"
+                                  className="bg-input border-border"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="pgpassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>PGPASSWORD (Senha do Banco)</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showPasswords.pgpassword ? "text" : "password"}
+                                  placeholder="••••••••••••••••"
+                                  className="bg-input border-border pr-10"
+                                  {...field}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-0 top-0 h-full px-3 py-2"
+                                  onClick={() => togglePasswordVisibility('pgpassword')}
+                                >
+                                  {showPasswords.pgpassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* API Keys Settings - Only for KeyUser */}
+                {isKeyUser && (
+                  <div className="border-t border-border pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Key className="w-5 h-5 text-blue-500" />
+                      <h3 className="text-lg font-medium text-foreground">
+                        Chaves de API e Integrações
+                      </h3>
+                      <Shield className="w-4 h-4 text-blue-500" />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="openai_api_key"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>OpenAI API Key</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showPasswords.openai_api_key ? "text" : "password"}
+                                  placeholder="sk-..."
+                                  className="bg-input border-border pr-10"
+                                  {...field}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-0 top-0 h-full px-3 py-2"
+                                  onClick={() => togglePasswordVisibility('openai_api_key')}
+                                >
+                                  {showPasswords.openai_api_key ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              Para funcionalidades de IA e análise de texto
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="github_token"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>GitHub Token</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showPasswords.github_token ? "text" : "password"}
+                                  placeholder="github_pat_..."
+                                  className="bg-input border-border pr-10"
+                                  {...field}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-0 top-0 h-full px-3 py-2"
+                                  onClick={() => togglePasswordVisibility('github_token')}
+                                >
+                                  {showPasswords.github_token ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              Para integrações com repositórios GitHub
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="border-t border-border pt-6">
+                        <h4 className="text-md font-medium text-foreground mb-4">
+                          Configurações SMTP (E-mail)
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <FormField
+                            control={form.control}
+                            name="smtp_host"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>SMTP Host</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="smtp.gmail.com"
+                                    className="bg-input border-border"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="smtp_port"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>SMTP Port</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="587"
+                                    className="bg-input border-border"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="smtp_user"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>SMTP User</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="usuario@email.com"
+                                    className="bg-input border-border"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="smtp_password"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>SMTP Password</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input
+                                      type={showPasswords.smtp_password ? "text" : "password"}
+                                      placeholder="••••••••••••••••"
+                                      className="bg-input border-border pr-10"
+                                      {...field}
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="absolute right-0 top-0 h-full px-3 py-2"
+                                      onClick={() => togglePasswordVisibility('smtp_password')}
+                                    >
+                                      {showPasswords.smtp_password ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </Button>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -421,6 +816,32 @@ export default function Settings() {
                   organização.
                 </p>
               </div>
+
+              {isKeyUser && (
+                <>
+                  <div>
+                    <h4 className="font-medium text-foreground mb-2">
+                      Configurações de Banco de Dados
+                    </h4>
+                    <p>
+                      Configurações sensíveis para conectividade com PostgreSQL.
+                      Alterações incorretas podem interromper o funcionamento do sistema.
+                      Use DATABASE_URL para conexão completa ou configure os parâmetros individuais.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-foreground mb-2">
+                      Chaves de API
+                    </h4>
+                    <p>
+                      Tokens e chaves para integrações externas. OpenAI para funcionalidades
+                      de IA, GitHub para versionamento, e SMTP para envio de e-mails do sistema.
+                      Mantenha essas informações seguras.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </CardContent>

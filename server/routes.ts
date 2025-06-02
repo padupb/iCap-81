@@ -2192,22 +2192,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settings routes
-  app.get("/api/settings", async (req, res) => {
+  app.get("/api/settings", isAuthenticated, async (req, res) => {
     try {
       const settings = await storage.getAllSettings();
-      res.json(settings);
+      
+      // Se não é KeyUser, filtrar configurações sensíveis
+      if (req.user.id !== 1 && !req.user.isKeyUser) {
+        const publicSettings = settings.filter(setting => 
+          !setting.key.includes('database') && 
+          !setting.key.includes('pg') && 
+          !setting.key.includes('token') && 
+          !setting.key.includes('api_key') && 
+          !setting.key.includes('smtp') &&
+          !setting.key.includes('password')
+        );
+        res.json(publicSettings);
+      } else {
+        res.json(settings);
+      }
     } catch (error) {
       console.error("Erro ao buscar configurações:", error);
       res.status(500).json({ message: "Erro ao buscar configurações" });
     }
   });
 
-  app.put("/api/settings", async (req, res) => {
+  app.put("/api/settings", isAuthenticated, async (req, res) => {
     try {
       const settingsArray = req.body;
 
       if (!Array.isArray(settingsArray)) {
         return res.status(400).json({ message: "Dados inválidos. Esperado um array de configurações." });
+      }
+
+      // Configurações sensíveis que só o KeyUser pode alterar
+      const sensitiveKeys = [
+        'database_url', 'pgdatabase', 'pghost', 'pgport', 'pguser', 'pgpassword',
+        'github_token', 'openai_api_key', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'
+      ];
+
+      // Verificar se há configurações sensíveis sendo alteradas
+      const hasSensitiveSettings = settingsArray.some(setting => 
+        sensitiveKeys.includes(setting.key)
+      );
+
+      // Se há configurações sensíveis e não é KeyUser, negar acesso
+      if (hasSensitiveSettings && req.user.id !== 1 && !req.user.isKeyUser) {
+        return res.status(403).json({ 
+          message: "Apenas o administrador pode alterar configurações de banco de dados e API keys" 
+        });
       }
 
       // Atualizar cada configuração
@@ -2216,10 +2248,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue; // Pular configurações inválidas
         }
 
+        // Definir descrições para as novas configurações
+        let description = setting.description || "";
+        
+        switch (setting.key) {
+          case 'database_url':
+            description = "String de conexão completa do PostgreSQL";
+            break;
+          case 'pgdatabase':
+            description = "Nome do banco de dados PostgreSQL";
+            break;
+          case 'pghost':
+            description = "Servidor do banco de dados PostgreSQL";
+            break;
+          case 'pgport':
+            description = "Porta do banco de dados PostgreSQL";
+            break;
+          case 'pguser':
+            description = "Usuário do banco de dados PostgreSQL";
+            break;
+          case 'pgpassword':
+            description = "Senha do banco de dados PostgreSQL";
+            break;
+          case 'github_token':
+            description = "Token de acesso do GitHub";
+            break;
+          case 'openai_api_key':
+            description = "Chave de API do OpenAI";
+            break;
+          case 'smtp_host':
+            description = "Servidor SMTP para envio de e-mails";
+            break;
+          case 'smtp_port':
+            description = "Porta do servidor SMTP";
+            break;
+          case 'smtp_user':
+            description = "Usuário para autenticação SMTP";
+            break;
+          case 'smtp_password':
+            description = "Senha para autenticação SMTP";
+            break;
+        }
+
         await storage.createOrUpdateSetting({
           key: setting.key,
           value: setting.value,
-          description: setting.description || ""
+          description: description
+        });
+      }
+
+      // Registrar log da ação
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Atualizou configurações do sistema",
+          itemType: "settings",
+          itemId: "system",
+          details: `${settingsArray.length} configuração(ões) atualizada(s)${hasSensitiveSettings ? ' (incluindo configurações sensíveis)' : ''}`
         });
       }
 
