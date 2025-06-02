@@ -119,8 +119,6 @@ export default function Keyuser() {
   const [systemConfig, setSystemConfig] = useState({
     database_url: "",
     google_maps_api_key: "",
-    openai_api_key: "",
-    github_token: "",
     smtp_host: "",
     smtp_port: "",
     smtp_user: "",
@@ -133,8 +131,6 @@ export default function Keyuser() {
   const [showPasswords, setShowPasswords] = useState({
     database_url: false,
     google_maps_api_key: false,
-    openai_api_key: false,
-    github_token: false,
     smtp_password: false
   });
 
@@ -169,8 +165,6 @@ export default function Keyuser() {
       setSystemConfig({
         database_url: settingsObject.database_url || "",
         google_maps_api_key: settingsObject.google_maps_api_key || "",
-        openai_api_key: settingsObject.openai_api_key || "",
-        github_token: settingsObject.github_token || "",
         smtp_host: settingsObject.smtp_host || "",
         smtp_port: settingsObject.smtp_port || "",
         smtp_user: settingsObject.smtp_user || "",
@@ -183,8 +177,6 @@ export default function Keyuser() {
       setShowPasswords({
         database_url: (settingsObject.database_url || "").length > 0,
         google_maps_api_key: (settingsObject.google_maps_api_key || "").length > 0,
-        openai_api_key: (settingsObject.openai_api_key || "").length > 0,
-        github_token: (settingsObject.github_token || "").length > 0,
         smtp_password: (settingsObject.smtp_password || "").length > 0
       });
     }
@@ -682,8 +674,6 @@ export default function Keyuser() {
     setSystemConfig({
       database_url: settingsObject.database_url || "",
       google_maps_api_key: settingsObject.google_maps_api_key || "",
-      openai_api_key: settingsObject.openai_api_key || "",
-      github_token: settingsObject.github_token || "",
       smtp_host: settingsObject.smtp_host || "",
       smtp_port: settingsObject.smtp_port || "",
       smtp_user: settingsObject.smtp_user || "",
@@ -704,8 +694,6 @@ export default function Keyuser() {
     const descriptions: Record<string, string> = {
       database_url: "String de conexão completa do PostgreSQL",
       google_maps_api_key: "Chave da API do Google Maps para funcionalidades de localização",
-      openai_api_key: "Chave da API do OpenAI para recursos de IA",
-      github_token: "Token de acesso pessoal do GitHub para integrações",
       smtp_host: "Servidor SMTP para envio de e-mails",
       smtp_port: "Porta do servidor SMTP",
       smtp_user: "Usuário para autenticação SMTP",
@@ -737,8 +725,8 @@ export default function Keyuser() {
             Unidades
           </TabsTrigger>
           <TabsTrigger value="system-config" className="flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Configurações do Sistema
+            <Key className="w-4 h-4" />
+            API Keys
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <SettingsIcon className="w-4 h-4" />
@@ -1283,8 +1271,8 @@ export default function Keyuser() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                Configurações do Sistema
+                <Key className="w-5 h-5" />
+                API Keys
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1349,54 +1337,6 @@ export default function Keyuser() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         Chave da API do Google Maps para funcionalidades de localização
-                      </p>
-                    </div>
-
-                    <div>
-                      <Label>OpenAI API Key</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type={showPasswords.openai_api_key ? "text" : "password"}
-                          value={systemConfig.openai_api_key}
-                          onChange={(e) => handleSystemConfigChange('openai_api_key', e.target.value)}
-                          placeholder="sk-..."
-                          className="bg-input border-border"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          type="button"
-                          onClick={() => togglePasswordVisibility('openai_api_key')}
-                        >
-                          {showPasswords.openai_api_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Chave da API do OpenAI para recursos de IA
-                      </p>
-                    </div>
-
-                    <div>
-                      <Label>GitHub Token</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type={showPasswords.github_token ? "text" : "password"}
-                          value={systemConfig.github_token}
-                          onChange={(e) => handleSystemConfigChange('github_token', e.target.value)}
-                          placeholder="github_pat_..."
-                          className="bg-input border-border"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          type="button"
-                          onClick={() => togglePasswordVisibility('github_token')}
-                        >
-                          {showPasswords.github_token ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Token de acesso pessoal do GitHub para integrações
                       </p>
                     </div>
                   </div>
