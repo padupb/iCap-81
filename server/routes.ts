@@ -292,6 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyId: user.companyId,
         roleId: user.roleId,
         canConfirmDelivery: user.canConfirmDelivery,
+        canCreateOrder: user.canCreateOrder,
         // Adicionar propriedades de keyuser apenas se ID = 1
         isKeyUser: isKeyUser,
         isDeveloper: isKeyUser,
@@ -332,6 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           companyId: req.user.companyId,
           roleId: req.user.roleId,
           canConfirmDelivery: req.user.canConfirmDelivery,
+          canCreateOrder: req.user.canCreateOrder,
           isKeyUser: req.user.isKeyUser,
           isDeveloper: req.user.isDeveloper,
           // Incluir informações da função

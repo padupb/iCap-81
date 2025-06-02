@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   companyId: integer("company_id"),
   roleId: integer("role_id"),
   canConfirmDelivery: boolean("can_confirm_delivery").default(false),
+  canCreateOrder: boolean("can_create_order").default(false),
   primeiroLogin: boolean("primeiro_login").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

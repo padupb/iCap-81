@@ -11,6 +11,7 @@ type User = {
   isKeyUser?: boolean;
   permissions?: string[];
   canConfirmDelivery?: boolean;
+  canCreateOrder?: boolean;
   role?: {
     id: number;
     name: string;

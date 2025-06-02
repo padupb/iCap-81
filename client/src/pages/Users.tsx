@@ -145,6 +145,7 @@ export default function Users() {
       companyId: undefined,
       roleId: undefined,
       canConfirmDelivery: false,
+      canCreateOrder: false,
     },
   });
 
@@ -176,6 +177,7 @@ export default function Users() {
       companyId: user.companyId || undefined,
       roleId: user.roleId || undefined,
       canConfirmDelivery: user.canConfirmDelivery || false,
+      canCreateOrder: user.canCreateOrder || false,
     });
     setIsEditDialogOpen(true);
   };
@@ -387,6 +389,30 @@ export default function Users() {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="canCreateOrder"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mt-3">
+                      <FormControl>
+                        <input
+                          type="checkbox" 
+                          checked={field.value === true}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          id="create-order"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Permissão para Criação de Pedido</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Permite que o usuário crie novos pedidos no sistema.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
                 <div className="flex justify-end space-x-4 pt-4 border-t border-border">
                   <Button
                     type="button"
@@ -554,6 +580,30 @@ export default function Users() {
                         <FormLabel>Permissão para Confirmação de Recebimento</FormLabel>
                         <p className="text-sm text-muted-foreground">
                           Permite que o usuário confirme o recebimento de entregas no sistema.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="canCreateOrder"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mt-3">
+                      <FormControl>
+                        <input
+                          type="checkbox" 
+                          checked={field.value === true}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          id="edit-create-order"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Permissão para Criação de Pedido</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Permite que o usuário crie novos pedidos no sistema.
                         </p>
                       </div>
                     </FormItem>

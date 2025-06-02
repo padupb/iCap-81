@@ -512,183 +512,185 @@ export default function Orders() {
 
       {/* Header com ações */}
       <div className="flex justify-between items-center mb-6">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Pedido
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Novo Pedido</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-4"
-              >
-                {/* Ordem de compra */}
-                <FormField
-                  control={form.control}
-                  name="purchaseOrderId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ordem de Compra</FormLabel>
-                      <Select
-                        onValueChange={(value) =>
-                          field.onChange(parseInt(value))
-                        }
-                        defaultValue={field.value?.toString()}
-                        disabled={isLoadingPurchaseOrders}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="bg-input border-border">
-                            <SelectValue placeholder="Selecione uma ordem de compra" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {purchaseOrders.map((order) => (
-                            <SelectItem
-                              key={order.id}
-                              value={order.id.toString()}
-                            >
-                              {order.numero_ordem} - {order.empresa_nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Produto */}
-                <FormField
-                  control={form.control}
-                  name="productId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Produto</FormLabel>
-                      <Select
-                        onValueChange={(value) =>
-                          field.onChange(parseInt(value))
-                        }
-                        defaultValue={field.value?.toString()}
-                        disabled={
-                          !form.watch("purchaseOrderId") || isLoadingItems
-                        }
-                      >
-                        <FormControl>
-                          <SelectTrigger className="bg-input border-border">
-                            <SelectValue placeholder="Selecione um produto" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {purchaseOrderItems.map((item) => (
-                            <SelectItem
-                              key={item.id}
-                              value={item.produto_id.toString()}
-                            >
-                              {item.produto_nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Quantidade */}
-                <FormField
-                  control={form.control}
-                  name="quantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantidade</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="Ex: 100,50"
-                          min="0.01"
-                          step="0.01"
-                          className={`bg-input border-border ${quantityError ? "border-destructive" : ""}`}
-                          disabled={
-                            !selectedProductId || selectedProductId === 0
+        {(currentUser?.canCreateOrder || currentUser?.isKeyUser) && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Pedido
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Novo Pedido</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-4"
+                >
+                  {/* Ordem de compra */}
+                  <FormField
+                    control={form.control}
+                    name="purchaseOrderId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ordem de Compra</FormLabel>
+                        <Select
+                          onValueChange={(value) =>
+                            field.onChange(parseInt(value))
                           }
-                          {...field}
-                        />
-                      </FormControl>
-                      {productBalance && (
-                        <div className="text-xs mt-1">
-                          <span className="font-medium">Saldo disponível:</span>{" "}
-                          {formatNumber(productBalance.saldoDisponivel || productBalance.saldo_disponivel || 0)} 
-                          {productBalance.unidade && ` ${productBalance.unidade}`}
-                        </div>
-                      )}
-                      {quantityError && (
-                        <p className="text-destructive text-xs mt-1">
-                          {quantityError}
-                        </p>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                          defaultValue={field.value?.toString()}
+                          disabled={isLoadingPurchaseOrders}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione uma ordem de compra" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {purchaseOrders.map((order) => (
+                              <SelectItem
+                                key={order.id}
+                                value={order.id.toString()}
+                              >
+                                {order.numero_ordem} - {order.empresa_nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                {/* Data de entrega */}
-                <FormField
-                  control={form.control}
-                  name="deliveryDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Data de entrega</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="date"
-                          className="bg-input border-border"
-                          {...field}
-                        />
-                      </FormControl>
-                      {isUrgentOrder && (
-                        <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                          <div className="flex items-center">
-                            <AlertTriangle className="h-4 w-4 text-yellow-600 mr-2" />
-                            <p className="text-sm text-yellow-800 font-medium">
-                              Pedido urgente, só será enviado ao fornecedor após aprovação
-                            </p>
+                  {/* Produto */}
+                  <FormField
+                    control={form.control}
+                    name="productId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Produto</FormLabel>
+                        <Select
+                          onValueChange={(value) =>
+                            field.onChange(parseInt(value))
+                          }
+                          defaultValue={field.value?.toString()}
+                          disabled={
+                            !form.watch("purchaseOrderId") || isLoadingItems
+                          }
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione um produto" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {purchaseOrderItems.map((item) => (
+                              <SelectItem
+                                key={item.id}
+                                value={item.produto_id.toString()}
+                              >
+                                {item.produto_nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Quantidade */}
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantidade</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="Ex: 100,50"
+                            min="0.01"
+                            step="0.01"
+                            className={`bg-input border-border ${quantityError ? "border-destructive" : ""}`}
+                            disabled={
+                              !selectedProductId || selectedProductId === 0
+                            }
+                            {...field}
+                          />
+                        </FormControl>
+                        {productBalance && (
+                          <div className="text-xs mt-1">
+                            <span className="font-medium">Saldo disponível:</span>{" "}
+                            {formatNumber(productBalance.saldoDisponivel || productBalance.saldo_disponivel || 0)}
+                            {productBalance.unidade && ` ${productBalance.unidade}`}
                           </div>
-                        </div>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        )}
+                        {quantityError && (
+                          <p className="text-destructive text-xs mt-1">
+                            {quantityError}
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                    className="border-border"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createOrderMutation.isPending}
-                    className="bg-primary hover:bg-primary/90 text-white"
-                  >
-                    {createOrderMutation.isPending
-                      ? "Enviando..."
-                      : "Criar Pedido"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  {/* Data de entrega */}
+                  <FormField
+                    control={form.control}
+                    name="deliveryDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Data de entrega</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            className="bg-input border-border"
+                            {...field}
+                          />
+                        </FormControl>
+                        {isUrgentOrder && (
+                          <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                            <div className="flex items-center">
+                              <AlertTriangle className="h-4 w-4 text-yellow-600 mr-2" />
+                              <p className="text-sm text-yellow-800 font-medium">
+                                Pedido urgente, só será enviado ao fornecedor após aprovação
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsDialogOpen(false)}
+                      className="border-border"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={createOrderMutation.isPending}
+                      className="bg-primary hover:bg-primary/90 text-white"
+                    >
+                      {createOrderMutation.isPending
+                        ? "Enviando..."
+                        : "Criar Pedido"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Campo de busca centralizado */}
         <div className="relative flex-1 max-w-md mx-4">
@@ -790,9 +792,9 @@ export default function Orders() {
                           <TableCell className="text-right">
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   title="Excluir pedido"
                                   onClick={(e) => e.stopPropagation()}
                                 >
@@ -809,7 +811,7 @@ export default function Orders() {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction 
+                                  <AlertDialogAction
                                     onClick={() => deleteOrderMutation.mutate(order.id)}
                                     disabled={deleteOrderMutation.isPending}
                                   >
