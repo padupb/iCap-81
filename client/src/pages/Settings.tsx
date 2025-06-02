@@ -67,6 +67,12 @@ export default function Settings() {
 
   // Verificar se é KeyUser
   const isKeyUser = user?.isKeyUser === true || user?.id === 1;
+  
+  console.log("🔍 Settings - Verificação KeyUser:", {
+    userId: user?.id,
+    isKeyUser: user?.isKeyUser,
+    finalIsKeyUser: isKeyUser
+  });
 
   const { data: settings = [], isLoading: settingsLoading } = useQuery<
     Setting[]
@@ -235,6 +241,24 @@ export default function Settings() {
     <div className="space-y-6">
       {/* Configuration Cards Removed */}
 
+      {/* Debug Info - Temporário */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800">
+          <CardContent className="pt-6">
+            <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+              Debug - Status do Usuário
+            </h3>
+            <div className="text-xs text-yellow-700 dark:text-yellow-300">
+              <p>User ID: {user?.id}</p>
+              <p>Is KeyUser: {user?.isKeyUser ? 'true' : 'false'}</p>
+              <p>Is Developer: {user?.isDeveloper ? 'true' : 'false'}</p>
+              <p>Final isKeyUser: {isKeyUser ? 'true' : 'false'}</p>
+              <p>Deveria mostrar seções avançadas: {(isKeyUser || user?.id === 1) ? 'SIM' : 'NÃO'}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Settings Form */}
       <Card className="bg-card border-border">
         <CardContent className="pt-6">
@@ -395,7 +419,7 @@ export default function Settings() {
                 </div>
 
                 {/* Database Settings - Only for KeyUser */}
-                {isKeyUser && (
+                {(isKeyUser || user?.id === 1) && (
                   <div className="border-t border-border pt-6">
                     <div className="flex items-center gap-2 mb-4">
                       <Database className="w-5 h-5 text-red-500" />
@@ -559,7 +583,7 @@ export default function Settings() {
                 )}
 
                 {/* API Keys Settings - Only for KeyUser */}
-                {isKeyUser && (
+                {(isKeyUser || user?.id === 1) && (
                   <div className="border-t border-border pt-6">
                     <div className="flex items-center gap-2 mb-4">
                       <Key className="w-5 h-5 text-blue-500" />
@@ -817,7 +841,7 @@ export default function Settings() {
                 </p>
               </div>
 
-              {isKeyUser && (
+              {(isKeyUser || user?.id === 1) && (
                 <>
                   <div>
                     <h4 className="font-medium text-foreground mb-2">
