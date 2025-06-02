@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,20 @@ export default function Keyuser() {
 
   // Estados para configurações
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  // Estados para configurações de banco de dados
+  const [databaseUrl, setDatabaseUrl] = useState("");
+  const [pgHost, setPgHost] = useState("");
+  const [pgPort, setPgPort] = useState("5432");
+  const [pgDatabase, setPgDatabase] = useState("");
+  const [pgUser, setPgUser] = useState("");
+  const [pgPassword, setPgPassword] = useState("");
+  const [pgSslMode, setPgSslMode] = useState("require");
+  const [isDatabaseSaving, setIsDatabaseSaving] = useState(false);
+  const [showDatabasePasswords, setShowDatabasePasswords] = useState({
+    database_url: false,
+    pgpassword: false
+  });
 
   const queryClient = useQueryClient();
 
@@ -418,6 +433,19 @@ export default function Keyuser() {
     },
   });
 
+  // Carregar configurações do banco de dados quando os settings mudarem
+  React.useEffect(() => {
+    if (settings.length > 0) {
+      setDatabaseUrl(settingsObject.database_url || "");
+      setPgHost(settingsObject.pghost || "");
+      setPgPort(settingsObject.pgport || "5432");
+      setPgDatabase(settingsObject.pgdatabase || "");
+      setPgUser(settingsObject.pguser || "");
+      setPgPassword(settingsObject.pgpassword || "");
+      setPgSslMode(settingsObject.pgsslmode || "require");
+    }
+  }, [settings, settingsObject]);
+
   // Funções de reset
   const resetCategoryForm = () => {
     categoryForm.reset({
@@ -568,6 +596,60 @@ export default function Keyuser() {
       setIsUploadingLogo(false);
       event.target.value = "";
     }
+  };
+
+  // Funções para configurações do banco de dados
+  const saveDatabaseSettings = async () => {
+    setIsDatabaseSaving(true);
+    
+    try {
+      const databaseSettings = [
+        { key: "database_url", value: databaseUrl, description: "String de conexão completa do PostgreSQL" },
+        { key: "pghost", value: pgHost, description: "Servidor do banco de dados PostgreSQL" },
+        { key: "pgport", value: pgPort, description: "Porta do banco de dados PostgreSQL" },
+        { key: "pgdatabase", value: pgDatabase, description: "Nome do banco de dados PostgreSQL" },
+        { key: "pguser", value: pgUser, description: "Usuário do banco de dados PostgreSQL" },
+        { key: "pgpassword", value: pgPassword, description: "Senha do banco de dados PostgreSQL" },
+        { key: "pgsslmode", value: pgSslMode, description: "Modo SSL do PostgreSQL" }
+      ];
+
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(databaseSettings),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao salvar configurações");
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+
+      toast({
+        title: "Sucesso",
+        description: "Configurações do banco de dados salvas com sucesso",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar configurações do banco de dados",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDatabaseSaving(false);
+    }
+  };
+
+  const resetDatabaseForm = () => {
+    setDatabaseUrl(settingsObject.database_url || "");
+    setPgHost(settingsObject.pghost || "");
+    setPgPort(settingsObject.pgport || "5432");
+    setPgDatabase(settingsObject.pgdatabase || "");
+    setPgUser(settingsObject.pguser || "");
+    setPgPassword(settingsObject.pgpassword || "");
+    setPgSslMode(settingsObject.pgsslmode || "require");
   };
 
   return (
@@ -1153,23 +1235,21 @@ export default function Keyuser() {
                       <Label>DATABASE_URL</Label>
                       <div className="flex items-center gap-2">
                         <Input
-                          type="password"
-                          value={settingsObject.database_url || ""}
+                          type={showDatabasePasswords.database_url ? "text" : "password"}
+                          value={databaseUrl}
+                          onChange={(e) => setDatabaseUrl(e.target.value)}
                           placeholder="postgresql://user:password@host:port/database"
                           className="bg-input border-border"
-                          readOnly
                         />
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const input = document.querySelector('input[placeholder="postgresql://user:password@host:port/database"]') as HTMLInputElement;
-                            if (input) {
-                              input.type = input.type === 'password' ? 'text' : 'password';
-                            }
-                          }}
+                          onClick={() => setShowDatabasePasswords(prev => ({
+                            ...prev,
+                            database_url: !prev.database_url
+                          }))}
                         >
-                          <Eye className="w-4 h-4" />
+                          {showDatabasePasswords.database_url ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
                     </div>
@@ -1185,73 +1265,98 @@ export default function Keyuser() {
                     <div>
                       <Label>PGHOST (Host)</Label>
                       <Input
-                        value={settingsObject.pghost || ""}
+                        value={pgHost}
+                        onChange={(e) => setPgHost(e.target.value)}
                         placeholder="ep-sparkling-surf-a6zclzez.us-west-2.aws.neon.tech"
                         className="bg-input border-border"
-                        readOnly
                       />
                     </div>
                     <div>
                       <Label>PGPORT (Porta)</Label>
                       <Input
-                        value={settingsObject.pgport || "5432"}
+                        value={pgPort}
+                        onChange={(e) => setPgPort(e.target.value)}
                         placeholder="5432"
                         className="bg-input border-border"
-                        readOnly
                       />
                     </div>
                     <div>
                       <Label>PGDATABASE (Database)</Label>
                       <Input
-                        value={settingsObject.pgdatabase || ""}
+                        value={pgDatabase}
+                        onChange={(e) => setPgDatabase(e.target.value)}
                         placeholder="neondb"
                         className="bg-input border-border"
-                        readOnly
                       />
                     </div>
                     <div>
                       <Label>PGUSER (Usuário)</Label>
                       <Input
-                        value={settingsObject.pguser || ""}
+                        value={pgUser}
+                        onChange={(e) => setPgUser(e.target.value)}
                         placeholder="neondb_owner"
                         className="bg-input border-border"
-                        readOnly
                       />
                     </div>
                     <div>
                       <Label>PGPASSWORD (Senha)</Label>
                       <div className="flex items-center gap-2">
                         <Input
-                          type="password"
-                          value={settingsObject.pgpassword || ""}
+                          type={showDatabasePasswords.pgpassword ? "text" : "password"}
+                          value={pgPassword}
+                          onChange={(e) => setPgPassword(e.target.value)}
                           placeholder="••••••••••••••••"
                           className="bg-input border-border"
-                          readOnly
                         />
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const input = document.querySelector('input[placeholder="••••••••••••••••"]') as HTMLInputElement;
-                            if (input) {
-                              input.type = input.type === 'password' ? 'text' : 'password';
-                            }
-                          }}
+                          onClick={() => setShowDatabasePasswords(prev => ({
+                            ...prev,
+                            pgpassword: !prev.pgpassword
+                          }))}
                         >
-                          <EyeOff className="w-4 h-4" />
+                          {showDatabasePasswords.pgpassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
                     </div>
                     <div>
                       <Label>SSL Mode</Label>
-                      <Input
-                        value={settingsObject.pgsslmode || "require"}
-                        placeholder="require"
-                        className="bg-input border-border"
-                        readOnly
-                      />
+                      <Select value={pgSslMode} onValueChange={setPgSslMode}>
+                        <SelectTrigger className="bg-input border-border">
+                          <SelectValue placeholder="Selecione o modo SSL" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="require">require</SelectItem>
+                          <SelectItem value="prefer">prefer</SelectItem>
+                          <SelectItem value="allow">allow</SelectItem>
+                          <SelectItem value="disable">disable</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
+                </div>
+
+                {/* Botões de Ação para Banco de Dados */}
+                <div className="flex justify-end gap-4 pt-6 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetDatabaseForm}
+                    className="flex items-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Restaurar Valores
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={saveDatabaseSettings}
+                    disabled={isDatabaseSaving}
+                    className="flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isDatabaseSaving ? "Salvando..." : "Salvar Configurações"}
+                  </Button>
                 </div>
 
                 {/* Informações de Status */}
