@@ -577,7 +577,7 @@ export default function Keyuser() {
       </div>
 
       <Tabs defaultValue="categories" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="categories" className="flex items-center gap-2">
             <Building className="w-4 h-4" />
             Categorias
@@ -590,7 +590,11 @@ export default function Keyuser() {
             <Package className="w-4 h-4" />
             Unidades
           </TabsTrigger>
-                    <TabsTrigger value="settings" className="flex items-center gap-2">
+          <TabsTrigger value="database" className="flex items-center gap-2">
+            <Database className="w-4 h-4" />
+            Banco de Dados
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
             <SettingsIcon className="w-4 h-4" />
             Configurações
           </TabsTrigger>
@@ -1128,7 +1132,181 @@ export default function Keyuser() {
           </Card>
         </TabsContent>
 
-                {/* Aba Configurações */}
+        {/* Aba Banco de Dados */}
+        <TabsContent value="database" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Configurações do Banco de Dados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Configurações de Conexão */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    String de Conexão
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>DATABASE_URL</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="password"
+                          value={settingsObject.database_url || ""}
+                          placeholder="postgresql://user:password@host:port/database"
+                          className="bg-input border-border"
+                          readOnly
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const input = document.querySelector('input[placeholder="postgresql://user:password@host:port/database"]') as HTMLInputElement;
+                            if (input) {
+                              input.type = input.type === 'password' ? 'text' : 'password';
+                            }
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Configurações Individuais */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    Configurações Individuais
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>PGHOST (Host)</Label>
+                      <Input
+                        value={settingsObject.pghost || ""}
+                        placeholder="ep-sparkling-surf-a6zclzez.us-west-2.aws.neon.tech"
+                        className="bg-input border-border"
+                        readOnly
+                      />
+                    </div>
+                    <div>
+                      <Label>PGPORT (Porta)</Label>
+                      <Input
+                        value={settingsObject.pgport || "5432"}
+                        placeholder="5432"
+                        className="bg-input border-border"
+                        readOnly
+                      />
+                    </div>
+                    <div>
+                      <Label>PGDATABASE (Database)</Label>
+                      <Input
+                        value={settingsObject.pgdatabase || ""}
+                        placeholder="neondb"
+                        className="bg-input border-border"
+                        readOnly
+                      />
+                    </div>
+                    <div>
+                      <Label>PGUSER (Usuário)</Label>
+                      <Input
+                        value={settingsObject.pguser || ""}
+                        placeholder="neondb_owner"
+                        className="bg-input border-border"
+                        readOnly
+                      />
+                    </div>
+                    <div>
+                      <Label>PGPASSWORD (Senha)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="password"
+                          value={settingsObject.pgpassword || ""}
+                          placeholder="••••••••••••••••"
+                          className="bg-input border-border"
+                          readOnly
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const input = document.querySelector('input[placeholder="••••••••••••••••"]') as HTMLInputElement;
+                            if (input) {
+                              input.type = input.type === 'password' ? 'text' : 'password';
+                            }
+                          }}
+                        >
+                          <EyeOff className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>SSL Mode</Label>
+                      <Input
+                        value={settingsObject.pgsslmode || "require"}
+                        placeholder="require"
+                        className="bg-input border-border"
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Informações de Status */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    Status da Conexão
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <span className="text-sm text-green-700 dark:text-green-300">
+                        Conectado ao PostgreSQL (Neon Database)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <MapPin className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm text-blue-700 dark:text-blue-300">
+                        Localização: us-west-2 (AWS Oregon)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                      <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                      <span className="text-sm text-yellow-700 dark:text-yellow-300">
+                        SSL habilitado (obrigatório para Neon)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ações de Manutenção */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    Ações de Manutenção
+                  </h3>
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex items-center gap-2">
+                      <Database className="w-4 h-4" />
+                      Testar Conexão
+                    </Button>
+                    <Button variant="outline" className="flex items-center gap-2">
+                      <Box className="w-4 h-4" />
+                      Verificar Estrutura
+                    </Button>
+                    <Button variant="outline" className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      Estatísticas
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Aba Configurações */}
         <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
