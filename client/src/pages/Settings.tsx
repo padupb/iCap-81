@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -221,6 +222,11 @@ export default function Settings() {
   if (settingsLoading) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center gap-3 mb-6">
+          <SettingsIcon className="w-8 h-8 text-primary" />
+          <h1 className="text-3xl font-bold text-foreground">Configurações do Sistema</h1>
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="bg-card border-border">
@@ -239,7 +245,11 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      {/* Configuration Cards Removed */}
+      {/* Page Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <SettingsIcon className="w-8 h-8 text-primary" />
+        <h1 className="text-3xl font-bold text-foreground">Configurações do Sistema</h1>
+      </div>
 
       {/* Debug Info - Temporário */}
       {process.env.NODE_ENV === 'development' && (
@@ -259,15 +269,22 @@ export default function Settings() {
         </Card>
       )}
 
-      {/* Settings Form */}
+      {/* Main Settings Form */}
       <Card className="bg-card border-border">
-        <CardContent className="pt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SettingsIcon className="w-5 h-5 text-primary" />
+            Configurações do Sistema
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               {/* General Settings */}
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-medium text-foreground mb-4">
+                  <h3 className="text-lg font-medium text-foreground mb-4 flex items-center gap-2">
+                    <Box className="w-5 h-5 text-blue-500" />
                     Configurações Gerais
                   </h3>
 
@@ -293,83 +310,15 @@ export default function Settings() {
                       )}
                     />
 
-                    <div className="space-y-4">
-                      <FormLabel>Logo da Aplicação</FormLabel>
-                      <div className="flex flex-col space-y-4">
-                        {/* Preview do logo atual */}
-                        {settingsObject.logo_url && (
-                          <div className="flex items-center space-x-4">
-                            <img
-                              src={settingsObject.logo_url}
-                              alt="Logo atual"
-                              className="w-16 h-16 object-contain border border-border rounded"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                            <span className="text-sm text-muted-foreground">Logo atual</span>
-                          </div>
-                        )}
-                        
-                        {/* Input de upload */}
-                        <div className="flex items-center space-x-4">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            className="bg-input border-border"
-                            onChange={handleLogoUpload}
-                            disabled={isUploadingLogo}
-                          />
-                          {isUploadingLogo && (
-                            <span className="text-sm text-muted-foreground">Enviando...</span>
-                          )}
-                        </div>
-                        
-                        <p className="text-sm text-muted-foreground">
-                          Faça upload de uma imagem para o logo (PNG, JPG, etc. - máx. 5MB)
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6 mt-6">
-                    <FormField
-                      control={form.control}
-                      name="google_maps_api_key"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Chave API Google Maps</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="AIza..."
-                              className="bg-input border-border"
-                              {...field}
-                            />
-                          </FormControl>
-                          <p className="text-sm text-muted-foreground">
-                            Para funcionalidades de rastreamento e mapas
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                {/* Approval Settings */}
-                <div className="border-t border-border pt-6">
-                  <h3 className="text-lg font-medium text-foreground mb-4">
-                    Configurações de Aprovação
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
                       control={form.control}
                       name="urgent_days_threshold"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Dias para Pedido Urgente</FormLabel>
+                          <FormLabel className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-orange-500" />
+                            Limite de Urgência (dias)
+                          </FormLabel>
                           <FormControl>
                             <Input
                               type="number"
@@ -381,21 +330,23 @@ export default function Settings() {
                             />
                           </FormControl>
                           <p className="text-sm text-muted-foreground">
-                            Pedidos com entrega inferior a este valor necessitam
-                            aprovação
+                            Pedidos com entrega inferior a este valor necessitam aprovação
                           </p>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                  </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <FormField
                       control={form.control}
                       name="approval_timeout_hours"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>
-                            Tempo Limite para Aprovação (horas)
+                          <FormLabel className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-red-500" />
+                            Timeout de Aprovação (horas)
                           </FormLabel>
                           <FormControl>
                             <Input
@@ -408,13 +359,86 @@ export default function Settings() {
                             />
                           </FormControl>
                           <p className="text-sm text-muted-foreground">
-                            Tempo máximo para processar aprovações de pedidos
-                            urgentes
+                            Tempo máximo para processar aprovações de pedidos urgentes
                           </p>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+
+                    <FormField
+                      control={form.control}
+                      name="google_maps_api_key"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-green-500" />
+                            Chave API Google Maps
+                          </FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type={showPasswords.google_maps_api_key ? "text" : "password"}
+                                placeholder="AIza..."
+                                className="bg-input border-border pr-10"
+                                {...field}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 py-2"
+                                onClick={() => togglePasswordVisibility('google_maps_api_key')}
+                              >
+                                {showPasswords.google_maps_api_key ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <p className="text-sm text-muted-foreground">
+                            Para funcionalidades de rastreamento e mapas
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <FormLabel>Logo da Aplicação</FormLabel>
+                    <div className="flex flex-col space-y-4 mt-2">
+                      {/* Preview do logo atual */}
+                      {settingsObject.logo_url && (
+                        <div className="flex items-center space-x-4">
+                          <img
+                            src={settingsObject.logo_url}
+                            alt="Logo atual"
+                            className="w-16 h-16 object-contain border border-border rounded"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <span className="text-sm text-muted-foreground">Logo atual</span>
+                        </div>
+                      )}
+                      
+                      {/* Input de upload */}
+                      <div className="flex items-center space-x-4">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          className="bg-input border-border"
+                          onChange={handleLogoUpload}
+                          disabled={isUploadingLogo}
+                        />
+                        {isUploadingLogo && (
+                          <span className="text-sm text-muted-foreground">Enviando...</span>
+                        )}
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground">
+                        Faça upload de uma imagem para o logo (PNG, JPG, etc. - máx. 5MB)
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -791,10 +815,10 @@ export default function Settings() {
 
       {/* Help Section */}
       <Card className="bg-card border-border">
-        <CardContent className="pt-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold">Ajuda e Informações</h2>
-          </div>
+        <CardHeader>
+          <CardTitle>Ajuda e Informações</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-4 text-sm text-muted-foreground">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
