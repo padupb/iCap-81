@@ -124,9 +124,26 @@ export default function Keyuser() {
   const [pgPassword, setPgPassword] = useState("");
   const [pgSslMode, setPgSslMode] = useState("require");
   const [isDatabaseSaving, setIsDatabaseSaving] = useState(false);
+  
+  // Estados para API Keys
+  const [apiKeys, setApiKeys] = useState({
+    google_maps_api_key: "",
+    openai_api_key: "",
+    github_token: "",
+    smtp_host: "",
+    smtp_port: "",
+    smtp_user: "",
+    smtp_password: ""
+  });
+  const [isApiKeysSaving, setIsApiKeysSaving] = useState(false);
+  
   const [showDatabasePasswords, setShowDatabasePasswords] = useState({
     database_url: false,
-    pgpassword: false
+    pgpassword: false,
+    google_maps_api_key: false,
+    openai_api_key: false,
+    github_token: false,
+    smtp_password: false
   });
 
   const queryClient = useQueryClient();
@@ -433,7 +450,7 @@ export default function Keyuser() {
     },
   });
 
-  // Carregar configurações do banco de dados quando os settings mudarem
+  // Carregar configurações do banco de dados e API Keys quando os settings mudarem
   React.useEffect(() => {
     if (settings.length > 0) {
       const dbUrl = settingsObject.database_url || "";
@@ -447,10 +464,25 @@ export default function Keyuser() {
       setPgPassword(pgPass);
       setPgSslMode(settingsObject.pgsslmode || "require");
       
+      // Carregar API Keys
+      setApiKeys({
+        google_maps_api_key: settingsObject.google_maps_api_key || "",
+        openai_api_key: settingsObject.openai_api_key || "",
+        github_token: settingsObject.github_token || "",
+        smtp_host: settingsObject.smtp_host || "",
+        smtp_port: settingsObject.smtp_port || "",
+        smtp_user: settingsObject.smtp_user || "",
+        smtp_password: settingsObject.smtp_password || ""
+      });
+      
       // Iniciar campos visíveis se tiverem valores
       setShowDatabasePasswords({
         database_url: dbUrl.length > 0,
-        pgpassword: pgPass.length > 0
+        pgpassword: pgPass.length > 0,
+        google_maps_api_key: (settingsObject.google_maps_api_key || "").length > 0,
+        openai_api_key: (settingsObject.openai_api_key || "").length > 0,
+        github_token: (settingsObject.github_token || "").length > 0,
+        smtp_password: (settingsObject.smtp_password || "").length > 0
       });
     }
   }, [settings, settingsObject]);
@@ -668,6 +700,78 @@ export default function Keyuser() {
     }));
   };
 
+  // Funções para API Keys
+  const handleApiKeyChange = (key: string, value: string) => {
+    setApiKeys(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const saveApiKeys = async () => {
+    setIsApiKeysSaving(true);
+    
+    try {
+      const apiKeySettings = Object.entries(apiKeys).map(([key, value]) => ({
+        key,
+        value: value || "",
+        description: getApiKeyDescription(key)
+      }));
+
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(apiKeySettings),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao salvar API Keys");
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+
+      toast({
+        title: "Sucesso",
+        description: "API Keys salvas com sucesso",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar API Keys",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApiKeysSaving(false);
+    }
+  };
+
+  const resetApiKeysForm = () => {
+    setApiKeys({
+      google_maps_api_key: settingsObject.google_maps_api_key || "",
+      openai_api_key: settingsObject.openai_api_key || "",
+      github_token: settingsObject.github_token || "",
+      smtp_host: settingsObject.smtp_host || "",
+      smtp_port: settingsObject.smtp_port || "",
+      smtp_user: settingsObject.smtp_user || "",
+      smtp_password: settingsObject.smtp_password || ""
+    });
+  };
+
+  const getApiKeyDescription = (key: string) => {
+    const descriptions: Record<string, string> = {
+      google_maps_api_key: "Chave da API do Google Maps para funcionalidades de localização",
+      openai_api_key: "Chave da API do OpenAI para recursos de IA",
+      github_token: "Token de acesso pessoal do GitHub para integrações",
+      smtp_host: "Servidor SMTP para envio de e-mails",
+      smtp_port: "Porta do servidor SMTP",
+      smtp_user: "Usuário para autenticação SMTP",
+      smtp_password: "Senha para autenticação SMTP"
+    };
+    return descriptions[key] || `Configuração ${key}`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -675,7 +779,7 @@ export default function Keyuser() {
       </div>
 
       <Tabs defaultValue="categories" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="categories" className="flex items-center gap-2">
             <Building className="w-4 h-4" />
             Categorias
@@ -687,6 +791,10 @@ export default function Keyuser() {
           <TabsTrigger value="units" className="flex items-center gap-2">
             <Package className="w-4 h-4" />
             Unidades
+          </TabsTrigger>
+          <TabsTrigger value="apikeys" className="flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            API Keys
           </TabsTrigger>
           <TabsTrigger value="database" className="flex items-center gap-2">
             <Database className="w-4 h-4" />
@@ -1226,6 +1334,195 @@ export default function Keyuser() {
                   ))}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Aba API Keys */}
+        <TabsContent value="apikeys" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                Chaves de API e Tokens
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Google Maps API */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    Integrações
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Google Maps API Key</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type={showDatabasePasswords.google_maps_api_key ? "text" : "password"}
+                          value={settingsObject.google_maps_api_key || ""}
+                          onChange={(e) => handleApiKeyChange('google_maps_api_key', e.target.value)}
+                          placeholder="AIza..."
+                          className="bg-input border-border"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => toggleDatabasePasswordVisibility('google_maps_api_key')}
+                        >
+                          {showDatabasePasswords.google_maps_api_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Chave da API do Google Maps para funcionalidades de localização
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* APIs de IA */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    Inteligência Artificial
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>OpenAI API Key</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type={showDatabasePasswords.openai_api_key ? "text" : "password"}
+                          value={settingsObject.openai_api_key || ""}
+                          onChange={(e) => handleApiKeyChange('openai_api_key', e.target.value)}
+                          placeholder="sk-..."
+                          className="bg-input border-border"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => toggleDatabasePasswordVisibility('openai_api_key')}
+                        >
+                          {showDatabasePasswords.openai_api_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Chave da API do OpenAI para recursos de IA
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desenvolvimento */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    Desenvolvimento
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>GitHub Token</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type={showDatabasePasswords.github_token ? "text" : "password"}
+                          value={settingsObject.github_token || ""}
+                          onChange={(e) => handleApiKeyChange('github_token', e.target.value)}
+                          placeholder="github_pat_..."
+                          className="bg-input border-border"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => toggleDatabasePasswordVisibility('github_token')}
+                        >
+                          {showDatabasePasswords.github_token ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Token de acesso pessoal do GitHub para integrações
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email / SMTP */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-4">
+                    Configurações de Email (SMTP)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Servidor SMTP</Label>
+                      <Input
+                        value={settingsObject.smtp_host || ""}
+                        onChange={(e) => handleApiKeyChange('smtp_host', e.target.value)}
+                        placeholder="smtp.gmail.com"
+                        className="bg-input border-border"
+                      />
+                    </div>
+                    <div>
+                      <Label>Porta SMTP</Label>
+                      <Input
+                        value={settingsObject.smtp_port || ""}
+                        onChange={(e) => handleApiKeyChange('smtp_port', e.target.value)}
+                        placeholder="587"
+                        className="bg-input border-border"
+                      />
+                    </div>
+                    <div>
+                      <Label>Usuário SMTP</Label>
+                      <Input
+                        value={settingsObject.smtp_user || ""}
+                        onChange={(e) => handleApiKeyChange('smtp_user', e.target.value)}
+                        placeholder="seu-email@gmail.com"
+                        className="bg-input border-border"
+                      />
+                    </div>
+                    <div>
+                      <Label>Senha SMTP</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type={showDatabasePasswords.smtp_password ? "text" : "password"}
+                          value={settingsObject.smtp_password || ""}
+                          onChange={(e) => handleApiKeyChange('smtp_password', e.target.value)}
+                          placeholder="sua-senha-de-app"
+                          className="bg-input border-border"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => toggleDatabasePasswordVisibility('smtp_password')}
+                        >
+                          {showDatabasePasswords.smtp_password ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botões de Ação para API Keys */}
+                <div className="flex justify-end gap-4 pt-6 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetApiKeysForm}
+                    className="flex items-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Restaurar Valores
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={saveApiKeys}
+                    disabled={isApiKeysSaving}
+                    className="flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isApiKeysSaving ? "Salvando..." : "Salvar API Keys"}
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
