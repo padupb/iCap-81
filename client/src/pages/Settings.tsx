@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,14 +44,6 @@ const settingsFormSchema = z.object({
 
 const apiFormSchema = z.object({
   google_maps_api_key: z.string().optional(),
-  // Configurações de banco de dados
-  database_url: z.string().optional(),
-  pgdatabase: z.string().optional(),
-  pghost: z.string().optional(),
-  pgport: z.string().optional(),
-  pguser: z.string().optional(),
-  pgpassword: z.string().optional(),
-  // API Keys
   github_token: z.string().optional(),
   openai_api_key: z.string().optional(),
   smtp_host: z.string().optional(),
@@ -128,14 +119,6 @@ export default function Settings() {
     resolver: zodResolver(apiFormSchema),
     values: {
       google_maps_api_key: settingsObject.google_maps_api_key || "",
-      // Configurações de banco de dados
-      database_url: settingsObject.database_url || "",
-      pgdatabase: settingsObject.pgdatabase || "",
-      pghost: settingsObject.pghost || "",
-      pgport: settingsObject.pgport || "",
-      pguser: settingsObject.pguser || "",
-      pgpassword: settingsObject.pgpassword || "",
-      // API Keys
       github_token: settingsObject.github_token || "",
       openai_api_key: settingsObject.openai_api_key || "",
       smtp_host: settingsObject.smtp_host || "",
@@ -172,12 +155,6 @@ export default function Settings() {
   const handleApiReset = () => {
     apiForm.reset({
       google_maps_api_key: "",
-      database_url: "",
-      pgdatabase: "",
-      pghost: "",
-      pgport: "",
-      pguser: "",
-      pgpassword: "",
       github_token: "",
       openai_api_key: "",
       smtp_host: "",
@@ -261,10 +238,14 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <SettingsIcon className="w-4 h-4" />
             Geral
+          </TabsTrigger>
+          <TabsTrigger value="database" className="flex items-center gap-2">
+            <Database className="w-4 h-4" />
+            Banco de Dados
           </TabsTrigger>
           <TabsTrigger value="api" className="flex items-center gap-2">
             <Key className="w-4 h-4" />
@@ -433,63 +414,18 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* Aba API */}
-        <TabsContent value="api" className="space-y-6">
+        {/* Aba Banco de Dados */}
+        <TabsContent value="database" className="space-y-6">
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-primary" />
-                Configurações de API e Integrações
+                <Database className="w-5 h-5 text-primary" />
+                Configurações do Banco de Dados
               </CardTitle>
             </CardHeader>
             <CardContent>
               <Form {...apiForm}>
                 <form onSubmit={apiForm.handleSubmit(onApiSubmit)} className="space-y-8">
-                  {/* Google Maps API */}
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-2 mb-4">
-                      <MapPin className="w-5 h-5 text-green-500" />
-                      <h3 className="text-lg font-medium text-foreground">
-                        Integrações
-                      </h3>
-                    </div>
-
-                    <FormField
-                      control={apiForm.control}
-                      name="google_maps_api_key"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-green-500" />
-                            Chave API Google Maps
-                          </FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input
-                                type={showPasswords.google_maps_api_key ? "text" : "password"}
-                                placeholder="AIza..."
-                                className="bg-input border-border pr-10"
-                                {...field}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute right-0 top-0 h-full px-3 py-2"
-                                onClick={() => togglePasswordVisibility('google_maps_api_key')}
-                              >
-                                {showPasswords.google_maps_api_key ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </Button>
-                            </div>
-                          </FormControl>
-                          <p className="text-sm text-muted-foreground">
-                            Para funcionalidades de rastreamento e mapas
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
 
                   {/* Configurações de Banco de Dados */}
                   <div className="border-t border-border pt-6">
@@ -648,6 +584,98 @@ export default function Settings() {
                         )}
                       />
                     </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t border-border gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      As alterações serão aplicadas imediatamente após salvar
+                    </div>
+
+                    <div className="flex space-x-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleApiReset}
+                        disabled={updateSettingsMutation.isPending}
+                      >
+                        <RotateCcw className="mr-2" size={16} />
+                        Restaurar Padrões
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="bg-primary hover:bg-primary/90"
+                        disabled={updateSettingsMutation.isPending}
+                      >
+                        <Save className="mr-2" size={16} />
+                        {updateSettingsMutation.isPending
+                          ? "Salvando..."
+                          : "Salvar Configurações"}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Aba API */}
+        <TabsContent value="api" className="space-y-6">
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-primary" />
+                Configurações de API e Integrações
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...apiForm}>
+                <form onSubmit={apiForm.handleSubmit(onApiSubmit)} className="space-y-8">
+                  {/* Google Maps API */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <MapPin className="w-5 h-5 text-green-500" />
+                      <h3 className="text-lg font-medium text-foreground">
+                        Integrações
+                      </h3>
+                    </div>
+
+                    <FormField
+                      control={apiForm.control}
+                      name="google_maps_api_key"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-green-500" />
+                            Chave API Google Maps
+                          </FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type={showPasswords.google_maps_api_key ? "text" : "password"}
+                                placeholder="AIza..."
+                                className="bg-input border-border pr-10"
+                                {...field}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 py-2"
+                                onClick={() => togglePasswordVisibility('google_maps_api_key')}
+                              >
+                                {showPasswords.google_maps_api_key ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <p className="text-sm text-muted-foreground">
+                            Para funcionalidades de rastreamento e mapas
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
                   {/* API Keys Settings */}
