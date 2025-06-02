@@ -1544,25 +1544,29 @@ export default function Keyuser() {
                     String de Conexão
                   </h3>
                   <div className="space-y-4">
-                    <div>
-                      <Label>DATABASE_URL</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="text"
-                          value={databaseUrl}
-                          onChange={(e) => setDatabaseUrl(e.target.value)}
-                          placeholder="postgresql://user:password@host:port/database"
-                          className="bg-input border-border"
-                        />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">DATABASE_URL</Label>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           type="button"
                           onClick={() => toggleDatabasePasswordVisibility('database_url')}
+                          className="h-6 w-6 p-0"
                         >
-                          <Eye className="w-4 h-4" />
+                          {showDatabasePasswords.database_url ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
+                      <Input
+                        type={showDatabasePasswords.database_url ? "text" : "password"}
+                        value={databaseUrl}
+                        onChange={(e) => setDatabaseUrl(e.target.value)}
+                        placeholder="postgresql://user:password@host:port/database"
+                        className="bg-input border-border font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        String de conexão completa do PostgreSQL
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1572,76 +1576,102 @@ export default function Keyuser() {
                   <h3 className="text-lg font-medium text-foreground mb-4">
                     Configurações Individuais
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>PGHOST (Host)</Label>
-                      <Input
-                        value={pgHost}
-                        onChange={(e) => setPgHost(e.target.value)}
-                        placeholder="ep-sparkling-surf-a6zclzez.us-west-2.aws.neon.tech"
-                        className="bg-input border-border"
-                      />
-                    </div>
-                    <div>
-                      <Label>PGPORT (Porta)</Label>
-                      <Input
-                        value={pgPort}
-                        onChange={(e) => setPgPort(e.target.value)}
-                        placeholder="5432"
-                        className="bg-input border-border"
-                      />
-                    </div>
-                    <div>
-                      <Label>PGDATABASE (Database)</Label>
-                      <Input
-                        value={pgDatabase}
-                        onChange={(e) => setPgDatabase(e.target.value)}
-                        placeholder="neondb"
-                        className="bg-input border-border"
-                      />
-                    </div>
-                    <div>
-                      <Label>PGUSER (Usuário)</Label>
-                      <Input
-                        value={pgUser}
-                        onChange={(e) => setPgUser(e.target.value)}
-                        placeholder="neondb_owner"
-                        className="bg-input border-border"
-                      />
-                    </div>
-                    <div>
-                      <Label>PGPASSWORD (Senha)</Label>
-                      <div className="flex items-center gap-2">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">PGHOST (Host)</Label>
                         <Input
-                          type="text"
+                          value={pgHost}
+                          onChange={(e) => setPgHost(e.target.value)}
+                          placeholder="ep-sparkling-surf-a6zclzez.us-west-2.aws.neon.tech"
+                          className="bg-input border-border font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Servidor do banco de dados PostgreSQL
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">PGPORT (Porta)</Label>
+                        <Input
+                          value={pgPort}
+                          onChange={(e) => setPgPort(e.target.value)}
+                          placeholder="5432"
+                          className="bg-input border-border font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Porta do banco de dados PostgreSQL
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">PGDATABASE (Database)</Label>
+                        <Input
+                          value={pgDatabase}
+                          onChange={(e) => setPgDatabase(e.target.value)}
+                          placeholder="neondb"
+                          className="bg-input border-border font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Nome do banco de dados PostgreSQL
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">PGUSER (Usuário)</Label>
+                        <Input
+                          value={pgUser}
+                          onChange={(e) => setPgUser(e.target.value)}
+                          placeholder="neondb_owner"
+                          className="bg-input border-border font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Usuário do banco de dados PostgreSQL
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">PGPASSWORD (Senha)</Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            type="button"
+                            onClick={() => toggleDatabasePasswordVisibility('pgpassword')}
+                            className="h-6 w-6 p-0"
+                          >
+                            {showDatabasePasswords.pgpassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                        <Input
+                          type={showDatabasePasswords.pgpassword ? "text" : "password"}
                           value={pgPassword}
                           onChange={(e) => setPgPassword(e.target.value)}
                           placeholder="Digite a senha do banco de dados"
-                          className="bg-input border-border"
+                          className="bg-input border-border font-mono text-sm"
                         />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          type="button"
-                          onClick={() => toggleDatabasePasswordVisibility('pgpassword')}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Senha do banco de dados PostgreSQL
+                        </p>
                       </div>
-                    </div>
-                    <div>
-                      <Label>SSL Mode</Label>
-                      <Select value={pgSslMode} onValueChange={setPgSslMode}>
-                        <SelectTrigger className="bg-input border-border">
-                          <SelectValue placeholder="Selecione o modo SSL" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="require">require</SelectItem>
-                          <SelectItem value="prefer">prefer</SelectItem>
-                          <SelectItem value="allow">allow</SelectItem>
-                          <SelectItem value="disable">disable</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">SSL Mode</Label>
+                        <Select value={pgSslMode} onValueChange={setPgSslMode}>
+                          <SelectTrigger className="bg-input border-border">
+                            <SelectValue placeholder="Selecione o modo SSL" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="require">require</SelectItem>
+                            <SelectItem value="prefer">prefer</SelectItem>
+                            <SelectItem value="allow">allow</SelectItem>
+                            <SelectItem value="disable">disable</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Modo SSL do PostgreSQL
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
