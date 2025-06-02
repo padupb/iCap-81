@@ -125,8 +125,8 @@ export default function Keyuser() {
   const [pgSslMode, setPgSslMode] = useState("require");
   const [isDatabaseSaving, setIsDatabaseSaving] = useState(false);
   const [showDatabasePasswords, setShowDatabasePasswords] = useState({
-    database_url: false,
-    pgpassword: false
+    database_url: true,
+    pgpassword: true
   });
 
   const queryClient = useQueryClient();
