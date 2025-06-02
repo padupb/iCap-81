@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,12 +66,22 @@ export default function Settings() {
   const { user } = useAuth();
 
   // Verificar se é KeyUser
-  const isKeyUser = user?.isKeyUser === true || user?.id === 1;
-  
-  console.log("🔍 Settings - Verificação KeyUser:", {
+  const isKeyUser = user?.isKeyUser === true || user?.isDeveloper === true || user?.id === 1;
+
+  console.log("📊 Settings - Dados do usuário:", {
     userId: user?.id,
+    name: user?.name,
     isKeyUser: user?.isKeyUser,
-    finalIsKeyUser: isKeyUser
+    isDeveloper: user?.isDeveloper,
+    permissions: user?.permissions,
+    calculatedIsKeyUser: isKeyUser
+  });
+
+  console.log("🔍 Settings - Verificação detalhada:", {
+    "user?.isKeyUser === true": user?.isKeyUser === true,
+    "user?.isDeveloper === true": user?.isDeveloper === true,
+    "user?.id === 1": user?.id === 1,
+    "resultado final isKeyUser": isKeyUser
   });
 
   const { data: settings = [], isLoading: settingsLoading } = useQuery<
@@ -198,10 +207,10 @@ export default function Settings() {
       }
 
       const result = await response.json();
-      
+
       // Atualizar as configurações para refletir o novo logo
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      
+
       toast({
         title: "Sucesso",
         description: "Logo enviado com sucesso",
@@ -226,7 +235,7 @@ export default function Settings() {
           <SettingsIcon className="w-8 h-8 text-primary" />
           <h1 className="text-3xl font-bold text-foreground">Configurações do Sistema</h1>
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="bg-card border-border">
@@ -280,13 +289,15 @@ export default function Settings() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              {/* General Settings */}
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium text-foreground mb-4 flex items-center gap-2">
-                    <Box className="w-5 h-5 text-blue-500" />
-                    Configurações Gerais
-                  </h3>
+              {/* Configurações Gerais - SEMPRE exibir para ID 1 */}
+              {(isKeyUser || user?.id === 1) && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <SettingsIcon className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-medium text-foreground">
+                      Configurações Gerais
+                    </h3>
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
@@ -420,7 +431,7 @@ export default function Settings() {
                           <span className="text-sm text-muted-foreground">Logo atual</span>
                         </div>
                       )}
-                      
+
                       {/* Input de upload */}
                       <div className="flex items-center space-x-4">
                         <Input
@@ -434,16 +445,17 @@ export default function Settings() {
                           <span className="text-sm text-muted-foreground">Enviando...</span>
                         )}
                       </div>
-                      
+
                       <p className="text-sm text-muted-foreground">
                         Faça upload de uma imagem para o logo (PNG, JPG, etc. - máx. 5MB)
                       </p>
                     </div>
                   </div>
                 </div>
+              )}
 
-                {/* Database Settings - Only for KeyUser */}
-                {(isKeyUser || user?.id === 1) && (
+              {/* Configurações do Google Maps - Only for KeyUser */}
+              {(isKeyUser || user?.id === 1) && (
                   <div className="border-t border-border pt-6">
                     <div className="flex items-center gap-2 mb-4">
                       <Database className="w-5 h-5 text-red-500" />
@@ -452,7 +464,7 @@ export default function Settings() {
                       </h3>
                       <Shield className="w-4 h-4 text-red-500" />
                     </div>
-                    
+
                     <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-red-600" />
@@ -688,7 +700,7 @@ export default function Settings() {
                         <h4 className="text-md font-medium text-foreground mb-4">
                           Configurações SMTP (E-mail)
                         </h4>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <FormField
                             control={form.control}

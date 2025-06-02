@@ -13,7 +13,7 @@ interface AuthorizationContextType {
    * @param area Identificador da área (dashboard, orders, etc)
    */
   canEdit: (area: string) => boolean;
-  
+
   /**
    * Verifica se o usuário tem permissão para cadastrar em determinada área
    * @param area Identificador da área (orders, purchase_orders, companies, users, products)
@@ -36,18 +36,9 @@ interface AuthorizationProviderProps {
 }
 
 export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const canView = (area: string): boolean => {
-    console.log(`🔍 [AuthorizationContext] Verificando permissão view_${area} para usuário:`, {
-      userId: user?.id,
-      name: user?.name,
-      isKeyUser: user?.isKeyUser,
-      isDeveloper: user?.isDeveloper,
-      permissions: user?.permissions,
-      role: user?.role
-    });
-
     // Se não há usuário autenticado, nega acesso
     if (!user) {
       console.log(`❌ [AuthorizationContext] Usuário não autenticado - negando acesso a ${area}`);
@@ -73,7 +64,7 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
 
     // Verificar se tem permissão específica na role
     const hasRolePermission = rolePermissions.includes(`view_${area}`);
-    
+
     if (hasRolePermission) {
       console.log(`✅ [AuthorizationContext] Permissão view_${area} encontrada na role - liberando acesso`);
       return true;
