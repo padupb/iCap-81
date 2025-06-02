@@ -1398,33 +1398,7 @@ export default function Keyuser() {
                   </div>
                 </div>
 
-                {/* Configurações da Aplicação */}
-                <div>
-                  <h3 className="text-lg font-medium text-foreground mb-4">
-                    Configurações da Aplicação
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Nome da Aplicação</Label>
-                      <Input
-                        value={systemConfig.app_name}
-                        onChange={(e) => handleSystemConfigChange('app_name', e.target.value)}
-                        placeholder="i-CAP 7"
-                        className="bg-input border-border"
-                      />
-                    </div>
-                    <div>
-                      <Label>Limite de Urgência (dias)</Label>
-                      <Input
-                        type="number"
-                        value={systemConfig.urgent_days_threshold}
-                        onChange={(e) => handleSystemConfigChange('urgent_days_threshold', e.target.value)}
-                        placeholder="7"
-                        className="bg-input border-border"
-                      />
-                    </div>
-                  </div>
-                </div>
+                
 
                 {/* Botões de Ação */}
                 <div className="flex justify-end gap-4 pt-6 border-t border-border">
