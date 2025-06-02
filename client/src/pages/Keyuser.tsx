@@ -652,6 +652,13 @@ export default function Keyuser() {
     setPgSslMode(settingsObject.pgsslmode || "require");
   };
 
+  const toggleDatabasePasswordVisibility = (field: string) => {
+    setShowDatabasePasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -1244,10 +1251,7 @@ export default function Keyuser() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setShowDatabasePasswords(prev => ({
-                            ...prev,
-                            database_url: !prev.database_url
-                          }))}
+                          onClick={() => toggleDatabasePasswordVisibility('database_url')}
                         >
                           {showDatabasePasswords.database_url ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
@@ -1311,10 +1315,7 @@ export default function Keyuser() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setShowDatabasePasswords(prev => ({
-                            ...prev,
-                            pgpassword: !prev.pgpassword
-                          }))}
+                          onClick={() => toggleDatabasePasswordVisibility('pgpassword')}
                         >
                           {showDatabasePasswords.pgpassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
