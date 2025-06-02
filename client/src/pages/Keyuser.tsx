@@ -124,7 +124,7 @@ export default function Keyuser() {
   const [pgPassword, setPgPassword] = useState("");
   const [pgSslMode, setPgSslMode] = useState("require");
   const [isDatabaseSaving, setIsDatabaseSaving] = useState(false);
-  
+
   // Estados para API Keys
   const [apiKeys, setApiKeys] = useState({
     google_maps_api_key: "",
@@ -136,7 +136,7 @@ export default function Keyuser() {
     smtp_password: ""
   });
   const [isApiKeysSaving, setIsApiKeysSaving] = useState(false);
-  
+
   const [showDatabasePasswords, setShowDatabasePasswords] = useState({
     database_url: false,
     pgpassword: false,
@@ -455,7 +455,7 @@ export default function Keyuser() {
     if (settings.length > 0) {
       const dbUrl = settingsObject.database_url || "";
       const pgPass = settingsObject.pgpassword || "";
-      
+
       setDatabaseUrl(dbUrl);
       setPgHost(settingsObject.pghost || "");
       setPgPort(settingsObject.pgport || "5432");
@@ -463,7 +463,7 @@ export default function Keyuser() {
       setPgUser(settingsObject.pguser || "");
       setPgPassword(pgPass);
       setPgSslMode(settingsObject.pgsslmode || "require");
-      
+
       // Carregar API Keys
       setApiKeys({
         google_maps_api_key: settingsObject.google_maps_api_key || "",
@@ -474,7 +474,7 @@ export default function Keyuser() {
         smtp_user: settingsObject.smtp_user || "",
         smtp_password: settingsObject.smtp_password || ""
       });
-      
+
       // Iniciar campos visíveis se tiverem valores
       setShowDatabasePasswords({
         database_url: dbUrl.length > 0,
@@ -642,7 +642,7 @@ export default function Keyuser() {
   // Funções para configurações do banco de dados
   const saveDatabaseSettings = async () => {
     setIsDatabaseSaving(true);
-    
+
     try {
       const databaseSettings = [
         { key: "database_url", value: databaseUrl, description: "String de conexão completa do PostgreSQL" },
@@ -710,7 +710,7 @@ export default function Keyuser() {
 
   const saveApiKeys = async () => {
     setIsApiKeysSaving(true);
-    
+
     try {
       const apiKeySettings = Object.entries(apiKeys).map(([key, value]) => ({
         key,
@@ -1538,6 +1538,7 @@ export default function Keyuser() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
+                
                 {/* Lista de Configurações do Banco */}
                 <div>
                   <h3 className="text-lg font-medium text-foreground mb-4">
@@ -1545,10 +1546,10 @@ export default function Keyuser() {
                   </h3>
                   <div className="space-y-4">
                     {/* DATABASE_URL */}
-                    <div className="grid grid-cols-1 gap-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-sm font-medium">DATABASE_URL</Label>
+                          <Label htmlFor="database_url" className="text-sm font-medium">DATABASE_URL</Label>
                           <p className="text-xs text-muted-foreground">String de conexão completa do PostgreSQL</p>
                         </div>
                         <Button
@@ -1562,75 +1563,84 @@ export default function Keyuser() {
                         </Button>
                       </div>
                       <Input
+                        id="database_url"
                         type={showDatabasePasswords.database_url ? "text" : "password"}
                         value={databaseUrl}
                         onChange={(e) => setDatabaseUrl(e.target.value)}
                         placeholder="postgresql://user:password@host:port/database"
-                        className="font-mono text-sm"
+                        className="font-mono text-sm bg-background border-input"
                       />
                     </div>
 
                     {/* PGHOST */}
-                    <div className="grid grid-cols-1 gap-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
                       <div>
-                        <Label className="text-sm font-medium">PGHOST (Host)</Label>
+                        <Label htmlFor="pghost" className="text-sm font-medium">PGHOST (Host)</Label>
                         <p className="text-xs text-muted-foreground">Servidor do banco de dados PostgreSQL</p>
                       </div>
                       <Input
+                        id="pghost"
+                        type="text"
                         value={pgHost}
                         onChange={(e) => setPgHost(e.target.value)}
                         placeholder="ep-sparkling-surf-a6zclzez.us-west-2.aws.neon.tech"
-                        className="font-mono text-sm"
+                        className="font-mono text-sm bg-background border-input"
                       />
                     </div>
 
                     {/* PGPORT */}
-                    <div className="grid grid-cols-1 gap-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
                       <div>
-                        <Label className="text-sm font-medium">PGPORT (Porta)</Label>
+                        <Label htmlFor="pgport" className="text-sm font-medium">PGPORT (Porta)</Label>
                         <p className="text-xs text-muted-foreground">Porta do banco de dados PostgreSQL</p>
                       </div>
                       <Input
+                        id="pgport"
+                        type="text"
                         value={pgPort}
                         onChange={(e) => setPgPort(e.target.value)}
                         placeholder="5432"
-                        className="font-mono text-sm"
+                        className="font-mono text-sm bg-background border-input"
                       />
                     </div>
 
                     {/* PGDATABASE */}
-                    <div className="grid grid-cols-1 gap-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
                       <div>
-                        <Label className="text-sm font-medium">PGDATABASE (Database)</Label>
+                        <Label htmlFor="pgdatabase" className="text-sm font-medium">PGDATABASE (Database)</Label>
                         <p className="text-xs text-muted-foreground">Nome do banco de dados PostgreSQL</p>
                       </div>
                       <Input
+                        id="pgdatabase"
+                        type="text"
                         value={pgDatabase}
                         onChange={(e) => setPgDatabase(e.target.value)}
                         placeholder="neondb"
-                        className="font-mono text-sm"
+                        className="font-mono text-sm bg-background border-input"
                       />
                     </div>
 
                     {/* PGUSER */}
-                    <div className="grid grid-cols-1 gap-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
                       <div>
-                        <Label className="text-sm font-medium">PGUSER (Usuário)</Label>
+                        <Label htmlFor="pguser" className="text-sm font-medium">PGUSER (Usuário)</Label>
                         <p className="text-xs text-muted-foreground">Usuário do banco de dados PostgreSQL</p>
                       </div>
                       <Input
+                        id="pguser"
+                        type="text"
                         value={pgUser}
                         onChange={(e) => setPgUser(e.target.value)}
                         placeholder="neondb_owner"
-                        className="font-mono text-sm"
+                        className="font-mono text-sm bg-background border-input"
                       />
                     </div>
 
                     {/* PGPASSWORD */}
-                    <div className="grid grid-cols-1 gap-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-sm font-medium">PGPASSWORD (Senha)</Label>
+                          <Label htmlFor="pgpassword" className="text-sm font-medium">PGPASSWORD (Senha)</Label>
                           <p className="text-xs text-muted-foreground">Senha do banco de dados PostgreSQL</p>
                         </div>
                         <Button
@@ -1644,22 +1654,23 @@ export default function Keyuser() {
                         </Button>
                       </div>
                       <Input
+                        id="pgpassword"
                         type={showDatabasePasswords.pgpassword ? "text" : "password"}
                         value={pgPassword}
                         onChange={(e) => setPgPassword(e.target.value)}
                         placeholder="Digite a senha do banco de dados"
-                        className="font-mono text-sm"
+                        className="font-mono text-sm bg-background border-input"
                       />
                     </div>
 
                     {/* PGSSLMODE */}
-                    <div className="grid grid-cols-1 gap-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
                       <div>
-                        <Label className="text-sm font-medium">SSL Mode</Label>
+                        <Label htmlFor="pgsslmode" className="text-sm font-medium">SSL Mode</Label>
                         <p className="text-xs text-muted-foreground">Modo SSL do PostgreSQL</p>
                       </div>
                       <Select value={pgSslMode} onValueChange={setPgSslMode}>
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-background border-input">
                           <SelectValue placeholder="Selecione o modo SSL" />
                         </SelectTrigger>
                         <SelectContent>
