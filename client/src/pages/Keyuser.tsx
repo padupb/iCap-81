@@ -436,13 +436,22 @@ export default function Keyuser() {
   // Carregar configurações do banco de dados quando os settings mudarem
   React.useEffect(() => {
     if (settings.length > 0) {
-      setDatabaseUrl(settingsObject.database_url || "");
+      const dbUrl = settingsObject.database_url || "";
+      const pgPass = settingsObject.pgpassword || "";
+      
+      setDatabaseUrl(dbUrl);
       setPgHost(settingsObject.pghost || "");
       setPgPort(settingsObject.pgport || "5432");
       setPgDatabase(settingsObject.pgdatabase || "");
       setPgUser(settingsObject.pguser || "");
-      setPgPassword(settingsObject.pgpassword || "");
+      setPgPassword(pgPass);
       setPgSslMode(settingsObject.pgsslmode || "require");
+      
+      // Iniciar campos visíveis se tiverem valores
+      setShowDatabasePasswords({
+        database_url: dbUrl.length > 0,
+        pgpassword: pgPass.length > 0
+      });
     }
   }, [settings, settingsObject]);
 
@@ -1242,7 +1251,7 @@ export default function Keyuser() {
                       <Label>DATABASE_URL</Label>
                       <div className="flex items-center gap-2">
                         <Input
-                          type={showDatabasePasswords.database_url ? "text" : "password"}
+                          type="text"
                           value={databaseUrl}
                           onChange={(e) => setDatabaseUrl(e.target.value)}
                           placeholder="postgresql://user:password@host:port/database"
@@ -1254,7 +1263,7 @@ export default function Keyuser() {
                           type="button"
                           onClick={() => toggleDatabasePasswordVisibility('database_url')}
                         >
-                          {showDatabasePasswords.database_url ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          <Eye className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -1307,7 +1316,7 @@ export default function Keyuser() {
                       <Label>PGPASSWORD (Senha)</Label>
                       <div className="flex items-center gap-2">
                         <Input
-                          type={showDatabasePasswords.pgpassword ? "text" : "password"}
+                          type="text"
                           value={pgPassword}
                           onChange={(e) => setPgPassword(e.target.value)}
                           placeholder="Digite a senha do banco de dados"
@@ -1319,7 +1328,7 @@ export default function Keyuser() {
                           type="button"
                           onClick={() => toggleDatabasePasswordVisibility('pgpassword')}
                         >
-                          {showDatabasePasswords.pgpassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          <Eye className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
