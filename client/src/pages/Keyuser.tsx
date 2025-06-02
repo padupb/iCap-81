@@ -125,8 +125,8 @@ export default function Keyuser() {
   const [pgSslMode, setPgSslMode] = useState("require");
   const [isDatabaseSaving, setIsDatabaseSaving] = useState(false);
   const [showDatabasePasswords, setShowDatabasePasswords] = useState({
-    database_url: true,
-    pgpassword: true
+    database_url: false,
+    pgpassword: false
   });
 
   const queryClient = useQueryClient();
@@ -1251,6 +1251,7 @@ export default function Keyuser() {
                         <Button
                           variant="outline"
                           size="sm"
+                          type="button"
                           onClick={() => toggleDatabasePasswordVisibility('database_url')}
                         >
                           {showDatabasePasswords.database_url ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1309,12 +1310,13 @@ export default function Keyuser() {
                           type={showDatabasePasswords.pgpassword ? "text" : "password"}
                           value={pgPassword}
                           onChange={(e) => setPgPassword(e.target.value)}
-                          placeholder="••••••••••••••••"
+                          placeholder="Digite a senha do banco de dados"
                           className="bg-input border-border"
                         />
                         <Button
                           variant="outline"
                           size="sm"
+                          type="button"
                           onClick={() => toggleDatabasePasswordVisibility('pgpassword')}
                         >
                           {showDatabasePasswords.pgpassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
