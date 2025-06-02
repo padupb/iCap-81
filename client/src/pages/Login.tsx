@@ -141,19 +141,23 @@ export default function Login() {
       <Card className="w-full max-w-md shadow-lg border-border bg-card">
         <CardHeader className="space-y-4 text-center">
           {/* Logo */}
-          {settings.logoUrl && (
-            <div className="flex justify-center">
-              <img
-                src={settings.logoUrl}
-                alt="Logo"
-                className="w-[180px] h-[150px] object-contain"
-                onError={(e) => {
-                  // Ocultar imagem se houver erro no carregamento
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            </div>
-          )}
+          <div className="flex justify-center">
+            <img
+              src={settings.logoUrl || "/public/uploads/logo.png"}
+              alt="Logo"
+              className="w-[180px] h-[150px] object-contain"
+              onError={(e) => {
+                // Tentar carregar logo padrão se a configurada falhar
+                const img = e.currentTarget as HTMLImageElement;
+                if (img.src !== "/public/uploads/logo.png") {
+                  img.src = "/public/uploads/logo.png";
+                } else {
+                  // Se nem a logo padrão funcionar, ocultar
+                  img.style.display = 'none';
+                }
+              }}
+            />
+          </div>
         </CardHeader>
 
         <CardContent>
