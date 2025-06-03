@@ -8,7 +8,7 @@ import {
   type PurchaseOrderItem, type InsertPurchaseOrderItem,
   type SystemLog, type InsertSystemLog, type Setting, type InsertSetting,
   type Document, type InsertDocument
-} from "@shared/schema";
+} from "../shared/schema";
 
 export interface IStorage {
   // Users
