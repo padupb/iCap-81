@@ -122,7 +122,7 @@ const MapComponent: React.FC<Props> = ({
   );
 
   // Buscar configurações do sistema para obter a chave da API do Google Maps
-  const { data: settings = [] } = useQuery({
+  const { data: settings = [], isLoading: settingsLoading } = useQuery({
     queryKey: ['/api/settings'],
     queryFn: async () => {
       const response = await fetch('/api/settings');
@@ -135,19 +135,35 @@ const MapComponent: React.FC<Props> = ({
   const googleMapsApiKey = React.useMemo(() => {
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      return googleMapsKeySetting ? googleMapsKeySetting.value : '';
+      return googleMapsKeySetting ? googleMapsKeySetting.value : null;
     }
-    return '';
+    return null;
   }, [settings]);
 
+  // Só carregar o Google Maps se tivermos a chave da API
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: googleMapsApiKey || "",
+    // Só tentar carregar se temos uma chave válida
+    loadScriptOptions: googleMapsApiKey ? undefined : { defer: true },
+    preventGoogleFontsLoading: true,
   });
 
   const center = { lat, lng };
 
+  // Aguardar carregamento das configurações
+  if (settingsLoading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Carregando configurações...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Verificar se a chave da API está configurada
-  if (!googleMapsApiKey) {
+  if (googleMapsApiKey === null || googleMapsApiKey === '') {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
         <div className="text-center p-4">
