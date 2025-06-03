@@ -5,6 +5,7 @@ import {
   useJsApiLoader,
   InfoWindow,
 } from "@react-google-maps/api";
+import { useQuery } from "@tanstack/react-query";
 
 type MarkerData = {
   id: number;
@@ -120,14 +121,59 @@ const MapComponent: React.FC<Props> = ({
     null,
   );
 
-  // Use environment variables to store sensitive information like API keys.
+  // Buscar configurações do sistema para obter a chave da API do Google Maps
+  const { data: settings = [] } = useQuery({
+    queryKey: ['/api/settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings');
+      if (!response.ok) throw new Error('Falha ao carregar configurações');
+      return response.json();
+    },
+  });
+
+  // Extrair chave da API do Google Maps das configurações
+  const googleMapsApiKey = React.useMemo(() => {
+    if (settings && settings.length > 0) {
+      const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
+      return googleMapsKeySetting ? googleMapsKeySetting.value : '';
+    }
+    return '';
+  }, [settings]);
+
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "",
+    googleMapsApiKey: googleMapsApiKey || "",
   });
 
   const center = { lat, lng };
 
-  if (!isLoaded) return <div>Carregando mapa...</div>;
+  // Verificar se a chave da API está configurada
+  if (!googleMapsApiKey) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
+        <div className="text-center p-4">
+          <div className="text-4xl mb-3">⚙️</div>
+          <p className="text-sm text-yellow-600 font-medium mb-2">Configuração necessária</p>
+          <p className="text-xs text-gray-600 mb-3 max-w-md">
+            A chave da API do Google Maps não foi configurada.
+          </p>
+          <p className="text-xs text-blue-600">
+            Acesse Configurações → Google Maps API Key para configurar.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Carregando Google Maps...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleMarkerClick = (marker: MarkerData) => {
     setSelectedMarker(marker);
