@@ -1,3 +1,4 @@
+
 import React from "react";
 import {
   GoogleMap,
@@ -110,77 +111,24 @@ const getTruckIcon = (): any => ({
   anchor: { x: 20, y: 35 },
 });
 
-const MapComponent: React.FC<Props> = ({
+// Componente interno que só renderiza quando há chave de API válida
+const GoogleMapsWrapper: React.FC<Props & { googleMapsApiKey: string }> = ({
   lat,
   lng,
   markers = [],
   onMarkerClick,
   zoom = 15,
+  googleMapsApiKey,
 }) => {
-  const [selectedMarker, setSelectedMarker] = React.useState<MarkerData | null>(
-    null,
-  );
+  const [selectedMarker, setSelectedMarker] = React.useState<MarkerData | null>(null);
 
-  // Buscar configurações do sistema para obter a chave da API do Google Maps
-  const { data: settings = [], isLoading: settingsLoading } = useQuery({
-    queryKey: ['/api/settings'],
-    queryFn: async () => {
-      const response = await fetch('/api/settings');
-      if (!response.ok) throw new Error('Falha ao carregar configurações');
-      return response.json();
-    },
-  });
-
-  // Extrair chave da API do Google Maps das configurações
-  const googleMapsApiKey = React.useMemo(() => {
-    if (settings && settings.length > 0) {
-      const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      return googleMapsKeySetting ? googleMapsKeySetting.value : null;
-    }
-    return null;
-  }, [settings]);
-
-  // Só carregar o Google Maps se tivermos a chave da API válida
-  const shouldLoadGoogleMaps = googleMapsApiKey && googleMapsApiKey.trim() !== '';
-  
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: googleMapsApiKey || "",
+    googleMapsApiKey: googleMapsApiKey,
     preventGoogleFontsLoading: true,
-    // Só carregar se temos chave válida
-    loadScriptOptions: shouldLoadGoogleMaps ? undefined : { defer: true },
+    id: "google-maps-script",
   });
 
   const center = { lat, lng };
-
-  // Aguardar carregamento das configurações
-  if (settingsLoading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Carregando configurações...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Verificar se a chave da API está configurada
-  if (!shouldLoadGoogleMaps) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
-        <div className="text-center p-4">
-          <div className="text-4xl mb-3">⚙️</div>
-          <p className="text-sm text-yellow-600 font-medium mb-2">Configuração necessária</p>
-          <p className="text-xs text-gray-600 mb-3 max-w-md">
-            A chave da API do Google Maps não foi configurada.
-          </p>
-          <p className="text-xs text-blue-600">
-            Acesse Configurações → Google Maps API Key para configurar.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (!isLoaded) {
     return (
@@ -249,6 +197,62 @@ const MapComponent: React.FC<Props> = ({
       )}
     </GoogleMap>
   );
+};
+
+const MapComponent: React.FC<Props> = (props) => {
+  // Buscar configurações do sistema para obter a chave da API do Google Maps
+  const { data: settings = [], isLoading: settingsLoading } = useQuery({
+    queryKey: ['/api/settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings');
+      if (!response.ok) throw new Error('Falha ao carregar configurações');
+      return response.json();
+    },
+  });
+
+  // Extrair chave da API do Google Maps das configurações
+  const googleMapsApiKey = React.useMemo(() => {
+    if (settings && settings.length > 0) {
+      const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
+      return googleMapsKeySetting ? googleMapsKeySetting.value : null;
+    }
+    return null;
+  }, [settings]);
+
+  // Aguardar carregamento das configurações
+  if (settingsLoading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Carregando configurações...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Verificar se a chave da API está configurada
+  const shouldLoadGoogleMaps = googleMapsApiKey && googleMapsApiKey.trim() !== '';
+  
+  if (!shouldLoadGoogleMaps) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
+        <div className="text-center p-4">
+          <div className="text-4xl mb-3">⚙️</div>
+          <p className="text-sm text-yellow-600 font-medium mb-2">Configuração necessária</p>
+          <p className="text-xs text-gray-600 mb-3 max-w-md">
+            A chave da API do Google Maps não foi configurada.
+          </p>
+          <p className="text-xs text-blue-600">
+            Acesse Configurações → Google Maps API Key para configurar.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar o componente Google Maps apenas quando há chave válida
+  return <GoogleMapsWrapper {...props} googleMapsApiKey={googleMapsApiKey} />;
 };
 
 // Exportar a função de geração de cor para uso em outros componentes
