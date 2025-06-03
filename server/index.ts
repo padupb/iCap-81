@@ -7,7 +7,10 @@ import { storage } from "./storage";
 import { db, pool } from "./db";
 import multer from "multer";
 import path from "path";
-console.log('DATABASE_URL em index.ts (via Secrets):', process.env.DATABASE_URL);
+console.log(
+  "DATABASE_URL em index.ts (via Secrets):",
+  process.env.DATABASE_URL,
+);
 
 const app = express();
 app.use(express.json());
@@ -40,7 +43,7 @@ app.use(
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000,
     },
-  })
+  }),
 );
 
 app.use((req, res, next) => {
@@ -74,25 +77,31 @@ app.use((req, res, next) => {
 (async () => {
   try {
     console.log("🔧 Inicializando configurações do keyuser...");
-    
+
     // Aguardar um pouco para garantir que o banco esteja pronto
     if (db) {
       console.log("💾 Banco de dados detectado - aguardando inicialização...");
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    
+
     let keyUserEmail = await storage.getSetting("keyuser_email");
     let keyUserPassword = await storage.getSetting("keyuser_password");
 
-    console.log("📧 KeyUser email atual:", keyUserEmail ? keyUserEmail.value : "não encontrado");
-    console.log("🔑 KeyUser password atual:", keyUserPassword ? "configurado" : "não encontrado");
+    console.log(
+      "📧 KeyUser email atual:",
+      keyUserEmail ? keyUserEmail.value : "não encontrado",
+    );
+    console.log(
+      "🔑 KeyUser password atual:",
+      keyUserPassword ? "configurado" : "não encontrado",
+    );
 
     if (!keyUserEmail || keyUserEmail.value !== "padupb@admin.icap") {
       console.log("🔄 Criando/atualizando configuração do keyuser_email");
       await storage.createOrUpdateSetting({
         key: "keyuser_email",
         value: "padupb@admin.icap",
-        description: "E-mail do superadministrador"
+        description: "E-mail do superadministrador",
       });
       console.log("✅ KeyUser email configurado");
     }
@@ -102,7 +111,7 @@ app.use((req, res, next) => {
       await storage.createOrUpdateSetting({
         key: "keyuser_password",
         value: "170824",
-        description: "Senha do superadministrador"
+        description: "Senha do superadministrador",
       });
       console.log("✅ KeyUser password configurado");
     }
@@ -110,35 +119,45 @@ app.use((req, res, next) => {
     // Verificar novamente se as configurações foram salvas
     const emailVerify = await storage.getSetting("keyuser_email");
     const passwordVerify = await storage.getSetting("keyuser_password");
-    
+
     console.log("🔍 Verificação final:");
-    console.log("📧 Email:", emailVerify ? emailVerify.value : "ERRO - não encontrado");
-    console.log("🔑 Password:", passwordVerify ? "configurado" : "ERRO - não encontrado");
+    console.log(
+      "📧 Email:",
+      emailVerify ? emailVerify.value : "ERRO - não encontrado",
+    );
+    console.log(
+      "🔑 Password:",
+      passwordVerify ? "configurado" : "ERRO - não encontrado",
+    );
 
     if (emailVerify && passwordVerify) {
-      console.log("✅ Configurações do superadministrador verificadas com sucesso");
+      console.log(
+        "✅ Configurações do superadministrador verificadas com sucesso",
+      );
       console.log("🎯 KeyUser pronto para uso: padupb@admin.icap / 170824");
     } else {
-      console.error("❌ ERRO: Configurações do keyuser não foram salvas corretamente!");
+      console.error(
+        "❌ ERRO: Configurações do keyuser não foram salvas corretamente!",
+      );
     }
   } catch (error) {
-    console.error("❌ Erro ao inicializar configurações do superadministrador:", error);
+    console.error(
+      "❌ Erro ao inicializar configurações do superadministrador:",
+      error,
+    );
     console.error("🔧 Tentando criar configurações diretamente...");
-    
+
     // Fallback: tentar criar as configurações diretamente no banco
     if (db && pool) {
       try {
         await pool.query(`
           INSERT INTO settings (key, value, description) 
-          VALUES ('keyuser_email', 'padupb@admin.icap', 'E-mail do superadministrador')
+          VALUES ('keyuser_password', '', 'Senha do superadministrador')
           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
         `);
-        await pool.query(`
-          INSERT INTO settings (key, value, description) 
-          VALUES ('keyuser_password', '170824', 'Senha do superadministrador')
-          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-        `);
-        console.log("✅ Configurações do keyuser criadas diretamente no banco!");
+        console.log(
+          "✅ Configurações do keyuser criadas diretamente no banco!",
+        );
       } catch (dbError) {
         console.error("❌ Erro ao criar configurações diretamente:", dbError);
       }
