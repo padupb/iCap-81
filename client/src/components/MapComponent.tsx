@@ -1,5 +1,10 @@
 import React from "react";
-import { GoogleMap, Marker, useJsApiLoader, InfoWindow } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  Marker,
+  useJsApiLoader,
+  InfoWindow,
+} from "@react-google-maps/api";
 
 type MarkerData = {
   id: number;
@@ -29,26 +34,26 @@ const containerStyle = {
 // Função para gerar cores únicas baseadas no ID do pedido (cores escuras para contraste)
 const generateColorFromId = (id: number): string => {
   const colors = [
-    '#DC2626', // Vermelho escuro
-    '#1D4ED8', // Azul escuro
-    '#059669', // Verde escuro
-    '#92400E', // Marrom
-    '#1F2937', // Cinza escuro
-    '#7C2D12', // Marrom avermelhado
-    '#6B21A8', // Roxo escuro
-    '#B45309', // Laranja escuro
-    '#BE123C', // Rosa escuro
-    '#064E3B', // Verde escuro 2
-    '#1E3A8A', // Azul marinho
-    '#7F1D1D', // Vermelho vinho
-    '#365314', // Verde oliva
-    '#4C1D95', // Roxo índigo
-    '#831843', // Rosa vinho
-    '#0F766E', // Teal escuro
-    '#A16207', // Amarelo escuro
-    '#9A3412', // Laranja queimado
-    '#581C87', // Violeta escuro
-    '#166534'  // Verde floresta
+    "#DC2626", // Vermelho escuro
+    "#1D4ED8", // Azul escuro
+    "#059669", // Verde escuro
+    "#92400E", // Marrom
+    "#1F2937", // Cinza escuro
+    "#7C2D12", // Marrom avermelhado
+    "#6B21A8", // Roxo escuro
+    "#B45309", // Laranja escuro
+    "#BE123C", // Rosa escuro
+    "#064E3B", // Verde escuro 2
+    "#1E3A8A", // Azul marinho
+    "#7F1D1D", // Vermelho vinho
+    "#365314", // Verde oliva
+    "#4C1D95", // Roxo índigo
+    "#831843", // Rosa vinho
+    "#0F766E", // Teal escuro
+    "#A16207", // Amarelo escuro
+    "#9A3412", // Laranja queimado
+    "#581C87", // Violeta escuro
+    "#166534", // Verde floresta
   ];
   return colors[id % colors.length];
 };
@@ -76,7 +81,9 @@ const createColoredDot = (id: number, color: string): any => {
 
 // Ícone de caminhão personalizado (fallback)
 const getTruckIcon = (): any => ({
-  url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`
+  url:
+    "data:image/svg+xml;charset=UTF-8," +
+    encodeURIComponent(`
     <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
@@ -102,17 +109,20 @@ const getTruckIcon = (): any => ({
   anchor: { x: 20, y: 35 },
 });
 
-const MapComponent: React.FC<Props> = ({ 
-  lat, 
-  lng, 
-  markers = [], 
-  onMarkerClick, 
-  zoom = 15 
+const MapComponent: React.FC<Props> = ({
+  lat,
+  lng,
+  markers = [],
+  onMarkerClick,
+  zoom = 15,
 }) => {
-  const [selectedMarker, setSelectedMarker] = React.useState<MarkerData | null>(null);
+  const [selectedMarker, setSelectedMarker] = React.useState<MarkerData | null>(
+    null,
+  );
 
+  // Use environment variables to store sensitive information like API keys.
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: "AIzaSyBS_TMgZfqMle79oUmh_GwV-u22wo1C4T4",
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "",
   });
 
   const center = { lat, lng };
@@ -130,12 +140,12 @@ const MapComponent: React.FC<Props> = ({
     <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={zoom}>
       {/* Marcador principal (se não houver markers múltiplos) */}
       {markers.length === 0 && <Marker position={center} />}
-      
+
       {/* Múltiplos marcadores */}
       {markers.map((marker) => {
         const color = marker.color || generateColorFromId(marker.id);
         const icon = marker.icon || createColoredDot(marker.id, color);
-        
+
         return (
           <Marker
             key={marker.id}
@@ -154,7 +164,9 @@ const MapComponent: React.FC<Props> = ({
           onCloseClick={() => setSelectedMarker(null)}
         >
           <div className="p-2 max-w-xs">
-            <h3 className="font-semibold text-sm mb-1">{selectedMarker.title}</h3>
+            <h3 className="font-semibold text-sm mb-1">
+              {selectedMarker.title}
+            </h3>
             {selectedMarker.orderId && (
               <p className="text-xs text-gray-600 mb-1">
                 Pedido: {selectedMarker.orderId}
