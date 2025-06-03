@@ -8,7 +8,7 @@ import {
   insertUserRoleSchema, insertProductSchema, insertUnitSchema,
   insertOrderSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
   insertSystemLogSchema, insertSettingSchema
-} from "@shared/schema";
+} from "../../shared/types/schema";
 import multer from "multer";
 import fs from "fs";
 import path from "path";

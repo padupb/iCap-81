@@ -16,10 +16,10 @@
     "declaration": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": ".",
+    "baseUrl": "../",
     "paths": {
-      "@/*": ["./src/*"],
-      "@shared/*": ["../shared/*"]
+      "@/*": ["./backend/src/*"],
+      "@shared/*": ["./shared/*"]
     }
   },
   "include": ["src/**/*", "../shared/**/*"],
