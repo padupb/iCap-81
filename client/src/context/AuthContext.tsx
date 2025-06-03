@@ -55,7 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = async () => {
     try {
       const response = await fetch("/api/auth/me", {
-        credentials: "include"
+        credentials: "include",
+        cache: 'no-cache'
       });
 
       if (!response.ok) {
@@ -76,7 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(userData.user);
         return true;
       } else {
-        throw new Error("Formato de resposta inválido");
+        setUser(null);
+        return false;
       }
     } catch (error) {
       console.error("Erro ao verificar autenticação", error);

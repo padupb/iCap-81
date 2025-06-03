@@ -40,10 +40,22 @@ const ProtectedRoute = ({
 
   if (isLoading) {
     // Pode mostrar tela de carregamento enquanto verifica autenticação
-    return <div className="flex items-center justify-center min-h-screen">Carregando...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <p>Carregando...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
+    // Garantir que o redirecionamento funcione em produção
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.href = `/login?redirect=${encodeURIComponent(location)}`;
+      return null;
+    }
     return <Redirect to={`/login?redirect=${encodeURIComponent(location)}`} />;
   }
 

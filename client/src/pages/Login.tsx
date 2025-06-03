@@ -99,21 +99,29 @@ export default function Login() {
           localStorage.removeItem('loginCredentials');
         }
 
-        // Buscar os dados do usuário para confirmar autenticação
-        await fetch("/api/auth/me", { credentials: "include" });
+        // Verificar se o usuário foi autenticado corretamente
+        const authCheckResponse = await fetch("/api/auth/me", { credentials: "include" });
+        const authData = await authCheckResponse.json();
+
+        if (!authData.success || !authData.user) {
+          throw new Error("Falha na verificação de autenticação");
+        }
 
         toast({
           title: "Login realizado com sucesso",
-          description: "Você será redirecionado para o dashboard"
+          description: "Redirecionando para o dashboard..."
         });
 
-        // Adicionar um pequeno atraso para garantir que a sessão seja estabelecida
+        // Aguardar um pouco mais para garantir que a sessão seja estabelecida
         setTimeout(() => {
-          // Navegar para o dashboard
-          navigate("/", { replace: true });
-          // Forçar um recarregamento da página para garantir que todos os componentes reconheçam o estado de autenticação
-          window.location.reload();
-        }, 500);
+          // Em ambiente de produção, usar window.location para garantir redirecionamento correto
+          if (window.location.hostname !== 'localhost') {
+            window.location.href = '/';
+          } else {
+            navigate("/", { replace: true });
+            window.location.reload();
+          }
+        }, 1000);
       } else {
         throw new Error(loginResult.message || "Falha na autenticação");
       }
