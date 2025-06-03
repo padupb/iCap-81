@@ -1,0 +1,46 @@
+Prompt para implementação das regras de senha no sistema i-CAP (Replit)
+
+Implemente as seguintes funcionalidades no sistema de autenticação do i-CAP, com frontend em React e backend em Node.js (Express):
+
+1. Senha padrão no cadastro
+- Ao cadastrar um novo usuário, defina automaticamente a senha inicial como icap123.
+- Marque o campo primeiro_login = true no banco de dados para esse usuário.
+
+2. Troca obrigatória de senha no primeiro login
+- Quando o usuário fizer login e primeiro_login for verdadeiro, redirecione automaticamente para uma tela de alteração de senha antes de acessar qualquer outra rota do sistema.
+- A tela deve conter os campos:
+  - Nova senha
+  - Confirmar nova senha
+  - Botão "Salvar nova senha"
+- Ao salvar, atualize a senha no backend e defina primeiro_login = false.
+
+3. Página de edição de usuário
+- Adicione um botão com o texto "Esquecer senha" ao lado de "Cancelar" e "Salvar Alterações".
+- Ao clicar, exiba uma confirmação com a mensagem:
+  “Deseja redefinir a senha do usuário para o padrão icap123? Esta ação exigirá uma nova senha no próximo login.”
+- Se confirmar:
+  - Redefina a senha para icap123
+  - Atualize o campo primeiro_login = true
+
+4. Menu do usuário logado (no canto superior direito)
+- Ao clicar no nome do usuário, exiba um menu com as opções:
+  - Alterar senha
+  - Logout
+- Se o usuário clicar em "Alterar senha", exiba a mensagem:
+  “Faça login novamente com a senha icap123 para definir nova senha.”
+- Em seguida, execute as ações:
+  - Redefina a senha do usuário atual para icap123
+  - Atualize o campo primeiro_login = true
+  - Efetue logout imediato do usuário
+
+5. Tela de login
+- Adicione um botão "Esqueci minha senha".
+- Ao clicar, exiba a seguinte mensagem de alerta:
+  “Entre em contato com o administrador da conta e solicite a restauração da senha.”
+- Este botão é apenas informativo; não exige lógica de backend.
+
+6. Considerações técnicas
+- Armazene as senhas de forma segura (ex: bcrypt).
+- A verificação primeiro_login deve ser feita logo após autenticação bem-sucedida, antes de liberar o token de sessão ou acesso a páginas protegidas.
+- O layout e os componentes devem seguir o estilo visual do sistema i-CAP.
+
