@@ -140,12 +140,14 @@ const MapComponent: React.FC<Props> = ({
     return null;
   }, [settings]);
 
-  // Só carregar o Google Maps se tivermos a chave da API
+  // Só carregar o Google Maps se tivermos a chave da API válida
+  const shouldLoadGoogleMaps = googleMapsApiKey && googleMapsApiKey.trim() !== '';
+  
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: googleMapsApiKey || "",
-    // Só tentar carregar se temos uma chave válida
-    loadScriptOptions: googleMapsApiKey ? undefined : { defer: true },
     preventGoogleFontsLoading: true,
+    // Só carregar se temos chave válida
+    loadScriptOptions: shouldLoadGoogleMaps ? undefined : { defer: true },
   });
 
   const center = { lat, lng };
@@ -163,7 +165,7 @@ const MapComponent: React.FC<Props> = ({
   }
 
   // Verificar se a chave da API está configurada
-  if (googleMapsApiKey === null || googleMapsApiKey === '') {
+  if (!shouldLoadGoogleMaps) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
         <div className="text-center p-4">
