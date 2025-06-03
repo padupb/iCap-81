@@ -16,8 +16,16 @@ let db: any = null;
 
 if (process.env.DATABASE_URL) {
   console.log('DATABASE_URL configurada via Secrets:', process.env.DATABASE_URL?.substring(0, 50) + '...');
-  pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  db = drizzle({ client: pool, schema });
+  
+  // Para Neon, usar neon-http driver em vez de Pool
+  const sql = neon(process.env.DATABASE_URL);
+  db = drizzle(sql, { schema });
+  
+  // Manter pool para queries SQL diretas quando necessário
+  pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
 } else {
   console.log('🔧 Usando configuração local sem banco de dados');
   // Para desenvolvimento local, usar armazenamento em memória

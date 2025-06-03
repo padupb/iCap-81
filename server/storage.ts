@@ -537,8 +537,14 @@ import bcrypt from 'bcrypt';
 // Implementação de armazenamento com banco de dados
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    if (!db) return undefined;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      return user || undefined;
+    } catch (error) {
+      console.error(`Erro ao buscar usuário ${id}:`, error);
+      return undefined;
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -547,26 +553,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users);
+    if (!db) return [];
+    try {
+      return await db.select().from(users);
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error);
+      return [];
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    // Definir senha padrão se não fornecida
-    const passwordToHash = insertUser.password || 'icap123';
-    const hashedPassword = await bcrypt.hash(passwordToHash, 10);
+    if (!db) {
+      throw new Error('Database not configured');
+    }
+    try {
+      // Definir senha padrão se não fornecida
+      const passwordToHash = insertUser.password || 'icap123';
+      const hashedPassword = await bcrypt.hash(passwordToHash, 10);
 
-    // Garantir que campos opcionais sejam null em vez de undefined
-    const safeInsertUser = {
-      ...insertUser,
-      password: hashedPassword,
-      phone: insertUser.phone ?? null,
-      companyId: insertUser.companyId ?? null,
-      roleId: insertUser.roleId ?? null,
-      canConfirmDelivery: insertUser.canConfirmDelivery ?? false,
-      primeiroLogin: true // Sempre true para novos usuários
-    };
-    const [user] = await db.insert(users).values(safeInsertUser).returning();
-    return user;
+      // Garantir que campos opcionais sejam null em vez de undefined
+      const safeInsertUser = {
+        ...insertUser,
+        password: hashedPassword,
+        phone: insertUser.phone ?? null,
+        companyId: insertUser.companyId ?? null,
+        roleId: insertUser.roleId ?? null,
+        canConfirmDelivery: insertUser.canConfirmDelivery ?? false,
+        primeiroLogin: true // Sempre true para novos usuários
+      };
+      const [user] = await db.insert(users).values(safeInsertUser).returning();
+      return user;
+    } catch (error) {
+      console.error('Erro ao criar usuário:', error);
+      throw error;
+    }
   }
 
   async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User | undefined> {
@@ -1293,30 +1313,50 @@ export class DatabaseStorage implements IStorage {
     return log;
   }
 
+  // Settings
   async getSetting(key: string): Promise<Setting | undefined> {
-    const [setting] = await db.select().from(settings).where(eq(settings.key, key));
-    return setting || undefined;
+    if (!db) return undefined;
+    try {
+      const [setting] = await db.select().from(settings).where(eq(settings.key, key));
+      return setting || undefined;
+    } catch (error) {
+      console.error(`Erro ao buscar setting ${key}:`, error);
+      return undefined;
+    }
   }
 
   async getAllSettings(): Promise<Setting[]> {
-    return await db.select().from(settings);
+    if (!db) return [];
+    try {
+      return await db.select().from(settings);
+    } catch (error) {
+      console.error('Erro ao buscar settings:', error);
+      return [];
+    }
   }
 
   async createOrUpdateSetting(insertSetting: InsertSetting): Promise<Setting> {
-    // Verificar se a configuração já existe
-    const existingSetting = await this.getSetting(insertSetting.key);
+    if (!db) {
+      throw new Error('Database not configured');
+    }
 
-    if (existingSetting) {
-      // Atualizar configuração existente
-      const [setting] = await db.update(settings)
-        .set(insertSetting)
-        .where(eq(settings.key, insertSetting.key))
-        .returning();
-      return setting;
-    } else {
-      // Criar nova configuração
-      const [setting] = await db.insert(settings).values(insertSetting).returning();
-      return setting;
+    try {
+      const existing = await this.getSetting(insertSetting.key);
+
+      if (existing) {
+        const [setting] = await db
+          .update(settings)
+          .set({ value: insertSetting.value, description: insertSetting.description })
+          .where(eq(settings.key, insertSetting.key))
+          .returning();
+        return setting;
+      } else {
+        const [setting] = await db.insert(settings).values(insertSetting).returning();
+        return setting;
+      }
+    } catch (error) {
+      console.error('Erro ao criar/atualizar setting:', error);
+      throw error;
     }
   }
 
