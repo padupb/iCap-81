@@ -32,7 +32,7 @@ app.use("/public", express.static(path.join(process.cwd(), "public")));
 
 app.use(
   session({
-    secret: "icap-5.0-secret-key",
+    secret: process.env.SESSION_SECRET || "icap-5.0-secret-key",
     resave: false,
     saveUninitialized: false,
     cookie: {
