@@ -14,40 +14,46 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
-// Função utilitária para converter data considerando fuso horário brasileiro
-// Implementa solução "data marcada + 1" para corrigir problemas de fuso horário
+// Função utilitária para converter data preservando o dia selecionado no calendário
 function convertToLocalDate(dateString: string): Date {
   console.log(`🔍 convertToLocalDate - entrada: ${dateString}`);
   
-  // Se a string já tem informação de timezone, usar diretamente
+  // Para datas com timezone (como as do frontend), manter a data original
   if (dateString.includes('Z') || dateString.includes('+') || dateString.includes('-', 10)) {
-    const date = new Date(dateString);
-    console.log(`📅 Data com timezone: ${date.toISOString()} -> local: ${date.toLocaleDateString('pt-BR')}`);
-    return date;
+    const originalDate = new Date(dateString);
+    
+    // Extrair os componentes da data original (UTC)
+    const year = originalDate.getUTCFullYear();
+    const month = originalDate.getUTCMonth();
+    const day = originalDate.getUTCDate();
+    
+    // Criar uma nova data preservando exatamente o dia selecionado no calendário
+    // Usando 12:00 UTC para evitar problemas de fuso horário
+    const preservedDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+    
+    console.log(`📅 Data recebida: ${originalDate.toISOString()}`);
+    console.log(`📅 Dia extraído (UTC): ${day}/${month + 1}/${year}`);
+    console.log(`📅 Data preservada: ${preservedDate.toISOString()}`);
+    console.log(`📅 Data em formato brasileiro: ${preservedDate.toLocaleDateString('pt-BR')}`);
+    
+    return preservedDate;
   }
   
-  // SOLUÇÃO "DATA MARCADA + 1": Para datas sem timezone (formato YYYY-MM-DD)
-  // Extrair componentes da data
+  // Para datas sem timezone (formato YYYY-MM-DD)
   const dateParts = dateString.split('T')[0].split('-');
   if (dateParts.length === 3) {
     const year = parseInt(dateParts[0]);
     const month = parseInt(dateParts[1]) - 1; // Mês é 0-indexed no JavaScript
     const day = parseInt(dateParts[2]);
     
-    // IMPLEMENTAR: Data marcada + 1 dia
-    // Isso compensa a diferença de fuso horário que causa a perda de 1 dia
-    const adjustedDay = day + 1;
+    // Criar a data exatamente como selecionada (sem ajustes)
+    const exactDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
     
-    // Criar a data com o dia ajustado (+ 1), no meio-dia UTC para evitar mudanças de hora
-    const adjustedDate = new Date(Date.UTC(year, month, adjustedDay, 12, 0, 0, 0));
+    console.log(`📅 Data parseada: ${day}/${month + 1}/${year}`);
+    console.log(`📅 Data UTC exata: ${exactDate.toISOString()}`);
+    console.log(`📅 Data em formato brasileiro: ${exactDate.toLocaleDateString('pt-BR')}`);
     
-    console.log(`📅 Data original: ${day}/${month + 1}/${year}`);
-    console.log(`📅 Data ajustada (+1 dia): ${adjustedDay}/${month + 1}/${year}`);
-    console.log(`📅 Data UTC final: ${adjustedDate.toISOString()}`);
-    console.log(`📅 Data em formato brasileiro: ${adjustedDate.toLocaleDateString('pt-BR')}`);
-    console.log(`📅 Timezone da máquina: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
-    
-    return adjustedDate;
+    return exactDate;
   }
   
   // Fallback para outros formatos
