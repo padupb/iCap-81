@@ -1058,16 +1058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Buscar quantidade já usada em pedidos (excluindo cancelados)
         const usadoResult = await pool.query(
-          `SELECT COALESCE(SUM(
-            CASE 
-              WHEN quantity IS NOT NULL 
-                AND quantity != '' 
-                AND quantity !~ '[^0-9.,]'
-                AND LENGTH(TRIM(quantity)) > 0
-              THEN CAST(REPLACE(quantity, ',', '.') AS DECIMAL)
-              ELSE 0
-            END
-          ), 0) as total_usado
+          `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
            FROM orders 
            WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
           [orderData.purchaseOrderId, orderData.productId]
@@ -1988,8 +1979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           saldoDisponivel: 0,
           saldo_disponivel: 0,
           quantidadeTotal: 0,
-          quantidadeUsada: 0,
-          quantidadeEntregue: 0
+          quantidadeUsada: 0
         });
       }
 
@@ -1997,16 +1987,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 2. Buscar a quantidade já usada em pedidos (MESMA LÓGICA DA CRIAÇÃO DE PEDIDOS)
       const pedidosResult = await pool.query(
-        `SELECT COALESCE(SUM(
-          CASE 
-            WHEN quantity IS NOT NULL 
-              AND quantity != '' 
-              AND quantity !~ '[^0-9.,]'
-              AND LENGTH(TRIM(quantity)) > 0
-            THEN CAST(REPLACE(quantity, ',', '.') AS DECIMAL)
-            ELSE 0
-          END
-        ), 0) as total_usado
+        `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
          FROM orders 
          WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
         [ordemId, produtoId]
@@ -2014,37 +1995,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const quantidadeUsada = parseFloat(pedidosResult.rows[0].total_usado || 0);
 
-      // 3. Buscar a quantidade entregue (status 'Entregue')
-      const entregueResult = await pool.query(
-        `SELECT COALESCE(SUM(
-          CASE 
-            WHEN quantidade_recebida IS NOT NULL 
-              AND quantidade_recebida != '' 
-              AND quantidade_recebida !~ '[^0-9.,]'
-              AND LENGTH(TRIM(quantidade_recebida)) > 0
-            THEN CAST(REPLACE(quantidade_recebida, ',', '.') AS DECIMAL)
-            WHEN quantity IS NOT NULL 
-              AND quantity != '' 
-              AND quantity !~ '[^0-9.,]'
-              AND LENGTH(TRIM(quantity)) > 0
-            THEN CAST(REPLACE(quantity, ',', '.') AS DECIMAL)
-            ELSE 0
-          END
-        ), 0) as total_entregue
-         FROM orders 
-         WHERE purchase_order_id = $1 AND product_id = $2 AND status = 'Entregue'`,
-        [ordemId, produtoId]
-      );
-
-      const quantidadeEntregue = parseFloat(entregueResult.rows[0].total_entregue || 0);
-
-      // 4. Calcular o saldo disponível (MESMA LÓGICA DA CRIAÇÃO DE PEDIDOS)
+      // 3. Calcular o saldo disponível (MESMA LÓGICA DA CRIAÇÃO DE PEDIDOS)
       const saldoDisponivel = quantidadeTotal - quantidadeUsada;
 
       console.log(`Saldo calculado para ordem ${ordemId}, produto ${produtoId}:`, {
         quantidadeTotal,
         quantidadeUsada,
-        quantidadeEntregue,
         saldoDisponivel
       });
 
@@ -2055,7 +2011,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         saldo_disponivel: parseFloat(saldoDisponivel.toFixed(3)), // Compatibilidade com frontend
         quantidadeTotal: parseFloat(quantidadeTotal.toFixed(3)),
         quantidadeUsada: parseFloat(quantidadeUsada.toFixed(3)),
-        quantidadeEntregue: parseFloat(quantidadeEntregue.toFixed(3)),
         unidade: await getUnidadeProduto(produtoId)
       });
 
