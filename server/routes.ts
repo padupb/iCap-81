@@ -1060,8 +1060,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const usadoResult = await pool.query(
           `SELECT COALESCE(SUM(
             CASE 
-              WHEN quantity IS NOT NULL AND quantity != '' AND quantity ~ '^[0-9]+(\.[0-9]+)?$'
-              THEN CAST(quantity AS DECIMAL)
+              WHEN quantity IS NOT NULL 
+                AND quantity != '' 
+                AND quantity !~ '[^0-9.,]'
+                AND LENGTH(TRIM(quantity)) > 0
+              THEN CAST(REPLACE(quantity, ',', '.') AS DECIMAL)
               ELSE 0
             END
           ), 0) as total_usado
@@ -1996,8 +1999,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pedidosResult = await pool.query(
         `SELECT COALESCE(SUM(
           CASE 
-            WHEN quantity IS NOT NULL AND quantity != '' AND quantity ~ '^[0-9]+(\.[0-9]+)?$'
-            THEN CAST(quantity AS DECIMAL)
+            WHEN quantity IS NOT NULL 
+              AND quantity != '' 
+              AND quantity !~ '[^0-9.,]'
+              AND LENGTH(TRIM(quantity)) > 0
+            THEN CAST(REPLACE(quantity, ',', '.') AS DECIMAL)
             ELSE 0
           END
         ), 0) as total_usado
@@ -2012,10 +2018,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entregueResult = await pool.query(
         `SELECT COALESCE(SUM(
           CASE 
-            WHEN quantidade_recebida IS NOT NULL AND quantidade_recebida != '' AND quantidade_recebida ~ '^[0-9]+(\.[0-9]+)?$'
-            THEN CAST(quantidade_recebida AS DECIMAL)
-            WHEN quantity IS NOT NULL AND quantity != '' AND quantity ~ '^[0-9]+(\.[0-9]+)?$'
-            THEN CAST(quantity AS DECIMAL)
+            WHEN quantidade_recebida IS NOT NULL 
+              AND quantidade_recebida != '' 
+              AND quantidade_recebida !~ '[^0-9.,]'
+              AND LENGTH(TRIM(quantidade_recebida)) > 0
+            THEN CAST(REPLACE(quantidade_recebida, ',', '.') AS DECIMAL)
+            WHEN quantity IS NOT NULL 
+              AND quantity != '' 
+              AND quantity !~ '[^0-9.,]'
+              AND LENGTH(TRIM(quantity)) > 0
+            THEN CAST(REPLACE(quantity, ',', '.') AS DECIMAL)
             ELSE 0
           END
         ), 0) as total_entregue
