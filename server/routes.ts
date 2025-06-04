@@ -1058,7 +1058,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Buscar quantidade já usada em pedidos (excluindo cancelados)
         const usadoResult = await pool.query(
-          `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
+          `SELECT COALESCE(SUM(
+            CASE 
+              WHEN quantity IS NOT NULL AND quantity != '' 
+              THEN CAST(quantity AS DECIMAL)
+              ELSE 0
+            END
+          ), 0) as total_usado
            FROM orders 
            WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
           [orderData.purchaseOrderId, orderData.productId]
@@ -1988,7 +1994,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 2. Buscar a quantidade já usada em pedidos (MESMA LÓGICA DA CRIAÇÃO DE PEDIDOS)
       const pedidosResult = await pool.query(
-        `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
+        `SELECT COALESCE(SUM(
+          CASE 
+            WHEN quantity IS NOT NULL AND quantity != '' 
+            THEN CAST(quantity AS DECIMAL)
+            ELSE 0
+          END
+        ), 0) as total_usado
          FROM orders 
          WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
         [ordemId, produtoId]
@@ -2002,7 +2014,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           CASE 
             WHEN quantidade_recebida IS NOT NULL AND quantidade_recebida != '' 
             THEN CAST(quantidade_recebida AS DECIMAL)
-            ELSE CAST(quantity AS DECIMAL)
+            WHEN quantity IS NOT NULL AND quantity != ''
+            THEN CAST(quantity AS DECIMAL)
+            ELSE 0
           END
         ), 0) as total_entregue
          FROM orders 
