@@ -1060,7 +1060,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const usadoResult = await pool.query(
           `SELECT COALESCE(SUM(
             CASE 
-              WHEN quantity IS NOT NULL AND quantity != '' 
+              WHEN quantity IS NOT NULL AND quantity != '' AND quantity ~ '^[0-9]+(\.[0-9]+)?$'
               THEN CAST(quantity AS DECIMAL)
               ELSE 0
             END
@@ -1996,7 +1996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pedidosResult = await pool.query(
         `SELECT COALESCE(SUM(
           CASE 
-            WHEN quantity IS NOT NULL AND quantity != '' 
+            WHEN quantity IS NOT NULL AND quantity != '' AND quantity ~ '^[0-9]+(\.[0-9]+)?$'
             THEN CAST(quantity AS DECIMAL)
             ELSE 0
           END
@@ -2012,9 +2012,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entregueResult = await pool.query(
         `SELECT COALESCE(SUM(
           CASE 
-            WHEN quantidade_recebida IS NOT NULL AND quantidade_recebida != '' 
+            WHEN quantidade_recebida IS NOT NULL AND quantidade_recebida != '' AND quantidade_recebida ~ '^[0-9]+(\.[0-9]+)?$'
             THEN CAST(quantidade_recebida AS DECIMAL)
-            WHEN quantity IS NOT NULL AND quantity != ''
+            WHEN quantity IS NOT NULL AND quantity != '' AND quantity ~ '^[0-9]+(\.[0-9]+)?$'
             THEN CAST(quantity AS DECIMAL)
             ELSE 0
           END
