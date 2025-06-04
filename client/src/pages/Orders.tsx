@@ -51,7 +51,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Filter, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, AlertTriangle, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { getStatusColor, formatDate } from "@/lib/utils";
 
 // Função para formatar números com vírgula (formato brasileiro)
@@ -173,6 +173,11 @@ export default function Orders() {
   // Estados para verificação de urgência
   const [isUrgentOrder, setIsUrgentOrder] = useState(false);
   const [urgentDaysThreshold, setUrgentDaysThreshold] = useState(7);
+
+  //Sorting
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
 
   // Buscar pedidos
   const { data: orders = [], isLoading } = useQuery<Order[]>({
@@ -472,6 +477,43 @@ export default function Orders() {
     return searchMatch && statusMatch;
   });
 
+  // Function to handle sorting
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Function to sort the orders
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    if (sortColumn === 'id') {
+      const orderIdA = a.orderId;
+      const orderIdB = b.orderId;
+
+      if (sortDirection === 'asc') {
+        return orderIdA.localeCompare(orderIdB);
+      } else {
+        return orderIdB.localeCompare(orderIdA);
+      }
+    } else if (sortColumn === 'deliveryDate') {
+      const dateA = new Date(a.deliveryDate);
+      const dateB = new Date(b.deliveryDate);
+
+      if (sortDirection === 'asc') {
+        return dateA.getTime() - dateB.getTime();
+      } else {
+        return dateB.getTime() - dateA.getTime();
+      }
+    }
+    return 0;
+  });
+
+    // Apply filters and sorts to orders
+    const filteredAndSortedOrders = sortedOrders
+
   // Função para abrir o drawer de detalhes do pedido
   const handleOpenDetails = (order: Order) => {
     setSelectedOrderId(order.id);
@@ -741,17 +783,43 @@ export default function Orders() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('id')}
+                      >
+                        ID
+                        {sortColumn === 'id' && (
+                          sortDirection === 'asc' ? 
+                          <ChevronUp className="ml-1 h-4 w-4" /> : 
+                          <ChevronDown className="ml-1 h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableHead>
                     <TableHead>Produto</TableHead>
                     <TableHead>Quantidade</TableHead>
                     <TableHead>Fornecedor</TableHead>
-                    <TableHead>Data de Entrega</TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('deliveryDate')}
+                      >
+                        Data de Entrega
+                        {sortColumn === 'deliveryDate' && (
+                          sortDirection === 'asc' ? 
+                          <ChevronUp className="ml-1 h-4 w-4" /> : 
+                          <ChevronDown className="ml-1 h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableHead>
                     <TableHead>Status</TableHead>
                     {isKeyUser && <TableHead className="text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => {
+                  {filteredAndSortedOrders.map((order) => {
                     const product = products.find(
                       (p) => p.id === order.productId,
                     );

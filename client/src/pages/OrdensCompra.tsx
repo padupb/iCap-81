@@ -52,6 +52,7 @@ import {
   Pencil,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   RefreshCw,
   Info
 } from "lucide-react";
@@ -222,6 +223,10 @@ export default function OrdensCompra() {
   const [orderItems, setOrderItems] = useState<OrdemCompraItem[]>([]);
   const queryClient = useQueryClient();
 
+  // Estados para ordenação
+  const [sortColumn, setSortColumn] = useState<'id' | 'validUntil' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
   // Formulário para edição
   const editForm = useForm<PurchaseOrderFormData>({
     resolver: zodResolver(purchaseOrderSchema),
@@ -291,16 +296,47 @@ export default function OrdensCompra() {
     },
   });
 
-  // Filtrar ordens pelo termo de busca e status
-  const ordensFiltradas = ordens.filter(ordem => {
-    const matchesSearch = ordem.numero_ordem.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ordem.empresa_nome.toLowerCase().includes(searchTerm.toLowerCase());
+  // Função para lidar com a ordenação
+  const handleSort = (column: 'id' | 'validUntil') => {
+    if (sortColumn === column) {
+      // Se já está ordenando por esta coluna, inverte a direção
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Se é uma nova coluna, define como crescente
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
 
-    const realStatus = getRealStatus(ordem);
-    const matchesStatus = statusFilter === "all" || realStatus.toLowerCase() === statusFilter.toLowerCase();
+  // Filtrar e ordenar ordens pelo termo de busca e status
+  const ordensFiltradas = ordens
+    .filter(ordem => {
+      const matchesSearch = ordem.numero_ordem.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           ordem.empresa_nome.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchesSearch && matchesStatus;
-  });
+      const realStatus = getRealStatus(ordem);
+      const matchesStatus = statusFilter === "all" || realStatus.toLowerCase() === statusFilter.toLowerCase();
+
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (!sortColumn) return 0;
+
+      let aValue: any;
+      let bValue: any;
+
+      if (sortColumn === 'id') {
+        aValue = a.id;
+        bValue = b.id;
+      } else if (sortColumn === 'validUntil') {
+        aValue = new Date(a.valido_ate);
+        bValue = new Date(b.valido_ate);
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   // Adicionar item ao formulário
   const addItem = () => {
@@ -959,9 +995,35 @@ export default function OrdensCompra() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Número</TableHead>
+                  <TableHead className="w-[100px]">
+                    <Button
+                      variant="ghost"
+                      className="h-auto p-0 font-semibold hover:bg-transparent"
+                      onClick={() => handleSort('id')}
+                    >
+                      Número
+                      {sortColumn === 'id' && (
+                        sortDirection === 'asc' ? 
+                        <ChevronUp className="ml-1 h-4 w-4" /> : 
+                        <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </Button>
+                  </TableHead>
                   <TableHead>Fornecedor</TableHead>
-                  <TableHead>Válido Até</TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      className="h-auto p-0 font-semibold hover:bg-transparent"
+                      onClick={() => handleSort('validUntil')}
+                    >
+                      Válido Até
+                      {sortColumn === 'validUntil' && (
+                        sortDirection === 'asc' ? 
+                        <ChevronUp className="ml-1 h-4 w-4" /> : 
+                        <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </Button>
+                  </TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
