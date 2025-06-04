@@ -76,7 +76,7 @@ export const orders = pgTable("orders", {
   orderId: text("order_id").notNull().unique(),
   productId: integer("product_id").notNull(),
   quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
-  quantidadeRecebida: decimal("quantidade_recebida", {
+  quantidadeOriginal: decimal("quantidade_original", {
     precision: 10,
     scale: 2,
   }),
@@ -273,8 +273,8 @@ export const insertTrackingPointSchema = createInsertSchema(trackingPoints)
   });
 
 // Types
-export type User = typeof users.$inferSelect;
-export type InsertUser = typeof users.$inferInsert;
+export type Order = typeof orders.$inferSelect;
+export type InsertOrder = typeof orders.$inferInsert;
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type CompanyCategory = typeof companyCategories.$inferSelect;

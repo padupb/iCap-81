@@ -2555,6 +2555,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        // Extrair quantidade comercial do XML da nota fiscal
+        let quantidadeComercial = null;
+        let xmlAnalysis = null;
+        
+        try {
+          const xmlContent = fs.readFileSync(files.nota_xml[0].path, 'utf8');
+          console.log("📄 Analisando XML da nota fiscal...");
+          
+          // Extrair quantidade comercial usando regex (buscar por qCom)
+          const qComMatch = xmlContent.match(/<qCom>([\d.,]+)<\/qCom>/);
+          if (qComMatch) {
+            // Converter vírgula para ponto e parsear como número
+            quantidadeComercial = parseFloat(qComMatch[1].replace(',', '.'));
+            console.log(`📊 Quantidade comercial encontrada no XML: ${quantidadeComercial}`);
+            
+            xmlAnalysis = {
+              quantidadeOriginal: order.quantity,
+              quantidadeXML: quantidadeComercial,
+              alteracaoNecessaria: quantidadeComercial !== order.quantity
+            };
+          } else {
+            console.log("⚠️ Quantidade comercial não encontrada no XML");
+            xmlAnalysis = {
+              quantidadeOriginal: order.quantity,
+              quantidadeXML: null,
+              alteracaoNecessaria: false,
+              erro: "Quantidade comercial não encontrada no XML"
+            };
+          }
+        } catch (xmlError) {
+          console.error("❌ Erro ao processar XML:", xmlError);
+          xmlAnalysis = {
+            quantidadeOriginal: order.quantity,
+            quantidadeXML: null,
+            alteracaoNecessaria: false,
+            erro: "Erro ao processar XML da nota fiscal"
+          };
+        }
+
         // Construir informações dos documentos para armazenar no banco
         const documentosInfo = {
           nota_pdf: {
@@ -2569,7 +2608,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             filename: files.nota_xml[0].filename,
             size: files.nota_xml[0].size,
             path: files.nota_xml[0].path,
-            date: new Date().toISOString()
+            date: new Date().toISOString(),
+            analise: xmlAnalysis
           },
           certificado_pdf: {
             name: files.certificado_pdf[0].originalname,
@@ -2579,6 +2619,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             date: new Date().toISOString()
           }
         };
+
+        // Se foi encontrada quantidade comercial diferente, atualizar o pedido
+        let mensagemQuantidade = "";
+        if (quantidadeComercial && quantidadeComercial !== order.quantity) {
+          try {
+            await pool.query(
+              "UPDATE orders SET quantity = $1, quantidade_original = $2 WHERE id = $3",
+              [quantidadeComercial, order.quantity, id]
+            );
+            
+            mensagemQuantidade = ` Quantidade do pedido atualizada de ${order.quantity} para ${quantidadeComercial} (conforme XML da nota fiscal).`;
+            
+            console.log(`✅ Quantidade do pedido ${order.orderId} atualizada: ${order.quantity} → ${quantidadeComercial}`);
+            
+            // Registrar log específico da alteração de quantidade
+            await storage.createLog({
+              userId: req.session.userId,
+              action: "Alteração de quantidade por XML",
+              itemType: "order",
+              itemId: id.toString(),
+              details: `Quantidade do pedido ${order.orderId} alterada de ${order.quantity} para ${quantidadeComercial} baseada no XML da nota fiscal`
+            });
+          } catch (updateError) {
+            console.error("❌ Erro ao atualizar quantidade do pedido:", updateError);
+            mensagemQuantidade = " (Erro ao atualizar quantidade baseada no XML)";
+          }
+        }
 
         // Atualizar o pedido com as informações dos documentos
         await pool.query(
@@ -2592,14 +2659,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           action: "Upload de documentos",
           itemType: "order",
           itemId: id.toString(),
-          details: `Documentos carregados para o pedido ${order.orderId}`
+          details: `Documentos carregados para o pedido ${order.orderId}${mensagemQuantidade}`
         });
 
         // Responder com sucesso
         return res.status(200).json({
           sucesso: true,
-          mensagem: "Documentos enviados com sucesso",
-          documentos: documentosInfo
+          mensagem: `Documentos enviados com sucesso.${mensagemQuantidade}`,
+          documentos: documentosInfo,
+          xmlAnalysis: xmlAnalysis
         });
       } catch (error) {
         console.error("Erro ao processar upload de documentos:", error);

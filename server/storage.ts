@@ -1099,6 +1099,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateOrder(id: number, updateData: Partial<Order>): Promise<Order | undefined> {
+    // Se não há banco de dados, usar implementação em memória
+    if (!db) {
+      const order = this.orders.get(id);
+      if (!order) return undefined;
+      const updated = { ...order, ...updateData };
+      this.orders.set(id, updated);
+      return updated;
+    }
+
     const [order] = await db.update(orders).set(updateData).where(eq(orders.id, id)).returning();
 
     // Recalcular o saldo disponível da ordem de compra após atualizar a ordem
