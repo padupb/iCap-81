@@ -80,7 +80,7 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
       <span className="text-sm">
         {formatNumber(saldo.saldoDisponivel)} {saldo.unidade}
         <span className="text-xs text-muted-foreground ml-1">
-          (Total: {formatNumber(saldo.quantidadeTotal)} / Usado: {formatNumber(saldo.quantidadeUsada)})
+          [{formatNumber(saldo.quantidadeTotal)} | {formatNumber(saldo.quantidadeUsada)} | {formatNumber(saldo.quantidadeEntregue || 0)}]
         </span>
       </span>
     </div>
