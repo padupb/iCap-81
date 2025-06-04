@@ -15,8 +15,8 @@ import path from "path";
 import { z } from "zod";
 
 // Função utilitária para converter data considerando fuso horário brasileiro
-function convertToLocalDate(dateString: string, timezoneOffset: number = -4): Date {
-  console.log(`🔍 convertToLocalDate - entrada: ${dateString}, timezone: ${timezoneOffset}`);
+function convertToLocalDate(dateString: string): Date {
+  console.log(`🔍 convertToLocalDate - entrada: ${dateString}`);
   
   // Se a string já tem informação de timezone, usar diretamente
   if (dateString.includes('Z') || dateString.includes('+') || dateString.includes('-', 10)) {
@@ -25,23 +25,28 @@ function convertToLocalDate(dateString: string, timezoneOffset: number = -4): Da
     return date;
   }
   
-  // Para datas sem timezone (formato YYYY-MM-DD), criar data às 18:00 horário de Brasília
-  // para evitar problemas de mudança de dia devido ao fuso horário
+  // Para datas sem timezone (formato YYYY-MM-DD), criar data no meio-dia de Brasília
+  // Isso evita problemas de conversão de fuso horário que mudam o dia
   const dateParts = dateString.split('T')[0].split('-');
   if (dateParts.length === 3) {
     const year = parseInt(dateParts[0]);
-    const month = parseInt(dateParts[1]) - 1; // Mês é 0-indexed
+    const month = parseInt(dateParts[1]) - 1; // Mês é 0-indexed no JavaScript
     const day = parseInt(dateParts[2]);
     
-    // Criar data às 18:00 horário local (Brasília)
-    // Isso garante que mesmo convertendo para UTC, a data não mudará
-    const localDate = new Date(year, month, day, 18, 0, 0, 0);
+    // Criar a data em UTC primeiro, depois ajustar para Brasília
+    // Isso garante que a data seja interpretada corretamente
+    const utcDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
     
-    console.log(`📅 Data criada localmente (18:00): ${localDate.toISOString()}`);
-    console.log(`📅 Data em horário brasileiro: ${localDate.toLocaleDateString('pt-BR')}`);
+    // Ajustar para o fuso horário de Brasília (UTC-3)
+    // Subtraímos 3 horas do UTC para obter o horário de Brasília
+    const brasiliaDate = new Date(utcDate.getTime() - (3 * 60 * 60 * 1000));
+    
+    console.log(`📅 Data UTC criada: ${utcDate.toISOString()}`);
+    console.log(`📅 Data Brasília calculada: ${brasiliaDate.toISOString()}`);
+    console.log(`📅 Data em formato brasileiro: ${brasiliaDate.toLocaleDateString('pt-BR')}`);
     console.log(`📅 Timezone da máquina: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
     
-    return localDate;
+    return brasiliaDate;
   }
   
   // Fallback para outros formatos
@@ -1080,7 +1085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calcular se o pedido é urgente baseado na data de entrega
       const now = new Date();
-      const deliveryDate = convertToLocalDate(orderData.deliveryDate, -4); // Fuso horário brasileiro
+      const deliveryDate = convertToLocalDate(orderData.deliveryDate); // Conversão para fuso brasileiro
       
       console.log(`📅 Debug conversão de data:`, {
         original: orderData.deliveryDate,

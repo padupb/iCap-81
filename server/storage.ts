@@ -984,20 +984,13 @@ export class DatabaseStorage implements IStorage {
     // - Pedidos não urgentes: "Aprovado" (aprovação automática)
     const status = isUrgent ? "Registrado" : "Aprovado";
 
-    console.log(`📅 Storage - Data original recebida:`, insertOrder.deliveryDate);
-    console.log(`📅 Storage - Data convertida (ISO):`, deliveryDate.toISOString());
-    console.log(`📅 Storage - Data local (pt-BR):`, deliveryDate.toLocaleDateString('pt-BR'));
-    console.log(`📅 Storage - Data/hora completa:`, deliveryDate.toString());
-    console.log(`📅 Storage - Timezone atual:`, Intl.DateTimeFormat().resolvedOptions().timeZone);
-    
-    // Teste: criar uma data local para comparação
-    const testDate = new Date(insertOrder.deliveryDate);
-    console.log(`🧪 Teste - new Date(string):`, testDate.toISOString());
-    console.log(`🧪 Teste - formato brasileiro:`, testDate.toLocaleDateString('pt-BR'));
+    console.log(`📅 Storage - Data recebida: ${insertOrder.deliveryDate}`);
+    console.log(`📅 Storage - Data convertida: ${deliveryDate.toISOString()}`);
+    console.log(`📅 Storage - Data em formato brasileiro: ${deliveryDate.toLocaleDateString('pt-BR')}`);
     
     console.log(`📅 Verificação de urgência para pedido ${orderId}:`, {
       deliveryDate: deliveryDate.toISOString(),
-      deliveryDateLocal: deliveryDate.toLocaleDateString('pt-BR'),
+      deliveryDateBR: deliveryDate.toLocaleDateString('pt-BR'),
       daysDiff,
       isUrgent,
       status
