@@ -149,6 +149,8 @@ export class MemStorage implements IStorage {
       { key: "app_name", value: "i-CAP 5.0", description: "Nome da aplicação" },
       { key: "keyuser_email", value: "padupb@admin.icap", description: "E-mail do superadministrador" },
       { key: "keyuser_password", value: "170824", description: "Senha do superadministrador" },
+      { key: "order_id_pattern", value: "EMPRESA{DD}{MM}{YY}{NNNN}", description: "Padrão de numeração de pedidos (EMPRESA = sigla da empresa criadora)" },
+      { key: "use_company_acronym", value: "true", description: "Usar sigla da empresa criadora no prefixo dos pedidos" },
     ];
 
     defaultSettings.forEach(setting => {
@@ -968,8 +970,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
-    // Gerar OrderID automático
-    const orderId = await this.generateOrderId();
+    // Gerar OrderID automático baseado na empresa criadora
+    const orderId = await this.generateOrderIdForOrder(insertOrder);
 
     // Calcular se o pedido é urgente baseado na data de entrega
     const now = new Date();
@@ -1006,6 +1008,90 @@ export class DatabaseStorage implements IStorage {
     return order;
   }
 
+  private async generateOrderIdForOrder(insertOrder: InsertOrder): Promise<string> {
+    const now = new Date();
+    const day = now.getDate().toString().padStart(2, '0');
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const year = now.getFullYear().toString().slice(-2);
+    
+    // Buscar próximo número sequencial
+    const sequentialNumber = await this.getNextSequentialNumber();
+    const paddedNumber = sequentialNumber.toString().padStart(4, '0');
+
+    let prefix = "CAP"; // Padrão caso não consiga determinar
+
+    try {
+      // Buscar a empresa criadora da obra através da ordem de compra
+      if (insertOrder.purchaseOrderId) {
+        const { pool } = await import("./db");
+        
+        // Buscar a ordem de compra para pegar o CNPJ da obra de destino
+        const purchaseOrderResult = await pool.query(`
+          SELECT oc.cnpj 
+          FROM ordens_compra oc 
+          WHERE oc.id = $1
+        `, [insertOrder.purchaseOrderId]);
+
+        if (purchaseOrderResult.rows.length > 0) {
+          const cnpjObra = purchaseOrderResult.rows[0].cnpj;
+          
+          // Buscar a empresa dona da obra pelo CNPJ
+          const companyResult = await pool.query(`
+            SELECT name 
+            FROM companies 
+            WHERE cnpj = $1
+          `, [cnpjObra]);
+
+          if (companyResult.rows.length > 0) {
+            const companyName = companyResult.rows[0].name;
+            
+            // Buscar se há uma sigla personalizada configurada para esta empresa
+            const companyId = await this.getCompanyIdByName(companyName);
+            if (companyId) {
+              const customAcronymSetting = await this.getSetting(`company_${companyId}_acronym`);
+              if (customAcronymSetting?.value) {
+                prefix = customAcronymSetting.value;
+                console.log(`📝 Usando sigla personalizada "${prefix}" para empresa "${companyName}"`);
+              } else {
+                prefix = this.generateCompanyAcronym(companyName);
+                console.log(`📝 Gerada sigla automática "${prefix}" para empresa "${companyName}"`);
+              }
+            } else {
+              prefix = this.generateCompanyAcronym(companyName);
+              console.log(`📝 Gerada sigla automática "${prefix}" para empresa "${companyName}"`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.log("Erro ao determinar empresa criadora, usando prefixo padrão CAP:", error);
+    }
+
+    let baseOrderId = `${prefix}${day}${month}${year}${paddedNumber}`;
+    let counter = 0;
+    let orderId = baseOrderId;
+
+    // Verificar duplicidade
+    const { pool } = await import("./db");
+
+    while (true) {
+      const existingOrder = await pool.query(
+        "SELECT id FROM orders WHERE order_id = $1 LIMIT 1",
+        [orderId]
+      );
+
+      if (existingOrder.rows.length === 0) {
+        break; // ID não existe, pode usar
+      }
+
+      counter++;
+      const newNumber = (parseInt(paddedNumber) + counter).toString().padStart(4, '0');
+      orderId = `${prefix}${day}${month}${year}${newNumber}`;
+    }
+
+    return orderId;
+  }
+
   async updateOrder(id: number, updateData: Partial<Order>): Promise<Order | undefined> {
     const [order] = await db.update(orders).set(updateData).where(eq(orders.id, id)).returning();
 
@@ -1031,14 +1117,72 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  private async generateOrderId(): Promise<string> {
-    const now = new Date();
-    const prefix = "CAP";
-    const datePart = `${now.getDate().toString().padStart(2, '0')}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getFullYear().toString().slice(2)}`;
-    const timePart = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+  private generateCompanyAcronym(companyName: string): string {
+    // Remover palavras comuns e conectores
+    const commonWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre'];
+    
+    // Dividir o nome em palavras e filtrar palavras vazias e conectores
+    const words = companyName
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '') // Remove pontuação
+      .split(/\s+/)
+      .filter(word => word.length > 0 && !commonWords.includes(word));
 
-    // Implementar a lógica para evitar duplicidade de IDs de pedidos, adicionando +1 ao último número quando um ID já existir.
-    let baseOrderId = `${prefix}${datePart}${timePart}`;
+    let acronym = '';
+    
+    if (words.length === 1) {
+      // Se só tem uma palavra, pegar as primeiras 3 letras
+      acronym = words[0].substring(0, 3).toUpperCase();
+    } else if (words.length === 2) {
+      // Se tem duas palavras, pegar 2 letras da primeira e 1 da segunda
+      acronym = words[0].substring(0, 2).toUpperCase() + words[1].substring(0, 1).toUpperCase();
+    } else if (words.length >= 3) {
+      // Se tem 3 ou mais palavras, pegar a primeira letra de cada uma das 3 primeiras
+      acronym = words.slice(0, 3).map(word => word.charAt(0).toUpperCase()).join('');
+    }
+
+    // Garantir que a sigla tenha pelo menos 2 caracteres e no máximo 4
+    if (acronym.length < 2) {
+      acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+    }
+    if (acronym.length > 4) {
+      acronym = acronym.substring(0, 4);
+    }
+
+    return acronym;
+  }
+
+  private async generateOrderId(): Promise<string> {
+    // Buscar configuração de padrão personalizado se existir
+    const patternSetting = await this.getSetting("order_id_pattern");
+    
+    if (patternSetting?.value && patternSetting.value !== "CAP{DD}{MM}{YY}{NNNN}") {
+      // Se há um padrão personalizado configurado, usar ele
+      return await this.generateOrderIdWithPattern(patternSetting.value);
+    }
+
+    // Usar novo padrão baseado na empresa
+    const now = new Date();
+    const day = now.getDate().toString().padStart(2, '0');
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const year = now.getFullYear().toString().slice(-2);
+    
+    // Buscar próximo número sequencial
+    const sequentialNumber = await this.getNextSequentialNumber();
+    const paddedNumber = sequentialNumber.toString().padStart(4, '0');
+
+    // Por padrão usar "CAP" se não conseguir determinar a empresa
+    let prefix = "CAP";
+
+    try {
+      // Tentar determinar a empresa criadora (isso será implementado quando tivermos o contexto do usuário)
+      // Por enquanto, vamos usar o padrão antigo
+      prefix = "CAP";
+    } catch (error) {
+      console.log("Usando prefixo padrão CAP");
+    }
+
+    let baseOrderId = `${prefix}${day}${month}${year}${paddedNumber}`;
     let counter = 0;
     let orderId = baseOrderId;
 
@@ -1056,11 +1200,75 @@ export class DatabaseStorage implements IStorage {
       }
 
       counter++;
-      const newNumber = counter.toString().padStart(3, '0'); // Pad to 3 digits
-      orderId = `${baseOrderId}${newNumber}`; // Append the counter
+      const newNumber = (parseInt(paddedNumber) + counter).toString().padStart(4, '0');
+      orderId = `${prefix}${day}${month}${year}${newNumber}`;
     }
 
     return orderId;
+  }
+
+  private async generateOrderIdWithPattern(pattern: string): Promise<string> {
+    const now = new Date();
+    const day = now.getDate().toString().padStart(2, '0');
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const year = now.getFullYear().toString().slice(-2);
+    
+    // Buscar próximo número sequencial
+    const sequentialNumber = await this.getNextSequentialNumber();
+    const paddedNumber = sequentialNumber.toString().padStart(4, '0');
+    
+    // Substituir placeholders
+    return pattern
+      .replace('{DD}', day)
+      .replace('{MM}', month)
+      .replace('{YY}', year)
+      .replace('{NNNN}', paddedNumber);
+  }
+
+  private async getCompanyIdByName(companyName: string): Promise<number | null> {
+    try {
+      const { pool } = await import("./db");
+      const result = await pool.query(`
+        SELECT id FROM companies WHERE name = $1 LIMIT 1
+      `, [companyName]);
+      
+      if (result.rows.length > 0) {
+        return result.rows[0].id;
+      }
+      return null;
+    } catch (error) {
+      console.error("Erro ao buscar ID da empresa:", error);
+      return null;
+    }
+  }
+
+  private async getNextSequentialNumber(): Promise<number> {
+    const { pool } = await import("./db");
+    
+    // Buscar o maior número sequencial usado hoje
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+    
+    const result = await pool.query(`
+      SELECT order_id FROM orders 
+      WHERE DATE(created_at) = $1 
+      ORDER BY id DESC 
+      LIMIT 1
+    `, [todayStr]);
+
+    if (result.rows.length === 0) {
+      return 1; // Primeiro pedido do dia
+    }
+
+    // Extrair o número sequencial do último pedido
+    const lastOrderId = result.rows[0].order_id;
+    const numberMatch = lastOrderId.match(/(\d{4})$/);
+    
+    if (numberMatch) {
+      return parseInt(numberMatch[1]) + 1;
+    }
+    
+    return 1;
   }
 
   async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {

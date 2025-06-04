@@ -3171,6 +3171,72 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
+  // Rota para testar geração de siglas de empresas
+  app.get("/api/debug/company-acronyms", async (req, res) => {
+    try {
+      console.log("🔍 Debug: Testando geração de siglas das empresas");
+
+      const companies = await storage.getAllCompanies();
+      
+      const acronyms = companies.map(company => {
+        // Simular a função de geração de sigla
+        const generateCompanyAcronym = (companyName: string): string => {
+          const commonWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre'];
+          
+          const words = companyName
+            .toLowerCase()
+            .replace(/[^\w\s]/g, '')
+            .split(/\s+/)
+            .filter(word => word.length > 0 && !commonWords.includes(word));
+
+          let acronym = '';
+          
+          if (words.length === 1) {
+            acronym = words[0].substring(0, 3).toUpperCase();
+          } else if (words.length === 2) {
+            acronym = words[0].substring(0, 2).toUpperCase() + words[1].substring(0, 1).toUpperCase();
+          } else if (words.length >= 3) {
+            acronym = words.slice(0, 3).map(word => word.charAt(0).toUpperCase()).join('');
+          }
+
+          if (acronym.length < 2) {
+            acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+          }
+          if (acronym.length > 4) {
+            acronym = acronym.substring(0, 4);
+          }
+
+          return acronym;
+        };
+
+        return {
+          id: company.id,
+          name: company.name,
+          acronym: generateCompanyAcronym(company.name),
+          contractNumber: company.contractNumber
+        };
+      });
+
+      res.json({
+        success: true,
+        message: "Siglas geradas com sucesso",
+        companies: acronyms,
+        examples: [
+          "Concessionária Nova Rota do Oeste → CNRO",
+          "Consórcio Nova Imigrantes → CNI", 
+          "Consórcio Construtor BR163 → CCB"
+        ]
+      });
+    } catch (error) {
+      console.error("❌ Erro ao testar siglas:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao testar siglas",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Rota de debug para investigar pedidos urgentes
   app.get("/api/debug/urgent-orders", async (req, res) => {
     try {
@@ -3231,6 +3297,59 @@ mensagem: "Erro interno do servidor ao processar o upload",
         message: "Erro ao investigar pedidos urgentes",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
+    }
+  });
+
+  // Rota para configurar sigla personalizada de uma empresa
+  app.post("/api/companies/:id/acronym", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { acronym } = req.body;
+
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      if (!acronym || acronym.length < 2 || acronym.length > 4) {
+        return res.status(400).json({ 
+          message: "Sigla deve ter entre 2 e 4 caracteres" 
+        });
+      }
+
+      // Verificar se a empresa existe
+      const company = await storage.getCompany(id);
+      if (!company) {
+        return res.status(404).json({ message: "Empresa não encontrada" });
+      }
+
+      // Salvar a sigla personalizada nas configurações
+      const settingKey = `company_${id}_acronym`;
+      await storage.createOrUpdateSetting({
+        key: settingKey,
+        value: acronym.toUpperCase(),
+        description: `Sigla personalizada para a empresa ${company.name}`
+      });
+
+      // Registrar log
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Configurou sigla personalizada",
+          itemType: "company",
+          itemId: id.toString(),
+          details: `Sigla "${acronym.toUpperCase()}" configurada para empresa ${company.name}`
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Sigla personalizada configurada com sucesso",
+        company: company.name,
+        acronym: acronym.toUpperCase()
+      });
+    } catch (error) {
+      console.error("Erro ao configurar sigla personalizada:", error);
+      res.status(500).json({ message: "Erro ao configurar sigla personalizada" });
     }
   });
 
