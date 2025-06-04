@@ -40,6 +40,7 @@ const formatNumber = (value: string | number): string => {
 function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: number }) {
   const [isLoading, setIsLoading] = useState(false);
   const [saldo, setSaldo] = useState<any>(null);
+  const [quantidadeEntregue, setQuantidadeEntregue] = useState<number>(0);
 
   const fetchSaldo = async () => {
     setIsLoading(true);
@@ -54,8 +55,21 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
     }
   };
 
+  const fetchQuantidadeEntregue = async () => {
+    try {
+      const response = await fetch(`/api/ordens-compra/${ordemId}/produtos/${produtoId}/entregue`);
+      const data = await response.json();
+      if (data.sucesso) {
+        setQuantidadeEntregue(data.quantidadeEntregue || 0);
+      }
+    } catch (error) {
+      console.error("Erro ao verificar quantidade entregue:", error);
+    }
+  };
+
   useEffect(() => {
     fetchSaldo();
+    fetchQuantidadeEntregue();
   }, [ordemId, produtoId]);
 
   if (isLoading) {
@@ -76,13 +90,17 @@ function SaldoProduto({ ordemId, produtoId }: { ordemId: number, produtoId: numb
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-1">
       <span className="text-sm">
-        {formatNumber(saldo.saldoDisponivel)} {saldo.unidade}
-        <span className="text-xs text-muted-foreground ml-1">
-          (Total: {formatNumber(saldo.quantidadeTotal)} / Usado: {formatNumber(saldo.quantidadeUsada)})
-        </span>
+        Disponível: {formatNumber(saldo.saldoDisponivel)} {saldo.unidade}
       </span>
+      <div className="text-xs text-muted-foreground">
+        <div>Total: {formatNumber(saldo.quantidadeTotal)} {saldo.unidade}</div>
+        <div>Usado: {formatNumber(saldo.quantidadeUsada)} {saldo.unidade}</div>
+        <div className="text-green-600 font-medium">
+          Entregue: {formatNumber(quantidadeEntregue)} {saldo.unidade}
+        </div>
+      </div>
     </div>
   );
 }

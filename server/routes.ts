@@ -2023,6 +2023,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Verificar quantidade entregue em uma ordem de compra para um produto
+  app.get("/api/ordens-compra/:id/produtos/:produtoId/entregue", async (req, res) => {
+    try {
+      const ordemId = parseInt(req.params.id);
+      const produtoId = parseInt(req.params.produtoId);
+
+      if (isNaN(ordemId) || isNaN(produtoId)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "IDs inválidos"
+        });
+      }
+
+      // Buscar a quantidade entregue (somatório de pedidos com status "Entregue")
+      const entregueResult = await pool.query(
+        `SELECT COALESCE(SUM(
+          CASE 
+            WHEN quantidaderecebida IS NOT NULL AND quantidaderecebida != '' 
+            THEN CAST(quantidaderecebida AS DECIMAL)
+            ELSE CAST(quantity AS DECIMAL)
+          END
+        ), 0) as total_entregue
+         FROM orders 
+         WHERE purchase_order_id = $1 AND product_id = $2 AND status = 'Entregue'`,
+        [ordemId, produtoId]
+      );
+
+      const quantidadeEntregue = parseFloat(entregueResult.rows[0].total_entregue || 0);
+
+      console.log(`Quantidade entregue para ordem ${ordemId}, produto ${produtoId}: ${quantidadeEntregue}`);
+
+      res.json({
+        sucesso: true,
+        quantidadeEntregue: parseFloat(quantidadeEntregue.toFixed(3)),
+        unidade: await getUnidadeProduto(produtoId)
+      });
+
+    } catch (error) {
+      console.error("Erro ao verificar quantidade entregue:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao verificar quantidade entregue"
+      });
+    }
+  });
+
   // Company Categories routes
   app.get("/api/company-categories", async (req, res) => {
     try {
