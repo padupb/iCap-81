@@ -2040,7 +2040,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entregueResult = await pool.query(
         `SELECT COALESCE(SUM(
           CASE 
-            WHEN quantidade_recebida IS NOT NULL AND quantidade_recebida != '' 
+            WHEN quantidade_recebida IS NOT NULL 
+                 AND quantidade_recebida != '' 
+                 AND quantidade_recebida ~ '^[0-9]*\.?[0-9]+$'
             THEN CAST(quantidade_recebida AS DECIMAL)
             ELSE CAST(quantity AS DECIMAL)
           END
