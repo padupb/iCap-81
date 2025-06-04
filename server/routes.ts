@@ -1699,14 +1699,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      console.log(`🔍 Buscando itens da ordem de compra ID: ${id}`);
+
+      // Verificar se a ordem de compra existe
+      const ordemCheck = await pool.query(
+        "SELECT id, numero_ordem FROM ordens_compra WHERE id = $1",
+        [id]
+      );
+
+      if (!ordemCheck.rows.length) {
+        console.log(`❌ Ordem de compra ${id} não encontrada`);
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Ordem de compra não encontrada"
+        });
+      }
+
+      console.log(`✅ Ordem encontrada: ${ordemCheck.rows[0].numero_ordem}`);
+
       // Buscar os itens da ordem com informações do produto
       const result = await pool.query(`
-        SELECT i.*, p.name as produto_nome, u.abbreviation as unidade
+        SELECT 
+          i.id,
+          i.ordem_compra_id,
+          i.produto_id,
+          i.quantidade,
+          p.name as produto_nome,
+          u.name as unidade_nome,
+          u.abbreviation as unidade
         FROM itens_ordem_compra i
         LEFT JOIN products p ON i.produto_id = p.id
         LEFT JOIN units u ON p.unit_id = u.id
         WHERE i.ordem_compra_id = $1
+        ORDER BY p.name
       `, [id]);
+
+      console.log(`📦 Encontrados ${result.rows.length} itens na ordem ${id}`);
 
       // Formatar os dados para o frontend
       const itens = result.rows.map((item: any) => ({
@@ -1714,17 +1742,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ordem_compra_id: item.ordem_compra_id,
         produto_id: item.produto_id,
         produto_nome: item.produto_nome || "Produto não encontrado",
-        unidade: item.unidade || "un",
-        quantidade: item.quantidade
+        unidade: item.unidade || item.unidade_nome || "un",
+        quantidade: parseFloat(item.quantidade || 0)
       }));
+
+      console.log(`📊 Itens formatados:`, itens);
 
       res.json(itens);
 
     } catch (error) {
-      console.error("Erro ao buscar itens da ordem de compra:", error);
+      console.error("❌ Erro ao buscar itens da ordem de compra:", error);
       res.status(500).json({
         sucesso: false,
-        mensagem: "Erro ao buscar itens da ordem de compra"
+        mensagem: "Erro ao buscar itens da ordem de compra",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }
   });
@@ -1811,6 +1842,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return 'un';
     }
   }
+
+  // Rota de compatibilidade para buscar itens de ordem de compra
+  app.get("/api/purchase-orders/:id/items", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID inválido"
+        });
+      }
+
+      console.log(`🔍 Rota de compatibilidade - Buscando itens da ordem ${id}`);
+
+      // Buscar os itens da ordem com informações do produto
+      const result = await pool.query(`
+        SELECT 
+          i.id,
+          i.ordem_compra_id as purchase_order_id,
+          i.produto_id as product_id,
+          i.quantidade as quantity,
+          p.name as product_name,
+          u.name as unit_name,
+          u.abbreviation as unit
+        FROM itens_ordem_compra i
+        LEFT JOIN products p ON i.produto_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        WHERE i.ordem_compra_id = $1
+        ORDER BY p.name
+      `, [id]);
+
+      console.log(`📦 Compatibilidade - Encontrados ${result.rows.length} itens`);
+
+      // Formatar no padrão esperado pelo frontend
+      const items = result.rows.map((item: any) => ({
+        id: item.id,
+        purchaseOrderId: item.purchase_order_id,
+        productId: item.product_id,
+        productName: item.product_name || "Produto não encontrado",
+        unit: item.unit || item.unit_name || "un",
+        quantity: parseFloat(item.quantity || 0)
+      }));
+
+      res.json(items);
+
+    } catch (error) {
+      console.error("❌ Erro na rota de compatibilidade:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar itens da ordem de compra"
+      });
+    }
+  });
 
   // Verificar saldo disponível em uma ordem de compra para um produto
   app.get("/api/ordens-compra/:id/produtos/:produtoId/saldo", async (req, res) => {
