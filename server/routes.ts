@@ -16,16 +16,25 @@ import { z } from "zod";
 
 // Função utilitária para converter data considerando fuso horário brasileiro
 function convertToLocalDate(dateString: string, timezoneOffset: number = -4): Date {
-  const date = new Date(dateString);
-  
-  // Se a data não tem informação de timezone, assumir que está em UTC
-  // e ajustar para o fuso horário especificado
-  if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
-    // Adicionar o offset do timezone (em horas convertido para millisegundos)
-    return new Date(date.getTime() - (timezoneOffset * 60 * 60 * 1000));
+  // Se a string já tem informação de timezone, usar diretamente
+  if (dateString.includes('Z') || dateString.includes('+') || dateString.includes('-', 10)) {
+    return new Date(dateString);
   }
   
-  return date;
+  // Para datas sem timezone (formato YYYY-MM-DD), criar data no meio-dia local
+  // para evitar problemas de fuso horário
+  const dateParts = dateString.split('T')[0].split('-');
+  if (dateParts.length === 3) {
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1; // Mês é 0-indexed
+    const day = parseInt(dateParts[2]);
+    
+    // Criar data no meio-dia para evitar problemas de fuso horário
+    return new Date(year, month, day, 12, 0, 0, 0);
+  }
+  
+  // Fallback para outros formatos
+  return new Date(dateString);
 }
 
 // Configuração avançada do multer para upload de arquivos
@@ -1059,6 +1068,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calcular se o pedido é urgente baseado na data de entrega
       const now = new Date();
       const deliveryDate = convertToLocalDate(orderData.deliveryDate, -4); // Fuso horário brasileiro
+      
+      console.log(`📅 Debug conversão de data:`, {
+        original: orderData.deliveryDate,
+        converted: deliveryDate.toISOString(),
+        localString: deliveryDate.toLocaleDateString('pt-BR'),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
       
       const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
       const isUrgent = daysDiff <= 7;

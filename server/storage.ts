@@ -984,6 +984,9 @@ export class DatabaseStorage implements IStorage {
     // - Pedidos não urgentes: "Aprovado" (aprovação automática)
     const status = isUrgent ? "Registrado" : "Aprovado";
 
+    console.log(`📅 Storage - Data original recebida:`, insertOrder.deliveryDate);
+    console.log(`📅 Storage - Data convertida:`, deliveryDate.toISOString());
+    console.log(`📅 Storage - Data local:`, deliveryDate.toLocaleDateString('pt-BR'));
     console.log(`📅 Verificação de urgência para pedido ${orderId}:`, {
       deliveryDate: deliveryDate.toISOString(),
       daysDiff,
