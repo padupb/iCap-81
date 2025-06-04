@@ -14,6 +14,20 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
+// Função utilitária para converter data considerando fuso horário brasileiro
+function convertToLocalDate(dateString: string, timezoneOffset: number = -4): Date {
+  const date = new Date(dateString);
+  
+  // Se a data não tem informação de timezone, assumir que está em UTC
+  // e ajustar para o fuso horário especificado
+  if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+    // Adicionar o offset do timezone (em horas convertido para millisegundos)
+    return new Date(date.getTime() - (timezoneOffset * 60 * 60 * 1000));
+  }
+  
+  return date;
+}
+
 // Configuração avançada do multer para upload de arquivos
 const storage_upload = multer.diskStorage({
   destination: async function (req, file, cb) {
@@ -1044,7 +1058,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calcular se o pedido é urgente baseado na data de entrega
       const now = new Date();
-      const deliveryDate = new Date(orderData.deliveryDate);
+      const deliveryDate = convertToLocalDate(orderData.deliveryDate, -4); // Fuso horário brasileiro
+      
       const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
       const isUrgent = daysDiff <= 7;
       
