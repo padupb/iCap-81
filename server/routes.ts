@@ -16,25 +16,38 @@ import { z } from "zod";
 
 // Função utilitária para converter data considerando fuso horário brasileiro
 function convertToLocalDate(dateString: string, timezoneOffset: number = -4): Date {
+  console.log(`🔍 convertToLocalDate - entrada: ${dateString}, timezone: ${timezoneOffset}`);
+  
   // Se a string já tem informação de timezone, usar diretamente
   if (dateString.includes('Z') || dateString.includes('+') || dateString.includes('-', 10)) {
-    return new Date(dateString);
+    const date = new Date(dateString);
+    console.log(`📅 Data com timezone: ${date.toISOString()} -> local: ${date.toLocaleDateString('pt-BR')}`);
+    return date;
   }
   
-  // Para datas sem timezone (formato YYYY-MM-DD), criar data no meio-dia local
-  // para evitar problemas de fuso horário
+  // Para datas sem timezone (formato YYYY-MM-DD), criar data às 18:00 horário de Brasília
+  // para evitar problemas de mudança de dia devido ao fuso horário
   const dateParts = dateString.split('T')[0].split('-');
   if (dateParts.length === 3) {
     const year = parseInt(dateParts[0]);
     const month = parseInt(dateParts[1]) - 1; // Mês é 0-indexed
     const day = parseInt(dateParts[2]);
     
-    // Criar data no meio-dia para evitar problemas de fuso horário
-    return new Date(year, month, day, 12, 0, 0, 0);
+    // Criar data às 18:00 horário local (Brasília)
+    // Isso garante que mesmo convertendo para UTC, a data não mudará
+    const localDate = new Date(year, month, day, 18, 0, 0, 0);
+    
+    console.log(`📅 Data criada localmente (18:00): ${localDate.toISOString()}`);
+    console.log(`📅 Data em horário brasileiro: ${localDate.toLocaleDateString('pt-BR')}`);
+    console.log(`📅 Timezone da máquina: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+    
+    return localDate;
   }
   
   // Fallback para outros formatos
-  return new Date(dateString);
+  const fallbackDate = new Date(dateString);
+  console.log(`📅 Fallback date: ${fallbackDate.toISOString()}`);
+  return fallbackDate;
 }
 
 // Configuração avançada do multer para upload de arquivos
