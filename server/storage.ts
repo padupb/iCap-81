@@ -985,7 +985,7 @@ export class DatabaseStorage implements IStorage {
     const status = isUrgent ? "Registrado" : "Aprovado";
 
     console.log(`📅 Storage - Data recebida: ${insertOrder.deliveryDate}`);
-    console.log(`📅 Storage - Data convertida: ${deliveryDate.toISOString()}`);
+    console.log(`📅 Storage - Data convertida (com ajuste +1): ${deliveryDate.toISOString()}`);
     console.log(`📅 Storage - Data em formato brasileiro: ${deliveryDate.toLocaleDateString('pt-BR')}`);
     
     console.log(`📅 Verificação de urgência para pedido ${orderId}:`, {
@@ -993,7 +993,8 @@ export class DatabaseStorage implements IStorage {
       deliveryDateBR: deliveryDate.toLocaleDateString('pt-BR'),
       daysDiff,
       isUrgent,
-      status
+      status,
+      solucaoAplicada: "data marcada + 1"
     });
 
     // Inserir a ordem no banco de dados

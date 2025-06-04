@@ -15,6 +15,7 @@ import path from "path";
 import { z } from "zod";
 
 // Função utilitária para converter data considerando fuso horário brasileiro
+// Implementa solução "data marcada + 1" para corrigir problemas de fuso horário
 function convertToLocalDate(dateString: string): Date {
   console.log(`🔍 convertToLocalDate - entrada: ${dateString}`);
   
@@ -25,28 +26,28 @@ function convertToLocalDate(dateString: string): Date {
     return date;
   }
   
-  // Para datas sem timezone (formato YYYY-MM-DD), criar data no meio-dia de Brasília
-  // Isso evita problemas de conversão de fuso horário que mudam o dia
+  // SOLUÇÃO "DATA MARCADA + 1": Para datas sem timezone (formato YYYY-MM-DD)
+  // Extrair componentes da data
   const dateParts = dateString.split('T')[0].split('-');
   if (dateParts.length === 3) {
     const year = parseInt(dateParts[0]);
     const month = parseInt(dateParts[1]) - 1; // Mês é 0-indexed no JavaScript
     const day = parseInt(dateParts[2]);
     
-    // Criar a data em UTC primeiro, depois ajustar para Brasília
-    // Isso garante que a data seja interpretada corretamente
-    const utcDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+    // IMPLEMENTAR: Data marcada + 1 dia
+    // Isso compensa a diferença de fuso horário que causa a perda de 1 dia
+    const adjustedDay = day + 1;
     
-    // Ajustar para o fuso horário de Brasília (UTC-3)
-    // Subtraímos 3 horas do UTC para obter o horário de Brasília
-    const brasiliaDate = new Date(utcDate.getTime() - (3 * 60 * 60 * 1000));
+    // Criar a data com o dia ajustado (+ 1), no meio-dia UTC para evitar mudanças de hora
+    const adjustedDate = new Date(Date.UTC(year, month, adjustedDay, 12, 0, 0, 0));
     
-    console.log(`📅 Data UTC criada: ${utcDate.toISOString()}`);
-    console.log(`📅 Data Brasília calculada: ${brasiliaDate.toISOString()}`);
-    console.log(`📅 Data em formato brasileiro: ${brasiliaDate.toLocaleDateString('pt-BR')}`);
+    console.log(`📅 Data original: ${day}/${month + 1}/${year}`);
+    console.log(`📅 Data ajustada (+1 dia): ${adjustedDay}/${month + 1}/${year}`);
+    console.log(`📅 Data UTC final: ${adjustedDate.toISOString()}`);
+    console.log(`📅 Data em formato brasileiro: ${adjustedDate.toLocaleDateString('pt-BR')}`);
     console.log(`📅 Timezone da máquina: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
     
-    return brasiliaDate;
+    return adjustedDate;
   }
   
   // Fallback para outros formatos
