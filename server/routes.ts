@@ -2625,8 +2625,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (quantidadeComercial && quantidadeComercial !== order.quantity) {
           try {
             await pool.query(
-              "UPDATE orders SET quantity = $1, quantidade_original = $2 WHERE id = $3",
-              [quantidadeComercial, order.quantity, id]
+              "UPDATE orders SET quantity = $1 WHERE id = $2",
+              [quantidadeComercial, id]
             );
             
             mensagemQuantidade = ` Quantidade do pedido atualizada de ${order.quantity} para ${quantidadeComercial} (conforme XML da nota fiscal).`;
