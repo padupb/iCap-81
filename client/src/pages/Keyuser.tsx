@@ -49,6 +49,8 @@ import {
   Key,
   Eye,
   EyeOff,
+  Smartphone,
+  Upload,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -127,12 +129,14 @@ export default function Keyuser() {
     urgent_days_threshold: "7"
   });
 
+  // Estado para gerenciar visibilidade de senhas
+  const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
+
+  // Estados para iCapMob
+  const [uploadingAPK, setUploadingAPK] = useState(false);
+
   const [isSystemConfigSaving, setIsSystemConfigSaving] = useState(false);
-  const [showPasswords, setShowPasswords] = useState({
-    database_url: false,
-    google_maps_api_key: false,
-    smtp_password: false
-  });
+  
 
   const queryClient = useQueryClient();
 
@@ -683,11 +687,64 @@ export default function Keyuser() {
     });
   };
 
-  const togglePasswordVisibility = (field: string) => {
+  const togglePasswordVisibility = (key: string) => {
     setShowPasswords(prev => ({
       ...prev,
-      [field]: !prev[field]
+      [key]: !prev[key]
     }));
+  };
+
+  // Função para upload do APK
+  const handleUploadAPK = async () => {
+    const versionInput = document.getElementById('apk-version') as HTMLInputElement;
+    const fileInput = document.getElementById('apk-file') as HTMLInputElement;
+
+    if (!versionInput.value || !fileInput.files?.[0]) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe a versão e selecione um arquivo APK",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingAPK(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('apk', fileInput.files[0]);
+      formData.append('version', versionInput.value);
+
+      const response = await fetch('/api/icapmob/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro no upload');
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: "Sucesso",
+        description: "APK atualizado com sucesso!",
+      });
+
+      // Limpar formulário
+      versionInput.value = '';
+      fileInput.value = '';
+
+    } catch (error) {
+      console.error('Erro no upload:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao fazer upload do APK",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAPK(false);
+    }
   };
 
   const getConfigDescription = (key: string) => {
@@ -711,7 +768,7 @@ export default function Keyuser() {
       </div>
 
       <Tabs defaultValue="categories" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="categories" className="flex items-center gap-2">
             <Building className="w-4 h-4" />
             Categorias
@@ -731,6 +788,10 @@ export default function Keyuser() {
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <SettingsIcon className="w-4 h-4" />
             Configurações Gerais
+          </TabsTrigger>
+          <TabsTrigger value="icapmob" className="flex items-center gap-2">
+            <Smartphone className="w-4 h-4" />
+            iCapMob
           </TabsTrigger>
         </TabsList>
 
@@ -1392,7 +1453,7 @@ export default function Keyuser() {
                   </div>
                 </div>
 
-                
+
 
                 {/* Botões de Ação */}
                 <div className="flex justify-end gap-4 pt-6 border-t border-border">
@@ -1561,7 +1622,127 @@ export default function Keyuser() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+
+                {/* Tab iCapMob */}
+                <TabsContent value="icapmob" className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Smartphone className="w-5 h-5" />
+                        Gestão do iCapMob - Transporte
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Upload de nova versão */}
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-medium">Atualizar Aplicativo</h3>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="apk-version">Versão</Label>
+                              <Input
+                                id="apk-version"
+                                placeholder="Ex: 1.2.0"
+                                className="bg-input border-border"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="apk-file">Arquivo APK</Label>
+                              <Input
+                                id="apk-file"
+                                type="file"
+                                accept=".apk"
+                                className="bg-input border-border"
+                              />
+                            </div>
+                            <Button 
+                              onClick={handleUploadAPK}
+                              disabled={uploadingAPK}
+                              className="w-full"
+                            >
+                              {uploadingAPK ? (
+                                <>
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                  Enviando...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  Subir Atualização
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Informações da versão atual */}
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-medium">Versão Atual</h3>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Versão:</span>
+                              <span className="font-medium">1.0.0</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Data:</span>
+                              <span className="font-medium">
+                                {new Date().toLocaleDateString('pt-BR')}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">URL:</span>
+                              <span className="font-mono text-xs break-all">
+                                /icapmob/icapmob.apk
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* QR Code para download */}
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium mb-2">QR Code para Download</h4>
+                            <div className="flex justify-center">
+                              <div className="p-4 bg-white rounded-lg">
+                                <div className="w-32 h-32 bg-gray-200 rounded flex items-center justify-center">
+                                  <span className="text-xs text-gray-500">QR Code</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Histórico de versões */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-medium">Histórico de Versões</h3>
+                        <div className="border rounded-lg">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Versão</TableHead>
+                                <TableHead>Data</TableHead>
+                                <TableHead>Ações</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell className="font-medium">1.0.0</TableCell>
+                                <TableCell>{new Date().toLocaleDateString('pt-BR')}</TableCell>
+                                <TableCell>
+                                  <Badge variant="default">Atual</Badge>
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

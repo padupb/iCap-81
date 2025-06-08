@@ -32,6 +32,7 @@ const upload = multer({ storage: uploadStorage });
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/public", express.static(path.join(process.cwd(), "public")));
+app.use("/icapmob", express.static(path.join(process.cwd(), "icapmob")));
 
 app.use(
   session({
