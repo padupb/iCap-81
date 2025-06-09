@@ -1001,7 +1001,7 @@ export function OrderDetailDrawer({
                   padding-top: 20px;
                   border-top: 1px solid #ddd;
                   text-align: center;
-                  font-size: 1`0px;
+                  font-size: 10px;
                   color: #666;
                 }
               </style>
