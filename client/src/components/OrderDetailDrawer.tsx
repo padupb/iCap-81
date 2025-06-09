@@ -260,6 +260,7 @@ export function OrderDetailDrawer({
   const notaPdfRef = useRef<HTMLInputElement>(null);
   const notaXmlRef = useRef<HTMLInputElement>(null);
   const certificadoPdfRef = useRef<HTMLInputElement>(null);
+  const fotoNotaAssinadaRef = useRef<HTMLInputElement>(null);
 
   // Debug dos refs (apenas quando necessário)
   useEffect(() => {
@@ -681,71 +682,100 @@ export function OrderDetailDrawer({
     }
   };
 
+  const handleFotoChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setFile: React.Dispatch<React.SetStateAction<File | null>>,
+  ) => {
+    console.log("handleFotoChange chamado", e.target.files);
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      console.log("Arquivo selecionado:", file.name, file.type, file.size);
+      setFile(file);
+      toast({
+        title: "Foto selecionada",
+        description: `${file.name} (${Math.round(file.size / 1024)} KB)`,
+      });
+    } else {
+      console.log("Nenhum arquivo selecionado");
+    }
+  };
+
   // Função para confirmar entrega
-  const handleConfirmDelivery = async (status: "aprovado" | "rejeitado") => {
-    if (!orderId) return;
+  const handleConfirmDelivery = async (action: "aprovado" | "rejeitado") => {
+    if (!orderDetails || !canConfirmDelivery) return;
 
-    try {
-      // Validar quantidade recebida
-      if (status === "aprovado" && !confirmedQuantity) {
+    if (action === "aprovado") {
+      if (!confirmedQuantity || parseFloat(confirmedQuantity) <= 0) {
         toast({
-          title: "Atenção",
-          description: "Por favor, informe a quantidade recebida",
+          title: "Erro",
+          description: "Informe uma quantidade válida",
           variant: "destructive",
         });
         return;
       }
 
-      // Validar foto da nota assinada
-      if (status === "aprovado" && !fotoNotaAssinada) {
+      if (!fotoNotaAssinada) {
         toast({
-          title: "Atenção",
-          description: "Por favor, envie a foto da nota fiscal assinada",
+          title: "Erro",
+          description: "Selecione a foto da nota fiscal assinada",
           variant: "destructive",
         });
         return;
       }
 
-      const formData = new FormData();
-      formData.append("status", status);
-      formData.append("quantidadeRecebida", confirmedQuantity);
-      if (fotoNotaAssinada) {
+      try {
+        const formData = new FormData();
+        formData.append("quantidadeRecebida", confirmedQuantity);
         formData.append("fotoNotaAssinada", fotoNotaAssinada);
+
+        toast({
+          title: "Confirmando entrega",
+          description: "Enviando foto e confirmando entrega...",
+        });
+
+        const response = await fetch(`/api/pedidos/${orderDetails.id}/confirmar`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (result.sucesso) {
+          toast({
+            title: "Entrega confirmada com sucesso!",
+            description: "A foto foi enviada e a entrega foi confirmada automaticamente.",
+          });
+
+          // Atualizar a lista de pedidos
+          queryClient.invalidateQueries({ queryKey: ["orders"] });
+
+          // Limpar os campos
+          setConfirmedQuantity("");
+          setFotoNotaAssinada(null);
+
+          // Não fechar o drawer, apenas atualizar para mostrar status entregue
+          // onClose();
+        } else {
+          toast({
+            title: "Erro",
+            description: result.mensagem,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Erro ao confirmar entrega:", error);
+        toast({
+          title: "Erro",
+          description: "Erro ao confirmar entrega",
+          variant: "destructive",
+        });
       }
-
-      const response = await fetch(`/api/pedidos/${orderId}/confirmar`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.mensagem || "Falha ao confirmar entrega");
-      }
-
-      // Invalidar queries para atualizar os dados
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
-
+    } else if (action === "rejeitado") {
+      // Lógica para rejeitar entrega (se necessário)
       toast({
-        title: "Sucesso",
-        description:
-          status === "aprovado"
-            ? "Entrega confirmada com sucesso!"
-            : "Entrega rejeitada com sucesso!",
-      });
-
-      // Fechar o drawer após confirmar
-      onOpenChange(false);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Falha ao processar confirmação de entrega",
+        title: "Entrega rejeitada",
+        description: "A entrega foi rejeitada",
         variant: "destructive",
-
       });
     }
   };
@@ -971,7 +1001,7 @@ export function OrderDetailDrawer({
                   padding-top: 20px;
                   border-top: 1px solid #ddd;
                   text-align: center;
-                  font-size: 10px;
+                  font-size: 1`0px;
                   color: #666;
                 }
               </style>
@@ -1172,16 +1202,26 @@ export function OrderDetailDrawer({
                         return true;
                       }
 
-                      //Verificar se o usuário tem permissão can_confirm_delivery
+                      // 2. Verificar se o usuário tem permissão can_confirm_delivery
                       if (!user?.canConfirmDelivery) {
+                        return true;
+                      }
+
+                      // 3. Se o pedido já foi entregue, não bloquear (permitir visualizar)
+                      if (orderDetails.status === "Entregue") {
+                        return false;
+                      }
+
+                      // 4. Se o pedido não estiver "Em Rota", bloquear
+                      if (orderDetails.status !== "Em Rota") {
                         return true;
                       }
 
                       return false;
                     })()}
                   >
-                    <CircleCheck size={16} />
-                    <span>Confirmar Entrega</span>
+                    <CheckCircle size={16} />
+                    <span>{orderDetails.status === "Entregue" ? "Entregue" : "Confirmar"}</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="tracking"
@@ -1957,100 +1997,136 @@ export function OrderDetailDrawer({
                 <TabsContent value="confirm" className="py-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Confirmar Entrega</CardTitle>
+                      <CardTitle>
+                        {orderDetails.status === "Entregue" ? "Entrega Confirmada" : "Confirmar Entrega"}
+                      </CardTitle>
                       <CardDescription>
-                        Confirme a entrega do pedido informando a quantidade
-                        recebida
+                        {orderDetails.status === "Entregue" 
+                          ? "A entrega deste pedido já foi confirmada"
+                          : "Confirme a entrega do pedido informando a quantidade recebida"
+                        }
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                          Quantidade Recebida
-                        </label>
-                        <Input
-                          type="number"
-                          placeholder="Digite a quantidade recebida"
-                          value={confirmedQuantity}
-                          onChange={(e) => setConfirmedQuantity(e.target.value)}
-                          className="w-full"
-                        />
-                      </div>
+                      {orderDetails.status === "Entregue" ? (
+                        // Mostrar informações da entrega confirmada
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-green-50">
+                            <div className="text-center">
+                              <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+                              <h3 className="text-xl font-medium text-green-800 mb-2">
+                                Entrega Confirmada
+                              </h3>
+                              <p className="text-sm text-green-700">
+                                Quantidade recebida: {orderDetails.quantidadeRecebida || orderDetails.quantity} {orderDetails.unit?.abbreviation || ""}
+                              </p>
+                            </div>
+                          </div>
 
-                      {/* Seção para foto da nota assinada */}
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-3">
-                          <button
-                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${
-                              fotoNotaAssinada
-                                ? "bg-green-500 text-white hover:bg-green-600"
-                                : "bg-gray-200 text-gray-500 hover:bg-gray-300"
-                            }`}
-                            onClick={() => {
-                              const input = document.createElement("input");
-                              input.type = "file";
-                              input.accept = "image/*";
-                              input.capture = "environment"; // Preferir câmera traseira
-                              input.onchange = (e) => {
-                                const file = (e.target as HTMLInputElement)
-                                  .files?.[0];
-                                if (file) {
-                                  setFotoNotaAssinada(file);
-                                  toast({
-                                    title: "Foto selecionada",
-                                    description: `${file.name} (${Math.round(file.size / 1024)} KB)`,
-                                  });
-                                }
-                              };
-                              input.click();
-                            }}
-                            title={
-                              fotoNotaAssinada
-                                ? "Alterar foto da nota assinada"
-                                : "Tirar foto da nota assinada"
-                            }
-                          >
-                            {fotoNotaAssinada ? (
-                              <CheckCircle size={20} />
-                            ) : (
-                              <Camera size={20} />
-                            )}
-                          </button>
-                          <div className="flex-1">
-                            <label className="text-sm font-medium">
+                          {/* Botão para download da foto da nota assinada */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                              <Camera size={16} />
                               Foto da Nota Fiscal Assinada
                             </label>
-                            <p className="text-xs text-muted-foreground">
-                              {fotoNotaAssinada
-                                ? `${fotoNotaAssinada.name} (${Math.round(fotoNotaAssinada.size / 1024)} KB)`
-                                : "Clique no ícone para tirar uma foto da nota fiscal assinada"}
-                            </p>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                window.open(`/api/pedidos/${orderDetails.id}/foto-confirmacao`, '_blank');
+                              }}
+                              className="w-full"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Baixar Foto da Nota Assinada
+                            </Button>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        // Formulário de confirmação (apenas se não estiver entregue)
+                        <>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                              Quantidade Recebida
+                            </label>
+                            <Input
+                              type="number"
+                              placeholder="Digite a quantidade recebida"
+                              value={confirmedQuantity}
+                              onChange={(e) => setConfirmedQuantity(e.target.value)}
+                              min="0"
+                              step="0.01"
+                            />
+                          </div>
 
-                      <div className="flex gap-2 pt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => handleConfirmDelivery("rejeitado")}
-                          className="flex-1"
-                        >
-                          <X className="mr-2 h-4 w-4" />
-                          Rejeitar Entrega
-                        </Button>
-                        <Button
-                          onClick={() => handleConfirmDelivery("aprovado")}
-                          className="flex-1"
-                          disabled={
-                            !confirmedQuantity ||
-                            !fotoNotaAssinada ||
-                            parseFloat(confirmedQuantity) <= 0
-                          }
-                        >
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Confirmar Entrega
-                        </Button>
-                      </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                              <Camera size={16} />
+                              Foto da Nota Fiscal Assinada
+                            </label>
+                            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
+                              <div className="flex flex-col items-center gap-4">
+                                <div className="flex flex-col items-center gap-2">
+                                  <button
+                                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${fotoNotaAssinada ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      if (fotoNotaAssinadaRef.current) {
+                                        fotoNotaAssinadaRef.current.value = "";
+                                        fotoNotaAssinadaRef.current.click();
+                                      }
+                                    }}
+                                    title={
+                                      fotoNotaAssinada
+                                        ? "Alterar foto"
+                                        : "Clique no ícone para tirar uma foto da nota fiscal assinada"
+                                    }
+                                  >
+                                    {fotoNotaAssinada ? (
+                                      <CheckCircle size={24} />
+                                    ) : (
+                                      <Camera size={24} />
+                                    )}
+                                  </button>
+                                  <input
+                                    ref={fotoNotaAssinadaRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleFotoChange(e, setFotoNotaAssinada)}
+                                    className="hidden"
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground text-center max-w-xs">
+                                  {fotoNotaAssinada
+                                    ? `Foto selecionada: ${fotoNotaAssinada.name}`
+                                    : "Clique no ícone para tirar uma foto da nota fiscal assinada"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 pt-4">
+                            <Button
+                              variant="outline"
+                              onClick={() => handleConfirmDelivery("rejeitado")}
+                              className="flex-1"
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              Rejeitar Entrega
+                            </Button>
+                            <Button
+                              onClick={() => handleConfirmDelivery("aprovado")}
+                              className="flex-1"
+                              disabled={
+                                !confirmedQuantity ||
+                                !fotoNotaAssinada ||
+                                parseFloat(confirmedQuantity) <= 0
+                              }
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Confirmar Entrega
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
