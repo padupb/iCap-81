@@ -999,13 +999,12 @@ export function OrderDetailDrawer({
 
                   <div className="detail-item">
                     <div className="detail-label">Destino</div>
-                    <div className="detail```typescript
--value">${(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</div>
+                    <div className="detail-value">${(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</div>
                   </div>
 
                   <div className="detail-item">
-                    <div className="detail-label">{(orderDetails as any)?.purchaseOrderCompany?.name || "Conforme ordem de compra"}</div>
-                    <div className="detail-value">${(orderDetails as any)?.purchaseOrderCompany?.name || "Empresa da Ordem de Compra"}</div>
+                    <div className="detail-label">Empresa da Ordem de Compra</div>
+                    <div className="detail-value">${(orderDetails as any)?.purchaseOrderCompany?.name || "Conforme ordem de compra"}</div>
                   </div>
 
                   <div className="detail-item">
