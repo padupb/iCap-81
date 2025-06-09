@@ -40,7 +40,7 @@ export default function Sidebar() {
   const [showQRModal, setShowQRModal] = useState(false);
 
   return (
-    <div className="w-60 border-r border-sidebar-border flex flex-col relative z-40"></div>
+    <div className="w-60 border-r border-sidebar-border flex flex-col relative z-40">
       {/* Logo/Header */}
       <div className="px-4 py-4 border-b border-sidebar-border bg-[#26262c] flex justify-center items-center min-h-[96px]">
         <Link href="/">
