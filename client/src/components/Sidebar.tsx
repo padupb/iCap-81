@@ -105,7 +105,7 @@ export default function Sidebar() {
       </nav>
       
       {/* iCapMob - Transporte no rodapé */}
-      <div className="mt-auto p-4 border-t border-sidebar-border">
+      <div className="mt-auto p-4">
         <div
           onClick={() => setShowQRModal(true)}
           className="flex items-center px-4 py-3 rounded-lg transition-colors cursor-pointer text-sidebar-foreground hover:bg-gray-700"
