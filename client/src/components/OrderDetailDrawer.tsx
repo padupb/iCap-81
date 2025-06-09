@@ -31,7 +31,6 @@ import {
   History,
   ExternalLink,
   CheckCircle,
-  Circle,
   X,
   FileText,
   Upload,
@@ -39,6 +38,7 @@ import {
   Clock,
   Download,
   AlertCircle,
+  Camera,
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder, Unit } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -250,7 +250,11 @@ export function OrderDetailDrawer({
   const { user } = useAuth();
   // Definir um valor inicial diferente de "details" para forçar a renderização adequada
   const [activeTab, setActiveTab] = useState("details");
+  // Estado para controlar a quantidade confirmada na entrega
   const [confirmedQuantity, setConfirmedQuantity] = useState("");
+
+  // Estado para a foto da nota assinada
+  const [fotoNotaAssinada, setFotoNotaAssinada] = useState<File | null>(null);
 
   // Refs para os inputs de arquivo
   const notaPdfRef = useRef<HTMLInputElement>(null);
@@ -420,6 +424,7 @@ export function OrderDetailDrawer({
     if (open && orderDetails) {
       // Não resetamos a aba ativa aqui para manter a navegação entre abas
       setConfirmedQuantity("");
+      setFotoNotaAssinada(null);
 
       // Verificar se os documentos já foram carregados com base no status do pedido
       if (
@@ -691,15 +696,26 @@ export function OrderDetailDrawer({
         return;
       }
 
+      // Validar foto da nota assinada
+      if (status === "aprovado" && !fotoNotaAssinada) {
+        toast({
+          title: "Atenção",
+          description: "Por favor, envie a foto da nota fiscal assinada",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("status", status);
+      formData.append("quantidadeRecebida", confirmedQuantity);
+      if (fotoNotaAssinada) {
+        formData.append("fotoNotaAssinada", fotoNotaAssinada);
+      }
+
       const response = await fetch(`/api/pedidos/${orderId}/confirmar`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: status,
-          quantidadeRecebida: confirmedQuantity,
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -983,7 +999,8 @@ export function OrderDetailDrawer({
 
                   <div className="detail-item">
                     <div className="detail-label">Destino</div>
-                    <div className="detail-value">${(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</div>
+                    <div className="detail```typescript
+-value">${(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</div>
                   </div>
 
                   <div className="detail-item">
@@ -1851,408 +1868,4 @@ export function OrderDetailDrawer({
                                 onClick={() => {
                                   console.log("Clique no ícone Certificado");
                                   if (certificadoPdfRef.current) {
-                                    certificadoPdfRef.current.value = "";
-                                    certificadoPdfRef.current.click();
-                                  }
-                                }}
-                                title={
-                                  certificadoPdf
-                                    ? "Alterar certificado PDF"
-                                    : "Selecionar certificado PDF"
-                                }
-                              >
-                                {certificadoPdf ? (
-                                  <CheckCircle size={20} />
-                                ) : (
-                                  <Upload size={20} />
-                                )}
-                              </button>
-                              <div className="flex-1">
-                                <label className="text-sm font-medium">
-                                  Certificado de Qualidade (PDF)
-                                </label>
-                                <p className="text-xs text-muted-foreground">
-                                  {certificadoPdf
-                                    ? `${certificadoPdf.name} (${Math.round(certificadoPdf.size / 1024)} KB)`
-                                    : "Clique no ícone para selecionar o certificado de qualidade do produto"}
-                                </p>
-                              </div>
-                              <input
-                                key={`certificado-pdf-${orderId}`}
-                                type="file"
-                                ref={certificadoPdfRef}
-                                accept=".pdf"
-                                className="hidden"
-                                onChange={(e) =>
-                                  handleFileChange(e, setCertificadoPdf)
-                                }
-                              />
-                            </div>
-                          </div>
-                        </div>
-                          );
-                        }
-                      })()}
-                    </CardContent>
-                    {(() => {
-                      // 1. Se o pedido for cancelado, não mostrar o botão de upload
-                      if (orderDetails.quantidade === 0) {
-                        return null;
-                      }
-
-                      // 3. Verificar se é pedido urgente e não foi aprovado
-                      const deliveryDate = new Date(orderDetails.deliveryDate);
-                      const today = new Date();
-                      const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime())/(1000 * 3600 * 24));
-                      const isUrgent = daysDiff <= 7;
-
-                      // Se é urgente e não aprovado, não mostrar botão de upload
-                      if (isUrgent && orderDetails.status === "Registrado") {
-                        return null;
-                      }
-
-                      // Mostrar botão apenas se documentos não estão carregados
-                      if (!documentsLoaded &&
-                          orderDetails.status !== "Carregado" &&
-                          orderDetails.status !== "Em Rota" &&
-                          orderDetails.status !== "Em transporte" &&
-                          orderDetails.status !== "Entregue") {
-                        return (
-                        <CardFooter className="flex justify-end">
-                          <Button
-                            variant="default"
-                            onClick={handleUploadDocuments}
-                            disabled={
-                              !notaPdf ||
-                              !notaXml ||
-                              !certificadoPdf ||
-                              documentUploadMutation.isPending
-                            }
-                            className="flex items-center gap-1"
-                          >
-                            <Upload size={16} />
-                            <span>
-                              {documentUploadMutation.isPending
-                                ? "Enviando..."
-                                : "Enviar Documentos"}
-                            </span>
-                          </Button>
-                        </CardFooter>
-                        );
-                      }
-
-                      return null;
-                    })()}
-                  </Card>
-                </TabsContent>
-
-                {/* Aba de Confirmar Entrega */}
-                <TabsContent value="confirm" className="py-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Confirmar Recebimento</CardTitle>
-                      <CardDescription>
-                        Registre a quantidade efetivamente recebida e confirme
-                        ou rejeite a entrega
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {orderDetails.status === "Entregue" ? (
-                        <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
-                          <CheckCircle
-                            size={48}
-                            className="text-green-500 mb-2"
-                          />
-                          <h3 className="text-lg font-medium text-green-700">
-                            Entrega Confirmada
-                          </h3>
-                          <p className="text-sm text-green-600 text-center mt-2">
-                            Esta entrega foi confirmada com a quantidade:{" "}
-                            {formatNumber(
-                              orderDetails.quantidadeRecebida ||
-                                orderDetails.quantity,
-                            )}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">
-                            Quantidade Aferida (peso real em balança)
-                          </label>
-                          <Input
-                            type="number"
-                            placeholder={`Ex: ${formatNumber(orderDetails.quantity)}`}
-                            value={confirmedQuantity}
-                            onChange={(e) =>
-                              setConfirmedQuantity(e.target.value)
-                            }
-                            className="bg-input border-border"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Quantidade solicitada:{" "}
-                            {formatNumber(orderDetails.quantity)}
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                    {orderDetails.status !== "Entregue" && canConfirmDelivery() && (
-                      <CardFooter className="flex justify-between">
-                        <Button
-                          variant="destructive"
-                          onClick={() => handleConfirmDelivery("rejeitado")}
-                          className="flex items-center gap-1"
-                        >
-                          <X size={16} />
-                          <span>Rejeitar Carga</span>
-                        </Button>
-                        <Button
-                          variant="default"
-                          onClick={() => handleConfirmDelivery("aprovado")}
-                          className="flex items-center gap-1"
-                        >
-                          <CircleCheck size={16} />
-                          <span>Aprovar Carga</span>
-                        </Button>
-                      </CardFooter>
-                    )}
-                  </Card>
-                </TabsContent>
-
-                {/* Aba de Rastreamento */}
-                <TabsContent value="tracking" className="py-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Rastreamento do Pedido</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {orderId ? (
-                        <SimpleTracker
-                          orderId={orderId}
-                          orderDetails={orderDetails}
-                        />
-                      ) : (
-                        <div className="text-center py-6">
-                          <MapPin
-                            size={48}
-                            className="mx-auto text-muted-foreground mb-4"
-                          />
-                          <p className="text-muted-foreground">
-                            ID do pedido não disponível
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                {/* Aba de Histórico */}
-                <TabsContent value="history" className="py-4">
-                  <Card>
-                    <CardHeader className="flex flex-col space-y-1.5 p-6 pt-[2px] pb-[2px] ml-[-9px] mr-[-9px]">
-                      <CardTitle>Histórico do Pedido</CardTitle>
-                      <CardDescription>
-                        Registro completo de todas as atualizações e alterações
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {/* Etapa 1: Criação da Ordem de Compra (sempre presente) */}
-                        <div className="border rounded-lg overflow-hidden">
-                          <div className="p-3 flex items-center justify-between pt-[0px] pb-[0px] bg-[#26262c]">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                                <FileText size={16} />
-                              </div>
-                              <div>
-                                <h4 className="font-medium">
-                                  Criação da Ordem de Compra
-                                </h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {orderDetails.purchaseOrder
-                                    ? formatDate(
-                                        orderDetails.purchaseOrder.createdAt?.toString() ||
-                                          "",
-                                      )
-                                    : "(data não disponível)"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {/* Nome do usuário que criou */}
-                              {orderDetails.purchaseOrder?.userId
-                                ? getUserNameById(orderDetails.purchaseOrder.userId)
-                                : "Sistema"}
-                            </div>
-                          </div>
-                          <div className="p-3 pt-[5px] pb-[5px]">
-                            <p className="text-sm">
-                              Ordem de compra{" "}
-                              <strong>
-                                {orderDetails.purchaseOrder?.orderNumber}
-                              </strong>{" "}
-                              foi criada
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Etapa 2: Criação do Pedido (sempre presente) */}
-                        <div className="border rounded-lg overflow-hidden">
-                          <div className="p-3 flex items-center justify-between bg-[#26262c]pt-[0px] pb-[0px]">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                                <Package size={16} />
-                              </div>
-                              <div>
-                                <h4 className="font-medium">
-                                  Pedido Registrado
-                                </h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {orderDetails.createdAt
-                                    ? formatDate(
-                                        orderDetails.createdAt.toString(),
-                                      )
-                                    : "(data não disponível)"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {/* Nome do usuário que criou */}
-                              {orderDetails.userId
-                                ? getUserNameById(orderDetails.userId)
-                                : "Sistema"}
-                            </div>
-                          </div>
-                          <div className="p-3 pt-[5px] pb-[5px]">
-                            <p className="text-sm">
-                              Pedido <strong>{orderDetails.orderId}</strong> foi
-                              criado para o produto{" "}
-                              <strong>{orderDetails.product?.name}</strong>
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Etapa 3: Carregamento de Documentos (condicional) */}
-                        {(orderDetails.status === "Carregado" ||
-                          orderDetails.status === "Em Rota" ||
-                          orderDetails.status === "Em transporte" ||
-                          orderDetails.status === "Entregue") && (
-                          <div className="border rounded-lg overflow-hidden">
-                            <div className="p-3 flex items-center justify-between bg-[#26262c] pt-[0px] pb-[0px]">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                                  <FileCheck size={16} />
-                                </div>
-                                <div>
-                                  <h4 className="font-medium">Carregado</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {/* Data estimada para quando os documentos foram carregados */}
-                                    {formatDate(new Date().toString())}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {orderDetails.userId
-                                  ? getUserNameById(orderDetails.userId)
-                                  : "Sistema"}
-                              </div>
-                            </div>
-                            <div className="p-3 pt-[5px] pb-[5px]">
-                              <p className="text-sm">
-                                Documentos do pedido foram carregados e
-                                verificados
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Etapa 4: Transporte (condicional) */}
-                        {(orderDetails.status === "Em Rota" ||
-                          orderDetails.status === "Em transporte" ||
-                          orderDetails.status === "Entregue") && (
-                          <div className="border rounded-lg overflow-hidden">
-                            <div className="p-3 flex items-center justify-between bg-[#26262c] pt-[0px] pb-[0px]">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                                  <MapPin size={16} />
-                                </div>
-                                <div>
-                                  <h4 className="font-medium">Em Transporte</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {/* Data estimada */}
-                                    {formatDate(new Date().toString())}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                Sistema
-                              </div>
-                            </div>
-                            <div className="p-3 pt-[5px] pb-[5px]">
-                              <p className="text-sm">
-                                Carga em transporte para destino:{" "}
-                                <strong>{(orderDetails as any)?.workDestination?.name || "Obra não especificada"}</strong>
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Etapa 5: Entrega (condicional) */}
-                        {orderDetails.status === "Entregue" && (
-                          <div className="border rounded-lg overflow-hidden">
-                            <div className="p-3 flex items-center justify-between pt-[0px] pb-[0px] bg-[#26262c]">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white">
-                                  <CheckCircle size={16} />
-                                </div>
-                                <div>
-                                  <h4 className="font-medium">Entrega</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {/* Data estimada para quando o pedido foi entregue */}
-                                    {formatDate(new Date().toString())}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {user?.name || "Usuário do sistema"}
-                              </div>
-                            </div>
-                            <div className="p-3 pt-[5px] pb-[5px]">
-                              <p className="text-sm">
-                                Entrega confirmada com quantidade{" "}
-                                {formatNumber(
-                                  orderDetails.quantidadeRecebida ||
-                                    orderDetails.quantity,
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Se não houver eventos além dos dois primeiros */}
-                        {orderDetails.status !== "Carregado" &&
-                          orderDetails.status !== "Em Rota" &&
-                          orderDetails.status !== "Em transporte" &&
-                          orderDetails.status !== "Entregue" && (
-                            <div className="text-center p-4 border border-dashed rounded-lg">
-                              <Clock
-                                size={32}
-                                className="mx-auto text-muted-foreground mb-2"
-                              />
-                              <p className="text-muted-foreground">
-                                Aguardando próximos eventos no ciclo de vida do
-                                pedido
-                              </p>
-                            </div>
-                          )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
-        </div>
-      </DrawerContent>
-    </Drawer>
-  );
-}
+                                    certificado

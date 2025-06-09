@@ -2728,6 +2728,64 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   );
 
+  // Rota para download da foto de confirmação de entrega
+  app.get("/api/pedidos/:id/foto-confirmacao", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      // Buscar informações da foto de confirmação
+      const result = await pool.query(
+        "SELECT foto_confirmacao, order_id FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (result.rowCount === 0 || !result.rows[0].foto_confirmacao) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Foto de confirmação não encontrada"
+        });
+      }
+
+      const fotoInfo = typeof result.rows[0].foto_confirmacao === 'string' 
+        ? JSON.parse(result.rows[0].foto_confirmacao) 
+        : result.rows[0].foto_confirmacao;
+      const orderId = result.rows[0].order_id;
+
+      // Construir o caminho do arquivo
+      const orderDir = path.join(process.cwd(), "uploads", orderId);
+      const fotoPath = path.join(orderDir, fotoInfo.filename);
+
+      // Verificar se o arquivo existe
+      if (!fs.existsSync(fotoPath)) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Arquivo da foto não encontrado no servidor"
+        });
+      }
+
+      // Configurar headers para download da imagem
+      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Content-Disposition", `attachment; filename=${fotoInfo.name}`);
+
+      // Enviar o arquivo
+      const fileStream = fs.createReadStream(fotoPath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Erro ao fazer download da foto de confirmação:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro interno do servidor ao processar o download"
+      });
+    }
+  });
+
   // Rota para download de documentos
   app.get("/api/pedidos/:id/documentos/:tipo", async (req, res) => {
     try {
@@ -3298,8 +3356,59 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
-  // Rota para confirmar entrega de pedido
-  app.post("/api/pedidos/:id/confirmar", async (req, res) => {
+  // Configuração do multer para upload de foto de confirmação de entrega
+  const confirmDeliveryStorage = multer.diskStorage({
+    destination: async function (req, file, cb) {
+      try {
+        const pedidoId = req.params.id;
+        
+        // Buscar o order_id do pedido pelo ID
+        const result = await pool.query("SELECT order_id FROM orders WHERE id = $1", [pedidoId]);
+
+        if (result.rows.length === 0) {
+          return cb(new Error("Pedido não encontrado"), "");
+        }
+
+        const orderId = result.rows[0].order_id;
+        const orderDir = path.join(process.cwd(), "uploads", orderId);
+        
+        // Verificar se o diretório existe, caso contrário criar
+        if (!fs.existsSync(orderDir)) {
+          fs.mkdirSync(orderDir, { recursive: true });
+        }
+
+        cb(null, orderDir);
+      } catch (error) {
+        console.error("Erro ao criar diretório do pedido:", error);
+        cb(error as Error, "");
+      }
+    },
+    filename: function (req, file, cb) {
+      const fileExt = path.extname(file.originalname);
+      const fileName = `nota_assinada-${Date.now()}${fileExt}`;
+      cb(null, fileName);
+    }
+  });
+
+  const confirmDeliveryFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+    // Aceitar apenas imagens
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("O arquivo deve ser uma imagem (PNG, JPG, JPEG, etc.)"));
+    }
+  };
+
+  const uploadConfirmDelivery = multer({ 
+    storage: confirmDeliveryStorage,
+    fileFilter: confirmDeliveryFileFilter,
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    }
+  });
+
+  // Rota para confirmar entrega de pedido com foto da nota assinada
+  app.post("/api/pedidos/:id/confirmar", uploadConfirmDelivery.single("foto_nota_assinada"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { quantidadeRecebida } = req.body;
@@ -3315,6 +3424,13 @@ mensagem: "Erro interno do servidor ao processar o upload",
         return res.status(400).json({ 
           sucesso: false, 
           mensagem: "Quantidade recebida é obrigatória" 
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Foto da nota fiscal assinada é obrigatória" 
         });
       }
 
@@ -3334,11 +3450,20 @@ mensagem: "Erro interno do servidor ao processar o upload",
         });
       }
 
-      // Atualizar o pedido
-      const updatedOrder = await storage.updateOrder(id, {
-        status: "Entregue",
-        quantidadeRecebida
-      });
+      // Construir informações da foto para armazenar no banco
+      const fotoInfo = {
+        name: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        path: req.file.path,
+        date: new Date().toISOString()
+      };
+
+      // Atualizar o pedido com a foto da confirmação
+      await pool.query(
+        "UPDATE orders SET status = $1, quantidade_recebida = $2, foto_confirmacao = $3 WHERE id = $4",
+        ["Entregue", quantidadeRecebida, JSON.stringify(fotoInfo), id]
+      );
 
       // Registrar no log do sistema
       await storage.createLog({
@@ -3346,13 +3471,13 @@ mensagem: "Erro interno do servidor ao processar o upload",
         action: "Confirmação de entrega",
         itemType: "order",
         itemId: id.toString(),
-        details: `Pedido ${order.orderId} foi confirmado como entregue. Quantidade recebida: ${quantidadeRecebida}`
+        details: `Pedido ${order.orderId} foi confirmado como entregue. Quantidade recebida: ${quantidadeRecebida}. Foto da nota assinada enviada.`
       });
 
       res.json({ 
         sucesso: true, 
         mensagem: "Entrega confirmada com sucesso", 
-        pedido: updatedOrder 
+        fotoInfo: fotoInfo
       });
     } catch (error) {
       console.error("Erro ao confirmar entrega:", error);
