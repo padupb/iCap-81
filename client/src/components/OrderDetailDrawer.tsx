@@ -1870,3 +1870,244 @@ export function OrderDetailDrawer({
                                     certificadoPdfRef.current.value = "";
                                     certificadoPdfRef.current.click();
                                   }
+                                }}
+                                title={
+                                  certificadoPdf
+                                    ? "Alterar arquivo Certificado"
+                                    : "Selecionar arquivo Certificado"
+                                }
+                              >
+                                {certificadoPdf ? (
+                                  <CheckCircle size={20} />
+                                ) : (
+                                  <Upload size={20} />
+                                )}
+                              </button>
+                              <div className="flex-1">
+                                <label className="text-sm font-medium">
+                                  Certificado (PDF)
+                                </label>
+                                <p className="text-xs text-muted-foreground">
+                                  {certificadoPdf
+                                    ? `${certificadoPdf.name} (${Math.round(certificadoPdf.size / 1024)} KB)`
+                                    : "Clique no ícone para selecionar o arquivo PDF do certificado"}
+                                </p>
+                              </div>
+                              <input
+                                key={`certificado-pdf-${orderId}`}
+                                type="file"
+                                ref={certificadoPdfRef}
+                                accept=".pdf"
+                                className="hidden"
+                                onChange={(e) =>
+                                  handleFileChange(e, setCertificadoPdf)
+                                }
+                              />
+                            </div>
+                          </div>
+
+                          <Button
+                            onClick={handleUploadDocuments}
+                            disabled={
+                              documentUploadMutation.isPending ||
+                              !notaPdf ||
+                              !notaXml ||
+                              !certificadoPdf
+                            }
+                            className="w-full"
+                          >
+                            {documentUploadMutation.isPending ? (
+                              <>
+                                <svg
+                                  className="mr-2 h-4 w-4 animate-spin"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                  />
+                                </svg>
+                                Enviando documentos...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="mr-2 h-4 w-4" />
+                                Enviar Documentos
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                          );
+                        }
+                      })()}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Aba de Confirmação de Entrega */}
+                <TabsContent value="confirm" className="py-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Confirmar Entrega</CardTitle>
+                      <CardDescription>
+                        Confirme a entrega do pedido informando a quantidade
+                        recebida
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          Quantidade Recebida
+                        </label>
+                        <Input
+                          type="number"
+                          placeholder="Digite a quantidade recebida"
+                          value={confirmedQuantity}
+                          onChange={(e) => setConfirmedQuantity(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Seção para foto da nota assinada */}
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-3">
+                          <button
+                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${
+                              fotoNotaAssinada
+                                ? "bg-green-500 text-white hover:bg-green-600"
+                                : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+                            }`}
+                            onClick={() => {
+                              const input = document.createElement("input");
+                              input.type = "file";
+                              input.accept = "image/*";
+                              input.capture = "environment"; // Preferir câmera traseira
+                              input.onchange = (e) => {
+                                const file = (e.target as HTMLInputElement)
+                                  .files?.[0];
+                                if (file) {
+                                  setFotoNotaAssinada(file);
+                                  toast({
+                                    title: "Foto selecionada",
+                                    description: `${file.name} (${Math.round(file.size / 1024)} KB)`,
+                                  });
+                                }
+                              };
+                              input.click();
+                            }}
+                            title={
+                              fotoNotaAssinada
+                                ? "Alterar foto da nota assinada"
+                                : "Tirar foto da nota assinada"
+                            }
+                          >
+                            {fotoNotaAssinada ? (
+                              <CheckCircle size={20} />
+                            ) : (
+                              <Camera size={20} />
+                            )}
+                          </button>
+                          <div className="flex-1">
+                            <label className="text-sm font-medium">
+                              Foto da Nota Fiscal Assinada
+                            </label>
+                            <p className="text-xs text-muted-foreground">
+                              {fotoNotaAssinada
+                                ? `${fotoNotaAssinada.name} (${Math.round(fotoNotaAssinada.size / 1024)} KB)`
+                                : "Clique no ícone para tirar uma foto da nota fiscal assinada"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleConfirmDelivery("rejeitado")}
+                          className="flex-1"
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Rejeitar Entrega
+                        </Button>
+                        <Button
+                          onClick={() => handleConfirmDelivery("aprovado")}
+                          className="flex-1"
+                          disabled={
+                            !confirmedQuantity ||
+                            !fotoNotaAssinada ||
+                            parseFloat(confirmedQuantity) <= 0
+                          }
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Confirmar Entrega
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Aba de Rastreamento */}
+                <TabsContent value="tracking" className="py-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Rastreamento do Pedido</CardTitle>
+                      <CardDescription>
+                        Acompanhe o status e a localização do seu pedido em tempo real
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <SimpleTracker orderId={orderId} orderDetails={orderDetails} />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Aba de Histórico */}
+                <TabsContent value="history" className="py-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Histórico do Pedido</CardTitle>
+                      <CardDescription>
+                        Veja o histórico de atualizações e interações do pedido
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {/* Exibir histórico do pedido aqui */}
+                      <div>
+                        {orderHistory.length === 0 ? (
+                          <p>Nenhum histórico encontrado para este pedido.</p>
+                        ) : (
+                          <ul>
+                            {orderHistory.map((item, index) => (
+                              <li key={index} className="py-2 border-b last:border-b-0">
+                                <div className="font-medium">{item.etapa}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {formatDate(item.data)} - {item.usuario}
+                                </div>
+                                {item.descricao && (
+                                  <div className="text-sm mt-1">{item.descricao}</div>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
