@@ -1,4 +1,3 @@
-
 const { Client } = require('pg');
 
 async function addFotoConfirmacaoColumn() {
@@ -19,12 +18,12 @@ async function addFotoConfirmacaoColumn() {
 
     if (checkColumn.rows.length === 0) {
       console.log('📋 Adicionando coluna foto_confirmacao na tabela orders...');
-      
+
       await client.query(`
         ALTER TABLE orders 
         ADD COLUMN foto_confirmacao JSONB
       `);
-      
+
       console.log('✅ Coluna foto_confirmacao adicionada com sucesso!');
     } else {
       console.log('ℹ️ Coluna foto_confirmacao já existe na tabela orders');
