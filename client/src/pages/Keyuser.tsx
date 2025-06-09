@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "@/hooks/use-toast";
+import { QRCodeComponent } from "@/components/QRCodeComponent";
 import {
   Table,
   TableBody,
@@ -694,6 +695,43 @@ export default function Keyuser() {
     }));
   };
 
+  // Estados para iCapMob
+  const [currentVersion, setCurrentVersion] = useState<{
+    version: string;
+    date: string;
+    hasAPK: boolean;
+  } | null>(null);
+  const [versionHistory, setVersionHistory] = useState<any[]>([]);
+
+  // Query para informações da versão atual do iCapMob
+  const { data: icapMobVersion, refetch: refetchVersion } = useQuery({
+    queryKey: ["/api/icapmob/version"],
+    refetchOnWindowFocus: false
+  });
+
+  // Query para histórico de versões do iCapMob (apenas para KeyUser)
+  const { data: icapMobHistory, refetch: refetchHistory } = useQuery({
+    queryKey: ["/api/icapmob/history"],
+    refetchOnWindowFocus: false
+  });
+
+  // Atualizar estados quando os dados chegarem
+  React.useEffect(() => {
+    if (icapMobVersion?.success) {
+      setCurrentVersion({
+        version: icapMobVersion.version,
+        date: icapMobVersion.date,
+        hasAPK: icapMobVersion.hasAPK
+      });
+    }
+  }, [icapMobVersion]);
+
+  React.useEffect(() => {
+    if (icapMobHistory?.success) {
+      setVersionHistory(icapMobHistory.history || []);
+    }
+  }, [icapMobHistory]);
+
   // Função para upload do APK
   const handleUploadAPK = async () => {
     const versionInput = document.getElementById('apk-version') as HTMLInputElement;
@@ -721,7 +759,8 @@ export default function Keyuser() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro no upload');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro no upload');
       }
 
       const result = await response.json();
@@ -735,11 +774,15 @@ export default function Keyuser() {
       versionInput.value = '';
       fileInput.value = '';
 
+      // Atualizar dados
+      refetchVersion();
+      refetchHistory();
+
     } catch (error) {
       console.error('Erro no upload:', error);
       toast({
         title: "Erro",
-        description: "Erro ao fazer upload do APK",
+        description: error instanceof Error ? error.message : "Erro ao fazer upload do APK",
         variant: "destructive",
       });
     } finally {
@@ -1680,12 +1723,23 @@ export default function Keyuser() {
                           <div className="space-y-2">
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Versão:</span>
-                              <span className="font-medium">1.0.0</span>
+                              <span className="font-medium">
+                                {currentVersion?.version || "Não disponível"}
+                              </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Data:</span>
                               <span className="font-medium">
-                                {new Date().toLocaleDateString('pt-BR')}
+                                {currentVersion?.date 
+                                  ? new Date(currentVersion.date).toLocaleDateString('pt-BR')
+                                  : "Não disponível"
+                                }
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Status:</span>
+                              <span className={`font-medium ${currentVersion?.hasAPK ? 'text-green-600' : 'text-red-600'}`}>
+                                {currentVersion?.hasAPK ? "APK Disponível" : "APK Não Encontrado"}
                               </span>
                             </div>
                             <div className="flex justify-between">
@@ -1701,9 +1755,18 @@ export default function Keyuser() {
                             <h4 className="text-sm font-medium mb-2">QR Code para Download</h4>
                             <div className="flex justify-center">
                               <div className="p-4 bg-white rounded-lg">
-                                <div className="w-32 h-32 bg-gray-200 rounded flex items-center justify-center">
-                                  <span className="text-xs text-gray-500">QR Code</span>
-                                </div>
+                                {currentVersion?.hasAPK ? (
+                                  <QRCodeComponent 
+                                    value={`${window.location.origin}/icapmob/icapmob.apk`}
+                                    size={128}
+                                  />
+                                ) : (
+                                  <div className="w-32 h-32 bg-gray-200 rounded flex items-center justify-center">
+                                    <span className="text-xs text-gray-500 text-center">
+                                      APK não<br/>disponível
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1723,13 +1786,29 @@ export default function Keyuser() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              <TableRow>
-                                <TableCell className="font-medium">1.0.0</TableCell>
-                                <TableCell>{new Date().toLocaleDateString('pt-BR')}</TableCell>
-                                <TableCell>
-                                  <Badge variant="default">Atual</Badge>
-                                </TableCell>
-                              </TableRow>
+                              {versionHistory.length > 0 ? (
+                                versionHistory.map((version, index) => (
+                                  <TableRow key={version.id}>
+                                    <TableCell className="font-medium">{version.versao}</TableCell>
+                                    <TableCell>
+                                      {new Date(version.data).toLocaleDateString('pt-BR')}
+                                    </TableCell>
+                                    <TableCell>
+                                      {index === 0 ? (
+                                        <Badge variant="default">Atual</Badge>
+                                      ) : (
+                                        <Badge variant="secondary">Anterior</Badge>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              ) : (
+                                <TableRow>
+                                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                    Nenhuma versão encontrada
+                                  </TableCell>
+                                </TableRow>
+                              )}
                             </TableBody>
                           </Table>
                         </div>

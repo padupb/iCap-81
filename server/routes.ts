@@ -3609,6 +3609,160 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
+  // Configuração do multer para upload de APK
+  const icapMobStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      const icapMobDir = path.join(process.cwd(), "icapmob");
+      
+      // Criar diretório se não existir
+      if (!fs.existsSync(icapMobDir)) {
+        fs.mkdirSync(icapMobDir, { recursive: true });
+      }
+      
+      cb(null, icapMobDir);
+    },
+    filename: function (req, file, cb) {
+      // Sempre salvar como icapmob.apk (sobrescrever)
+      cb(null, "icapmob.apk");
+    }
+  });
+
+  const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+    if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+      cb(null, true);
+    } else {
+      cb(new Error("O arquivo deve ser um APK"));
+    }
+  };
+
+  const uploadIcapMobAPK = multer({ 
+    storage: icapMobStorage,
+    fileFilter: icapMobFileFilter,
+    limits: {
+      fileSize: 100 * 1024 * 1024, // 100MB
+    }
+  });
+
+  // Rota para upload do APK do iCapMob
+  app.post("/api/icapmob/upload", isAuthenticated, isKeyUser, uploadIcapMobAPK.single("apk"), async (req, res) => {
+    try {
+      const { version } = req.body;
+
+      if (!version) {
+        return res.status(400).json({
+          success: false,
+          message: "Versão é obrigatória"
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Nenhum arquivo APK foi enviado"
+        });
+      }
+
+      // Atualizar registro na tabela icapmob
+      await pool.query(
+        `INSERT INTO icapmob (versao, data, created_at) 
+         VALUES ($1, CURRENT_DATE, CURRENT_TIMESTAMP)`,
+        [version]
+      );
+
+      // Registrar log
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Upload iCapMob APK",
+          itemType: "icapmob",
+          itemId: version,
+          details: `APK versão ${version} enviado com sucesso`
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "APK atualizado com sucesso!",
+        version: version,
+        filename: req.file.filename,
+        size: req.file.size
+      });
+
+    } catch (error) {
+      console.error("Erro no upload do APK:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro interno do servidor",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para obter informações da versão atual do iCapMob
+  app.get("/api/icapmob/version", async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT versao, data, created_at 
+         FROM icapmob 
+         ORDER BY created_at DESC 
+         LIMIT 1`
+      );
+
+      if (result.rows.length === 0) {
+        return res.json({
+          success: true,
+          version: "1.0.0",
+          date: new Date().toISOString(),
+          hasAPK: false
+        });
+      }
+
+      const currentVersion = result.rows[0];
+      
+      // Verificar se o arquivo APK existe
+      const apkPath = path.join(process.cwd(), "icapmob", "icapmob.apk");
+      const hasAPK = fs.existsSync(apkPath);
+
+      res.json({
+        success: true,
+        version: currentVersion.versao,
+        date: currentVersion.data,
+        createdAt: currentVersion.created_at,
+        hasAPK: hasAPK
+      });
+
+    } catch (error) {
+      console.error("Erro ao buscar versão do iCapMob:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar informações da versão"
+      });
+    }
+  });
+
+  // Rota para listar histórico de versões do iCapMob
+  app.get("/api/icapmob/history", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT id, versao, data, created_at 
+         FROM icapmob 
+         ORDER BY created_at DESC`
+      );
+
+      res.json({
+        success: true,
+        history: result.rows
+      });
+
+    } catch (error) {
+      console.error("Erro ao buscar histórico do iCapMob:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar histórico de versões"
+      });
+    }
+  });
+
   // System menus route - para configuração de permissões
   app.get("/api/system-menus", async (req, res) => {
     try {
