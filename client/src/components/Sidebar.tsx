@@ -66,7 +66,7 @@ export default function Sidebar() {
         </Link>
       </div>
       {/* Navigation Menu */}
-      <nav className="flex-1 px-4 py-6 space-y-2 bg-sidebar">
+      <nav className="flex-1 px-4 py-6 space-y-2" style={{ backgroundColor: 'hsl(var(--sidebar-background))' }}>
         {navigation.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
