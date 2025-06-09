@@ -136,7 +136,7 @@ export default function Keyuser() {
   const [uploadingAPK, setUploadingAPK] = useState(false);
 
   const [isSystemConfigSaving, setIsSystemConfigSaving] = useState(false);
-  
+
 
   const queryClient = useQueryClient();
 
@@ -1010,8 +1010,7 @@ export default function Keyuser() {
                     resetRoleForm();
                     setActiveRoleDialog(true);
                   }}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nova Função
+                    <Plus className="w-4 h-4 mr-2" />Correcting the JSX syntax error by wrapping the TabsContent components within a React Fragment.                    Nova Função
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
