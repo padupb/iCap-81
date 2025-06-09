@@ -140,13 +140,13 @@ function SimpleTracker({
     return () => clearInterval(interval);
   }, [orderId]);
 
-  // Coordenadas padrão (Cuiabá - MT) ou do primeiro ponto de rastreamento
+  // Coordenadas padrão (Cuiabá - MT) ou do último ponto de rastreamento (mais recente)
   const getMapCoordinates = () => {
     if (trackingPoints.length > 0) {
-      const firstPoint = trackingPoints[0];
+      const lastPoint = trackingPoints[trackingPoints.length - 1];
       return {
-        lat: Number(firstPoint.latitude),
-        lng: Number(firstPoint.longitude),
+        lat: Number(lastPoint.latitude),
+        lng: Number(lastPoint.longitude),
       };
     }
 
@@ -191,7 +191,7 @@ function SimpleTracker({
           </div>
           {trackingPoints.length > 0 && (
             <p className="text-xs text-muted-foreground text-center">
-              Mostrando localização do primeiro ponto de rastreamento
+              Mostrando localização mais recente do rastreamento
             </p>
           )}
         </div>
