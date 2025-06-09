@@ -174,7 +174,7 @@ export default function Keyuser() {
         smtp_port: settingsObject.smtp_port || "",
         smtp_user: settingsObject.smtp_user || "",
         smtp_password: settingsObject.smtp_password || "",
-        app_name: settingsObject.app_name || "i-CAP 7",
+        app_name: settingsObject.app_name || "iCap",
         urgent_days_threshold: settingsObject.urgent_days_threshold || "7"
       });
 
@@ -466,7 +466,7 @@ export default function Keyuser() {
     values: {
       urgent_days_threshold: settingsObject.urgent_days_threshold || "7",
       google_maps_api_key: settingsObject.google_maps_api_key || "",
-      app_name: settingsObject.app_name || "i-CAP 7",
+      app_name: settingsObject.app_name || "iCap",
       logo_url: settingsObject.logo_url || "",
     },
   });
@@ -581,7 +581,7 @@ export default function Keyuser() {
     settingsForm.reset({
       urgent_days_threshold: "7",
       google_maps_api_key: "",
-      app_name: "i-CAP 7",
+      app_name: "iCap",
       logo_url: "",
     });
   };
@@ -683,7 +683,7 @@ export default function Keyuser() {
       smtp_port: settingsObject.smtp_port || "",
       smtp_user: settingsObject.smtp_user || "",
       smtp_password: settingsObject.smtp_password || "",
-      app_name: settingsObject.app_name || "i-CAP 7",
+      app_name: settingsObject.app_name || "iCap",
       urgent_days_threshold: settingsObject.urgent_days_threshold || "7"
     });
   };
@@ -1551,7 +1551,7 @@ export default function Keyuser() {
                               <FormLabel className="flex items-center h-5">Nome da Aplicação</FormLabel>
                               <FormControl>
                                 <Input
-                                  placeholder="i-CAP 7"
+                                  placeholder="iCap"
                                   className="bg-input border-border"
                                   {...field}
                                 />

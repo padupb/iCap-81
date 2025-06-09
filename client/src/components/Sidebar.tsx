@@ -54,13 +54,13 @@ export default function Sidebar() {
                 e.currentTarget.style.display = 'none';
                 const fallback = document.createElement('h1');
                 fallback.className = "text-xl font-semibold text-white cursor-pointer hover:text-primary transition-colors";
-                fallback.textContent = settings.appName || 'iCAP7';
+                fallback.textContent = settings.appName || 'iCap';
                 e.currentTarget.parentNode?.appendChild(fallback);
               }}
             />
           ) : (
             <h1 className="text-xl font-semibold text-white cursor-pointer hover:text-primary transition-colors">
-              {settings.appName || 'iCAP7'}
+              {settings.appName || 'iCap'}
             </h1>
           )}
         </Link>
