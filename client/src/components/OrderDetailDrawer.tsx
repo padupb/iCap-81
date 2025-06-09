@@ -2011,13 +2011,13 @@ export function OrderDetailDrawer({
                       {orderDetails.status === "Entregue" ? (
                         // Mostrar informações da entrega confirmada
                         <div className="space-y-4">
-                          <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-green-50">
+                          <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
                             <div className="text-center">
-                              <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-                              <h3 className="text-xl font-medium text-green-800 mb-2">
+                              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                              <h3 className="text-xl font-medium text-green-700 mb-2">
                                 Entrega Confirmada
                               </h3>
-                              <p className="text-sm text-green-700">
+                              <p className="text-sm text-green-600">
                                 Quantidade recebida: {orderDetails.quantidadeRecebida || orderDetails.quantity} {orderDetails.unit?.abbreviation || ""}
                               </p>
                             </div>
