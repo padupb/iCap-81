@@ -1867,4 +1867,6 @@ export function OrderDetailDrawer({
                                 onClick={() => {
                                   console.log("Clique no ícone Certificado");
                                   if (certificadoPdfRef.current) {
-                                    certificado
+                                    certificadoPdfRef.current.value = "";
+                                    certificadoPdfRef.current.click();
+                                  }
