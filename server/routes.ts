@@ -3408,7 +3408,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
   });
 
   // Rota para confirmar entrega de pedido com foto da nota assinada
-  app.post("/api/pedidos/:id/confirmar", uploadConfirmDelivery.single("foto_nota_assinada"), async (req, res) => {
+  app.post("/api/pedidos/:id/confirmar", uploadConfirmDelivery.single("fotoNotaAssinada"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { quantidadeRecebida } = req.body;
