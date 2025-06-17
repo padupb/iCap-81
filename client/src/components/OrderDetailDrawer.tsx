@@ -291,6 +291,18 @@ export function OrderDetailDrawer({
     }>
   >([]);
 
+  // Buscar histórico do pedido
+  const { data: historyData } = useQuery({
+    queryKey: [`/api/pedidos/${orderId}/historico`],
+    queryFn: async () => {
+      if (!orderId) return [];
+      const response = await fetch(`/api/pedidos/${orderId}/historico`);
+      if (!response.ok) return [];
+      return await response.json();
+    },
+    enabled: !!orderId && open,
+  });
+
   const queryClient = useQueryClient();
 
   // Buscar pedidos, produtos e empresas
@@ -2156,25 +2168,118 @@ export function OrderDetailDrawer({
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {/* Exibir histórico do pedido aqui */}
-                      <div>
-                        {orderHistory.length === 0 ? (
-                          <p>Nenhum histórico encontrado para este pedido.</p>
-                        ) : (
-                          <ul>
-                            {orderHistory.map((item, index) => (
-                              <li key={index} className="py-2 border-b last:border-b-0">
-                                <div className="font-medium">{item.etapa}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {formatDate(item.data)} - {item.usuario}
+                      <div className="space-y-4">
+                        {(() => {
+                          // Criar histórico baseado nos dados disponíveis
+                          const history = [];
+                          
+                          if (orderDetails) {
+                            // 1. Criação do pedido
+                            history.push({
+                              etapa: "Pedido Criado",
+                              data: orderDetails.createdAt || new Date().toISOString(),
+                              usuario: "Sistema",
+                              descricao: `Pedido ${orderDetails.orderId} criado para ${formatProductWithUnit(orderDetails)}`,
+                              icon: "🆕"
+                            });
+
+                            // 2. Se há documentos carregados
+                            if (orderDetails.status === "Carregado" || 
+                                orderDetails.status === "Em Rota" || 
+                                orderDetails.status === "Em transporte" || 
+                                orderDetails.status === "Entregue") {
+                              history.push({
+                                etapa: "Documentos Carregados",
+                                data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
+                                usuario: "Fornecedor",
+                                descricao: "Nota fiscal PDF, XML e certificado enviados",
+                                icon: "📄"
+                              });
+                            }
+
+                            // 3. Se está em rota
+                            if (orderDetails.status === "Em Rota" || 
+                                orderDetails.status === "Em transporte" || 
+                                orderDetails.status === "Entregue") {
+                              history.push({
+                                etapa: "Em Rota",
+                                data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
+                                usuario: "Sistema",
+                                descricao: "Pedido saiu para entrega",
+                                icon: "🚛"
+                              });
+                            }
+
+                            // 4. Se foi entregue
+                            if (orderDetails.status === "Entregue") {
+                              history.push({
+                                etapa: "Entrega Confirmada",
+                                data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
+                                usuario: getUserNameById(undefined),
+                                descricao: `Entrega confirmada com quantidade: ${orderDetails.quantidadeRecebida || orderDetails.quantity} ${orderDetails.unit?.abbreviation || ""}`,
+                                icon: "✅"
+                              });
+                            }
+
+                            // 5. Se foi cancelado
+                            if (orderDetails.quantidade === 0) {
+                              history.push({
+                                etapa: "Pedido Cancelado",
+                                data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
+                                usuario: "Sistema",
+                                descricao: "Pedido cancelado",
+                                icon: "❌"
+                              });
+                            }
+                          }
+
+                          // Incluir dados do historyData se disponível
+                          if (historyData && Array.isArray(historyData)) {
+                            historyData.forEach(item => {
+                              history.push({
+                                etapa: item.action || item.etapa || "Atualização",
+                                data: item.created_at || item.data || new Date().toISOString(),
+                                usuario: item.user_name || getUserNameById(item.user_id) || item.usuario || "Sistema",
+                                descricao: item.description || item.descricao || "",
+                                icon: "📝"
+                              });
+                            });
+                          }
+
+                          // Ordenar por data (mais recente primeiro)
+                          history.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+                          return history.length === 0 ? (
+                            <div className="text-center py-8">
+                              <History className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                              <p className="text-muted-foreground">Nenhum histórico encontrado para este pedido.</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {history.map((item, index) => (
+                                <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-muted/20">
+                                  <div className="text-2xl">{item.icon}</div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="font-medium text-sm">{item.etapa}</h4>
+                                      <Badge variant="outline" className="text-xs">
+                                        {formatDate(item.data)}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Por: {item.usuario}
+                                    </p>
+                                    {item.descricao && (
+                                      <p className="text-sm mt-2 text-foreground">
+                                        {item.descricao}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                                {item.descricao && (
-                                  <div className="text-sm mt-1">{item.descricao}</div>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
