@@ -227,25 +227,21 @@ export default function Orders() {
 
 
   // Buscar ordens de compra ativas e válidas para a empresa do usuário
-  const { data: allPurchaseOrders = [], isLoading: isLoadingPurchaseOrders } =
+  const { data: purchaseOrders = [], isLoading: isLoadingPurchaseOrders } =
     useQuery<PurchaseOrderResponse[]>({
-      queryKey: ["purchaseOrders"],
-      queryFn: async (): Promise<PurchaseOrderResponse[]> => {
-        const response = await fetch("/api/purchase-orders");
+      queryKey: ["/api/ordens-compra", currentUser?.companyId],
+      queryFn: async () => {
+        // Montar URL com parâmetros de filtro para ordens ativas, válidas e da empresa do usuário
+        const url = `/api/ordens-compra?status=Ativo&apenasValidas=true${currentUser?.companyId ? `&empresaId=${currentUser.companyId}` : ""}`;
+        const response = await fetch(url);
         if (!response.ok) {
-          throw new Error("Falha ao buscar ordens de compra");
+          throw new Error("Falha ao carregar ordens de compra");
         }
         return response.json();
       },
+      // Só executar a consulta se o usuário estiver autenticado
+      enabled: !!currentUser,
     });
-
-  // Filtrar ordens de compra válidas (não vencidas)
-  const purchaseOrders = allPurchaseOrders.filter(order => {
-    const validUntilDate = new Date(order.valido_ate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Remover horas para comparar apenas a data
-    return validUntilDate >= today;
-  });
 
   // Mutação para criar um novo pedido
   const createOrderMutation = useMutation({
@@ -331,8 +327,6 @@ export default function Orders() {
       defaultDate.setDate(defaultDate.getDate() + urgentDaysThreshold + 1);
       const formattedDate = defaultDate.toISOString().split("T")[0];
 
-      console.log(`🔄 Resetando formulário de pedido`);
-
       form.reset({
         purchaseOrderId: undefined,
         productId: undefined,
@@ -342,17 +336,8 @@ export default function Orders() {
       setSelectedPurchaseOrder(null);
       setSelectedProductId(0);
       setPurchaseOrderItems([]);
-
-      console.log(`✅ Formulário resetado`);
-    } else {
-      console.log(`📝 Diálogo de criação de pedido aberto`);
-      console.log(`📊 Estado atual:`, {
-        ordensCompra: purchaseOrders.length,
-        produtos: products.length,
-        empresas: companies.length
-      });
     }
-  }, [isDialogOpen, form, urgentDaysThreshold, purchaseOrders.length, products.length, companies.length]);
+  }, [isDialogOpen, form, urgentDaysThreshold]);
 
   // Definir data padrão baseada no threshold de urgência (+ 1 dia para sair do período urgente)
   useEffect(() => {
@@ -367,102 +352,34 @@ export default function Orders() {
   // Quando selecionar uma ordem de compra, buscar seus itens
   useEffect(() => {
     const purchaseOrderId = form.watch("purchaseOrderId");
-    
-    // Verificar se a ordem selecionada ainda está disponível (não foi filtrada por estar vencida)
-    const isOrderStillAvailable = purchaseOrderId && purchaseOrders.find(po => po.id === purchaseOrderId);
-    
-    if (purchaseOrderId && !isOrderStillAvailable) {
-      console.log(`⚠️ Ordem de compra ${purchaseOrderId} não está mais disponível (possivelmente vencida), limpando seleção`);
-      form.setValue("purchaseOrderId", undefined);
-      form.setValue("productId", undefined);
-      setPurchaseOrderItems([]);
-      setSelectedPurchaseOrder(null);
-      setSelectedProductId(0);
-      return;
-    }
-    
-    if (purchaseOrderId && isOrderStillAvailable) {
+    if (purchaseOrderId) {
       setIsLoadingItems(true);
-
-      // Limpar produto selecionado quando ordem muda
-      form.setValue("productId", undefined);
-      setSelectedProductId(0);
-
-      console.log(`🔍 Buscando itens para ordem de compra ID: ${purchaseOrderId}`);
-
-      // Função async para buscar itens
-      const fetchItems = async () => {
-        try {
-          const response = await fetch(`/api/ordem-compra/${purchaseOrderId}/itens`);
-          
-          if (!response.ok) {
-            throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          console.log(`📦 Itens recebidos:`, data);
-          console.log(`📊 Tipo dos dados recebidos:`, typeof data, Array.isArray(data));
-
-          // Verificar se os dados são válidos
-          if (Array.isArray(data) && data.length > 0) {
-            // Adicionar propriedade unidade para cada item se não existir
-            const itemsWithUnit = data.map((item, index) => {
-              const processedItem = {
-                ...item,
-                unidade: item.unidade || item.unidade_abreviacao || 'un'
-              };
-              
-              console.log(`📋 Produto ${index + 1}:`, {
-                id: item.produto_id,
-                nome: item.produto_nome,
-                quantidade: item.quantidade,
-                unidade: processedItem.unidade,
-                original: item
-              });
-              
-              return processedItem;
-            });
-
-            setPurchaseOrderItems(itemsWithUnit);
-            console.log(`✅ ${itemsWithUnit.length} produtos processados e carregados para a ordem`);
-          } else {
-            console.log(`⚠️ Nenhum produto encontrado para a ordem ${purchaseOrderId}`);
-            console.log(`📊 Dados recebidos:`, data);
-            setPurchaseOrderItems([]);
-            toast({
-              title: "Aviso",
-              description: "Nenhum produto encontrado nesta ordem de compra",
-              variant: "destructive",
-            });
-          }
-
+      fetch(`/api/ordem-compra/${purchaseOrderId}/itens`)
+        .then((response) => response.json())
+        .then((data) => {
+          setPurchaseOrderItems(data);
           // Atualizar a ordem de compra selecionada
           const selectedPO = purchaseOrders.find(
             (po) => po.id === purchaseOrderId,
           );
           setSelectedPurchaseOrder(selectedPO || null);
-          
-        } catch (error) {
-          console.error("❌ Erro ao buscar itens da ordem de compra:", error);
-          setPurchaseOrderItems([]);
+        })
+        .catch((error) => {
+          console.error("Erro ao buscar itens da ordem de compra:", error);
           toast({
             title: "Erro",
-            description: `Falha ao carregar produtos da ordem de compra. Verifique sua conexão e tente novamente.`,
+            description: "Falha ao carregar itens da ordem de compra",
             variant: "destructive",
           });
-        } finally {
+        })
+        .finally(() => {
           setIsLoadingItems(false);
-        }
-      };
-
-      fetchItems();
+        });
     } else {
       setPurchaseOrderItems([]);
       setSelectedPurchaseOrder(null);
-      form.setValue("productId", undefined);
-      setSelectedProductId(0);
     }
-  }, [form.watch("purchaseOrderId"), purchaseOrders, toast, form]);
+  }, [form.watch("purchaseOrderId"), purchaseOrders]);
 
   // Quando selecionar um produto, verificar saldo disponível
   useEffect(() => {
@@ -632,7 +549,7 @@ export default function Orders() {
     if (selectedPurchaseOrder) {
       const deliveryDate = new Date(data.deliveryDate);
       const validUntilDate = new Date(selectedPurchaseOrder.valido_ate);
-
+      
       if (deliveryDate > validUntilDate) {
         toast({
           title: "Erro de validação",
@@ -726,71 +643,30 @@ export default function Orders() {
                       <FormItem>
                         <FormLabel>Produto</FormLabel>
                         <Select
-                          onValueChange={(value) => {
-                            if (value && value !== "no-products" && value !== "loading") {
-                              console.log(`🎯 Produto selecionado: ${value}`);
-                              const selectedProduct = purchaseOrderItems.find(item => item.produto_id.toString() === value);
-                              console.log(`📋 Produto encontrado:`, selectedProduct);
-                              field.onChange(parseInt(value));
-                              setSelectedProductId(parseInt(value));
-                            }
-                          }}
-                          value={field.value?.toString() || ""}
+                          onValueChange={(value) =>
+                            field.onChange(parseInt(value))
+                          }
+                          defaultValue={field.value?.toString()}
                           disabled={
                             !form.watch("purchaseOrderId") || isLoadingItems
                           }
-                          key={`produto-select-${form.watch("purchaseOrderId")}-${purchaseOrderItems.length}`}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder={
-                                isLoadingItems 
-                                  ? "Carregando produtos..." 
-                                  : !form.watch("purchaseOrderId")
-                                  ? "Selecione uma ordem de compra primeiro"
-                                  : purchaseOrderItems.length === 0
-                                  ? "Nenhum produto disponível nesta ordem"
-                                  : "Selecione um produto"
-                              } />
+                              <SelectValue placeholder="Selecione um produto" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {isLoadingItems ? (
-                              <SelectItem value="loading" disabled>
-                                Carregando produtos...
+                            {purchaseOrderItems.map((item) => (
+                              <SelectItem
+                                key={item.id}
+                                value={item.produto_id.toString()}
+                              >
+                                {item.produto_nome}
                               </SelectItem>
-                            ) : purchaseOrderItems.length > 0 ? (
-                              purchaseOrderItems.map((item) => {
-                                const itemKey = `produto-${item.produto_id}-${item.ordem_compra_id}`;
-                                const displayText = `${item.produto_nome} (${formatNumber(item.quantidade)} ${item.unidade || ''})`;
-                                
-                                console.log(`📦 Renderizando produto no dropdown:`, {
-                                  key: itemKey,
-                                  productId: item.produto_id,
-                                  displayText: displayText
-                                });
-                                
-                                return (
-                                  <SelectItem
-                                    key={itemKey}
-                                    value={item.produto_id.toString()}
-                                  >
-                                    {displayText}
-                                  </SelectItem>
-                                );
-                              })
-                            ) : form.watch("purchaseOrderId") ? (
-                              <SelectItem value="no-products" disabled>
-                                Nenhum produto disponível nesta ordem
-                              </SelectItem>
-                            ) : null}
+                            ))}
                           </SelectContent>
                         </Select>
-                        {purchaseOrderItems.length > 0 && !isLoadingItems && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {purchaseOrderItems.length} produto(s) disponível(eis) nesta ordem
-                          </p>
-                        )}
                         <FormMessage />
                       </FormItem>
                     )}

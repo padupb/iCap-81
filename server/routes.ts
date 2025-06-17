@@ -1233,7 +1233,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
         LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
-        WHERE oc.valido_ate >= CURRENT_DATE
       `;
 
       let queryParams: any[] = [];
@@ -1322,7 +1321,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
         LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
-        WHERE oc.valido_ate >= CURRENT_DATE
       `;
 
       let queryParams: any[] = [];
@@ -1751,7 +1749,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        console.log(`❌ ID inválido recebido: ${req.params.id}`);
         return res.status(400).json({
           sucesso: false,
           mensagem: "ID inválido"
@@ -1759,15 +1756,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`🔍 Buscando itens da ordem de compra ID: ${id}`);
-
-      // Verificar se o pool existe
-      if (!pool) {
-        console.log(`❌ Pool de conexão não disponível`);
-        return res.status(500).json({
-          sucesso: false,
-          mensagem: "Erro de conexão com banco de dados"
-        });
-      }
 
       // Verificar se a ordem de compra existe
       const ordemCheck = await pool.query(
@@ -1804,44 +1792,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`📦 Encontrados ${result.rows.length} itens na ordem ${id}`);
 
-      if (result.rows.length === 0) {
-        console.log(`⚠️ Nenhum item encontrado para a ordem ${id}`);
-        return res.json([]);
-      }
-
       // Formatar os dados para o frontend
-      const itens = result.rows.map((item: any, index: number) => {
-        const itemFormatado = {
-          id: item.id,
-          ordem_compra_id: item.ordem_compra_id,
-          produto_id: item.produto_id,
-          produto_nome: item.produto_nome || `Produto #${item.produto_id}`,
-          unidade: item.unidade || item.unidade_nome || "un",
-          quantidade: parseFloat(item.quantidade || 0)
-        };
-        
-        console.log(`📋 Item ${index + 1} formatado:`, {
-          ...itemFormatado,
-          rawData: item
-        });
-        
-        // Validar se os campos essenciais estão presentes
-        if (!itemFormatado.produto_id || !itemFormatado.produto_nome) {
-          console.warn(`⚠️ Item ${index + 1} com dados incompletos:`, itemFormatado);
-        }
-        
-        return itemFormatado;
-      });
+      const itens = result.rows.map((item: any) => ({
+        id: item.id,
+        ordem_compra_id: item.ordem_compra_id,
+        produto_id: item.produto_id,
+        produto_nome: item.produto_nome || "Produto não encontrado",
+        unidade: item.unidade || item.unidade_nome || "un",
+        quantidade: parseFloat(item.quantidade || 0)
+      }));
 
-      console.log(`📊 Total de itens formatados: ${itens.length}`);
-      
-      // Validar se todos os itens têm produto_id válido
-      const itensValidos = itens.filter(item => item.produto_id && item.produto_nome);
-      console.log(`✅ Itens válidos: ${itensValidos.length}/${itens.length}`);
-      
-      console.log(`📤 Enviando resposta com itens:`, itensValidos);
+      console.log(`📊 Itens formatados:`, itens);
 
-      res.json(itensValidos);
+      res.json(itens);
 
     } catch (error) {
       console.error("❌ Erro ao buscar itens da ordem de compra:", error);
@@ -2074,20 +2037,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Buscar a quantidade entregue (somatório de pedidos com status "Entregue")
-      // Corrigir problema de cast para DECIMAL com validação mais rigorosa
       const entregueResult = await pool.query(
         `SELECT COALESCE(SUM(
           CASE 
             WHEN quantidade_recebida IS NOT NULL 
                  AND quantidade_recebida != '' 
                  AND quantidade_recebida ~ '^[0-9]*\.?[0-9]+$'
-                 AND LENGTH(TRIM(quantidade_recebida)) > 0
             THEN CAST(quantidade_recebida AS DECIMAL)
-            WHEN quantity IS NOT NULL 
-                 AND quantity != ''
-                 AND quantity ~ '^[0-9]*\.?[0-9]+$'
-            THEN CAST(quantity AS DECIMAL)
-            ELSE 0
+            ELSE CAST(quantity AS DECIMAL)
           END
         ), 0) as total_entregue
          FROM orders 
