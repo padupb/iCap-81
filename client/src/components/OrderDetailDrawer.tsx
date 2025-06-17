@@ -970,7 +970,8 @@ export function OrderDetailDrawer({
               <style>
                 * {
                   margin: 0;
-                  padding: 0;
+                  padding: 0```text
+,
                   box-sizing: border-box;
                 }
 
@@ -1293,7 +1294,7 @@ export function OrderDetailDrawer({
                     value="details"
                     className="flex items-center gap-1"
                   >
-                    <Package size={16} />
+                    <Package className="w-4 h-4" />
                     <span>Detalhes</span>
                   </TabsTrigger>
                   <TabsTrigger
@@ -1328,7 +1329,7 @@ export function OrderDetailDrawer({
                       return false;
                     })()}
                   >
-                    <FileText size={16} />
+                    <FileText className="w-4 h-4" />
                     <span>Documentos</span>
                   </TabsTrigger>
                   <TabsTrigger
@@ -1358,7 +1359,7 @@ export function OrderDetailDrawer({
                       return false;
                     })()}
                   >
-                    <CheckCircle size={16} />
+                    <CheckCircle className="w-4 h-4" />
                     <span>{orderDetails.status === "Entregue" ? "Entregue" : "Confirmar"}</span>
                   </TabsTrigger>
                   <TabsTrigger
@@ -1373,7 +1374,7 @@ export function OrderDetailDrawer({
                       return false;
                     })()}
                   >
-                    <MapPin size={16} />
+                    <MapPin className="w-4 h-4" />
                     <span>Rastreamento</span>
                   </TabsTrigger>
                   <TabsTrigger
@@ -1388,7 +1389,7 @@ export function OrderDetailDrawer({
                       return false;
                     })()}
                   >
-                    <History size={16} />
+                    <History className="w-4 h-4" />
                     <span>Histórico</span>
                   </TabsTrigger>
                 </TabsList>
@@ -1665,11 +1666,11 @@ export function OrderDetailDrawer({
                                         }`}
                                       >
                                         {stepStatus === "completed" ? (
-                                          <CheckCircle size={16} />
+                                          <CheckCircle className="w-4 h-4" />
                                         ) : stepStatus === "current" ? (
-                                          <Clock size={16} />
+                                          <Clock className="w-4 h-4" />
                                         ) : (
-                                          <Clock size={16} />
+                                          <Clock className="w-4 h-4" />
                                         )}
                                       </div>
                                       <div className="mt-2">
@@ -1996,9 +1997,9 @@ export function OrderDetailDrawer({
                                 }
                               >
                                 {notaPdf ? (
-                                  <CheckCircle size={20} />
+                                  <CheckCircle className="w-4 h-4" />
                                 ) : (
-                                  <Upload size={20} />
+                                  <Upload className="w-5 h-5" />
                                 )}
                               </button>
                               <div className="flex-1">
@@ -2042,9 +2043,9 @@ export function OrderDetailDrawer({
                                 }
                               >
                                 {notaXml ? (
-                                  <CheckCircle size={20} />
+                                  <CheckCircle className="w-4 h-4" />
                                 ) : (
-                                  <Upload size={20} />
+                                  <Upload className="w-5 h-5" />
                                 )}
                               </button>
                               <div className="flex-1">
@@ -2088,9 +2089,9 @@ export function OrderDetailDrawer({
                                 }
                               >
                                 {certificadoPdf ? (
-                                  <CheckCircle size={20} />
+                                  <CheckCircle className="w-4 h-4" />
                                 ) : (
-                                  <Upload size={20} />
+                                  <Upload className="w-5 h-5" />
                                 )}
                               </button>
                               <div className="flex-1">
@@ -2206,7 +2207,7 @@ export function OrderDetailDrawer({
                           {/* Botão para download da foto da nota assinada */}
                           <div className="space-y-2">
                             <label className="text-sm font-medium flex items-center gap-2">
-                              <Camera size={16} />
+                              <Camera className="w-4 h-4" />
                               Foto da Nota Fiscal Assinada
                             </label>
                             <Button
@@ -2240,7 +2241,7 @@ export function OrderDetailDrawer({
 
                           <div className="space-y-2">
                             <label className="text-sm font-medium flex items-center gap-2">
-                              <Camera size={16} />
+                              <Camera className="w-4 h-4" />
                               Foto da Nota Fiscal Assinada
                             </label>
                             <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
@@ -2261,9 +2262,9 @@ export function OrderDetailDrawer({
                                     }
                                   >
                                     {fotoNotaAssinada ? (
-                                      <CheckCircle size={24} />
+                                      <CheckCircle className="w-4 h-4" />
                                     ) : (
-                                      <Camera size={24} />
+                                      <Camera className="w-4 h-4" />
                                     )}
                                   </button>
                                   <input
@@ -2340,7 +2341,7 @@ export function OrderDetailDrawer({
                         {(() => {
                           // Criar histórico baseado nos dados disponíveis
                           const history = [];
-                          
+
                           if (orderDetails) {
                             // 1. Criação do pedido
                             history.push({
@@ -2440,7 +2441,7 @@ export function OrderDetailDrawer({
                                 return (
                                   <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-muted/20">
                                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
-                                      <IconComponent size={16} />
+                                      <IconComponent className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center justify-between">
@@ -2483,7 +2484,7 @@ export function OrderDetailDrawer({
               Selecione a nova data de entrega (até 7 dias a partir de hoje) e informe a justificativa.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Nova Data de Entrega</label>
