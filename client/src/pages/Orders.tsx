@@ -370,6 +370,10 @@ export default function Orders() {
     if (purchaseOrderId) {
       setIsLoadingItems(true);
       
+      // Limpar produto selecionado quando ordem muda
+      form.setValue("productId", undefined);
+      setSelectedProductId(0);
+      
       console.log(`🔍 Buscando itens para ordem de compra ID: ${purchaseOrderId}`);
       
       fetch(`/api/ordem-compra/${purchaseOrderId}/itens`)
@@ -417,6 +421,8 @@ export default function Orders() {
     } else {
       setPurchaseOrderItems([]);
       setSelectedPurchaseOrder(null);
+      form.setValue("productId", undefined);
+      setSelectedProductId(0);
     }
   }, [form.watch("purchaseOrderId"), purchaseOrders, toast]);
 
@@ -683,10 +689,12 @@ export default function Orders() {
                         <FormLabel>Produto</FormLabel>
                         <Select
                           onValueChange={(value) => {
-                            console.log(`🎯 Produto selecionado: ${value}`);
-                            field.onChange(parseInt(value));
+                            if (value !== "no-products") {
+                              console.log(`🎯 Produto selecionado: ${value}`);
+                              field.onChange(parseInt(value));
+                            }
                           }}
-                          defaultValue={field.value?.toString()}
+                          value={field.value?.toString() || ""}
                           disabled={
                             !form.watch("purchaseOrderId") || isLoadingItems
                           }
@@ -699,7 +707,7 @@ export default function Orders() {
                                   : !form.watch("purchaseOrderId")
                                   ? "Selecione uma ordem de compra primeiro"
                                   : purchaseOrderItems.length === 0
-                                  ? "Nenhum produto disponível"
+                                  ? "Nenhum produto disponível nesta ordem"
                                   : "Selecione um produto"
                               } />
                             </SelectTrigger>
@@ -714,18 +722,18 @@ export default function Orders() {
                                 });
                                 return (
                                   <SelectItem
-                                    key={`${item.id}-${item.produto_id}`}
+                                    key={`produto-${item.produto_id}`}
                                     value={item.produto_id.toString()}
                                   >
                                     {item.produto_nome} ({formatNumber(item.quantidade)} {item.unidade})
                                   </SelectItem>
                                 );
                               })
-                            ) : (
+                            ) : !isLoadingItems ? (
                               <SelectItem value="no-products" disabled>
-                                {isLoadingItems ? "Carregando..." : "Nenhum produto disponível"}
+                                Nenhum produto disponível
                               </SelectItem>
-                            )}
+                            ) : null}
                           </SelectContent>
                         </Select>
                         {purchaseOrderItems.length > 0 && (
