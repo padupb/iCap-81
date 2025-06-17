@@ -968,7 +968,6 @@ export function OrderDetailDrawer({
             <head>
               <title>Pedido ${orderDetails.orderId}</title>
               <style>
-```text
                 * {
                   margin: 0;
                   padding: 0;
