@@ -496,10 +496,10 @@ export function OrderDetailDrawer({
   const canUploadDocuments = () => {
     if (!user || !orderDetails) return false;
 
-    // NENHUM usuário pode fazer upload em pedidos cancelados
-    if (orderDetails.quantidade === 0) return false;
+    // NENHUM usuário pode fazer upload em pedidos cancelados ou suspensos
+    if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado" || orderDetails.status === "Suspenso") return false;
 
-    // KeyUser sempre pode fazer upload (exceto em pedidos cancelados)
+    // KeyUser sempre pode fazer upload (exceto em pedidos cancelados/suspensos)
     if (user.id === 1 || user.isKeyUser) return true;
 
     // Verificar se o usuário pertence à empresa fornecedora do pedido
@@ -1300,8 +1300,8 @@ export function OrderDetailDrawer({
                     value="documents"
                     className="flex items-center gap-1"
                     disabled={(() => {
-                      // 1. Se o pedido for cancelado, bloquear TODAS as abas exceto detalhes
-                      if (orderDetails.quantidade === 0) {
+                      // 1. Se o pedido for cancelado ou suspenso, bloquear acesso à aba documentos
+                      if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado" || orderDetails.status === "Suspenso") {
                         return true;
                       }
 
