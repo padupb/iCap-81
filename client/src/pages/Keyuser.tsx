@@ -89,12 +89,12 @@ const SYSTEM_MENUS = [
   { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
   { id: "orders", name: "Pedidos", icon: ShoppingCart },
   { id: "approvals", name: "Aprovações", icon: CheckCircle },
+  { id: "reprogramacoes", name: "Reprogramações", icon: Clock },
   { id: "purchase_orders", name: "Ordens de Compra", icon: FileText },
   { id: "companies", name: "Empresas", icon: Building },
   { id: "users", name: "Usuários", icon: Users },
   { id: "products", name: "Produtos", icon: Package },
   { id: "reports", name: "Relatórios", icon: BarChart3 },
-  { id: "settings", name: "Configurações", icon: SettingsIcon },
   { id: "logs", name: "Logs do Sistema", icon: History },
   { id: "keyuser", name: "KeyUser", icon: Code }
 ];
