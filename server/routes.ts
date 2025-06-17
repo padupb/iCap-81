@@ -1233,6 +1233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
         LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
+        WHERE oc.valido_ate >= CURRENT_DATE
       `;
 
       let queryParams: any[] = [];
@@ -1321,6 +1322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM ordens_compra oc
         LEFT JOIN companies c ON oc.empresa_id = c.id
         LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
+        WHERE oc.valido_ate >= CURRENT_DATE
       `;
 
       let queryParams: any[] = [];
@@ -2037,14 +2039,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Buscar a quantidade entregue (somatório de pedidos com status "Entregue")
+      // Corrigir problema de cast para DECIMAL com validação mais rigorosa
       const entregueResult = await pool.query(
         `SELECT COALESCE(SUM(
           CASE 
             WHEN quantidade_recebida IS NOT NULL 
                  AND quantidade_recebida != '' 
                  AND quantidade_recebida ~ '^[0-9]*\.?[0-9]+$'
+                 AND LENGTH(TRIM(quantidade_recebida)) > 0
             THEN CAST(quantidade_recebida AS DECIMAL)
-            ELSE CAST(quantity AS DECIMAL)
+            WHEN quantity IS NOT NULL 
+                 AND quantity != ''
+                 AND quantity ~ '^[0-9]*\.?[0-9]+$'
+            THEN CAST(quantity AS DECIMAL)
+            ELSE 0
           END
         ), 0) as total_entregue
          FROM orders 

@@ -227,21 +227,25 @@ export default function Orders() {
 
 
   // Buscar ordens de compra ativas e válidas para a empresa do usuário
-  const { data: purchaseOrders = [], isLoading: isLoadingPurchaseOrders } =
+  const { data: allPurchaseOrders = [], isLoading: isLoadingPurchaseOrders } =
     useQuery<PurchaseOrderResponse[]>({
-      queryKey: ["/api/ordens-compra", currentUser?.companyId],
-      queryFn: async () => {
-        // Montar URL com parâmetros de filtro para ordens ativas, válidas e da empresa do usuário
-        const url = `/api/ordens-compra?status=Ativo&apenasValidas=true${currentUser?.companyId ? `&empresaId=${currentUser.companyId}` : ""}`;
-        const response = await fetch(url);
+      queryKey: ["purchaseOrders"],
+      queryFn: async (): Promise<PurchaseOrderResponse[]> => {
+        const response = await fetch("/api/purchase-orders");
         if (!response.ok) {
-          throw new Error("Falha ao carregar ordens de compra");
+          throw new Error("Falha ao buscar ordens de compra");
         }
         return response.json();
       },
-      // Só executar a consulta se o usuário estiver autenticado
-      enabled: !!currentUser,
     });
+
+  // Filtrar ordens de compra válidas (não vencidas)
+  const purchaseOrders = allPurchaseOrders.filter(order => {
+    const validUntilDate = new Date(order.valido_ate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Remover horas para comparar apenas a data
+    return validUntilDate >= today;
+  });
 
   // Mutação para criar um novo pedido
   const createOrderMutation = useMutation({
@@ -549,7 +553,7 @@ export default function Orders() {
     if (selectedPurchaseOrder) {
       const deliveryDate = new Date(data.deliveryDate);
       const validUntilDate = new Date(selectedPurchaseOrder.valido_ate);
-      
+
       if (deliveryDate > validUntilDate) {
         toast({
           title: "Erro de validação",
