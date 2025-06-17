@@ -707,6 +707,7 @@ export default function Orders() {
                           disabled={
                             !form.watch("purchaseOrderId") || isLoadingItems
                           }
+                          key={`produto-select-${form.watch("purchaseOrderId")}-${purchaseOrderItems.length}`}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
@@ -727,30 +728,32 @@ export default function Orders() {
                                 Carregando produtos...
                               </SelectItem>
                             ) : purchaseOrderItems.length > 0 ? (
-                              purchaseOrderItems.map((item, index) => {
-                                console.log(`📦 Renderizando produto ${index + 1}:`, {
+                              purchaseOrderItems.map((item) => {
+                                const itemKey = `produto-${item.produto_id}-${item.ordem_compra_id}`;
+                                console.log(`📦 Renderizando produto:`, {
+                                  key: itemKey,
                                   id: item.produto_id,
                                   nome: item.produto_nome,
                                   quantidade: item.quantidade,
-                                  unidade: item.unidade
+                                  unidade: item.unidade || item.unidade_abreviacao
                                 });
                                 return (
                                   <SelectItem
-                                    key={`produto-${item.produto_id}-${index}`}
+                                    key={itemKey}
                                     value={item.produto_id.toString()}
                                   >
-                                    {item.produto_nome} ({formatNumber(item.quantidade)} {item.unidade})
+                                    {item.produto_nome} ({formatNumber(item.quantidade)} {item.unidade || item.unidade_abreviacao || ''})
                                   </SelectItem>
                                 );
                               })
-                            ) : (
+                            ) : form.watch("purchaseOrderId") ? (
                               <SelectItem value="no-products" disabled>
-                                Nenhum produto disponível
+                                Nenhum produto disponível nesta ordem
                               </SelectItem>
-                            )}
+                            ) : null}
                           </SelectContent>
                         </Select>
-                        {purchaseOrderItems.length > 0 && (
+                        {purchaseOrderItems.length > 0 && !isLoadingItems && (
                           <p className="text-xs text-muted-foreground mt-1">
                             {purchaseOrderItems.length} produto(s) disponível(eis) nesta ordem
                           </p>
