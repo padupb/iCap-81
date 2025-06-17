@@ -108,6 +108,18 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     return rolePermissions.includes(`create_${area}`);
   };
 
+  const menuPermissions = {
+    dashboard: true, // Dashboard é sempre visível para usuários autenticados
+    orders: canView || canCreate,
+    approvals: true, // Qualquer usuário pode ver se há aprovações (o backend filtra)
+    reprogramacoes: true, // Qualquer usuário pode ver se há reprogramações (o backend filtra)
+    purchase_orders: canView || canCreate,
+    companies: canView || canCreate,
+    users: canView || canCreate,
+    products: canView || canCreate,
+    logs: canView || canCreate,
+  };
+
   return (
     <AuthorizationContext.Provider value={{ canView, canEdit, canCreate }}>
       {children}

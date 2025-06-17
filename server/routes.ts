@@ -3407,6 +3407,334 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
+  // Rota para solicitar reprogramação de entrega
+  app.post("/api/pedidos/:id/reprogramar", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { novaDataEntrega, justificativa } = req.body;
+
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      if (!novaDataEntrega || !justificativa) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Nova data de entrega e justificativa são obrigatórias" 
+        });
+      }
+
+      if (justificativa.length > 100) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Justificativa deve ter no máximo 100 caracteres" 
+        });
+      }
+
+      // Verificar se o pedido existe
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      // Verificar se o usuário pertence à empresa de destino
+      if (!req.user.companyId) {
+        return res.status(403).json({ 
+          sucesso: false, 
+          mensagem: "Usuário não possui empresa associada" 
+        });
+      }
+
+      // Buscar a empresa de destino através da ordem de compra
+      const ordemCompraResult = await pool.query(
+        "SELECT cnpj FROM ordens_compra WHERE id = $1",
+        [order.purchaseOrderId]
+      );
+
+      if (!ordemCompraResult.rows.length) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Ordem de compra não encontrada" 
+        });
+      }
+
+      const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+      
+      // Verificar se a empresa do usuário é a empresa de destino
+      const userCompany = await storage.getCompany(req.user.companyId);
+      if (!userCompany || userCompany.cnpj !== cnpjDestino) {
+        return res.status(403).json({ 
+          sucesso: false, 
+          mensagem: "Apenas a empresa de destino pode solicitar reprogramação" 
+        });
+      }
+
+      // Verificar se a nova data está dentro do limite de 7 dias
+      const novaData = new Date(novaDataEntrega);
+      const hoje = new Date();
+      const limite = new Date(hoje.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 dias a partir de hoje
+
+      if (novaData > limite) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "A nova data de entrega deve ser no máximo 7 dias a partir de hoje" 
+        });
+      }
+
+      if (novaData <= hoje) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "A nova data de entrega deve ser futura" 
+        });
+      }
+
+      // Atualizar o pedido com os dados da reprogramação
+      await pool.query(
+        `UPDATE orders SET 
+          status = $1, 
+          nova_data_entrega = $2, 
+          justificativa_reprogramacao = $3, 
+          data_solicitacao_reprogramacao = $4,
+          usuario_reprogramacao = $5
+        WHERE id = $6`,
+        ["Suspenso", novaData, justificativa, new Date(), req.user.id, id]
+      );
+
+      // Registrar no log do sistema
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Solicitação de reprogramação",
+        itemType: "order",
+        itemId: id.toString(),
+        details: `Pedido ${order.orderId} - Reprogramação solicitada para ${novaData.toLocaleDateString('pt-BR')}. Justificativa: ${justificativa}`
+      });
+
+      res.json({ 
+        sucesso: true, 
+        mensagem: "Reprogramação solicitada com sucesso" 
+      });
+    } catch (error) {
+      console.error("Erro ao solicitar reprogramação:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao solicitar reprogramação" 
+      });
+    }
+  });
+
+  // Rota para buscar pedidos com reprogramação pendente
+  app.get("/api/orders/reprogramacoes", isAuthenticated, async (req, res) => {
+    try {
+      // Buscar pedidos com status "Suspenso" que possuem reprogramação
+      const result = await pool.query(`
+        SELECT 
+          o.*,
+          p.name as product_name,
+          u_nome.name as unit_name,
+          u_nome.abbreviation as unit_abbreviation,
+          c_fornecedor.name as supplier_name,
+          oc.numero_ordem as purchase_order_number,
+          c_empresa.name as purchase_order_company_name,
+          c_destino.name as destination_company_name,
+          u_solicitante.name as requester_name
+        FROM orders o
+        LEFT JOIN products p ON o.product_id = p.id
+        LEFT JOIN units u_nome ON p.unit_id = u_nome.id
+        LEFT JOIN companies c_fornecedor ON o.supplier_id = c_fornecedor.id
+        LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+        LEFT JOIN companies c_empresa ON oc.empresa_id = c_empresa.id
+        LEFT JOIN companies c_destino ON oc.cnpj = c_destino.cnpj
+        LEFT JOIN users u_solicitante ON o.usuario_reprogramacao = u_solicitante.id
+        WHERE o.status = 'Suspenso' AND o.nova_data_entrega IS NOT NULL
+        ORDER BY o.data_solicitacao_reprogramacao DESC
+      `);
+
+      // Formatar os dados para o frontend
+      const reprogramacoes = result.rows.map((row: any) => ({
+        id: row.id,
+        orderId: row.order_id,
+        productName: row.product_name,
+        unit: row.unit_abbreviation || row.unit_name,
+        quantity: row.quantity,
+        supplierName: row.supplier_name,
+        purchaseOrderNumber: row.purchase_order_number,
+        purchaseOrderCompanyName: row.purchase_order_company_name,
+        destinationCompanyName: row.destination_company_name,
+        originalDeliveryDate: row.delivery_date,
+        newDeliveryDate: row.nova_data_entrega,
+        justification: row.justificativa_reprogramacao,
+        requestDate: row.data_solicitacao_reprogramacao,
+        requesterName: row.requester_name
+      }));
+
+      res.json(reprogramacoes);
+    } catch (error) {
+      console.error("Erro ao buscar reprogramações:", error);
+      res.status(500).json({ message: "Erro ao buscar reprogramações" });
+    }
+  });
+
+  // Rota para aprovar reprogramação
+  app.put("/api/orders/:id/reprogramacao/aprovar", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      // Verificar se o pedido existe e está suspenso
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      if (order.status !== "Suspenso") {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não está suspenso para reprogramação" 
+        });
+      }
+
+      // Verificar se o usuário é o fornecedor do pedido
+      if (req.user.companyId !== order.supplierId && !req.user.isKeyUser) {
+        return res.status(403).json({ 
+          sucesso: false, 
+          mensagem: "Apenas o fornecedor pode aprovar reprogramações" 
+        });
+      }
+
+      // Buscar a nova data de entrega
+      const reprogramacaoResult = await pool.query(
+        "SELECT nova_data_entrega FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!reprogramacaoResult.rows.length || !reprogramacaoResult.rows[0].nova_data_entrega) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Dados de reprogramação não encontrados" 
+        });
+      }
+
+      const novaDataEntrega = reprogramacaoResult.rows[0].nova_data_entrega;
+
+      // Aprovar a reprogramação: atualizar data de entrega e status
+      await pool.query(
+        `UPDATE orders SET 
+          delivery_date = $1, 
+          status = $2,
+          nova_data_entrega = NULL,
+          justificativa_reprogramacao = NULL,
+          data_solicitacao_reprogramacao = NULL,
+          usuario_reprogramacao = NULL
+        WHERE id = $3`,
+        [novaDataEntrega, "Aprovado", id]
+      );
+
+      // Registrar no log do sistema
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Aprovação de reprogramação",
+        itemType: "order",
+        itemId: id.toString(),
+        details: `Pedido ${order.orderId} - Reprogramação aprovada para ${new Date(novaDataEntrega).toLocaleDateString('pt-BR')}`
+      });
+
+      res.json({ 
+        sucesso: true, 
+        mensagem: "Reprogramação aprovada com sucesso" 
+      });
+    } catch (error) {
+      console.error("Erro ao aprovar reprogramação:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao aprovar reprogramação" 
+      });
+    }
+  });
+
+  // Rota para rejeitar reprogramação
+  app.put("/api/orders/:id/reprogramacao/rejeitar", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      // Verificar se o pedido existe e está suspenso
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      if (order.status !== "Suspenso") {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não está suspenso para reprogramação" 
+        });
+      }
+
+      // Verificar se o usuário é o fornecedor do pedido
+      if (req.user.companyId !== order.supplierId && !req.user.isKeyUser) {
+        return res.status(403).json({ 
+          sucesso: false, 
+          mensagem: "Apenas o fornecedor pode rejeitar reprogramações" 
+        });
+      }
+
+      // Rejeitar a reprogramação: cancelar o pedido
+      await pool.query(
+        `UPDATE orders SET 
+          status = $1,
+          quantity = 0,
+          nova_data_entrega = NULL,
+          justificativa_reprogramacao = NULL,
+          data_solicitacao_reprogramacao = NULL,
+          usuario_reprogramacao = NULL
+        WHERE id = $2`,
+        ["Cancelado", id]
+      );
+
+      // Registrar no log do sistema
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Rejeição de reprogramação",
+        itemType: "order",
+        itemId: id.toString(),
+        details: `Pedido ${order.orderId} - Reprogramação rejeitada, pedido cancelado`
+      });
+
+      res.json({ 
+        sucesso: true, 
+        mensagem: "Reprogramação rejeitada, pedido cancelado" 
+      });
+    } catch (error) {
+      console.error("Erro ao rejeitar reprogramação:", error);
+      res.status(500).json({ 
+        sucesso: false, 
+        mensagem: "Erro ao rejeitar reprogramação" 
+      });
+    }
+  });
+
   // Rota para confirmar entrega de pedido com foto da nota assinada
   app.post("/api/pedidos/:id/confirmar", uploadConfirmDelivery.single("fotoNotaAssinada"), async (req, res) => {
     try {

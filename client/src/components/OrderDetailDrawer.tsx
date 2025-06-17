@@ -20,6 +20,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -42,6 +46,7 @@ import {
   Truck,
   XCircle,
   Edit,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder, Unit } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -258,6 +263,12 @@ export function OrderDetailDrawer({
 
   // Estado para a foto da nota assinada
   const [fotoNotaAssinada, setFotoNotaAssinada] = useState<File | null>(null);
+
+  // Estados para reprogramação
+  const [isReprogramDialogOpen, setIsReprogramDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [justificativa, setJustificativa] = useState("");
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // Refs para os inputs de arquivo
   const notaPdfRef = useRef<HTMLInputElement>(null);
@@ -479,6 +490,27 @@ export function OrderDetailDrawer({
 
     // Verificar se o usuário tem permissão específica para confirmar entregas
     return !!user.canConfirmDelivery;
+  };
+
+  // Verificar se o usuário pode reprogramar entrega
+  const canRequestReschedule = () => {
+    if (!user || !orderDetails) return false;
+
+    // Só pode reprogramar se o pedido não estiver entregue, cancelado ou suspenso
+    if (["Entregue", "Cancelado", "Suspenso"].includes(orderDetails.status)) return false;
+
+    // Verificar se o usuário pertence à empresa de destino
+    if (!user.companyId) return false;
+
+    // Buscar a empresa de destino através do orderDetails
+    const workDestination = (orderDetails as any)?.workDestination;
+    if (!workDestination) return false;
+
+    // Verificar se o CNPJ da empresa do usuário corresponde ao CNPJ da obra de destino
+    const userCompany = companies.find(c => c.id === user.companyId);
+    if (!userCompany) return false;
+
+    return userCompany.cnpj === workDestination.cnpj;
   };
 
   // Consulta para buscar documentos já existentes quando o drawer é aberto
@@ -712,6 +744,70 @@ export function OrderDetailDrawer({
       });
     } else {
       console.log("Nenhum arquivo selecionado");
+    }
+  };
+
+  // Função para solicitar reprogramação
+  const handleRequestReschedule = async () => {
+    if (!orderDetails || !selectedDate || !justificativa.trim()) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma data e informe a justificativa",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (justificativa.length > 100) {
+      toast({
+        title: "Erro",
+        description: "A justificativa deve ter no máximo 100 caracteres",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/pedidos/${orderDetails.id}/reprogramar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          novaDataEntrega: selectedDate.toISOString(),
+          justificativa: justificativa.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.sucesso) {
+        toast({
+          title: "Sucesso",
+          description: "Reprogramação solicitada com sucesso",
+        });
+
+        // Atualizar a lista de pedidos
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+
+        // Fechar o dialog e limpar os campos
+        setIsReprogramDialogOpen(false);
+        setSelectedDate(undefined);
+        setJustificativa("");
+      } else {
+        toast({
+          title: "Erro",
+          description: result.mensagem,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao solicitar reprogramação:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao solicitar reprogramação",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1307,9 +1403,33 @@ export function OrderDetailDrawer({
                           <h4 className="text-sm font-medium text-muted-foreground">
                             Data de Entrega
                           </h4>
-                          <p className="text-base font-medium">
-                            {formatDate(orderDetails.deliveryDate.toString())}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-base font-medium">
+                              {orderDetails.status === "Suspenso" ? (
+                                <span className="text-orange-600">
+                                  Reprogramação solicitada
+                                </span>
+                              ) : (
+                                formatDate(orderDetails.deliveryDate.toString())
+                              )}
+                            </p>
+                            {canRequestReschedule() && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsReprogramDialogOpen(true)}
+                                className="h-8 w-8 p-0"
+                                title="Reprogramar entrega"
+                              >
+                                <CalendarIcon className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          {orderDetails.status === "Suspenso" && (
+                            <p className="text-xs text-muted-foreground">
+                              Aguardando aprovação do fornecedor
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -2308,6 +2428,83 @@ export function OrderDetailDrawer({
           )}
         </div>
       </DrawerContent>
+
+      {/* Dialog de Reprogramação */}
+      <Dialog open={isReprogramDialogOpen} onOpenChange={setIsReprogramDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reprogramar Entrega</DialogTitle>
+            <DialogDescription>
+              Selecione a nova data de entrega (até 7 dias a partir de hoje) e informe a justificativa.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nova Data de Entrega</label>
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? formatDate(selectedDate.toString()) : "Selecione uma data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      setSelectedDate(date);
+                      setIsCalendarOpen(false);
+                    }}
+                    disabled={(date) => {
+                      const today = new Date();
+                      const maxDate = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
+                      return date <= today || date > maxDate;
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Justificativa ({justificativa.length}/100)
+              </label>
+              <Textarea
+                placeholder="Informe o motivo da reprogramação..."
+                value={justificativa}
+                onChange={(e) => setJustificativa(e.target.value)}
+                maxLength={100}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsReprogramDialogOpen(false);
+                setSelectedDate(undefined);
+                setJustificativa("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleRequestReschedule}
+              disabled={!selectedDate || !justificativa.trim()}
+            >
+              Solicitar Reprogramação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Drawer>
   );
 }

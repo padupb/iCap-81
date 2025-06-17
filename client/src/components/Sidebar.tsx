@@ -17,13 +17,15 @@ import {
   Code,
   History,
   Settings,
-  Smartphone
+  Smartphone,
+  Calendar,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard, area: "dashboard" },
   { name: "Pedidos", href: "/pedidos", icon: ShoppingCart, area: "orders" },
   { name: "Aprovações", href: "/aprovacoes", icon: CheckCircle, area: "approvals" },
+  { name: "Reprogramações", href: "/reprogramacoes", icon: Calendar, area: "reprogramacoes" },
   { name: "Ordens de Compra", href: "/ordens-compra", icon: FileText, area: "purchase_orders" },
   { name: "Empresas", href: "/empresas", icon: Building, area: "companies" },
   { name: "Usuários", href: "/usuarios", icon: Users, area: "users" },
@@ -70,20 +72,20 @@ export default function Sidebar() {
         {navigation.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
-          
+
           // Mostrar item do menu apenas se:
           // 1. É a página do Keyuser, mostrada apenas para keyuser
           // 2. Ou o usuário tem permissão de visualização para a área
           const isDeveloperItem = item.href === '/dev';
-          
+
           // Se é item do dev, mostrar apenas para keyuser (isKeyUser)
           // Para outros itens, verificar permissões normalmente
           const canShowItem = (isDeveloperItem && user?.isKeyUser) || 
                              (!isDeveloperItem && item.area && canView(item.area));
-          
+
           // Não renderizar se o usuário não tem permissão para ver este item
           if (!canShowItem) return null;
-          
+
           return (
             <div key={item.name}>
               <Link href={item.href}>
@@ -103,7 +105,7 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      
+
       {/* iCapMob - Transporte no rodapé */}
       <div className="mt-auto p-4">
         <div

@@ -11,6 +11,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Orders from "@/pages/Orders";
 import Approvals from "./pages/Approvals";
+import Reprogramacoes from "./pages/Reprogramacoes";
 import PurchaseOrders from "./pages/OrdensCompra";
 import Companies from "./pages/Companies";
 import Users from "./pages/Users";
@@ -148,6 +149,18 @@ function Router() {
             </Layout>
           )}
           area="approvals"
+        />
+      </Route>
+
+       {/* Reprogramações - Requer permissão de 'reprogramacoes' */}
+       <Route path="/reprogramacoes">
+        <ProtectedRoute 
+          component={() => (
+            <Layout>
+              <Reprogramacoes />
+            </Layout>
+          )}
+          area="reprogramacoes"
         />
       </Route>
 
