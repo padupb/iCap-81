@@ -121,8 +121,11 @@ export default function Reprogramacoes() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Reprogramações</h1>
+          <Badge variant="secondary" className="text-sm bg-orange-100 text-orange-800 border-orange-200">
+            {reprogramacoes.length}
+          </Badge>
           <p className="text-muted-foreground">
             Gerencie solicitações de reprogramação de entrega
           </p>
