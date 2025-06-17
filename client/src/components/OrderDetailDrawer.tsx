@@ -496,7 +496,10 @@ export function OrderDetailDrawer({
   const canUploadDocuments = () => {
     if (!user || !orderDetails) return false;
 
-    // KeyUser sempre pode fazer upload
+    // NENHUM usuário pode fazer upload em pedidos cancelados
+    if (orderDetails.quantidade === 0) return false;
+
+    // KeyUser sempre pode fazer upload (exceto em pedidos cancelados)
     if (user.id === 1 || user.isKeyUser) return true;
 
     // Verificar se o usuário pertence à empresa fornecedora do pedido
@@ -1297,7 +1300,7 @@ export function OrderDetailDrawer({
                     value="documents"
                     className="flex items-center gap-1"
                     disabled={(() => {
-                      // 1. Se o pedido for cancelado, bloquear todas as abas
+                      // 1. Se o pedido for cancelado, bloquear TODAS as abas exceto detalhes
                       if (orderDetails.quantidade === 0) {
                         return true;
                       }
@@ -1332,7 +1335,7 @@ export function OrderDetailDrawer({
                     value="confirm"
                     className="flex items-center gap-1"
                     disabled={(() => {
-                      // 1. Se o pedido for cancelado, bloquear todas as abas
+                      // 1. Se o pedido for cancelado, bloquear TODAS as abas exceto detalhes
                       if (orderDetails.quantidade === 0) {
                         return true;
                       }
@@ -1362,7 +1365,7 @@ export function OrderDetailDrawer({
                     value="tracking"
                     className="flex items-center gap-1"
                     disabled={(() => {
-                      // 1. Se o pedido for cancelado, bloquear todas as abas
+                      // 1. Se o pedido for cancelado, bloquear TODAS as abas exceto detalhes
                       if (orderDetails.quantidade === 0) {
                         return true;
                       }
@@ -1376,6 +1379,14 @@ export function OrderDetailDrawer({
                   <TabsTrigger
                     value="history"
                     className="flex items-center gap-1"
+                    disabled={(() => {
+                      // 1. Se o pedido for cancelado, bloquear TODAS as abas exceto detalhes
+                      if (orderDetails.quantidade === 0) {
+                        return true;
+                      }
+
+                      return false;
+                    })()}
                   >
                     <History size={16} />
                     <span>Histórico</span>
