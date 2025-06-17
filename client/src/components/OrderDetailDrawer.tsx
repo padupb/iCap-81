@@ -968,6 +968,7 @@ export function OrderDetailDrawer({
             <head>
               <title>Pedido ${orderDetails.orderId}</title>
               <style>
+```text
                 * {
                   margin: 0;
                   padding: 0;
@@ -1706,18 +1707,24 @@ export function OrderDetailDrawer({
                       <CardTitle>Documentos do Pedido</CardTitle>
                       <CardDescription>
                         {(() => {
-                          // 1. Se o pedido for cancelado, informar que não pode prosseguir
-                          if (orderDetails.quantidade === 0) {
-                            return "Este pedido foi cancelado e não pode prosseguir com o envio de documentos.";
-                          }
+                        // 1. Se o pedido for cancelado, informar que não pode prosseguir
+                        if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado") {
+                          return "Este pedido foi cancelado e não pode prosseguir com o envio de documentos.";
+                        }
 
-                          // 2. Verificar se é pedido urgente e não foi aprovado
-                          const deliveryDate = new Date(orderDetails.deliveryDate);
-                          const today = new Date();
-                          const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                          const isUrgent = daysDiff <= 7;
+                        // 2. Se o pedido estiver suspenso, informar sobre a reprogramação
+                        if (orderDetails.status === "Suspenso") {
+                          return "Este pedido está suspenso aguardando aprovação de reprogramação de entrega.";
+                        }
 
-                          if (isUrgent && orderDetails.status === "Registrado") {
+                        // 3. Verificar se é pedido urgente e não foi aprovado
+                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        const today = new Date();
+                        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const isUrgent = daysDiff <= 7;
+
+                        if (is
+</new_generation>Urgent && orderDetails.status === "Registrado") {
                             return "Este pedido urgente precisa ser aprovado antes de permitir o upload de documentos";
                           }
 
@@ -1728,7 +1735,7 @@ export function OrderDetailDrawer({
                     <CardContent>
                       {(() => {
                         // 1. Se o pedido for cancelado, mostrar aviso de cancelamento
-                        if (orderDetails.quantidade === 0) {
+                        if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado") {
                           return (
                             <div className="flex flex-col items-center justify-center p-8 border border-red-200 rounded-lg bg-red-50">
                               <AlertCircle className="h-16 w-16 text-red-600 mb-4" />
