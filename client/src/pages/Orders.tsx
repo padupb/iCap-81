@@ -226,18 +226,31 @@ export default function Orders() {
 
 
 
-  // Buscar ordens de compra ativas e válidas para a empresa do usuário
+  // Buscar ordens de compra ativas e válidas para a empresa do usuário (apenas para criação de pedidos)
   const { data: purchaseOrders = [], isLoading: isLoadingPurchaseOrders } =
     useQuery<PurchaseOrderResponse[]>({
-      queryKey: ["/api/ordens-compra", currentUser?.companyId],
+      queryKey: ["/api/ordens-compra-validas", currentUser?.companyId],
       queryFn: async () => {
-        // Montar URL com parâmetros de filtro para ordens ativas, válidas e da empresa do usuário
-        const url = `/api/ordens-compra?status=Ativo&apenasValidas=true${currentUser?.companyId ? `&empresaId=${currentUser.companyId}` : ""}`;
-        const response = await fetch(url);
+        // Buscar todas as ordens de compra
+        const response = await fetch(`/api/ordens-compra`);
         if (!response.ok) {
           throw new Error("Falha ao carregar ordens de compra");
         }
-        return response.json();
+        const allOrders = await response.json();
+        
+        // Filtrar apenas ordens válidas (não expiradas) para criação de pedidos
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const validOrders = allOrders.filter((order: any) => {
+          const validDate = new Date(order.valido_ate);
+          validDate.setHours(0, 0, 0, 0);
+          return validDate >= today && order.status === 'Ativo';
+        });
+        
+        console.log(`📋 Ordens de compra filtradas para criação de pedidos: ${validOrders.length} válidas de ${allOrders.length} totais`);
+        
+        return validOrders;
       },
       // Só executar a consulta se o usuário estiver autenticado
       enabled: !!currentUser,

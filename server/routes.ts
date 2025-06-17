@@ -1299,6 +1299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rota de compatibilidade para o frontend que ainda usa /api/purchase-orders
+  // IMPORTANTE: Esta rota agora filtra apenas ordens válidas para criação de pedidos
   app.get("/api/purchase-orders", isAuthenticated, async (req, res) => {
     try {
       // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
@@ -1324,6 +1325,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `;
 
       let queryParams: any[] = [];
+      let whereConditions: string[] = [];
+
+      // NOVO: Filtrar apenas ordens válidas (não expiradas) para criação de pedidos
+      whereConditions.push("oc.valido_ate >= CURRENT_DATE");
+      whereConditions.push("oc.status = 'Ativo'");
 
       // Aplicar restrição baseada nos critérios da empresa do usuário
       if (req.user && req.user.companyId) {
@@ -1344,12 +1350,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Filtrar ordens de compra onde:
               // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
               // 2. OU a empresa é a obra de destino (cnpj corresponde ao CNPJ da empresa do usuário)
-              query += ` WHERE (oc.empresa_id = $1 OR oc.cnpj = $2)`;
+              whereConditions.push("(oc.empresa_id = $" + (queryParams.length + 1) + " OR oc.cnpj = $" + (queryParams.length + 2) + ")");
               queryParams.push(req.user.companyId, userCompany.cnpj);
-              console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name} (fornecedora ou obra)`);
+              console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name} (fornecedora ou obra) e apenas válidas`);
             }
           }
         }
+      }
+
+      if (whereConditions.length > 0) {
+        query += ` WHERE ` + whereConditions.join(' AND ');
       }
 
       query += ` ORDER BY oc.data_criacao DESC`;
@@ -1373,6 +1383,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         valido_ate: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
         data_criacao: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
       }));
+
+      console.log(`📋 Purchase orders para criação de pedidos: ${formattedOrders.length} ordens válidas retornadas`);
 
       res.json(formattedOrders);
     } catch (error) {

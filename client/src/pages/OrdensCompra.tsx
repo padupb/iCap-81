@@ -249,9 +249,18 @@ export default function OrdensCompra() {
     setDrawerOpen(true);
   };
 
-  // Buscar dados usando nossas rotas
+  // Buscar todas as ordens de compra (incluindo expiradas para visualização)
   const { data: ordens = [], isLoading } = useQuery<OrdemCompra[]>({
-    queryKey: ["/api/ordens-compra"],
+    queryKey: ["/api/ordens-compra-todas"],
+    queryFn: async () => {
+      const response = await fetch(`/api/ordens-compra`);
+      if (!response.ok) {
+        throw new Error("Falha ao carregar ordens de compra");
+      }
+      const data = await response.json();
+      console.log(`📋 Ordens de compra carregadas para visualização: ${data.length} (incluindo expiradas)`);
+      return data;
+    },
   });
 
   const { data: companies = [] } = useQuery<Company[]>({
