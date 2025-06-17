@@ -39,6 +39,9 @@ import {
   Download,
   AlertCircle,
   Camera,
+  Truck,
+  XCircle,
+  Edit,
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder, Unit } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -2180,7 +2183,7 @@ export function OrderDetailDrawer({
                               data: orderDetails.createdAt || new Date().toISOString(),
                               usuario: "Sistema",
                               descricao: `Pedido ${orderDetails.orderId} criado para ${formatProductWithUnit(orderDetails)}`,
-                              icon: "🆕"
+                              icon: "Package"
                             });
 
                             // 2. Se há documentos carregados
@@ -2193,7 +2196,7 @@ export function OrderDetailDrawer({
                                 data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
                                 usuario: "Fornecedor",
                                 descricao: "Nota fiscal PDF, XML e certificado enviados",
-                                icon: "📄"
+                                icon: "FileText"
                               });
                             }
 
@@ -2206,7 +2209,7 @@ export function OrderDetailDrawer({
                                 data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
                                 usuario: "Sistema",
                                 descricao: "Pedido saiu para entrega",
-                                icon: "🚛"
+                                icon: "Truck"
                               });
                             }
 
@@ -2217,7 +2220,7 @@ export function OrderDetailDrawer({
                                 data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
                                 usuario: getUserNameById(undefined),
                                 descricao: `Entrega confirmada com quantidade: ${orderDetails.quantidadeRecebida || orderDetails.quantity} ${orderDetails.unit?.abbreviation || ""}`,
-                                icon: "✅"
+                                icon: "CheckCircle"
                               });
                             }
 
@@ -2228,7 +2231,7 @@ export function OrderDetailDrawer({
                                 data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
                                 usuario: "Sistema",
                                 descricao: "Pedido cancelado",
-                                icon: "❌"
+                                icon: "XCircle"
                               });
                             }
                           }
@@ -2241,7 +2244,7 @@ export function OrderDetailDrawer({
                                 data: item.created_at || item.data || new Date().toISOString(),
                                 usuario: item.user_name || getUserNameById(item.user_id) || item.usuario || "Sistema",
                                 descricao: item.description || item.descricao || "",
-                                icon: "📝"
+                                icon: "Edit"
                               });
                             });
                           }
@@ -2256,27 +2259,43 @@ export function OrderDetailDrawer({
                             </div>
                           ) : (
                             <div className="space-y-3">
-                              {history.map((item, index) => (
-                                <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-muted/20">
-                                  <div className="text-2xl">{item.icon}</div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between">
-                                      <h4 className="font-medium text-sm">{item.etapa}</h4>
-                                      <Badge variant="outline" className="text-xs">
-                                        {formatDate(item.data)}
-                                      </Badge>
+                              {history.map((item, index) => {
+                                const IconComponent = (() => {
+                                  switch (item.icon) {
+                                    case "Package": return Package;
+                                    case "FileText": return FileText;
+                                    case "Truck": return Truck;
+                                    case "CheckCircle": return CheckCircle;
+                                    case "XCircle": return XCircle;
+                                    case "Edit": return Edit;
+                                    default: return History;
+                                  }
+                                })();
+
+                                return (
+                                  <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-muted/20">
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
+                                      <IconComponent size={16} />
                                     </div>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      Por: {item.usuario}
-                                    </p>
-                                    {item.descricao && (
-                                      <p className="text-sm mt-2 text-foreground">
-                                        {item.descricao}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between">
+                                        <h4 className="font-medium text-sm">{item.etapa}</h4>
+                                        <Badge variant="outline" className="text-xs">
+                                          {formatDate(item.data)}
+                                        </Badge>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        Por: {item.usuario}
                                       </p>
-                                    )}
+                                      {item.descricao && (
+                                        <p className="text-sm mt-2 text-foreground">
+                                          {item.descricao}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           );
                         })()}
