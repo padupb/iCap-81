@@ -458,10 +458,24 @@ export default function Orders() {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       setIsUrgentOrder(diffDays <= urgentDaysThreshold);
+
+      // Validar se a data de entrega não é posterior à validade da ordem de compra
+      const purchaseOrderId = form.watch("purchaseOrderId");
+      if (purchaseOrderId && selectedPurchaseOrder) {
+        const validUntilDate = new Date(selectedPurchaseOrder.valido_ate);
+        if (selectedDate > validUntilDate) {
+          form.setError("deliveryDate", {
+            type: "manual",
+            message: `Data de entrega não pode ser posterior à validade da ordem de compra (${validUntilDate.toLocaleDateString('pt-BR')})`
+          });
+        } else {
+          form.clearErrors("deliveryDate");
+        }
+      }
     } else {
       setIsUrgentOrder(false);
     }
-  }, [form.watch("deliveryDate"), urgentDaysThreshold]);
+  }, [form.watch("deliveryDate"), urgentDaysThreshold, selectedPurchaseOrder]);
 
   // Aplicar filtros aos pedidos
   const filteredOrders = orders.filter((order) => {
@@ -529,6 +543,21 @@ export default function Orders() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Validar se a data de entrega não é posterior à validade da ordem de compra
+    if (selectedPurchaseOrder) {
+      const deliveryDate = new Date(data.deliveryDate);
+      const validUntilDate = new Date(selectedPurchaseOrder.valido_ate);
+      
+      if (deliveryDate > validUntilDate) {
+        toast({
+          title: "Erro de validação",
+          description: `Data de entrega não pode ser posterior à validade da ordem de compra (${validUntilDate.toLocaleDateString('pt-BR')})`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Adicionar campos adicionais necessários para o backend
@@ -691,9 +720,16 @@ export default function Orders() {
                           <Input
                             type="date"
                             className="bg-input border-border"
+                            min={new Date().toISOString().split('T')[0]}
+                            max={selectedPurchaseOrder ? new Date(selectedPurchaseOrder.valido_ate).toISOString().split('T')[0] : undefined}
                             {...field}
                           />
                         </FormControl>
+                        {selectedPurchaseOrder && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Data máxima: {new Date(selectedPurchaseOrder.valido_ate).toLocaleDateString('pt-BR')} (validade da ordem de compra)
+                          </p>
+                        )}
                         {isUrgentOrder && (
                           <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                             <div className="flex items-center">
