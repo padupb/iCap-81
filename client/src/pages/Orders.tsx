@@ -367,7 +367,21 @@ export default function Orders() {
   // Quando selecionar uma ordem de compra, buscar seus itens
   useEffect(() => {
     const purchaseOrderId = form.watch("purchaseOrderId");
-    if (purchaseOrderId) {
+    
+    // Verificar se a ordem selecionada ainda está disponível (não foi filtrada por estar vencida)
+    const isOrderStillAvailable = purchaseOrderId && purchaseOrders.find(po => po.id === purchaseOrderId);
+    
+    if (purchaseOrderId && !isOrderStillAvailable) {
+      console.log(`⚠️ Ordem de compra ${purchaseOrderId} não está mais disponível (possivelmente vencida), limpando seleção`);
+      form.setValue("purchaseOrderId", undefined);
+      form.setValue("productId", undefined);
+      setPurchaseOrderItems([]);
+      setSelectedPurchaseOrder(null);
+      setSelectedProductId(0);
+      return;
+    }
+    
+    if (purchaseOrderId && isOrderStillAvailable) {
       setIsLoadingItems(true);
 
       // Limpar produto selecionado quando ordem muda
