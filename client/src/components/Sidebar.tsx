@@ -112,7 +112,7 @@ export default function Sidebar() {
                   {item.name === "Reprogramações" && reprogramacoes.length > 0 && (
                     <Badge 
                       variant="secondary" 
-                      className="text-xs bg-orange-100 text-orange-800 border-orange-200 ml-2"
+                      className="text-xs bg-red-100 text-red-800 border-red-200 ml-2"
                     >
                       {reprogramacoes.length}
                     </Badge>
