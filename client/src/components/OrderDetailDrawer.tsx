@@ -492,6 +492,21 @@ export function OrderDetailDrawer({
     return !!user.canConfirmDelivery;
   };
 
+  // Verificar se o usuário pode fazer upload de documentos
+  const canUploadDocuments = () => {
+    if (!user || !orderDetails) return false;
+
+    // KeyUser sempre pode fazer upload
+    if (user.id === 1 || user.isKeyUser) return true;
+
+    // Verificar se o usuário pertence à empresa fornecedora do pedido
+    if (user.companyId && orderDetails.supplierId) {
+      return user.companyId === orderDetails.supplierId;
+    }
+
+    return false;
+  };
+
   // Verificar se o usuário pode reprogramar entrega
   const canRequestReschedule = () => {
     if (!user || !orderDetails) return false;
@@ -1745,6 +1760,21 @@ export function OrderDetailDrawer({
                         // Se é urgente e não aprovado, não mostrar o conteúdo normal
                         if (isUrgent && orderDetails.status === "Registrado") {
                           return null;
+                        }
+
+                        // 3. Verificar se o usuário tem permissão para upload de documentos
+                        if (!canUploadDocuments()) {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-8 border border-orange-200 rounded-lg bg-orange-50">
+                              <AlertCircle className="h-16 w-16 text-orange-600 mb-4" />
+                              <h3 className="text-xl font-medium text-orange-800 mb-2">
+                                Sem Permissão para Upload
+                              </h3>
+                              <p className="text-sm text-orange-700 text-center max-w-md">
+                                Apenas a empresa fornecedora ({orderDetails.supplier?.name || "não identificada"}) ou administradores podem fazer upload de documentos para este pedido.
+                              </p>
+                            </div>
+                          );
                         }
 
                         // Lógica normal para documentos
