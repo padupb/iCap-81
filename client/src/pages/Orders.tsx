@@ -332,7 +332,7 @@ export default function Orders() {
       const formattedDate = defaultDate.toISOString().split("T")[0];
 
       console.log(`🔄 Resetando formulário de pedido`);
-      
+
       form.reset({
         purchaseOrderId: undefined,
         productId: undefined,
@@ -342,7 +342,7 @@ export default function Orders() {
       setSelectedPurchaseOrder(null);
       setSelectedProductId(0);
       setPurchaseOrderItems([]);
-      
+
       console.log(`✅ Formulário resetado`);
     } else {
       console.log(`📝 Diálogo de criação de pedido aberto`);
@@ -369,13 +369,13 @@ export default function Orders() {
     const purchaseOrderId = form.watch("purchaseOrderId");
     if (purchaseOrderId) {
       setIsLoadingItems(true);
-      
+
       // Limpar produto selecionado quando ordem muda
       form.setValue("productId", undefined);
       setSelectedProductId(0);
-      
+
       console.log(`🔍 Buscando itens para ordem de compra ID: ${purchaseOrderId}`);
-      
+
       fetch(`/api/ordem-compra/${purchaseOrderId}/itens`)
         .then((response) => {
           if (!response.ok) {
@@ -385,7 +385,7 @@ export default function Orders() {
         })
         .then((data) => {
           console.log(`📦 Itens recebidos:`, data);
-          
+
           // Verificar se os dados são válidos
           if (Array.isArray(data) && data.length > 0) {
             // Adicionar propriedade unidade para cada item se não existir
@@ -393,7 +393,7 @@ export default function Orders() {
               ...item,
               unidade: item.unidade || item.unidade_abreviacao || ''
             }));
-            
+
             setPurchaseOrderItems(itemsWithUnit);
             console.log(`✅ ${itemsWithUnit.length} produtos carregados para a ordem`);
           } else {
@@ -405,7 +405,7 @@ export default function Orders() {
               variant: "destructive",
             });
           }
-          
+
           // Atualizar a ordem de compra selecionada
           const selectedPO = purchaseOrders.find(
             (po) => po.id === purchaseOrderId,
