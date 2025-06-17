@@ -393,7 +393,7 @@ export default function Orders() {
       fetch(`/api/ordem-compra/${purchaseOrderId}/itens`)
         .then((response) => {
           if (!response.ok) {
-            throw new Error(`Erro HTTP: ${response.status}`);
+            throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
           }
           return response.json();
         })
@@ -445,7 +445,7 @@ export default function Orders() {
           setPurchaseOrderItems([]);
           toast({
             title: "Erro",
-            description: `Falha ao carregar produtos da ordem de compra: ${error.message}`,
+            description: `Falha ao carregar produtos da ordem de compra. Verifique sua conexão e tente novamente.`,
             variant: "destructive",
           });
         })

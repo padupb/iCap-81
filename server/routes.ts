@@ -1760,6 +1760,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔍 Buscando itens da ordem de compra ID: ${id}`);
 
+      // Verificar se o pool existe
+      if (!pool) {
+        console.log(`❌ Pool de conexão não disponível`);
+        return res.status(500).json({
+          sucesso: false,
+          mensagem: "Erro de conexão com banco de dados"
+        });
+      }
+
       // Verificar se a ordem de compra existe
       const ordemCheck = await pool.query(
         "SELECT id, numero_ordem FROM ordens_compra WHERE id = $1",
