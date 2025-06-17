@@ -2155,7 +2155,6 @@ export function OrderDetailDrawer({
                                 Os documentos serão carregados pela empresa fornecedora ({orderDetails.supplier?.name || "não identificada"}).
                               </p>
                             </div>
-                          )
                           );
                         }
                       })()}
