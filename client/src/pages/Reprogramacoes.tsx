@@ -18,7 +18,7 @@ import {
   CheckCircle, 
   XCircle, 
   Clock,
-  Eye,
+  MessageSquare,
   Search,
   Calendar,
   AlertTriangle
@@ -167,7 +167,11 @@ export default function Reprogramacoes() {
                 </TableHeader>
                 <TableBody>
                   {filteredReprogramacoes.map((order) => (
-                    <TableRow key={order.id}>
+                    <TableRow 
+                      key={order.id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleViewDetails(order.id)}
+                    >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-orange-500" />
@@ -201,13 +205,14 @@ export default function Reprogramacoes() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleViewDetails(order.id)}
+                            onClick={() => alert(`Justificativa: ${order.justification}`)}
+                            title="Ver justificativa"
                           >
-                            <Eye className="h-4 w-4" />
+                            <MessageSquare className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="outline"
@@ -215,6 +220,7 @@ export default function Reprogramacoes() {
                             onClick={() => handleApprove(order.id)}
                             disabled={approveMutation.isPending}
                             className="text-green-600 hover:text-green-700"
+                            title="Aprovar reprogramação"
                           >
                             <CheckCircle className="h-4 w-4" />
                           </Button>
@@ -224,6 +230,7 @@ export default function Reprogramacoes() {
                             onClick={() => handleReject(order.id)}
                             disabled={rejectMutation.isPending}
                             className="text-red-600 hover:text-red-700"
+                            title="Rejeitar reprogramação"
                           >
                             <XCircle className="h-4 w-4" />
                           </Button>
