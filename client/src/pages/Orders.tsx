@@ -390,14 +390,16 @@ export default function Orders() {
 
       console.log(`🔍 Buscando itens para ordem de compra ID: ${purchaseOrderId}`);
 
-      fetch(`/api/ordem-compra/${purchaseOrderId}/itens`)
-        .then((response) => {
+      // Função async para buscar itens
+      const fetchItems = async () => {
+        try {
+          const response = await fetch(`/api/ordem-compra/${purchaseOrderId}/itens`);
+          
           if (!response.ok) {
             throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
           }
-          return response.json();
-        })
-        .then((data) => {
+          
+          const data = await response.json();
           console.log(`📦 Itens recebidos:`, data);
           console.log(`📊 Tipo dos dados recebidos:`, typeof data, Array.isArray(data));
 
@@ -439,8 +441,8 @@ export default function Orders() {
             (po) => po.id === purchaseOrderId,
           );
           setSelectedPurchaseOrder(selectedPO || null);
-        })
-        .catch((error) => {
+          
+        } catch (error) {
           console.error("❌ Erro ao buscar itens da ordem de compra:", error);
           setPurchaseOrderItems([]);
           toast({
@@ -448,17 +450,19 @@ export default function Orders() {
             description: `Falha ao carregar produtos da ordem de compra. Verifique sua conexão e tente novamente.`,
             variant: "destructive",
           });
-        })
-        .finally(() => {
+        } finally {
           setIsLoadingItems(false);
-        });
+        }
+      };
+
+      fetchItems();
     } else {
       setPurchaseOrderItems([]);
       setSelectedPurchaseOrder(null);
       form.setValue("productId", undefined);
       setSelectedProductId(0);
     }
-  }, [form.watch("purchaseOrderId"), purchaseOrders, toast]);
+  }, [form.watch("purchaseOrderId"), purchaseOrders, toast, form]);
 
   // Quando selecionar um produto, verificar saldo disponível
   useEffect(() => {
