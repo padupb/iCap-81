@@ -4,7 +4,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useAuthorization } from "@/context/AuthorizationContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { QRCodeComponent } from "./QRCodeComponent";
 import {
   LayoutDashboard,
@@ -40,6 +42,12 @@ export default function Sidebar() {
   const { canView } = useAuthorization();
   const { settings } = useSettings();
   const [showQRModal, setShowQRModal] = useState(false);
+
+  // Buscar reprogramações pendentes para mostrar o badge
+  const { data: reprogramacoes = [] } = useQuery({
+    queryKey: ["/api/orders/reprogramacoes"],
+    enabled: canView("reprogramacoes"),
+  });
 
   return (
     <div className="w-60 border-r border-sidebar-border flex flex-col relative z-40">
@@ -91,14 +99,24 @@ export default function Sidebar() {
               <Link href={item.href}>
                 <div
                   className={cn(
-                    "flex items-center px-4 py-3 rounded-lg transition-colors cursor-pointer",
+                    "flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer",
                     isActive
                       ? "bg-sidebar-primary text-white"
                       : "text-sidebar-foreground hover:bg-gray-700"
                   )}
                 >
-                  <Icon className="w-5 h-5 mr-3" />
-                  {item.name}
+                  <div className="flex items-center">
+                    <Icon className="w-5 h-5 mr-3" />
+                    {item.name}
+                  </div>
+                  {item.name === "Reprogramações" && reprogramacoes.length > 0 && (
+                    <Badge 
+                      variant="secondary" 
+                      className="text-xs bg-orange-100 text-orange-800 border-orange-200 ml-2"
+                    >
+                      {reprogramacoes.length}
+                    </Badge>
+                  )}
                 </div>
               </Link>
             </div>
