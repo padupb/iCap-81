@@ -1722,8 +1722,7 @@ export function OrderDetailDrawer({
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
 
-                        if (is
-</new_generation>Urgent && orderDetails.status === "Registrado") {
+                        if (isUrgent && orderDetails.status === "Registrado") {
                             return "Este pedido urgente precisa ser aprovado antes de permitir o upload de documentos";
                           }
 
