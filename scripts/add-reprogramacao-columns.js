@@ -1,6 +1,8 @@
 
-const { Pool } = require('pg');
-require('dotenv').config();
+import { Pool } from 'pg';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -58,16 +60,13 @@ async function addReprogramacaoColumns() {
   }
 }
 
-if (require.main === module) {
-  addReprogramacaoColumns()
-    .then(() => {
-      console.log('\n🎉 Script executado com sucesso!');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('\n💥 Erro na execução:', error);
-      process.exit(1);
-    });
-}
-
-module.exports = addReprogramacaoColumns;
+// Executar o script
+addReprogramacaoColumns()
+  .then(() => {
+    console.log('\n🎉 Script executado com sucesso!');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('\n💥 Erro na execução:', error);
+    process.exit(1);
+  });
