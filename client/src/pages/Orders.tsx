@@ -331,6 +331,8 @@ export default function Orders() {
       defaultDate.setDate(defaultDate.getDate() + urgentDaysThreshold + 1);
       const formattedDate = defaultDate.toISOString().split("T")[0];
 
+      console.log(`🔄 Resetando formulário de pedido`);
+      
       form.reset({
         purchaseOrderId: undefined,
         productId: undefined,
@@ -340,8 +342,17 @@ export default function Orders() {
       setSelectedPurchaseOrder(null);
       setSelectedProductId(0);
       setPurchaseOrderItems([]);
+      
+      console.log(`✅ Formulário resetado`);
+    } else {
+      console.log(`📝 Diálogo de criação de pedido aberto`);
+      console.log(`📊 Estado atual:`, {
+        ordensCompra: purchaseOrders.length,
+        produtos: products.length,
+        empresas: companies.length
+      });
     }
-  }, [isDialogOpen, form, urgentDaysThreshold]);
+  }, [isDialogOpen, form, urgentDaysThreshold, purchaseOrders.length, products.length, companies.length]);
 
   // Definir data padrão baseada no threshold de urgência (+ 1 dia para sair do período urgente)
   useEffect(() => {
@@ -358,10 +369,33 @@ export default function Orders() {
     const purchaseOrderId = form.watch("purchaseOrderId");
     if (purchaseOrderId) {
       setIsLoadingItems(true);
+      
+      console.log(`🔍 Buscando itens para ordem de compra ID: ${purchaseOrderId}`);
+      
       fetch(`/api/ordem-compra/${purchaseOrderId}/itens`)
-        .then((response) => response.json())
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Erro HTTP: ${response.status}`);
+          }
+          return response.json();
+        })
         .then((data) => {
-          setPurchaseOrderItems(data);
+          console.log(`📦 Itens recebidos:`, data);
+          
+          // Verificar se os dados são válidos
+          if (Array.isArray(data) && data.length > 0) {
+            setPurchaseOrderItems(data);
+            console.log(`✅ ${data.length} produtos carregados para a ordem`);
+          } else {
+            console.log(`⚠️ Nenhum produto encontrado para a ordem ${purchaseOrderId}`);
+            setPurchaseOrderItems([]);
+            toast({
+              title: "Aviso",
+              description: "Nenhum produto encontrado nesta ordem de compra",
+              variant: "destructive",
+            });
+          }
+          
           // Atualizar a ordem de compra selecionada
           const selectedPO = purchaseOrders.find(
             (po) => po.id === purchaseOrderId,
@@ -369,10 +403,11 @@ export default function Orders() {
           setSelectedPurchaseOrder(selectedPO || null);
         })
         .catch((error) => {
-          console.error("Erro ao buscar itens da ordem de compra:", error);
+          console.error("❌ Erro ao buscar itens da ordem de compra:", error);
+          setPurchaseOrderItems([]);
           toast({
             title: "Erro",
-            description: "Falha ao carregar itens da ordem de compra",
+            description: `Falha ao carregar produtos da ordem de compra: ${error.message}`,
             variant: "destructive",
           });
         })
@@ -383,7 +418,7 @@ export default function Orders() {
       setPurchaseOrderItems([]);
       setSelectedPurchaseOrder(null);
     }
-  }, [form.watch("purchaseOrderId"), purchaseOrders]);
+  }, [form.watch("purchaseOrderId"), purchaseOrders, toast]);
 
   // Quando selecionar um produto, verificar saldo disponível
   useEffect(() => {
@@ -647,9 +682,10 @@ export default function Orders() {
                       <FormItem>
                         <FormLabel>Produto</FormLabel>
                         <Select
-                          onValueChange={(value) =>
-                            field.onChange(parseInt(value))
-                          }
+                          onValueChange={(value) => {
+                            console.log(`🎯 Produto selecionado: ${value}`);
+                            field.onChange(parseInt(value));
+                          }}
                           defaultValue={field.value?.toString()}
                           disabled={
                             !form.watch("purchaseOrderId") || isLoadingItems
@@ -657,20 +693,46 @@ export default function Orders() {
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione um produto" />
+                              <SelectValue placeholder={
+                                isLoadingItems 
+                                  ? "Carregando produtos..." 
+                                  : !form.watch("purchaseOrderId")
+                                  ? "Selecione uma ordem de compra primeiro"
+                                  : purchaseOrderItems.length === 0
+                                  ? "Nenhum produto disponível"
+                                  : "Selecione um produto"
+                              } />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {purchaseOrderItems.map((item) => (
-                              <SelectItem
-                                key={item.id}
-                                value={item.produto_id.toString()}
-                              >
-                                {item.produto_nome}
+                            {purchaseOrderItems.length > 0 ? (
+                              purchaseOrderItems.map((item) => {
+                                console.log(`📦 Renderizando produto:`, {
+                                  id: item.produto_id,
+                                  nome: item.produto_nome,
+                                  quantidade: item.quantidade
+                                });
+                                return (
+                                  <SelectItem
+                                    key={`${item.id}-${item.produto_id}`}
+                                    value={item.produto_id.toString()}
+                                  >
+                                    {item.produto_nome} ({formatNumber(item.quantidade)} {item.unidade})
+                                  </SelectItem>
+                                );
+                              })
+                            ) : (
+                              <SelectItem value="no-products" disabled>
+                                {isLoadingItems ? "Carregando..." : "Nenhum produto disponível"}
                               </SelectItem>
-                            ))}
+                            )}
                           </SelectContent>
                         </Select>
+                        {purchaseOrderItems.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {purchaseOrderItems.length} produto(s) disponível(eis) nesta ordem
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

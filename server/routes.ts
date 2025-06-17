@@ -1751,6 +1751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
+        console.log(`❌ ID inválido recebido: ${req.params.id}`);
         return res.status(400).json({
           sucesso: false,
           mensagem: "ID inválido"
@@ -1794,17 +1795,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`📦 Encontrados ${result.rows.length} itens na ordem ${id}`);
 
-      // Formatar os dados para o frontend
-      const itens = result.rows.map((item: any) => ({
-        id: item.id,
-        ordem_compra_id: item.ordem_compra_id,
-        produto_id: item.produto_id,
-        produto_nome: item.produto_nome || "Produto não encontrado",
-        unidade: item.unidade || item.unidade_nome || "un",
-        quantidade: parseFloat(item.quantidade || 0)
-      }));
+      if (result.rows.length === 0) {
+        console.log(`⚠️ Nenhum item encontrado para a ordem ${id}`);
+        return res.json([]);
+      }
 
-      console.log(`📊 Itens formatados:`, itens);
+      // Formatar os dados para o frontend
+      const itens = result.rows.map((item: any) => {
+        const itemFormatado = {
+          id: item.id,
+          ordem_compra_id: item.ordem_compra_id,
+          produto_id: item.produto_id,
+          produto_nome: item.produto_nome || `Produto #${item.produto_id}`,
+          unidade: item.unidade || item.unidade_nome || "un",
+          quantidade: parseFloat(item.quantidade || 0)
+        };
+        
+        console.log(`📋 Item formatado:`, itemFormatado);
+        return itemFormatado;
+      });
+
+      console.log(`📊 Total de itens formatados: ${itens.length}`);
+      console.log(`📤 Enviando resposta com itens:`, itens);
 
       res.json(itens);
 
