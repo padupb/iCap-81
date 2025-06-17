@@ -399,19 +399,33 @@ export default function Orders() {
         })
         .then((data) => {
           console.log(`📦 Itens recebidos:`, data);
+          console.log(`📊 Tipo dos dados recebidos:`, typeof data, Array.isArray(data));
 
           // Verificar se os dados são válidos
           if (Array.isArray(data) && data.length > 0) {
             // Adicionar propriedade unidade para cada item se não existir
-            const itemsWithUnit = data.map(item => ({
-              ...item,
-              unidade: item.unidade || item.unidade_abreviacao || ''
-            }));
+            const itemsWithUnit = data.map((item, index) => {
+              const processedItem = {
+                ...item,
+                unidade: item.unidade || item.unidade_abreviacao || 'un'
+              };
+              
+              console.log(`📋 Produto ${index + 1}:`, {
+                id: item.produto_id,
+                nome: item.produto_nome,
+                quantidade: item.quantidade,
+                unidade: processedItem.unidade,
+                original: item
+              });
+              
+              return processedItem;
+            });
 
             setPurchaseOrderItems(itemsWithUnit);
-            console.log(`✅ ${itemsWithUnit.length} produtos carregados para a ordem`);
+            console.log(`✅ ${itemsWithUnit.length} produtos processados e carregados para a ordem`);
           } else {
             console.log(`⚠️ Nenhum produto encontrado para a ordem ${purchaseOrderId}`);
+            console.log(`📊 Dados recebidos:`, data);
             setPurchaseOrderItems([]);
             toast({
               title: "Aviso",
@@ -744,19 +758,20 @@ export default function Orders() {
                             ) : purchaseOrderItems.length > 0 ? (
                               purchaseOrderItems.map((item) => {
                                 const itemKey = `produto-${item.produto_id}-${item.ordem_compra_id}`;
-                                console.log(`📦 Renderizando produto:`, {
+                                const displayText = `${item.produto_nome} (${formatNumber(item.quantidade)} ${item.unidade || ''})`;
+                                
+                                console.log(`📦 Renderizando produto no dropdown:`, {
                                   key: itemKey,
-                                  id: item.produto_id,
-                                  nome: item.produto_nome,
-                                  quantidade: item.quantidade,
-                                  unidade: item.unidade || item.unidade_abreviacao
+                                  productId: item.produto_id,
+                                  displayText: displayText
                                 });
+                                
                                 return (
                                   <SelectItem
                                     key={itemKey}
                                     value={item.produto_id.toString()}
                                   >
-                                    {item.produto_nome} ({formatNumber(item.quantidade)} {item.unidade || item.unidade_abreviacao || ''})
+                                    {displayText}
                                   </SelectItem>
                                 );
                               })

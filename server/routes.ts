@@ -1801,7 +1801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Formatar os dados para o frontend
-      const itens = result.rows.map((item: any) => {
+      const itens = result.rows.map((item: any, index: number) => {
         const itemFormatado = {
           id: item.id,
           ordem_compra_id: item.ordem_compra_id,
@@ -1811,14 +1811,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           quantidade: parseFloat(item.quantidade || 0)
         };
         
-        console.log(`📋 Item formatado:`, itemFormatado);
+        console.log(`📋 Item ${index + 1} formatado:`, {
+          ...itemFormatado,
+          rawData: item
+        });
+        
+        // Validar se os campos essenciais estão presentes
+        if (!itemFormatado.produto_id || !itemFormatado.produto_nome) {
+          console.warn(`⚠️ Item ${index + 1} com dados incompletos:`, itemFormatado);
+        }
+        
         return itemFormatado;
       });
 
       console.log(`📊 Total de itens formatados: ${itens.length}`);
-      console.log(`📤 Enviando resposta com itens:`, itens);
+      
+      // Validar se todos os itens têm produto_id válido
+      const itensValidos = itens.filter(item => item.produto_id && item.produto_nome);
+      console.log(`✅ Itens válidos: ${itensValidos.length}/${itens.length}`);
+      
+      console.log(`📤 Enviando resposta com itens:`, itensValidos);
 
-      res.json(itens);
+      res.json(itensValidos);
 
     } catch (error) {
       console.error("❌ Erro ao buscar itens da ordem de compra:", error);
