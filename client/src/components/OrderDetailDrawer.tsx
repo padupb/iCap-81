@@ -1302,7 +1302,7 @@ export function OrderDetailDrawer({
                         return true;
                       }
 
-                      // 3. Verificar se é pedido urgente e não foi aprovado
+                      // 2. Verificar se é pedido urgente e não foi aprovado
                       const deliveryDate = new Date(orderDetails.deliveryDate);
                       const today = new Date();
                       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -1310,6 +1310,15 @@ export function OrderDetailDrawer({
 
                       // Se é urgente e ainda está "Registrado", bloquear acesso
                       if (isUrgent && orderDetails.status === "Registrado") {
+                        return true;
+                      }
+
+                      // 3. Verificar se o usuário não é fornecedor e não há documentos carregados
+                      if (!canUploadDocuments() && !documentsLoaded && 
+                          orderDetails.status !== "Carregado" && 
+                          orderDetails.status !== "Em Rota" && 
+                          orderDetails.status !== "Em transporte" && 
+                          orderDetails.status !== "Entregue") {
                         return true;
                       }
 
@@ -1762,21 +1771,6 @@ export function OrderDetailDrawer({
                           return null;
                         }
 
-                        // 3. Verificar se o usuário tem permissão para upload de documentos
-                        if (!canUploadDocuments()) {
-                          return (
-                            <div className="flex flex-col items-center justify-center p-8 border border-orange-200 rounded-lg bg-orange-50">
-                              <AlertCircle className="h-16 w-16 text-orange-600 mb-4" />
-                              <h3 className="text-xl font-medium text-orange-800 mb-2">
-                                Sem Permissão para Upload
-                              </h3>
-                              <p className="text-sm text-orange-700 text-center max-w-md">
-                                Apenas a empresa fornecedora ({orderDetails.supplier?.name || "não identificada"}) ou administradores podem fazer upload de documentos para este pedido.
-                              </p>
-                            </div>
-                          );
-                        }
-
                         // Lógica normal para documentos
                         if (documentsLoaded ||
                             orderDetails.status === "Carregado" ||
@@ -1971,7 +1965,7 @@ export function OrderDetailDrawer({
                         </div>
                           );
                         } else {
-                          return (
+                          return canUploadDocuments() ? (
                             <div className="space-y-6">
                           <div className="space-y-4">
                             <div className="flex items-center space-x-3">
@@ -2151,6 +2145,17 @@ export function OrderDetailDrawer({
                             )}
                           </Button>
                         </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center p-8 border border-gray-200 rounded-lg bg-gray-50">
+                              <FileText className="h-16 w-16 text-gray-400 mb-4" />
+                              <h3 className="text-xl font-medium text-gray-600 mb-2">
+                                Aguardando Documentos
+                              </h3>
+                              <p className="text-sm text-gray-500 text-center max-w-md">
+                                Os documentos serão carregados pela empresa fornecedora ({orderDetails.supplier?.name || "não identificada"}).
+                              </p>
+                            </div>
+                          )
                           );
                         }
                       })()}
