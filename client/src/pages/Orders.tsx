@@ -388,8 +388,14 @@ export default function Orders() {
           
           // Verificar se os dados são válidos
           if (Array.isArray(data) && data.length > 0) {
-            setPurchaseOrderItems(data);
-            console.log(`✅ ${data.length} produtos carregados para a ordem`);
+            // Adicionar propriedade unidade para cada item se não existir
+            const itemsWithUnit = data.map(item => ({
+              ...item,
+              unidade: item.unidade || item.unidade_abreviacao || ''
+            }));
+            
+            setPurchaseOrderItems(itemsWithUnit);
+            console.log(`✅ ${itemsWithUnit.length} produtos carregados para a ordem`);
           } else {
             console.log(`⚠️ Nenhum produto encontrado para a ordem ${purchaseOrderId}`);
             setPurchaseOrderItems([]);
@@ -689,9 +695,12 @@ export default function Orders() {
                         <FormLabel>Produto</FormLabel>
                         <Select
                           onValueChange={(value) => {
-                            if (value !== "no-products") {
+                            if (value && value !== "no-products" && value !== "loading") {
                               console.log(`🎯 Produto selecionado: ${value}`);
+                              const selectedProduct = purchaseOrderItems.find(item => item.produto_id.toString() === value);
+                              console.log(`📋 Produto encontrado:`, selectedProduct);
                               field.onChange(parseInt(value));
+                              setSelectedProductId(parseInt(value));
                             }
                           }}
                           value={field.value?.toString() || ""}
@@ -713,27 +722,32 @@ export default function Orders() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {purchaseOrderItems.length > 0 ? (
-                              purchaseOrderItems.map((item) => {
-                                console.log(`📦 Renderizando produto:`, {
+                            {isLoadingItems ? (
+                              <SelectItem value="loading" disabled>
+                                Carregando produtos...
+                              </SelectItem>
+                            ) : purchaseOrderItems.length > 0 ? (
+                              purchaseOrderItems.map((item, index) => {
+                                console.log(`📦 Renderizando produto ${index + 1}:`, {
                                   id: item.produto_id,
                                   nome: item.produto_nome,
-                                  quantidade: item.quantidade
+                                  quantidade: item.quantidade,
+                                  unidade: item.unidade
                                 });
                                 return (
                                   <SelectItem
-                                    key={`produto-${item.produto_id}`}
+                                    key={`produto-${item.produto_id}-${index}`}
                                     value={item.produto_id.toString()}
                                   >
                                     {item.produto_nome} ({formatNumber(item.quantidade)} {item.unidade})
                                   </SelectItem>
                                 );
                               })
-                            ) : !isLoadingItems ? (
+                            ) : (
                               <SelectItem value="no-products" disabled>
                                 Nenhum produto disponível
                               </SelectItem>
-                            ) : null}
+                            )}
                           </SelectContent>
                         </Select>
                         {purchaseOrderItems.length > 0 && (
