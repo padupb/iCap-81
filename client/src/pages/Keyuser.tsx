@@ -35,7 +35,7 @@ import {
   CheckCircle,
   XCircle,
   ShoppingCart,
-  Settings as SettingsIcon,
+  Settings,
   Save,
   RotateCcw,
   Clock,
@@ -54,8 +54,7 @@ import {
   Upload,
   Trash,
   UserPlus,
-  Download,
-  Settings
+  Download
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -868,7 +867,7 @@ export default function Keyuser() {
             API Keys
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
-            <SettingsIcon className="w-4 h-4" />
+            <Settings className="w-4 h-4" />
             Configurações Gerais
           </TabsTrigger>
           <TabsTrigger value="icapmob" className="flex items-center gap-2">
@@ -1567,7 +1566,7 @@ export default function Keyuser() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <SettingsIcon className="w-5 h-5" />
+                <Settings className="w-5 h-5" />
                 Configurações Gerais
               </CardTitle>
             </CardHeader>
