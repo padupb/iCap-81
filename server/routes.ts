@@ -634,8 +634,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", isAuthenticated, hasPermission("create_users"), async (req, res) => {
+  app.post("/api/users", isAuthenticated, async (req, res) => {
     try {
+      // Verificar se o usuário tem permissão para criar usuários OU é keyuser
+      const hasCreatePermission = req.user.permissions?.includes("create_users") || req.user.permissions?.includes("*");
+      const isKeyUserCheck = req.user.id === 1 || req.user.isKeyUser;
+      
+      if (!hasCreatePermission && !isKeyUserCheck) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "Permissão 'create_users' necessária para criar usuários" 
+        });
+      }
+
       const userData = insertUserSchema.parse(req.body);
       const newUser = await storage.createUser(userData);
 
@@ -655,8 +666,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", isAuthenticated, hasPermission("edit_users"), async (req, res) => {
+  app.put("/api/users/:id", isAuthenticated, async (req, res) => {
     try {
+      // Verificar se o usuário tem permissão para editar usuários OU é keyuser
+      const hasEditPermission = req.user.permissions?.includes("edit_users") || req.user.permissions?.includes("*");
+      const isKeyUserCheck = req.user.id === 1 || req.user.isKeyUser;
+      
+      if (!hasEditPermission && !isKeyUserCheck) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "Permissão 'edit_users' necessária para editar usuários" 
+        });
+      }
+
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "ID inválido" });
