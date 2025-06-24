@@ -1,47 +1,27 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "@/hooks/use-toast";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2,
-  User,
-  Building,
-  Shield
-} from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
-import { insertUserSchema, type User as UserType, type Company, type UserRole } from "@shared/schema";
 import { z } from "zod";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { toast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Search, Edit, Trash2, User, Phone, Mail, Building, Shield, AlertCircle, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuthorization } from "@/context/AuthorizationContext";
+import { 
+  insertUserSchema,
+  type Company, 
+  type UserRole,
+} from "@shared/schema";
 
 const userFormSchema = insertUserSchema;
 const createUserFormSchema = insertUserSchema.omit({ password: true });
@@ -57,6 +37,7 @@ export default function Users() {
   const [companyFilter, setCompanyFilter] = useState("all");
 
   const queryClient = useQueryClient();
+  const { canCreate, canEdit } = useAuthorization();
 
   const { data: users = [], isLoading } = useQuery<UserType[]>({
     queryKey: ["/api/users"],

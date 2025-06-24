@@ -136,6 +136,45 @@ export const isKeyUser = (req: Request, res: Response, next: NextFunction) => {
   });
 };
 
+// Middleware para verificar se o usuário tem uma das permissões especificadas
+export const hasAnyPermission = (permissions: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Não autenticado" 
+      });
+    }
+
+    // KeyUser (ID = 1) sempre tem acesso total
+    if (req.user.id === 1 || req.user.isKeyUser === true) {
+      return next();
+    }
+
+    // Verificar se o usuário tem pelo menos uma das permissões
+    if (!req.user.permissions || !Array.isArray(req.user.permissions)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Sem permissões definidas" 
+      });
+    }
+
+    // Verificar se tem pelo menos uma das permissões especificadas
+    const hasPermission = permissions.some(permission => 
+      req.user.permissions.includes(permission)
+    );
+
+    if (hasPermission) {
+      return next();
+    }
+
+    return res.status(403).json({ 
+      success: false, 
+      message: `Permissão necessária: ${permissions.join(' ou ')}` 
+    });
+  };
+};
+
 // Middleware para autenticar usuário (usado pelo app mobile)
 export const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
   try {

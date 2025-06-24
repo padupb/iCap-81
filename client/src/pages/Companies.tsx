@@ -1,40 +1,30 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "@/hooks/use-toast";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { 
-  Plus, 
-  Search, 
-  Eye, 
-  Edit, 
-  Trash2,
-  Building,
-  MapPin,
-  ExternalLink
-} from "lucide-react";
-import { formatCNPJ } from "@/lib/utils";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
+import { Plus, Search, Edit, Trash2, Building, MapPin, User, FileText, AlertCircle, Info } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { insertCompanySchema, type Company, type CompanyCategory, type User } from "@shared/schema";
-import { z } from "zod";
+import { useAuthorization } from "@/context/AuthorizationContext";
+import { 
+  insertCompanySchemaZod,
+  type Company, 
+  type CompanyCategory, 
+  type User,
+} from "@shared/schema";
 
-const companyFormSchema = insertCompanySchema;
+const companyFormSchema = insertCompanySchemaZod;
 
 type CompanyFormData = z.infer<typeof companyFormSchema>;
 
@@ -46,6 +36,7 @@ export default function Companies() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const queryClient = useQueryClient();
+  const { canCreate, canEdit } = useAuthorization();
 
   const { data: companies = [], isLoading } = useQuery<Company[]>({
     queryKey: ["/api/companies"],
@@ -210,373 +201,30 @@ export default function Companies() {
 
   return (
     <div className="space-y-6">
-      {/* Header com ações */}
-      <div className="flex justify-between items-center mb-6">
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <Plus className="mr-2" size={16} />
-              Nova Empresa
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl p-0">
-            <DialogHeader className="p-6 pb-2">
-              <DialogTitle>Cadastrar Nova Empresa</DialogTitle>
-            </DialogHeader>
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6 pt-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome da Empresa</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Construtora Exemplo LTDA"
-                          className="bg-input border-border"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="cnpj"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Razão Social</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="00.000.000/0000-00"
-                            className="bg-input border-border"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Categoria</FormLabel>
-                        <Select 
-                          onValueChange={(value) => field.onChange(parseInt(value))}
-                          value={field.value ? field.value.toString() : undefined}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione uma categoria" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id.toString()}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Endereço</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Rua Exemplo, 123 - Bairro - Cidade - UF"
-                          className="bg-input border-border"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {requiresApprover && (
-                  <FormField
-                    control={form.control}
-                    name="approverId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Aprovador</FormLabel>
-                        <Select 
-                          onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                          value={field.value ? field.value.toString() : undefined}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione um aprovador" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {users.map((user) => (
-                              <SelectItem key={user.id} value={user.id.toString()}>
-                                {user.name} ({user.email})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {requiresContract && (
-                  <FormField
-                    control={form.control}
-                    name="contractNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Número do Contrato</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Ex: CONT-2023/0001"
-                            className="bg-input border-border"
-                            value={field.value || ""}
-                            onChange={(e) => field.onChange(e.target.value)}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <div className="flex justify-end space-x-4 pt-4 border-t border-border">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCreateDialogOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/90"
-                    disabled={createCompanyMutation.isPending}
-                  >
-                    {createCompanyMutation.isPending ? "Salvando..." : "Salvar Empresa"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl p-0">
-            <DialogHeader className="p-6 pb-2">
-              <DialogTitle>Editar Empresa</DialogTitle>
-            </DialogHeader>
-
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6 p-6 pt-2">
-                <FormField
-                  control={editForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome da Empresa</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Construtora Exemplo LTDA"
-                          className="bg-input border-border"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={editForm.control}
-                    name="cnpj"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Razão Social</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="00.000.000/0000-00"
-                            className="bg-input border-border"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Categoria</FormLabel>
-                        <Select 
-                          value={field.value?.toString() || ""} 
-                          onValueChange={(value) => field.onChange(parseInt(value))}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione uma categoria" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id.toString()}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={editForm.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Endereço</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Rua Exemplo, 123 - Bairro - Cidade - UF"
-                          className="bg-input border-border"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {editRequiresApprover && (
-                  <FormField
-                    control={editForm.control}
-                    name="approverId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Aprovador</FormLabel>
-                        <Select 
-                          value={field.value?.toString() || ""} 
-                          onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione um aprovador" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {users.map((user) => (
-                              <SelectItem key={user.id} value={user.id.toString()}>
-                                {user.name} ({user.email})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {editRequiresContract && (
-                  <FormField
-                    control={editForm.control}
-                    name="contractNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Número do Contrato</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Ex: CONT-2023/0001"
-                            className="bg-input border-border"
-                            value={field.value || ""}
-                            onChange={(e) => field.onChange(e.target.value)}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <div className="flex justify-end space-x-4 pt-4 border-t border-border">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsEditDialogOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/90"
-                    disabled={updateCompanyMutation.isPending}
-                  >
-                    {updateCompanyMutation.isPending ? "Salvando..." : "Salvar Alterações"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Campo de busca centralizado */}
-        <div className="relative flex-1 max-w-md mx-4">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar empresas..."
-            className="pl-8 bg-input border-border"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Empresas</h1>
+            <p className="text-muted-foreground">
+              Gerencie empresas, fornecedores e obras
+            </p>
+            {!canCreate("companies") && !canEdit("companies") && (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-700">
+                  <Info className="inline h-4 w-4 mr-1" />
+                  Você tem acesso somente para visualização. Para criar ou editar empresas, solicite as permissões necessárias ao administrador.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {canCreate("companies") && (
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Empresa
+              </Button>
+            )}
+          </div>
         </div>
-
-        {/* Filtro de categoria */}
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px] bg-input border-border">
-            <SelectValue placeholder="Todas as categorias" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as categorias</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id.toString()}>
-                {category.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
 
       {/* Companies Table */}
       <Card className="mt-4 rounded-lg border text-card-foreground shadow-sm">
@@ -659,24 +307,49 @@ export default function Companies() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex justify-end space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-muted-foreground hover:text-green-500"
-                              onClick={() => handleEdit(company)}
+                          <div className="flex space-x-2">
+                    {canEdit("companies") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-green-500"
+                        onClick={() => handleEdit(company)}
+                      >
+                        <Edit size={16} />
+                      </Button>
+                    )}
+                    {canEdit("companies") && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-red-500"
+                            onClick={() => handleDelete(company.id)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir a empresa "{company.name}"? Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteCompanyMutation.mutate(company.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             >
-                              <Edit size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-muted-foreground hover:text-red-500"
-                              onClick={() => handleDelete(company.id)}
-                            >
-                              <Trash2 size={16} />
-                            </Button>
-                          </div>
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -687,6 +360,173 @@ export default function Companies() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl p-0">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle>Editar Empresa</DialogTitle>
+          </DialogHeader>
+
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6 p-6 pt-2">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome da Empresa</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Construtora Exemplo LTDA"
+                        className="bg-input border-border"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={editForm.control}
+                  name="cnpj"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Razão Social</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="00.000.000/0000-00"
+                          className="bg-input border-border"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoria</FormLabel>
+                      <Select 
+                        value={field.value?.toString() || ""} 
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-input border-border">
+                            <SelectValue placeholder="Selecione uma categoria" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id.toString()}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Endereço</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Rua Exemplo, 123 - Bairro - Cidade - UF"
+                        className="bg-input border-border"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {editRequiresApprover && (
+                <FormField
+                  control={editForm.control}
+                  name="approverId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Aprovador</FormLabel>
+                      <Select 
+                        value={field.value?.toString() || ""} 
+                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-input border-border">
+                            <SelectValue placeholder="Selecione um aprovador" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.id.toString()}>
+                              {user.name} ({user.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {editRequiresContract && (
+                <FormField
+                  control={editForm.control}
+                  name="contractNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número do Contrato</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: CONT-2023/0001"
+                          className="bg-input border-border"
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              <div className="flex justify-end space-x-4 pt-4 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-primary hover:bg-primary/90"
+                  disabled={updateCompanyMutation.isPending}
+                >
+                  {updateCompanyMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

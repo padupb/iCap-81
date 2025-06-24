@@ -655,7 +655,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", async (req, res) => {
+  app.put("/api/users/:id", isAuthenticated, hasPermission("edit_users"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -690,7 +690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/users/:id", async (req, res) => {
+  app.delete("/api/users/:id", isAuthenticated, hasPermission("delete_users"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -744,7 +744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/companies", async (req, res) => {
+  app.post("/api/companies", isAuthenticated, hasPermission("create_companies"), async (req, res) => {
     try {
       const companyData = insertCompanySchema.parse(req.body);
       const newCompany = await storage.createCompany(companyData);
@@ -767,7 +767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/companies/:id", async (req, res) => {
+  app.put("/api/companies/:id", isAuthenticated, hasPermission("edit_companies"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -801,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/companies/:id", async (req, res) => {
+  app.delete("/api/companies/:id", isAuthenticated, hasPermission("delete_companies"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {

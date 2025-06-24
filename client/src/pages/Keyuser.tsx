@@ -23,9 +23,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  Plus, 
-  Edit, 
+import {
+  Plus,
+  Edit,
   Trash2,
   Building,
   Users,
@@ -52,14 +52,17 @@ import {
   EyeOff,
   Smartphone,
   Upload,
+  Trash,
+  UserPlus,
+  Download,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { 
-  insertCompanyCategorySchema, 
-  insertUserRoleSchema, 
+import {
+  insertCompanyCategorySchema,
+  insertUserRoleSchema,
   insertUnitSchema,
-  type CompanyCategory, 
-  type UserRole, 
+  type CompanyCategory,
+  type UserRole,
   type Unit,
   type Setting
 } from "@shared/schema";
@@ -97,6 +100,41 @@ const SYSTEM_MENUS = [
   { id: "reports", name: "Relatórios", icon: BarChart3 },
   { id: "logs", name: "Logs do Sistema", icon: History },
   { id: "keyuser", name: "KeyUser", icon: Code }
+];
+
+const AVAILABLE_PERMISSIONS = [
+  { value: "view_dashboard", label: "Visualizar Dashboard", icon: LayoutDashboard },
+  { value: "view_orders", label: "Visualizar Pedidos", icon: Package },
+  { value: "create_orders", label: "Criar Pedidos", icon: Plus },
+  { value: "edit_orders", label: "Editar Pedidos", icon: Edit },
+  { value: "view_approvals", label: "Visualizar Aprovações", icon: CheckCircle },
+  { value: "edit_approvals", label: "Aprovar/Rejeitar Pedidos", icon: CheckCircle },
+  { value: "view_reprogramacoes", label: "Visualizar Reprogramações", icon: Clock },
+  { value: "edit_reprogramacoes", label: "Gerenciar Reprogramações", icon: Clock },
+  { value: "view_purchase_orders", label: "Visualizar Ordens de Compra", icon: FileText },
+  { value: "create_purchase_orders", label: "Criar Ordens de Compra", icon: Plus },
+  { value: "edit_purchase_orders", label: "Editar Ordens de Compra", icon: Edit },
+  { value: "view_companies", label: "Visualizar Empresas", icon: Building },
+  { value: "create_companies", label: "Criar Empresas", icon: Plus },
+  { value: "edit_companies", label: "Editar Empresas", icon: Edit },
+  { value: "delete_companies", label: "Excluir Empresas", icon: Trash },
+  { value: "view_users", label: "Visualizar Usuários", icon: Users },
+  { value: "create_users", label: "Criar Usuários", icon: UserPlus },
+  { value: "edit_users", label: "Editar Usuários", icon: Edit },
+  { value: "delete_users", label: "Excluir Usuários", icon: Trash },
+  { value: "view_products", label: "Visualizar Produtos", icon: Package },
+  { value: "create_products", label: "Criar Produtos", icon: Plus },
+  { value: "edit_products", label: "Editar Produtos", icon: Edit },
+  { value: "view_logs", label: "Visualizar Logs", icon: FileText },
+  { value: "view_keyuser", label: "Acessar Painel KeyUser", icon: Settings },
+  { value: "view_settings", label: "Visualizar Configurações", icon: Settings },
+  { value: "edit_settings", label: "Editar Configurações", icon: Settings },
+  { value: "manage_tracking", label: "Gerenciar Rastreamento", icon: MapPin },
+  { value: "confirm_delivery", label: "Confirmar Entrega", icon: Smartphone },
+  { value: "upload_documents", label: "Upload de Documentos", icon: Upload },
+  { value: "download_documents", label: "Download de Documentos", icon: Download },
+  { value: "mobile_access", label: "Acesso Mobile", icon: Smartphone },
+  { value: "api_access", label: "Acesso à API", icon: Code }
 ];
 
 type CompanyCategoryFormData = z.infer<typeof companyCategoryFormSchema>;

@@ -99,19 +99,34 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
 
   const canCreate = (area: string): boolean => {
     // Se não há usuário autenticado, nega acesso
-    if (!user) return false;
+    if (!user) {
+      console.log(`❌ [AuthorizationContext] Usuário não autenticado - negando criação de ${area}`);
+      return false;
+    }
 
     // APENAS o usuário keyuser (ID = 1) tem acesso total
     if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+      console.log(`🔑 [AuthorizationContext] KeyUser detectado - liberando criação de ${area}`);
       return true;
     }
 
     // Se o usuário não tem permissões definidas, nega acesso
-    if (!user.permissions || !Array.isArray(user.permissions)) return false;
+    if (!user.permissions || !Array.isArray(user.permissions)) {
+      console.log(`❌ [AuthorizationContext] Usuário sem permissões definidas - negando criação de ${area}`);
+      return false;
+    }
 
     // Para usuários normais, verificar apenas permissões específicas da role
     const rolePermissions = user.role?.permissions || [];
-    return rolePermissions.includes(`create_${area}`);
+    const hasPermission = rolePermissions.includes(`create_${area}`);
+    
+    if (hasPermission) {
+      console.log(`✅ [AuthorizationContext] Permissão create_${area} encontrada na role - liberando criação`);
+      return true;
+    }
+
+    console.log(`❌ [AuthorizationContext] Permissão create_${area} não encontrada - negando criação`);
+    return false;
   };
 
   const menuPermissions = {
