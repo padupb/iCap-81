@@ -623,8 +623,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Users routes
-  app.get("/api/users", isAuthenticated, hasPermission("view_users"), async (req, res) => {
+  // Users routes  
+  app.get("/api/users", isAuthenticated, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -2183,7 +2183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User Roles routes
-  app.get("/api/user-roles", isAuthenticated, hasPermission("view_user_roles"), async (req, res) => {
+  app.get("/api/user-roles", isAuthenticated, async (req, res) => {
     try {
       const roles = await storage.getAllUserRoles();
       res.json(roles);

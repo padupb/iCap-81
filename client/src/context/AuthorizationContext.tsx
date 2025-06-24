@@ -51,14 +51,20 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
       return true;
     }
 
-    // Se o usuário não tem permissões definidas, nega acesso
+    // Áreas que todos os usuários autenticados podem visualizar (necessário para dropdowns)
+    const publicAreas = ['companies', 'user_roles', 'units', 'products'];
+    if (publicAreas.includes(area)) {
+      console.log(`✅ [AuthorizationContext] Área pública ${area} - liberando acesso para usuário autenticado`);
+      return true;
+    }
+
+    // Se o usuário não tem permissões definidas, nega acesso para outras áreas
     if (!user.permissions || !Array.isArray(user.permissions)) {
       console.log(`❌ [AuthorizationContext] Usuário sem permissões definidas - negando acesso a ${area}`);
       return false;
     }
 
     // Para usuários normais, verificar apenas permissões específicas da role
-    // Remover permissão "*" automática que pode ter sido adicionada incorretamente
     const rolePermissions = user.role?.permissions || [];
     console.log(`🔐 [AuthorizationContext] Verificando permissões da role:`, rolePermissions);
 
