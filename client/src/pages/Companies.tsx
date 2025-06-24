@@ -22,8 +22,15 @@ import {
   insertCompanySchemaZod,
   type Company, 
   type CompanyCategory,
-  type User,
 } from "@shared/schema";
+
+type UserType = {
+  id: number;
+  name: string;
+  email: string;
+  companyId?: number;
+  roleId?: number;
+};
 
 const companyFormSchema = insertCompanySchemaZod;
 
@@ -47,7 +54,7 @@ export default function Companies() {
     queryKey: ["/api/company-categories"],
   });
 
-  const { data: users = [] } = useQuery<User[]>({
+  const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
   });
 
