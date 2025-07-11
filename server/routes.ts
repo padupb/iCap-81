@@ -2896,22 +2896,40 @@ mensagem: "Erro interno do servidor ao processar o upload",
         });
       }
 
-      // Construir o caminho do arquivo usando o order_id
-      const uploadDir = path.join(process.cwd(), "uploads");
-      const orderDir = path.join(uploadDir, orderId);
-      const documentoPath = path.join(orderDir, documentosInfo[tipo].filename);
+      // Tentar múltiplos caminhos possíveis para o arquivo
+      let documentoPath = null;
+      const possiblePaths = [
+        // Caminho atual baseado no order_id
+        path.join(process.cwd(), "uploads", orderId, documentosInfo[tipo].filename),
+        // Caminho direto salvo no banco
+        documentosInfo[tipo].path,
+        // Caminho absoluto se começar com /
+        documentosInfo[tipo].path?.startsWith('/') ? documentosInfo[tipo].path : null,
+        // Caminho relativo ao projeto
+        path.join(process.cwd(), documentosInfo[tipo].path?.replace(/^\/[^\/]+\/[^\/]+\//, '') || ''),
+      ].filter(Boolean);
 
-      console.log("Tentando acessar arquivo:", documentoPath);
+      console.log("Tentando acessar arquivo nos caminhos:", possiblePaths);
 
-      // Verificar se o arquivo existe no sistema de arquivos
-      if (!fs.existsSync(documentoPath)) {
-        // Tentar o caminho antigo como fallback (para arquivos já existentes)
-        const oldPath = documentosInfo[tipo].path;
-        if (fs.existsSync(oldPath)) {
-          console.log("Usando caminho antigo:", oldPath);
-          const fileStream = fs.createReadStream(oldPath);
-          fileStream.pipe(res);
-          return;
+      // Verificar qual caminho existe
+      for (const testPath of possiblePaths) {
+        if (fs.existsSync(testPath)) {
+          documentoPath = testPath;
+          console.log("Arquivo encontrado em:", documentoPath);
+          break;
+        }
+      }
+
+      if (!documentoPath) {
+        console.log("Arquivo não encontrado em nenhum dos caminhos testados");
+        
+        // Debug adicional: listar arquivos no diretório do pedido
+        const orderDir = path.join(process.cwd(), "uploads", orderId);
+        if (fs.existsSync(orderDir)) {
+          const files = fs.readdirSync(orderDir);
+          console.log(`Arquivos disponíveis no diretório ${orderDir}:`, files);
+        } else {
+          console.log(`Diretório ${orderDir} não existe`);
         }
 
         return res.status(404).json({
@@ -2930,11 +2948,30 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Configurar os headers para download
       res.setHeader("Content-Type", contentType);
-      res.setHeader("Content-Disposition", `attachment; filename=${documentosInfo[tipo].name}`);
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(documentosInfo[tipo].name)}"`);
 
       // Enviar o arquivo
-      const fileStream = fs.createReadStream(documentoPath);
-      fileStream.pipe(res);
+      try {
+        const fileStream = fs.createReadStream(documentoPath);
+        
+        fileStream.on('error', (error) => {
+          console.error("Erro ao ler arquivo:", error);
+          if (!res.headersSent) {
+            res.status(500).json({
+              sucesso: false,
+              mensagem: "Erro ao ler arquivo do servidor"
+            });
+          }
+        });
+
+        fileStream.pipe(res);
+      } catch (error) {
+        console.error("Erro ao criar stream do arquivo:", error);
+        res.status(500).json({
+          sucesso: false,
+          mensagem: "Erro ao processar arquivo"
+        });
+      }
     } catch (error) {
       console.error("Erro ao fazer download do documento:", error);
       res.status(500).json({
