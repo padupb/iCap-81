@@ -70,38 +70,43 @@ const storage_upload = multer.diskStorage({
       const pedidoId = req.params.id;
       const uploadDir = path.join(process.cwd(), "uploads");
 
-      console.log("Diretório de upload:", uploadDir);
+      console.log("📂 Configurando destino de upload para pedido ID:", pedidoId);
+      console.log("📂 Diretório base de upload:", uploadDir);
 
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
-        console.log("Diretório de upload criado:", uploadDir);
+        console.log("📂 Diretório de upload criado:", uploadDir);
       }
 
       // Buscar o order_id do pedido
       const result = await pool.query("SELECT order_id FROM orders WHERE id = $1", [pedidoId]);
 
       if (result.rows.length === 0) {
+        console.error("❌ Pedido não encontrado para ID:", pedidoId);
         return cb(new Error("Pedido não encontrado"), "");
       }
 
       const orderId = result.rows[0].order_id;
-      console.log("Order ID encontrado:", orderId);
+      console.log("📋 Order ID encontrado:", orderId);
 
       const orderDir = path.join(uploadDir, orderId);
+      console.log("📂 Diretório final do pedido:", orderDir);
+      
       if (!fs.existsSync(orderDir)) {
         fs.mkdirSync(orderDir, { recursive: true });
-        console.log("Diretório do pedido criado:", orderDir);
+        console.log("📂 Diretório do pedido criado:", orderDir);
       }
 
       cb(null, orderDir);
     } catch (error) {
-      console.error("Erro ao criar diretório do pedido:", error);
+      console.error("❌ Erro ao criar diretório do pedido:", error);
       cb(error as Error, "");
     }
   },
   filename: function (req, file, cb) {
     const fileExt = path.extname(file.originalname);
     const fileName = file.fieldname + "-" + Date.now() + fileExt;
+    console.log("📄 Nome do arquivo gerado:", fileName);
     cb(null, fileName);
   }
 });
@@ -2909,32 +2914,60 @@ mensagem: "Erro interno do servidor ao processar o upload",
         path.join(process.cwd(), documentosInfo[tipo].path?.replace(/^\/[^\/]+\/[^\/]+\//, '') || ''),
       ].filter(Boolean);
 
-      console.log("Tentando acessar arquivo nos caminhos:", possiblePaths);
+      console.log("📂 Tentando acessar arquivo nos caminhos:", possiblePaths);
+      console.log("📋 Informações do documento:", {
+        tipo: tipo,
+        filename: documentosInfo[tipo].filename,
+        originalPath: documentosInfo[tipo].path,
+        orderId: orderId
+      });
 
       // Verificar qual caminho existe
       for (const testPath of possiblePaths) {
+        console.log(`🔍 Testando caminho: ${testPath}`);
         if (fs.existsSync(testPath)) {
           documentoPath = testPath;
-          console.log("Arquivo encontrado em:", documentoPath);
+          console.log("✅ Arquivo encontrado em:", documentoPath);
           break;
+        } else {
+          console.log("❌ Arquivo não existe em:", testPath);
         }
       }
 
       if (!documentoPath) {
-        console.log("Arquivo não encontrado em nenhum dos caminhos testados");
+        console.log("❌ Arquivo não encontrado em nenhum dos caminhos testados");
         
         // Debug adicional: listar arquivos no diretório do pedido
         const orderDir = path.join(process.cwd(), "uploads", orderId);
+        console.log("🔍 Verificando diretório:", orderDir);
+        
         if (fs.existsSync(orderDir)) {
           const files = fs.readdirSync(orderDir);
-          console.log(`Arquivos disponíveis no diretório ${orderDir}:`, files);
+          console.log(`📁 Arquivos disponíveis no diretório ${orderDir}:`, files);
         } else {
-          console.log(`Diretório ${orderDir} não existe`);
+          console.log(`❌ Diretório ${orderDir} não existe`);
+          
+          // Verificar se o diretório uploads existe
+          const uploadsDir = path.join(process.cwd(), "uploads");
+          if (fs.existsSync(uploadsDir)) {
+            const uploadsDirs = fs.readdirSync(uploadsDir, { withFileTypes: true })
+              .filter(dirent => dirent.isDirectory())
+              .map(dirent => dirent.name);
+            console.log(`📁 Diretórios disponíveis em uploads:`, uploadsDirs);
+          } else {
+            console.log(`❌ Diretório uploads não existe em: ${uploadsDir}`);
+          }
         }
 
         return res.status(404).json({
           sucesso: false,
-          mensagem: "Arquivo não encontrado no servidor"
+          mensagem: "Arquivo não encontrado no servidor",
+          debug: {
+            orderId: orderId,
+            tipo: tipo,
+            filename: documentosInfo[tipo].filename,
+            pathsTestados: possiblePaths
+          }
         });
       }
 
