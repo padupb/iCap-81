@@ -3482,21 +3482,106 @@ mensagem: "Erro interno do servidor ao processar o upload",
         action: "Rejeição de pedido",
         itemType: "order",
         itemId: id.toString(),
-        details: `Pedido ${order.orderId} foi rejeitado`
-      });
 
-      res.json({ 
-        sucesso: true, 
-        mensagem: "Pedido rejeitado com sucesso" 
-      });
+
+  // Rota de teste para Google Maps API
+  app.get("/api/debug/google-maps-test", isAuthenticated, async (req, res) => {
+    try {
+      console.log("🔍 [Google Maps Test] Iniciando teste da API Google Maps");
+      
+      const settings = await storage.getAllSettings();
+      const googleMapsKeySetting = settings.find(setting => setting.key === 'google_maps_api_key');
+      
+      if (!googleMapsKeySetting || !googleMapsKeySetting.value) {
+        return res.json({
+          success: false,
+          message: "Google Maps API Key não configurada",
+          hasApiKey: false,
+          userType: req.user.id === 1 ? 'KeyUser' : 'Regular',
+          userId: req.user.id,
+          userName: req.user.name
+        });
+      }
+
+      const apiKey = googleMapsKeySetting.value.trim();
+      
+      // Teste básico da API Key (sem fazer requisição real para não gastar quota)
+      const testResult = {
+        success: true,
+        message: "Google Maps API Key encontrada",
+        hasApiKey: true,
+        apiKeyLength: apiKey.length,
+        apiKeyPreview: apiKey.substring(0, 8) + '...',
+        userType: req.user.id === 1 ? 'KeyUser' : 'Regular',
+        userId: req.user.id,
+        userName: req.user.name,
+        settingsTotal: settings.length
+      };
+
+      console.log("✅ [Google Maps Test] Resultado:", testResult);
+      
+      res.json(testResult);
     } catch (error) {
-      console.error("Erro ao rejeitar pedido:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao rejeitar pedido" 
+      console.error("❌ [Google Maps Test] Erro:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao testar Google Maps API",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }
   });
+
+  // Rota para rejeitar pedido
+  app.put("/api/orders/:id/reject", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ 
+          sucesso: false, 
+          mensagem: "ID de pedido inválido" 
+        });
+      }
+
+      // Verificar se o usuário tem permissão para rejeitar
+      let hasApprovalPermission = false;
+      
+      if (req.user.id === 1 || req.user.isKeyUser === true) {
+        hasApprovalPermission = true;
+      } else if (req.user.companyId) {
+        const userCompany = await storage.getCompany(req.user.companyId);
+        if (userCompany && userCompany.approverId === req.user.id) {
+          hasApprovalPermission = true;
+        }
+      }
+
+      if (!hasApprovalPermission) {
+        return res.status(403).json({ 
+          sucesso: false, 
+          mensagem: "Sem permissão para rejeitar pedidos" 
+        });
+      }
+
+      // Verificar se o pedido existe
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ 
+          sucesso: false, 
+          mensagem: "Pedido não encontrado" 
+        });
+      }
+
+      // Atualizar status do pedido para "Cancelado"
+      await pool.query(
+        "UPDATE orders SET status = $1 WHERE id = $2",
+        ["Cancelado", id]
+      );
+
+      // Registrar log
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Rejeição de pedido",
+        itemType: "order",
+        itemId: id.toString(),
         details: `Pedido ${order.orderId} foi rejeitado`
       });
 
