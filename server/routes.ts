@@ -89,6 +89,7 @@ const storage_upload = multer.diskStorage({
       const orderId = result.rows[0].order_id;
       console.log("📋 Order ID encontrado:", orderId);
 
+      // Criar diretório com o order_id (número do pedido)
       const orderDir = path.join(uploadDir, orderId);
       console.log("📂 Diretório final do pedido:", orderDir);
       
@@ -2570,7 +2571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Configuração do upload com multer
+  // Configuração do upload com multer (usando storage_upload que cria pastas por order_id)
   const upload = multer({ 
     storage: storage_upload,
     fileFilter: fileFilter,
@@ -2588,9 +2589,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       { name: 'certificado_pdf', maxCount: 1 }
     ]), 
     async (req, res) => {
-      console.log("Iniciando upload de documentos para o pedido:", req.params.id);
-      console.log("Arquivos recebidos:", req.files);
-      console.log("Sessão do usuário:", req.session.userId);
+      console.log("📤 Iniciando upload de documentos para o pedido ID:", req.params.id);
+      console.log("📄 Arquivos recebidos:", req.files);
+      console.log("👤 Sessão do usuário:", req.session.userId);
+      
+      // Log adicional para verificar os caminhos dos arquivos
+      if (req.files) {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        Object.keys(files).forEach(fieldname => {
+          files[fieldname].forEach(file => {
+            console.log(`📁 Arquivo ${fieldname} salvo em: ${file.path}`);
+            console.log(`📁 Diretório: ${path.dirname(file.path)}`);
+          });
+        });
+      }
 
       try {
         // Verificar se o pedido existe antes de iniciar o upload
@@ -2681,6 +2693,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         }
 
+        // Verificar se os arquivos foram salvos no diretório correto
+        const orderIdFromDB = await pool.query("SELECT order_id FROM orders WHERE id = $1", [id]);
+        const expectedOrderId = orderIdFromDB.rows[0]?.order_id;
+        const expectedDir = path.join(process.cwd(), "uploads", expectedOrderId);
+        
+        console.log(`🔍 Verificação do diretório:`);
+        console.log(`📋 Order ID esperado: ${expectedOrderId}`);
+        console.log(`📂 Diretório esperado: ${expectedDir}`);
+        console.log(`📂 Diretório existe: ${fs.existsSync(expectedDir)}`);
+        
         // Construir informações dos documentos para armazenar no banco
         const documentosInfo = {
           nota_pdf: {
