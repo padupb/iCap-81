@@ -31,23 +31,46 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const response = await fetch("/api/settings");
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Converter array de configurações para objeto Settings
-          const settingsObject: Settings = {
-            appName: data.find((s: any) => s.key === "app_name")?.value || defaultSettings.appName,
-            urgentDaysThreshold: parseInt(data.find((s: any) => s.key === "urgent_days_threshold")?.value || "7", 10),
-            approvalTimeoutHours: parseInt(data.find((s: any) => s.key === "approval_timeout_hours")?.value || "48", 10),
-            googleMapsApiKey: data.find((s: any) => s.key === "google_maps_api_key")?.value || defaultSettings.googleMapsApiKey,
-            logoUrl: data.find((s: any) => s.key === "logo_url")?.value || defaultSettings.logoUrl,
-          };
-          
-          setSettings(settingsObject);
+        setIsLoading(true);
+        console.log("🔄 [SettingsContext] Buscando configurações...");
+
+        const response = await fetch("/api/settings", {
+          credentials: "include"
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro ${response.status}: ${response.statusText}`);
         }
+
+        const data = await response.json();
+        console.log("📊 [SettingsContext] Configurações recebidas:", data);
+
+        // Converter array de settings para objeto
+        const settingsObject = data.reduce((acc: Record<string, string>, setting: any) => {
+          acc[setting.key] = setting.value;
+          return acc;
+        }, {});
+
+        console.log("🔧 [SettingsContext] Configurações processadas:", settingsObject);
+
+        // Log específico para Google Maps
+        const hasGoogleMapsKey = !!settingsObject.google_maps_api_key;
+        console.log(`🗺️ [SettingsContext] Google Maps API Key:`, {
+          presente: hasGoogleMapsKey,
+          tamanho: settingsObject.google_maps_api_key?.length || 0,
+          preview: hasGoogleMapsKey ? settingsObject.google_maps_api_key?.substring(0, 8) + '...' : 'N/A',
+          valorCompleto: process.env.NODE_ENV === 'development' ? settingsObject.google_maps_api_key : '[HIDDEN]'
+        });
+
+        // Verificar se a chave está realmente disponível para o usuário
+        if (!hasGoogleMapsKey) {
+          console.warn("⚠️ [SettingsContext] Google Maps API Key não encontrada nas configurações do usuário");
+          console.log("🔍 [SettingsContext] Chaves disponíveis:", Object.keys(settingsObject));
+        }
+
+        setSettings(settingsObject);
       } catch (error) {
-        console.error("Erro ao carregar configurações:", error);
+        console.error("❌ [SettingsContext] Erro ao buscar configurações:", error);
       } finally {
         setIsLoading(false);
       }
@@ -96,4 +119,4 @@ export const useSettings = () => {
     throw new Error("useSettings deve ser usado dentro de um SettingsProvider");
   }
   return context;
-}; 
+};
