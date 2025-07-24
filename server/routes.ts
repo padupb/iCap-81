@@ -34,10 +34,24 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       const key = `orders/${orderId}/${filename}`;
       await objectStorage.uploadFromBuffer(key, buffer);
       console.log(`📁 ✅ Arquivo salvo no Object Storage: ${key}`);
+      
+      // IMPORTANTE: Também salvar localmente para compatibilidade durante desenvolvimento
+      try {
+        const orderDir = path.join(process.cwd(), "uploads", orderId);
+        if (!fs.existsSync(orderDir)) {
+          fs.mkdirSync(orderDir, { recursive: true });
+        }
+        const filePath = path.join(orderDir, filename);
+        fs.writeFileSync(filePath, buffer);
+        console.log(`📁 📂 Arquivo também salvo localmente: ${filePath}`);
+      } catch (localError) {
+        console.log("⚠️ Erro ao salvar cópia local (não crítico):", localError);
+      }
+      
       return key;
     } catch (error) {
       console.error("❌ Erro ao salvar no Object Storage:", error);
-      // Continuar para fallback local
+      console.log("🔄 Tentando fallback para sistema local...");
     }
   } else {
     console.log("⚠️ Object Storage não configurado, usando sistema local");
