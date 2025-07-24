@@ -2424,44 +2424,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const settings = await storage.getAllSettings();
       
-      console.log(`🔍 [Settings API] Usuário ${req.user.name} (ID: ${req.user.id}) solicitou configurações`);
-      console.log(`🔍 [Settings API] Total de configurações: ${settings.length}`);
-      
-      // Se não é KeyUser, filtrar configurações sensíveis mas SEMPRE incluir configurações públicas necessárias
+      // Se não é KeyUser, filtrar configurações sensíveis
       if (req.user.id !== 1 && !req.user.isKeyUser) {
-        // Configurações que todos os usuários podem acessar
-        const publicKeys = [
-          'google_maps_api_key',
-          'app_name',
-          'logo_url',
-          'urgent_days_threshold'
-        ];
-        
         const publicSettings = settings.filter(setting => 
-          publicKeys.includes(setting.key) ||
-          (!setting.key.includes('database') && 
-           !setting.key.includes('pg') && 
-           !setting.key.includes('token') && 
-           !setting.key.includes('smtp') &&
-           !setting.key.includes('password') &&
-           setting.key !== 'openai_api_key' &&
-           setting.key !== 'github_token' &&
-           !setting.key.includes('api_key') || // Bloquear outras API keys
-           setting.key === 'google_maps_api_key') // Exceto Google Maps
+          !setting.key.includes('database') && 
+          !setting.key.includes('pg') && 
+          !setting.key.includes('token') && 
+          !setting.key.includes('api_key') && 
+          !setting.key.includes('smtp') &&
+          !setting.key.includes('password')
         );
-        
-        console.log(`🔒 [Settings API] Usuário não-KeyUser - configurações filtradas: ${publicSettings.length}`);
-        console.log(`🔍 [Settings API] Configurações públicas disponíveis:`, publicSettings.map(s => s.key));
-        
-        const googleMapsConfig = publicSettings.find(s => s.key === 'google_maps_api_key');
-        console.log(`🗝️ [Settings API] Google Maps API Key disponível para usuário:`, !!googleMapsConfig?.value);
-        
         res.json(publicSettings);
       } else {
-        console.log(`🔑 [Settings API] KeyUser - todas as configurações disponíveis`);
-        const googleMapsConfig = settings.find(s => s.key === 'google_maps_api_key');
-        console.log(`🗝️ [Settings API] Google Maps API Key presente:`, !!googleMapsConfig?.value);
-        
         res.json(settings);
       }
     } catch (error) {
@@ -3437,141 +3411,6 @@ mensagem: "Erro interno do servidor ao processar o upload",
       res.status(500).json({ 
         sucesso: false, 
         mensagem: "Erro ao aprovar pedido" 
-      });
-    }
-  });
-
-  // Rota para rejeitar pedido
-  app.put("/api/orders/:id/reject", isAuthenticated, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
-        });
-      }
-
-      // Verificar se o usuário tem permissão para rejeitar
-      let hasApprovalPermission = false;
-      
-      if (req.user.id === 1 || req.user.isKeyUser === true) {
-        hasApprovalPermission = true;
-      } else if (req.user.companyId) {
-        const userCompany = await storage.getCompany(req.user.companyId);
-        if (userCompany && userCompany.approverId === req.user.id) {
-          hasApprovalPermission = true;
-        }
-      }
-
-      if (!hasApprovalPermission) {
-        return res.status(403).json({ 
-          sucesso: false, 
-          mensagem: "Sem permissão para rejeitar pedidos" 
-        });
-      }
-
-      // Verificar se o pedido existe
-      const order = await storage.getOrder(id);
-      if (!order) {
-        return res.status(404).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não encontrado" 
-        });
-      }
-
-      // Atualizar status do pedido para "Cancelado"
-      await pool.query(
-        "UPDATE orders SET status = $1 WHERE id = $2",
-        ["Cancelado", id]
-      );
-
-      // Registrar log
-      await storage.createLog({
-        userId: req.user.id,
-        action: "Rejeição de pedido",
-        itemType: "order",
-        itemId: id.toString(),
-
-
-  // Rota de teste para Google Maps API
-  app.get("/api/debug/google-maps-test", isAuthenticated, async (req, res) => {
-    try {
-      console.log("🔍 [Google Maps Test] Iniciando teste da API Google Maps");
-      
-      const settings = await storage.getAllSettings();
-      const googleMapsKeySetting = settings.find(setting => setting.key === 'google_maps_api_key');
-      
-      if (!googleMapsKeySetting || !googleMapsKeySetting.value) {
-        return res.json({
-          success: false,
-          message: "Google Maps API Key não configurada",
-          hasApiKey: false,
-          userType: req.user.id === 1 ? 'KeyUser' : 'Regular',
-          userId: req.user.id,
-          userName: req.user.name
-        });
-      }
-
-      const apiKey = googleMapsKeySetting.value.trim();
-      
-      // Teste básico da API Key (sem fazer requisição real para não gastar quota)
-      const testResult = {
-        success: true,
-        message: "Google Maps API Key encontrada",
-        hasApiKey: true,
-        apiKeyLength: apiKey.length,
-        apiKeyPreview: apiKey.substring(0, 8) + '...',
-        userType: req.user.id === 1 ? 'KeyUser' : 'Regular',
-        userId: req.user.id,
-        userName: req.user.name,
-        settingsTotal: settings.length
-      };
-
-      console.log("✅ [Google Maps Test] Resultado:", testResult);
-      
-      res.json(testResult);
-    } catch (error) {
-      console.error("❌ [Google Maps Test] Erro:", error);
-      res.status(500).json({
-        success: false,
-        message: "Erro ao testar Google Maps API",
-        error: error instanceof Error ? error.message : "Erro desconhecido"
-      });
-    }
-  });
-
-  // Rota específica para obter a chave do Google Maps (acessível por todos os usuários)
-  app.get("/api/google-maps-key", isAuthenticated, async (req, res) => {
-    try {
-      console.log(`🗺️ [Google Maps Key] Usuário ${req.user.name} (ID: ${req.user.id}) solicitou chave do Google Maps`);
-      
-      const settings = await storage.getAllSettings();
-      const googleMapsKeySetting = settings.find(setting => setting.key === 'google_maps_api_key');
-      
-      if (!googleMapsKeySetting || !googleMapsKeySetting.value) {
-        console.log("❌ [Google Maps Key] Chave não configurada");
-        return res.json({
-          success: false,
-          message: "Google Maps API Key não configurada",
-          apiKey: null
-        });
-      }
-
-      const apiKey = googleMapsKeySetting.value.trim();
-      console.log(`✅ [Google Maps Key] Chave fornecida para usuário ${req.user.name} (tamanho: ${apiKey.length})`);
-      
-      res.json({
-        success: true,
-        apiKey: apiKey,
-        message: "Google Maps API Key disponível"
-      });
-    } catch (error) {
-      console.error("❌ [Google Maps Key] Erro:", error);
-      res.status(500).json({
-        success: false,
-        message: "Erro ao obter Google Maps API Key",
-        apiKey: null
       });
     }
   });
