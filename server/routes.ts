@@ -17,53 +17,58 @@ import { z } from "zod";
 // Configuração do Object Storage (Replit)
 let objectStorage: any = null;
 try {
-  // Tentar importar o Object Storage do Replit
-  const replitObjectStorage = require('@replit/object-storage');
-  objectStorage = replitObjectStorage;
-  console.log("✅ Object Storage do Replit configurado");
+  // Tentar importar e inicializar o Object Storage do Replit
+  const { Client } = require('@replit/object-storage');
+  objectStorage = new Client();
+  console.log("✅ Object Storage do Replit configurado e inicializado");
 } catch (error) {
   console.log("⚠️ Object Storage não disponível, usando sistema de arquivos local");
+  console.log("📦 Para usar Object Storage, instale: npm install @replit/object-storage");
 }
 
 // Função utilitária para salvar arquivo no Object Storage ou sistema local
 async function saveFileToStorage(buffer: Buffer, filename: string, orderId: string): Promise<string> {
+  // PRIORIDADE 1: Object Storage (para persistência no deployment)
   if (objectStorage) {
     try {
       const key = `orders/${orderId}/${filename}`;
       await objectStorage.uploadFromBuffer(key, buffer);
-      console.log(`📁 Arquivo salvo no Object Storage: ${key}`);
+      console.log(`📁 ✅ Arquivo salvo no Object Storage: ${key}`);
       return key;
     } catch (error) {
       console.error("❌ Erro ao salvar no Object Storage:", error);
-      // Fallback para sistema local
+      // Continuar para fallback local
     }
+  } else {
+    console.log("⚠️ Object Storage não configurado, usando sistema local");
   }
   
-  // Fallback: salvar no sistema de arquivos local
+  // FALLBACK: salvar no sistema de arquivos local (apenas para desenvolvimento)
   const orderDir = path.join(process.cwd(), "uploads", orderId);
   if (!fs.existsSync(orderDir)) {
     fs.mkdirSync(orderDir, { recursive: true });
   }
   const filePath = path.join(orderDir, filename);
   fs.writeFileSync(filePath, buffer);
-  console.log(`📁 Arquivo salvo localmente: ${filePath}`);
+  console.log(`📁 📂 Arquivo salvo localmente (fallback): ${filePath}`);
   return filePath;
 }
 
 // Função utilitária para ler arquivo do Object Storage ou sistema local
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<Buffer | null> {
+  // PRIORIDADE 1: Tentar ler do Object Storage primeiro
   if (objectStorage && key.startsWith('orders/')) {
     try {
       const buffer = await objectStorage.downloadAsBuffer(key);
-      console.log(`📁 Arquivo lido do Object Storage: ${key}`);
+      console.log(`📁 ✅ Arquivo lido do Object Storage: ${key}`);
       return buffer;
     } catch (error) {
       console.error("❌ Erro ao ler do Object Storage:", error);
-      // Fallback para sistema local
+      console.log("🔄 Tentando fallback para sistema local...");
     }
   }
   
-  // Fallback: ler do sistema de arquivos local
+  // FALLBACK: ler do sistema de arquivos local
   const possiblePaths = [
     path.join(process.cwd(), "uploads", orderId, filename),
     key // Se key for um caminho local
@@ -71,11 +76,12 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   
   for (const filePath of possiblePaths) {
     if (fs.existsSync(filePath)) {
-      console.log(`📁 Arquivo lido localmente: ${filePath}`);
+      console.log(`📁 📂 Arquivo lido localmente (fallback): ${filePath}`);
       return fs.readFileSync(filePath);
     }
   }
   
+  console.log(`❌ Arquivo não encontrado nem no Object Storage nem localmente: ${filename}`);
   return null;
 }
 
@@ -4006,6 +4012,16 @@ mensagem: "Erro interno do servidor ao processar o upload",
         return res.status(400).json({ 
           sucesso: false, 
           mensagem: "Pedido não está em rota" 
+        });
+      }
+
+      // Buscar o order_id do pedido
+      const orderResult = await pool.query("SELECT order_id FROM orders WHERE id = $1", [id]);
+      
+      if (!orderResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado para salvar foto"
         });
       }
 
