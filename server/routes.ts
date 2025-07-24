@@ -3483,51 +3483,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
         itemType: "order",
         itemId: id.toString(),
 
-  // Rota de teste para Google Maps API
-  app.get("/api/debug/google-maps-test", isAuthenticated, async (req, res) => {
-    try {
-      console.log("🔍 [Google Maps Test] Iniciando teste da API Google Maps");
-      const settings = await storage.getAllSettings();
-      const googleMapsKeySetting = settings.find(setting => setting.key === 'google_maps_api_key');
-      
-      if (!googleMapsKeySetting || !googleMapsKeySetting.value) {
-        return res.json({
-          success: false,
-          message: "Google Maps API Key não configurada",
-          hasApiKey: false,
-          userType: req.user.id === 1 ? 'KeyUser' : 'Regular',
-          userId: req.user.id,
-          userName: req.user.name
-        });
-      }
-
-      const apiKey = googleMapsKeySetting.value.trim();
-      // Teste básico da API Key (sem fazer requisição real para não gastar quota)
-      const testResult = {
-        success: true,
-        message: "Google Maps API Key encontrada",
-        hasApiKey: true,
-        apiKeyLength: apiKey.length,
-        apiKeyPreview: apiKey.substring(0, 8) + '...',
-        userType: req.user.id === 1 ? 'KeyUser' : 'Regular',
-        userId: req.user.id,
-        userName: req.user.name,
-        settingsTotal: settings.length
-      };
-
-      console.log("✅ [Google Maps Test] Resultado:", testResult);
-      
-      res.json(testResult);
-    } catch (error) {
-      console.error("❌ [Google Maps Test] Erro:", error);
-      res.status(500).json({
-        success: false,
-        message: "Erro ao testar Google Maps API",
-        error: error instanceof Error ? error.message : "Erro desconhecido"
-      });
-
-    }
-  });
+  
 
   // Rota para rejeitar pedido
   app.put("/api/orders/:id/reject", isAuthenticated, async (req, res) => {
