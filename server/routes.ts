@@ -3598,19 +3598,6 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
-      res.json({ 
-        sucesso: true, 
-        mensagem: "Pedido rejeitado com sucesso" 
-      });
-    } catch (error) {
-      console.error("Erro ao rejeitar pedido:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao rejeitar pedido" 
-      });
-    }
-  });
-
   // Configuração do multer para upload de foto de confirmação de entrega
   const confirmDeliveryStorage = multer.diskStorage({
     destination: async function (req, file, cb) {
