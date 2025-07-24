@@ -93,14 +93,38 @@ const storage_upload = multer.diskStorage({
       const orderDir = path.join(uploadDir, orderId);
       console.log("📂 Diretório final do pedido:", orderDir);
       
-      if (!fs.existsSync(orderDir)) {
-        fs.mkdirSync(orderDir, { recursive: true });
-        console.log("📂 Diretório do pedido criado:", orderDir);
-      }
+      try {
+        if (!fs.existsSync(orderDir)) {
+          fs.mkdirSync(orderDir, { recursive: true });
+          console.log("📂 Diretório do pedido criado com sucesso:", orderDir);
+          
+          // Verificar se o diretório foi realmente criado
+          if (fs.existsSync(orderDir)) {
+            console.log("✅ Confirmado: Diretório existe após criação");
+          } else {
+            console.error("❌ Erro: Diretório não foi criado mesmo sem erro");
+            return cb(new Error("Falha ao criar diretório"), "");
+          }
+        } else {
+          console.log("📂 Diretório do pedido já existe:", orderDir);
+        }
 
-      cb(null, orderDir);
+        // Verificar permissões de escrita
+        try {
+          fs.accessSync(orderDir, fs.constants.W_OK);
+          console.log("✅ Permissões de escrita confirmadas");
+        } catch (permError) {
+          console.error("❌ Sem permissões de escrita:", permError);
+          return cb(new Error("Sem permissões de escrita no diretório"), "");
+        }
+
+        cb(null, orderDir);
+      } catch (dirError) {
+        console.error("❌ Erro específico ao criar diretório:", dirError);
+        return cb(dirError as Error, "");
+      }
     } catch (error) {
-      console.error("❌ Erro ao criar diretório do pedido:", error);
+      console.error("❌ Erro geral ao configurar destino de upload:", error);
       cb(error as Error, "");
     }
   },
@@ -2600,8 +2624,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           files[fieldname].forEach(file => {
             console.log(`📁 Arquivo ${fieldname} salvo em: ${file.path}`);
             console.log(`📁 Diretório: ${path.dirname(file.path)}`);
+            console.log(`📁 Arquivo existe: ${fs.existsSync(file.path)}`);
+            console.log(`📁 Diretório existe: ${fs.existsSync(path.dirname(file.path))}`);
           });
         });
+      }
+
+      // Verificação adicional: garantir que o diretório do pedido existe
+      try {
+        const pedidoId = parseInt(req.params.id);
+        const orderResult = await pool.query("SELECT order_id FROM orders WHERE id = $1", [pedidoId]);
+        
+        if (orderResult.rows.length > 0) {
+          const orderId = orderResult.rows[0].order_id;
+          const expectedDir = path.join(process.cwd(), "uploads", orderId);
+          
+          console.log(`🔍 Verificação pós-upload:`);
+          console.log(`📋 Order ID: ${orderId}`);
+          console.log(`📂 Diretório esperado: ${expectedDir}`);
+          console.log(`📂 Diretório existe: ${fs.existsSync(expectedDir)}`);
+          
+          if (!fs.existsSync(expectedDir)) {
+            console.log(`🔨 Criando diretório manualmente: ${expectedDir}`);
+            fs.mkdirSync(expectedDir, { recursive: true });
+            console.log(`✅ Diretório criado: ${fs.existsSync(expectedDir)}`);
+          }
+        }
+      } catch (dirCheckError) {
+        console.error("❌ Erro na verificação do diretório:", dirCheckError);
       }
 
       try {
