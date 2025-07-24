@@ -1,41 +1,40 @@
-
-const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
 async function migrateSpecificOrders() {
-  console.log('🔄 MIGRANDO PEDIDOS ESPECÍFICOS PARA OBJECT STORAGE\n');
-  
+  console.log('🔄 VERIFICANDO PEDIDOS ESPECÍFICOS\n');
+
+  const specificOrders = ['CO12407250007', 'CO12407250008'];
+
   if (!process.env.DATABASE_URL) {
-    console.error('❌ DATABASE_URL não configurada nos Secrets!');
+    console.error('❌ DATABASE_URL não encontrada');
     return;
   }
-  
+
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    }
+    ssl: { rejectUnauthorized: false }
   });
 
-  // Configurar Object Storage
-  let objectStorage = null;
   try {
-    const { Client } = require('@replit/object-storage');
-    objectStorage = new Client();
-    console.log("✅ Object Storage do Replit configurado e inicializado");
-  } catch (error) {
-    console.error("❌ Object Storage não disponível:", error.message);
-    console.log("📦 Certifique-se de que @replit/object-storage está instalado");
-    return;
-  }
+    // Verificar se o Object Storage está disponível
+    let client;
+    let hasObjectStorage = false;
 
-  const pedidosEspecificos = ['CO12407250007', 'CO12407250008'];
+    try {
+      const { getClient } = require('@replit/object-storage');
+      client = getClient();
+      hasObjectStorage = true;
+      console.log('✅ Object Storage disponível');
+    } catch (error) {
+      console.log('⚠️ Object Storage não disponível, verificando arquivos locais');
+      hasObjectStorage = false;
+    }
 
-  try {
-    for (const orderId of pedidosEspecificos) {
-      console.log(`\n🔍 Migrando pedido ${orderId}:`);
-      
+    for (const orderId of specificOrders) {
+      console.log(`\n🔍 Verificando pedido ${orderId}:`);
+
       // Buscar no banco
       const pedidoResult = await pool.query(`
         SELECT id, order_id, documentoscarregados, documentosinfo 
@@ -53,7 +52,7 @@ async function migrateSpecificOrders() {
 
       // Verificar diretório local
       const orderDir = path.join(process.cwd(), 'uploads', orderId);
-      
+
       if (!fs.existsSync(orderDir)) {
         console.log(`❌ Diretório ${orderDir} não existe`);
         continue;
@@ -67,44 +66,48 @@ async function migrateSpecificOrders() {
 
       for (const filename of files) {
         const filePath = path.join(orderDir, filename);
-        
+
         try {
-          console.log(`  📤 Migrando ${filename}...`);
-          
+          console.log(`  📄 Verificando ${filename}...`);
+
           // Ler arquivo
           const buffer = fs.readFileSync(filePath);
-          
-          // Fazer upload para Object Storage
-          const key = `orders/${orderId}/${filename}`;
-          await objectStorage.uploadFromBuffer(key, buffer);
-          
-          console.log(`  ✅ ${filename} migrado para Object Storage: ${key}`);
-          
-          // Determinar o tipo do documento
-          let docType = 'outro';
-          if (filename.includes('nota_pdf')) docType = 'nota_pdf';
-          else if (filename.includes('nota_xml')) docType = 'nota_xml';
-          else if (filename.includes('certificado_pdf')) docType = 'certificado_pdf';
-          else if (filename.includes('nota_assinada')) docType = 'foto_confirmacao';
-          
-          // Obter stats do arquivo
-          const stats = fs.statSync(filePath);
-          
-          if (docType !== 'outro') {
-            documentosInfo[docType] = {
-              name: filename,
-              filename: filename,
-              size: stats.size,
-              path: filePath,
-              storageKey: key,
-              date: stats.birthtime.toISOString()
-            };
+
+          if (hasObjectStorage) {
+            // Fazer upload para Object Storage
+            const key = `orders/${orderId}/${filename}`;
+            await client.uploadFromBuffer(key, buffer);
+
+            console.log(`  ✅ ${filename} migrado para Object Storage: ${key}`);
+
+            // Determinar o tipo do documento
+            let docType = 'outro';
+            if (filename.includes('nota_pdf')) docType = 'nota_pdf';
+            else if (filename.includes('nota_xml')) docType = 'nota_xml';
+            else if (filename.includes('certificado_pdf')) docType = 'certificado_pdf';
+            else if (filename.includes('nota_assinada')) docType = 'foto_confirmacao';
+
+            // Obter stats do arquivo
+            const stats = fs.statSync(filePath);
+
+            if (docType !== 'outro') {
+              documentosInfo[docType] = {
+                name: filename,
+                filename: filename,
+                size: stats.size,
+                path: filePath,
+                storageKey: key,
+                date: stats.birthtime.toISOString()
+              };
+            }
+
+            migradoComSucesso = true;
+          } else {
+            console.log(`  ⚠️ Object Storage não disponível, arquivo ${filename} mantido localmente.`);
           }
-          
-          migradoComSucesso = true;
-          
+
         } catch (error) {
-          console.error(`  ❌ Erro ao migrar ${filename}:`, error);
+          console.error(`  ❌ Erro ao verificar ${filename}:`, error);
         }
       }
 
@@ -128,10 +131,10 @@ async function migrateSpecificOrders() {
       console.log(`  📋 Pedido ${orderId} processado\n`);
     }
 
-    console.log('🎉 Migração específica concluída!');
-    
+    console.log('🎉 Verificação específica concluída!');
+
   } catch (error) {
-    console.error('❌ Erro na migração:', error);
+    console.error('❌ Erro na verificação:', error);
   } finally {
     await pool.end();
   }

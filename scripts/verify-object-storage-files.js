@@ -1,99 +1,70 @@
-
-const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
 
 async function verifyObjectStorageFiles() {
   console.log('🔍 VERIFICANDO ARQUIVOS NO OBJECT STORAGE\n');
-  
-  if (!process.env.DATABASE_URL) {
-    console.error('❌ DATABASE_URL não configurada nos Secrets!');
-    return;
-  }
-  
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    }
-  });
-
-  // Configurar Object Storage
-  let objectStorage = null;
-  try {
-    const { Client } = require('@replit/object-storage');
-    objectStorage = new Client();
-    console.log("✅ Object Storage do Replit configurado e inicializado");
-  } catch (error) {
-    console.error("❌ Object Storage não disponível:", error.message);
-    return;
-  }
-
-  const pedidosEspecificos = ['CO12407250007', 'CO12407250008'];
 
   try {
-    for (const orderId of pedidosEspecificos) {
-      console.log(`\n🔍 Verificando pedido ${orderId} no Object Storage:`);
-      
-      // Buscar no banco
-      const pedidoResult = await pool.query(`
-        SELECT id, order_id, documentoscarregados, documentosinfo 
-        FROM orders 
-        WHERE order_id = $1
-      `, [orderId]);
+    // Verificar se o módulo está disponível
+    let client;
+    try {
+      const { getClient } = require('@replit/object-storage');
+      client = getClient();
+      console.log('✅ Object Storage cliente inicializado');
+    } catch (importError) {
+      console.log('❌ Object Storage não disponível:', importError.message);
+      console.log('💡 Verificando arquivos locais em uploads/...\n');
 
-      if (pedidoResult.rows.length === 0) {
-        console.log(`❌ Pedido ${orderId} não encontrado no banco`);
-        continue;
-      }
+      // Verificar arquivos locais
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (fs.existsSync(uploadsDir)) {
+        const directories = fs.readdirSync(uploadsDir, { withFileTypes: true })
+          .filter(dirent => dirent.isDirectory())
+          .map(dirent => dirent.name);
 
-      const pedido = pedidoResult.rows[0];
-      console.log(`📦 Pedido encontrado: ID ${pedido.id}`);
-      console.log(`📄 Documentos carregados: ${pedido.documentoscarregados}`);
+        console.log(`📁 Encontrados ${directories.length} diretórios de pedidos:`);
 
-      if (pedido.documentosinfo) {
-        try {
-          const documentosInfo = typeof pedido.documentosinfo === 'string' 
-            ? JSON.parse(pedido.documentosinfo) 
-            : pedido.documentosinfo;
-          
-          console.log(`📋 Informações dos documentos:`, Object.keys(documentosInfo));
-          
-          for (const [tipo, info] of Object.entries(documentosInfo)) {
-            console.log(`\n  📄 ${tipo}:`);
-            console.log(`    • Nome: ${info.name}`);
-            console.log(`    • Storage Key: ${info.storageKey}`);
-            
-            if (info.storageKey && info.storageKey.startsWith('orders/')) {
-              try {
-                // Tentar acessar o arquivo no Object Storage
-                const buffer = await objectStorage.downloadAsBuffer(info.storageKey);
-                console.log(`    ✅ Arquivo ENCONTRADO no Object Storage (${buffer.length} bytes)`);
-              } catch (error) {
-                console.log(`    ❌ Arquivo NÃO ENCONTRADO no Object Storage:`, error.message);
-              }
-            } else {
-              console.log(`    ⚠️ Storage Key inválida ou arquivo não migrado`);
-            }
-          }
-        } catch (error) {
-          console.error(`❌ Erro ao processar documentosinfo:`, error);
+        for (const dir of directories) {
+          const dirPath = path.join(uploadsDir, dir);
+          const files = fs.readdirSync(dirPath);
+          console.log(`   📦 ${dir}: ${files.length} arquivos - ${files.join(', ')}`);
         }
       } else {
-        console.log(`⚠️ Nenhuma informação de documentos encontrada`);
+        console.log('❌ Diretório uploads/ não encontrado');
       }
+      return;
     }
 
-    console.log('\n🎉 Verificação concluída!');
-    
+    // Listar todos os objetos
+    console.log('📦 Listando todos os objetos no storage...');
+    const objects = await client.list();
+
+    if (!objects || objects.length === 0) {
+      console.log('❌ Nenhum objeto encontrado no Object Storage');
+      return;
+    }
+
+    console.log(`✅ Encontrados ${objects.length} objetos:`);
+
+    for (const obj of objects) {
+      console.log(`   📄 ${obj.key} (${obj.size} bytes)`);
+    }
+
   } catch (error) {
-    console.error('❌ Erro na verificação:', error);
-  } finally {
-    await pool.end();
+    console.error('❌ Erro ao verificar:', error.message);
   }
 }
 
-// Executar se chamado diretamente
 if (require.main === module) {
-  verifyObjectStorageFiles();
+  verifyObjectStorageFiles()
+    .then(() => {
+      console.log('\n✅ Verificação concluída');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('\n❌ Erro na verificação:', error);
+      process.exit(1);
+    });
 }
 
 module.exports = { verifyObjectStorageFiles };
