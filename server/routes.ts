@@ -3485,7 +3485,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
 
   // Rota de teste para Google Maps API
-  app.get("/api/debug/google-maps-test", isAuthenticated, async (req, res) => .
+  app.get("/api/debug/google-maps-test", isAuthenticated, async (req, res) => {
     try {
       console.log("🔍 [Google Maps Test] Iniciando teste da API Google Maps");
       
