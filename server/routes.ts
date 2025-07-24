@@ -3483,12 +3483,10 @@ mensagem: "Erro interno do servidor ao processar o upload",
         itemType: "order",
         itemId: id.toString(),
 
-
   // Rota de teste para Google Maps API
   app.get("/api/debug/google-maps-test", isAuthenticated, async (req, res) => {
     try {
       console.log("🔍 [Google Maps Test] Iniciando teste da API Google Maps");
-      
       const settings = await storage.getAllSettings();
       const googleMapsKeySetting = settings.find(setting => setting.key === 'google_maps_api_key');
       
@@ -3504,7 +3502,6 @@ mensagem: "Erro interno do servidor ao processar o upload",
       }
 
       const apiKey = googleMapsKeySetting.value.trim();
-      
       // Teste básico da API Key (sem fazer requisição real para não gastar quota)
       const testResult = {
         success: true,
@@ -3528,6 +3525,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
         message: "Erro ao testar Google Maps API",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
+
     }
   });
 
