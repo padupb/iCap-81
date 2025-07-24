@@ -112,4 +112,4 @@ async function migrateToObjectStorage(orderId) {
 }
 
 // Executar para o pedido específico
-migrateToObjectStorage('CO12407250007');
+migrateToObjectStorage('CO12407250009');
