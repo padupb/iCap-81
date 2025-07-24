@@ -212,10 +212,20 @@ const MapComponent: React.FC<Props> = (props) => {
 
   // Extrair chave da API do Google Maps das configurações
   const googleMapsApiKey = React.useMemo(() => {
+    console.log('🔍 [MapComponent] Processando configurações:', settings);
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      return googleMapsKeySetting ? googleMapsKeySetting.value : null;
+      console.log('🗝️ [MapComponent] Configuração Google Maps encontrada:', googleMapsKeySetting);
+      
+      if (googleMapsKeySetting && googleMapsKeySetting.value && googleMapsKeySetting.value.trim() !== '') {
+        console.log('✅ [MapComponent] API Key válida, comprimento:', googleMapsKeySetting.value.length);
+        return googleMapsKeySetting.value.trim();
+      } else {
+        console.log('❌ [MapComponent] API Key não encontrada, vazia ou inválida');
+        return null;
+      }
     }
+    console.log('❌ [MapComponent] Nenhuma configuração encontrada');
     return null;
   }, [settings]);
 
@@ -234,18 +244,28 @@ const MapComponent: React.FC<Props> = (props) => {
   // Verificar se a chave da API está configurada
   const shouldLoadGoogleMaps = googleMapsApiKey && googleMapsApiKey.trim() !== '';
   
+  console.log('🔍 [MapComponent] Verificação final - shouldLoadGoogleMaps:', shouldLoadGoogleMaps);
+  console.log('🔍 [MapComponent] API Key presente:', !!googleMapsApiKey);
+  console.log('🔍 [MapComponent] Settings loading:', settingsLoading);
+  
   if (!shouldLoadGoogleMaps) {
+    console.log('❌ [MapComponent] Google Maps não será carregado - API Key inválida ou ausente');
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
         <div className="text-center p-4">
           <div className="text-4xl mb-3">⚙️</div>
           <p className="text-sm text-yellow-600 font-medium mb-2">Configuração necessária</p>
           <p className="text-xs text-gray-600 mb-3 max-w-md">
-            A chave da API do Google Maps não foi configurada.
+            A chave da API do Google Maps não foi configurada ou é inválida.
           </p>
           <p className="text-xs text-blue-600">
             Acesse Configurações → Google Maps API Key para configurar.
           </p>
+          {!settingsLoading && (
+            <div className="mt-3 text-xs text-gray-500">
+              Debug: Settings carregadas: {settings?.length || 0} itens
+            </div>
+          )}
         </div>
       </div>
     );

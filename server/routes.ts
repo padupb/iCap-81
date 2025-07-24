@@ -2424,18 +2424,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const settings = await storage.getAllSettings();
       
-      // Se não é KeyUser, filtrar configurações sensíveis
+      console.log(`🔍 [Settings API] Usuário ${req.user.name} (ID: ${req.user.id}) solicitou configurações`);
+      console.log(`🔍 [Settings API] Total de configurações: ${settings.length}`);
+      
+      // Se não é KeyUser, filtrar configurações sensíveis (exceto google_maps_api_key que é necessária no frontend)
       if (req.user.id !== 1 && !req.user.isKeyUser) {
         const publicSettings = settings.filter(setting => 
-          !setting.key.includes('database') && 
-          !setting.key.includes('pg') && 
-          !setting.key.includes('token') && 
-          !setting.key.includes('api_key') && 
-          !setting.key.includes('smtp') &&
-          !setting.key.includes('password')
+          setting.key === 'google_maps_api_key' || // Permitir Google Maps API Key para todos
+          (!setting.key.includes('database') && 
+           !setting.key.includes('pg') && 
+           !setting.key.includes('token') && 
+           !setting.key.includes('smtp') &&
+           !setting.key.includes('password') &&
+           setting.key !== 'openai_api_key' && // Bloquear outras API keys específicas
+           setting.key !== 'github_token')
         );
+        
+        console.log(`🔒 [Settings API] Usuário não-KeyUser - configurações filtradas: ${publicSettings.length}`);
+        console.log(`🔍 [Settings API] Configurações públicas disponíveis:`, publicSettings.map(s => s.key));
+        
+        const googleMapsConfig = publicSettings.find(s => s.key === 'google_maps_api_key');
+        console.log(`🗝️ [Settings API] Google Maps API Key disponível para usuário:`, !!googleMapsConfig?.value);
+        
         res.json(publicSettings);
       } else {
+        console.log(`🔑 [Settings API] KeyUser - todas as configurações disponíveis`);
+        const googleMapsConfig = settings.find(s => s.key === 'google_maps_api_key');
+        console.log(`🗝️ [Settings API] Google Maps API Key presente:`, !!googleMapsConfig?.value);
+        
         res.json(settings);
       }
     } catch (error) {
@@ -3466,6 +3482,55 @@ mensagem: "Erro interno do servidor ao processar o upload",
         action: "Rejeição de pedido",
         itemType: "order",
         itemId: id.toString(),
+
+
+  // Rota de teste para Google Maps API
+  app.get("/api/debug/google-maps-test", isAuthenticated, async (req, res) => {
+    try {
+      console.log("🔍 [Google Maps Test] Iniciando teste da API Google Maps");
+      
+      const settings = await storage.getAllSettings();
+      const googleMapsKeySetting = settings.find(setting => setting.key === 'google_maps_api_key');
+      
+      if (!googleMapsKeySetting || !googleMapsKeySetting.value) {
+        return res.json({
+          success: false,
+          message: "Google Maps API Key não configurada",
+          hasApiKey: false,
+          userType: req.user.id === 1 ? 'KeyUser' : 'Regular',
+          userId: req.user.id,
+          userName: req.user.name
+        });
+      }
+
+      const apiKey = googleMapsKeySetting.value.trim();
+      
+      // Teste básico da API Key (sem fazer requisição real para não gastar quota)
+      const testResult = {
+        success: true,
+        message: "Google Maps API Key encontrada",
+        hasApiKey: true,
+        apiKeyLength: apiKey.length,
+        apiKeyPreview: apiKey.substring(0, 8) + '...',
+        userType: req.user.id === 1 ? 'KeyUser' : 'Regular',
+        userId: req.user.id,
+        userName: req.user.name,
+        settingsTotal: settings.length
+      };
+
+      console.log("✅ [Google Maps Test] Resultado:", testResult);
+      
+      res.json(testResult);
+    } catch (error) {
+      console.error("❌ [Google Maps Test] Erro:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao testar Google Maps API",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
         details: `Pedido ${order.orderId} foi rejeitado`
       });
 

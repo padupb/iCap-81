@@ -48,48 +48,75 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
 
   // Extrair chave da API do Google Maps das configurações
   useEffect(() => {
-    console.log('🔍 Verificando configurações para Google Maps API Key:', settings);
+    console.log('🔍 [GoogleMapsTracking] Verificando configurações para Google Maps API Key:', settings);
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      console.log('🗝️ Configuração encontrada:', googleMapsKeySetting);
-      if (googleMapsKeySetting && googleMapsKeySetting.value) {
-        console.log('✅ Google Maps API Key encontrada, comprimento:', googleMapsKeySetting.value.length);
-        setGoogleMapsApiKey(googleMapsKeySetting.value);
+      console.log('🗝️ [GoogleMapsTracking] Configuração encontrada:', googleMapsKeySetting);
+      if (googleMapsKeySetting && googleMapsKeySetting.value && googleMapsKeySetting.value.trim() !== '') {
+        console.log('✅ [GoogleMapsTracking] Google Maps API Key encontrada, comprimento:', googleMapsKeySetting.value.length);
+        setGoogleMapsApiKey(googleMapsKeySetting.value.trim());
       } else {
-        console.log('❌ Google Maps API Key não encontrada ou vazia');
+        console.log('❌ [GoogleMapsTracking] Google Maps API Key não encontrada, vazia ou inválida');
+        setMapError('Chave da API do Google Maps não configurada ou inválida.');
       }
     } else {
-      console.log('❌ Nenhuma configuração encontrada');
+      console.log('❌ [GoogleMapsTracking] Nenhuma configuração encontrada');
+      setMapError('Configurações do sistema não carregadas.');
     }
   }, [settings]);
 
   // Carregar Google Maps API com os novos componentes gmp
   useEffect(() => {
     if (!googleMapsApiKey) {
+      console.log('⏳ [GoogleMapsTracking] Aguardando chave da API ser carregada...');
       return; // Aguardar chave da API ser carregada
     }
+
+    console.log('🚀 [GoogleMapsTracking] Iniciando carregamento da Google Maps API...');
 
     const loadGoogleMaps = () => {
       // Verificar se já existe um script carregando
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
       if (existingScript) {
+        console.log('📜 [GoogleMapsTracking] Script do Google Maps já existe, aguardando carregamento...');
+        
+        // Verificar se já está carregado
+        if (window.google && window.google.maps) {
+          console.log('✅ [GoogleMapsTracking] Google Maps já carregado');
+          setIsGoogleMapsLoaded(true);
+          return;
+        }
+        
         existingScript.addEventListener('load', () => {
+          console.log('✅ [GoogleMapsTracking] Google Maps carregado via script existente');
           setIsGoogleMapsLoaded(true);
         });
+        
+        existingScript.addEventListener('error', (error) => {
+          console.error('❌ [GoogleMapsTracking] Erro no script existente:', error);
+          setMapError('Falha ao carregar a API do Google Maps. Verifique sua chave de API.');
+        });
+        
         return;
       }
 
+      console.log('📜 [GoogleMapsTracking] Criando novo script do Google Maps...');
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&callback=console.debug&libraries=maps,marker&v=beta`;
       script.async = true;
       script.defer = true;
       script.onload = () => {
-        console.log('Google Maps API carregada com sucesso');
+        console.log('✅ [GoogleMapsTracking] Google Maps API carregada com sucesso');
         setIsGoogleMapsLoaded(true);
       };
       script.onerror = (error) => {
-        console.error('Erro ao carregar Google Maps API:', error);
-        setMapError('Falha ao carregar a API do Google Maps. Verifique sua chave de API.');
+        console.error('❌ [GoogleMapsTracking] Erro ao carregar Google Maps API:', error);
+        const errorMessage = `Falha ao carregar a API do Google Maps. Possíveis causas:
+        • Chave de API inválida ou sem permissões
+        • Domínio não autorizado
+        • Cota de uso excedida
+        • Problemas de conectividade`;
+        setMapError(errorMessage);
       };
       document.head.appendChild(script);
     };
