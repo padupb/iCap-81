@@ -14,6 +14,71 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
+// Configuração do Object Storage (Replit)
+let objectStorage: any = null;
+try {
+  // Tentar importar o Object Storage do Replit
+  const replitObjectStorage = require('@replit/object-storage');
+  objectStorage = replitObjectStorage;
+  console.log("✅ Object Storage do Replit configurado");
+} catch (error) {
+  console.log("⚠️ Object Storage não disponível, usando sistema de arquivos local");
+}
+
+// Função utilitária para salvar arquivo no Object Storage ou sistema local
+async function saveFileToStorage(buffer: Buffer, filename: string, orderId: string): Promise<string> {
+  if (objectStorage) {
+    try {
+      const key = `orders/${orderId}/${filename}`;
+      await objectStorage.uploadFromBuffer(key, buffer);
+      console.log(`📁 Arquivo salvo no Object Storage: ${key}`);
+      return key;
+    } catch (error) {
+      console.error("❌ Erro ao salvar no Object Storage:", error);
+      // Fallback para sistema local
+    }
+  }
+  
+  // Fallback: salvar no sistema de arquivos local
+  const orderDir = path.join(process.cwd(), "uploads", orderId);
+  if (!fs.existsSync(orderDir)) {
+    fs.mkdirSync(orderDir, { recursive: true });
+  }
+  const filePath = path.join(orderDir, filename);
+  fs.writeFileSync(filePath, buffer);
+  console.log(`📁 Arquivo salvo localmente: ${filePath}`);
+  return filePath;
+}
+
+// Função utilitária para ler arquivo do Object Storage ou sistema local
+async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<Buffer | null> {
+  if (objectStorage && key.startsWith('orders/')) {
+    try {
+      const buffer = await objectStorage.downloadAsBuffer(key);
+      console.log(`📁 Arquivo lido do Object Storage: ${key}`);
+      return buffer;
+    } catch (error) {
+      console.error("❌ Erro ao ler do Object Storage:", error);
+      // Fallback para sistema local
+    }
+  }
+  
+  // Fallback: ler do sistema de arquivos local
+  const possiblePaths = [
+    path.join(process.cwd(), "uploads", orderId, filename),
+    key // Se key for um caminho local
+  ];
+  
+  for (const filePath of possiblePaths) {
+    if (fs.existsSync(filePath)) {
+      console.log(`📁 Arquivo lido localmente: ${filePath}`);
+      return fs.readFileSync(filePath);
+    }
+  }
+  
+  return null;
+}
+
 // Função utilitária para converter data preservando o dia selecionado no calendário
 function convertToLocalDate(dateString: string): Date {
   console.log(`🔍 convertToLocalDate - entrada: ${dateString}`);
@@ -2753,6 +2818,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`📂 Diretório esperado: ${expectedDir}`);
         console.log(`📂 Diretório existe: ${fs.existsSync(expectedDir)}`);
         
+        // Salvar arquivos no Object Storage ou sistema local
+        const notaPdfKey = await saveFileToStorage(
+          fs.readFileSync(files.nota_pdf[0].path),
+          files.nota_pdf[0].filename,
+          expectedOrderId
+        );
+        
+        const notaXmlKey = await saveFileToStorage(
+          fs.readFileSync(files.nota_xml[0].path),
+          files.nota_xml[0].filename,
+          expectedOrderId
+        );
+        
+        const certificadoPdfKey = await saveFileToStorage(
+          fs.readFileSync(files.certificado_pdf[0].path),
+          files.certificado_pdf[0].filename,
+          expectedOrderId
+        );
+
         // Construir informações dos documentos para armazenar no banco
         const documentosInfo = {
           nota_pdf: {
@@ -2760,6 +2844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             filename: files.nota_pdf[0].filename,
             size: files.nota_pdf[0].size,
             path: files.nota_pdf[0].path,
+            storageKey: notaPdfKey,
             date: new Date().toISOString()
           },
           nota_xml: {
@@ -2767,6 +2852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             filename: files.nota_xml[0].filename,
             size: files.nota_xml[0].size,
             path: files.nota_xml[0].path,
+            storageKey: notaXmlKey,
             date: new Date().toISOString(),
             analise: xmlAnalysis
           },
@@ -2775,6 +2861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             filename: files.certificado_pdf[0].filename,
             size: files.certificado_pdf[0].size,
             path: files.certificado_pdf[0].path,
+            storageKey: certificadoPdfKey,
             date: new Date().toISOString()
           }
         };
@@ -2973,41 +3060,21 @@ mensagem: "Erro interno do servidor ao processar o upload",
         });
       }
 
-      // Tentar múltiplos caminhos possíveis para o arquivo
-      let documentoPath = null;
-      const possiblePaths = [
-        // Caminho atual baseado no order_id
-        path.join(process.cwd(), "uploads", orderId, documentosInfo[tipo].filename),
-        // Caminho direto salvo no banco
-        documentosInfo[tipo].path,
-        // Caminho absoluto se começar com /
-        documentosInfo[tipo].path?.startsWith('/') ? documentosInfo[tipo].path : null,
-        // Caminho relativo ao projeto
-        path.join(process.cwd(), documentosInfo[tipo].path?.replace(/^\/[^\/]+\/[^\/]+\//, '') || ''),
-      ].filter(Boolean);
-
-      console.log("📂 Tentando acessar arquivo nos caminhos:", possiblePaths);
-      console.log("📋 Informações do documento:", {
+      // Tentar ler arquivo do Object Storage ou sistema local
+      const storageKey = documentosInfo[tipo].storageKey;
+      const filename = documentosInfo[tipo].filename;
+      
+      console.log("📂 Tentando acessar arquivo:", {
         tipo: tipo,
-        filename: documentosInfo[tipo].filename,
-        originalPath: documentosInfo[tipo].path,
+        filename: filename,
+        storageKey: storageKey,
         orderId: orderId
       });
 
-      // Verificar qual caminho existe
-      for (const testPath of possiblePaths) {
-        console.log(`🔍 Testando caminho: ${testPath}`);
-        if (fs.existsSync(testPath)) {
-          documentoPath = testPath;
-          console.log("✅ Arquivo encontrado em:", documentoPath);
-          break;
-        } else {
-          console.log("❌ Arquivo não existe em:", testPath);
-        }
-      }
+      const fileBuffer = await readFileFromStorage(storageKey || documentosInfo[tipo].path, orderId, filename);
 
-      if (!documentoPath) {
-        console.log("❌ Arquivo não encontrado em nenhum dos caminhos testados");
+      if (!fileBuffer) {
+        console.log("❌ Arquivo não encontrado no Object Storage nem no sistema local");
         
         // Debug adicional: listar arquivos no diretório do pedido
         const orderDir = path.join(process.cwd(), "uploads", orderId);
@@ -3037,8 +3104,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
           debug: {
             orderId: orderId,
             tipo: tipo,
-            filename: documentosInfo[tipo].filename,
-            pathsTestados: possiblePaths
+            filename: filename,
+            storageKey: storageKey
           }
         });
       }
@@ -3057,21 +3124,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Enviar o arquivo
       try {
-        const fileStream = fs.createReadStream(documentoPath);
-        
-        fileStream.on('error', (error) => {
-          console.error("Erro ao ler arquivo:", error);
-          if (!res.headersSent) {
-            res.status(500).json({
-              sucesso: false,
-              mensagem: "Erro ao ler arquivo do servidor"
-            });
-          }
-        });
-
-        fileStream.pipe(res);
+        res.end(fileBuffer);
       } catch (error) {
-        console.error("Erro ao criar stream do arquivo:", error);
+        console.error("Erro ao enviar arquivo:", error);
         res.status(500).json({
           sucesso: false,
           mensagem: "Erro ao processar arquivo"
@@ -3954,12 +4009,20 @@ mensagem: "Erro interno do servidor ao processar o upload",
         });
       }
 
+      // Salvar foto no Object Storage
+      const fotoKey = await saveFileToStorage(
+        fs.readFileSync(req.file.path),
+        req.file.filename,
+        orderResult.rows[0].order_id
+      );
+
       // Construir informações da foto para armazenar no banco
       const fotoInfo = {
         name: req.file.originalname,
         filename: req.file.filename,
         size: req.file.size,
         path: req.file.path,
+        storageKey: fotoKey,
         date: new Date().toISOString()
       };
 
