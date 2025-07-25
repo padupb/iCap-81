@@ -1,4 +1,3 @@
-
 import { Client } from '@replit/object-storage';
 import fs from 'fs';
 import path from 'path';
@@ -35,85 +34,81 @@ Status: Teste em execução...
 
     const tempFileName = `keyuser-test-${Date.now()}.txt`;
     const tempFilePath = path.join(process.cwd(), tempFileName);
-    
+
     fs.writeFileSync(tempFilePath, testContent, 'utf8');
     console.log(`✅ Arquivo criado: ${tempFileName}`);
 
-    // Fazer upload para Object Storage com chave específica do keyuser
+    // Fazer upload para Object Storage
     console.log('\n3. Fazendo upload para Object Storage...');
     const storageKey = `keyuser-tests/${Date.now()}-${tempFileName}`;
-    
+
     await client.uploadFromText(storageKey, testContent);
     console.log(`✅ Upload realizado com sucesso!`);
     console.log(`📂 Chave no storage: ${storageKey}`);
 
-    // Verificar se o arquivo foi carregado
+    // Verificar integridade do arquivo
     console.log('\n4. Verificando integridade do arquivo...');
     const downloadedContent = await client.downloadAsText(storageKey);
-    console.log('✅ Download realizado com sucesso!');
-    
-    // Verificar se o conteúdo está correto
+    console.log(`✅ Download realizado com sucesso!`);
+
     if (downloadedContent === testContent) {
-      console.log('✅ Conteúdo verificado - arquivo íntegro!');
+      console.log(`✅ Integridade verificada - conteúdo idêntico`);
     } else {
-      console.log('⚠️ Conteúdo diferente do esperado');
+      console.log(`⚠️ Conteúdo diferente do esperado`);
       console.log(`📝 Diferença detectada:`);
       console.log(`   Tamanho original: ${testContent.length} caracteres`);
-      console.log(`   Tamanho baixado: ${downloadedContent ? downloadedContent.length : 'undefined'} caracteres`);
+      console.log(`   Tamanho baixado: ${downloadedContent?.length || 0} caracteres`);
+
+      // Debug adicional
+      if (downloadedContent) {
+        console.log(`   Primeiros 100 chars originais: ${testContent.substring(0, 100)}`);
+        console.log(`   Primeiros 100 chars baixados: ${downloadedContent.substring(0, 100)}`);
+      }
     }
 
-    // Listar arquivos no storage com foco nos testes do keyuser
+    // Listar objetos no Object Storage
     console.log('\n5. Listando objetos no Object Storage...');
-    
+    const listResponse = await client.list();
+    console.log(`📋 Resposta do list():`, typeof listResponse, listResponse);
+
+    // O Replit Object Storage retorna um objeto com propriedade 'value' contendo o array
     let objects = [];
-    let totalObjects = 0;
-    
-    try {
-      const listResult = await client.list();
-      console.log('📋 Resposta do list():', typeof listResult, listResult);
-      
-      // Tratar diferentes formatos de resposta
-      if (Array.isArray(listResult)) {
-        objects = listResult;
-        totalObjects = objects.length;
-      } else if (listResult && typeof listResult === 'object') {
-        // Se for um objeto, pode ter uma propriedade com os itens
-        if (listResult.items && Array.isArray(listResult.items)) {
-          objects = listResult.items;
-          totalObjects = objects.length;
-        } else if (listResult.objects && Array.isArray(listResult.objects)) {
-          objects = listResult.objects;
-          totalObjects = objects.length;
-        } else {
-          // Tentar converter o objeto em array
-          objects = Object.values(listResult).filter(item => 
-            item && typeof item === 'object' && (item.key || item.name)
-          );
-          totalObjects = objects.length;
-        }
-      } else {
-        console.log('⚠️ Formato inesperado da resposta do list()');
-        totalObjects = 0;
-      }
-      
-      console.log(`📂 Total de objetos encontrados: ${totalObjects}`);
-    } catch (listError) {
-      console.log('❌ Erro ao listar objetos:', listError.message);
-      totalObjects = 0;
+    if (listResponse && listResponse.value && Array.isArray(listResponse.value)) {
+      objects = listResponse.value;
+    } else if (Array.isArray(listResponse)) {
+      objects = listResponse;
     }
-    
+
+    console.log(`📂 Total de objetos encontrados: ${objects.length}`);
+
+    // Calcular estatísticas
+    let keyuserTests = 0;
+    let orderFiles = 0;
+    let testFiles = 0;
+    let totalSize = 0;
+
+    if (objects && objects.length > 0) {
+      objects.forEach(obj => {
+        const objName = obj.key || obj.name || obj;
+        if (objName.includes('keyuser-tests/')) keyuserTests++;
+        if (objName.includes('orders/')) orderFiles++;
+        if (objName.includes('test/')) testFiles++;
+        totalSize += obj.size || 0;
+      });
+    }
+
     // Filtrar e mostrar arquivos de teste do keyuser
-    let keyuserTests = [];
+    let keyuserTestsArray = [];
     if (objects.length > 0) {
       try {
-        keyuserTests = objects.filter(obj => {
+        keyuserTestsArray = objects.filter(obj => {
           const key = obj.key || obj.name || obj;
           return key && typeof key === 'string' && key.includes('keyuser-test');
         });
-        
-        if (keyuserTests.length > 0) {
-          console.log(`\n🔑 Testes do KeyUser encontrados (${keyuserTests.length}):`);
-          keyuserTests.slice(-5).forEach((obj, index) => {
+
+        if (keyuserTestsArray.length > 0) {
+          console.log(`\n🔑 Testes do KeyUser encontrados (${keyuserTestsArray.length}):`);
+          keyuserTestsArray.slice(-5).forEach((obj, index) => {
             const key = obj.key || obj.name || obj;
             const size = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
             const date = obj.timeCreated ? new Date(obj.timeCreated).toLocaleString('pt-BR') : 'N/A';
@@ -127,31 +122,31 @@ Status: Teste em execução...
 
     // Mostrar estatísticas gerais
     console.log(`\n📊 Estatísticas do Object Storage:`);
-    
-    let totalSize = 0;
+
+    let totalSizeCalc = 0;
     try {
-      totalSize = objects.reduce((sum, obj) => {
+      totalSizeCalc = objects.reduce((sum, obj) => {
         const size = obj.size || 0;
         return sum + (typeof size === 'number' ? size : 0);
       }, 0);
     } catch (sizeError) {
       console.log('⚠️ Erro ao calcular tamanho total');
     }
-    
-    console.log(`   • Total de objetos: ${totalObjects}`);
-    console.log(`   • Tamanho total: ${(totalSize / (1024 * 1024)).toFixed(2)} MB`);
-    console.log(`   • Testes do keyuser: ${keyuserTests.length}`);
+
+    console.log(`   • Total de objetos: ${objects.length}`);
+    console.log(`   • Tamanho total: ${(totalSizeCalc / (1024 * 1024)).toFixed(2)} MB`);
+    console.log(`   • Testes do keyuser: ${keyuserTests}`);
 
     // Verificar estrutura de pastas
     let orderFolders = 0;
     let testFolders = 0;
-    
+
     try {
       orderFolders = objects.filter(obj => {
         const key = obj.key || obj.name || obj;
         return key && typeof key === 'string' && key.startsWith('orders/');
       }).length;
-      
+
       testFolders = objects.filter(obj => {
         const key = obj.key || obj.name || obj;
         return key && typeof key === 'string' && key.startsWith('test/');
@@ -173,19 +168,19 @@ Status: Teste em execução...
     // Teste de performance
     console.log('\n7. Teste de performance...');
     const startTime = Date.now();
-    
+
     // Upload de um arquivo menor para medir velocidade
     const perfTestKey = `keyuser-tests/performance-${Date.now()}.txt`;
     const perfTestContent = 'Teste de performance do Object Storage';
-    
+
     await client.uploadFromText(perfTestKey, perfTestContent);
     const perfDownload = await client.downloadAsText(perfTestKey);
-    
+
     const endTime = Date.now();
     const duration = endTime - startTime;
-    
+
     console.log(`✅ Teste de performance concluído em ${duration}ms`);
-    
+
     // Limpar arquivo de teste de performance
     try {
       await client.delete(perfTestKey);
@@ -196,10 +191,10 @@ Status: Teste em execução...
 
     console.log('\n🎉 TESTE DO KEYUSER CONCLUÍDO COM SUCESSO!');
     console.log(`📦 Arquivo principal salvo em: ${storageKey}`);
-    console.log(`📊 Total de objetos no storage: ${totalObjects}`);
+    console.log(`📊 Total de objetos no storage: ${objects.length}`);
     console.log(`⚡ Performance: ${duration}ms para upload/download`);
     console.log('✅ Object Storage está funcionando perfeitamente!');
-    
+
     console.log('\n🔧 RECOMENDAÇÕES PARA O KEYUSER:');
     console.log('   • Object Storage pode ser usado para arquivos do sistema');
     console.log('   • Documentos dos pedidos serão persistidos entre deployments');
@@ -209,16 +204,16 @@ Status: Teste em execução...
     return {
       success: true,
       storageKey,
-      totalObjects: totalObjects,
-      keyuserTests: keyuserTests.length,
+      totalObjects: objects.length,
+      keyuserTests: keyuserTests,
       performance: duration,
-      totalSize: (totalSize / (1024 * 1024)).toFixed(2),
+      totalSize: (totalSizeCalc / (1024 * 1024)).toFixed(2),
       message: 'Teste do KeyUser realizado com sucesso'
     };
 
   } catch (error) {
     console.error('\n❌ ERRO NO TESTE DO KEYUSER:', error.message);
-    
+
     if (error.message.includes('Cannot find module')) {
       console.log('\n💡 SOLUÇÃO PARA O KEYUSER:');
       console.log('   1. Execute: npm install @replit/object-storage');
@@ -261,7 +256,7 @@ testObjectStorageFromKeyuser()
       console.log(`   • Testes do keyuser: ${result.keyuserTests}`);
       console.log(`   • Tamanho total: ${result.totalSize} MB`);
       console.log(`   • Performance: ${result.performance}ms`);
-      
+
       console.log('\n✅ O OBJECT STORAGE ESTÁ PRONTO PARA USO NO SISTEMA!');
     } else {
       console.log(`\n💥 FALHA NO TESTE: ${result.error}`);

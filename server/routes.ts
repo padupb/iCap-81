@@ -114,49 +114,58 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       console.log(`📤 Tentando upload para Object Storage: ${key}`);
       console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
       
-      // Tentar diferentes métodos de upload com diagnóstico detalhado
-      let uploadSuccess = false;
-      
-      if (typeof objectStorage.uploadFromBuffer === 'function') {
-        console.log("🔧 Usando método uploadFromBuffer");
-        await objectStorage.uploadFromBuffer(key, buffer);
-        uploadSuccess = true;
-      } else if (typeof objectStorage.upload === 'function') {
-        console.log("🔧 Usando método upload");
-        await objectStorage.upload(key, buffer);
-        uploadSuccess = true;
-      } else if (typeof objectStorage.put === 'function') {
-        console.log("🔧 Usando método put");
-        await objectStorage.put(key, buffer);
-        uploadSuccess = true;
-      } else {
-        // Listar métodos disponíveis para diagnóstico
-        const availableMethods = Object.getOwnPropertyNames(objectStorage).filter(name => 
-          typeof objectStorage[name] === 'function'
-        );
-        console.log("❌ Métodos disponíveis no object storage:", availableMethods);
-        throw new Error("Nenhum método de upload encontrado no objeto de storage");
-      }
-      
-      if (uploadSuccess) {
-        // Verificar se o arquivo foi realmente salvo
+      // Usar o método correto do Replit Object Storage
+      try {
+        // O método correto é uploadFromText para texto ou uploadFromBytes para buffer
+        if (buffer instanceof Buffer) {
+          // Converter buffer para Uint8Array que é o formato esperado
+          const uint8Array = new Uint8Array(buffer);
+          await objectStorage.uploadFromBytes(key, uint8Array);
+        } else {
+          // Fallback para texto se não for buffer
+          await objectStorage.uploadFromText(key, buffer.toString());
+        }
+        
+        console.log("✅ Upload realizado com método uploadFromBytes/uploadFromText");
+        
+        // Verificar se o arquivo foi realmente salvo tentando fazer download
         try {
-          await objectStorage.list();
-          console.log(`📁 ☁️ Arquivo persistido no Object Storage: ${key}`);
-          console.log(`✅ Arquivo estará disponível após redeploys`);
-          return key;
+          const downloadTest = await objectStorage.downloadAsBytes(key);
+          if (downloadTest && downloadTest.length > 0) {
+            console.log(`📁 ☁️ Arquivo verificado no Object Storage: ${key} (${downloadTest.length} bytes)`);
+            console.log(`✅ Arquivo estará disponível após redeploys`);
+            return key;
+          } else {
+            throw new Error("Arquivo não encontrado após upload");
+          }
         } catch (verifyError) {
-          console.warn("⚠️ Upload aparentemente bem-sucedido, mas não foi possível verificar");
+          console.warn("⚠️ Upload realizado mas verificação falhou:", verifyError.message);
+          return key; // Retornar mesmo assim, pois o upload pode ter funcionado
+        }
+        
+      } catch (uploadError) {
+        console.error("❌ Erro específico no upload:", uploadError.message);
+        
+        // Tentar métodos alternativos se o principal falhar
+        console.log("🔄 Tentando métodos alternativos...");
+        
+        if (typeof objectStorage.upload === 'function') {
+          console.log("🔧 Tentando método upload genérico");
+          await objectStorage.upload(key, buffer);
+          console.log("✅ Upload realizado com método genérico");
           return key;
         }
+        
+        throw uploadError;
       }
+      
     } catch (error) {
       console.error("❌ Erro detalhado ao salvar no Object Storage:", {
         message: error.message,
-        stack: error.stack,
+        key: `orders/${orderId}/${filename}`,
+        bufferSize: buffer.length,
         objectStorageAvailable,
-        hasObjectStorage: !!objectStorage,
-        objectStorageType: typeof objectStorage
+        hasObjectStorage: !!objectStorage
       });
       console.log("🔄 Tentando Google Drive como fallback...");
     }
@@ -214,27 +223,44 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   // PRIORIDADE 1: Tentar ler do Object Storage se disponível e key for válida
   if (objectStorageAvailable && objectStorage && key.startsWith('orders/')) {
     try {
-      let buffer: Buffer | null = null;
+      console.log(`📥 Tentando download do Object Storage: ${key}`);
       
-      // Tentar diferentes métodos de download
-      if (typeof objectStorage.downloadAsBuffer === 'function') {
-        buffer = await objectStorage.downloadAsBuffer(key);
-      } else if (typeof objectStorage.download === 'function') {
-        const result = await objectStorage.download(key);
-        buffer = Buffer.isBuffer(result) ? result : Buffer.from(result);
-      } else if (typeof objectStorage.get === 'function') {
-        const result = await objectStorage.get(key);
-        buffer = Buffer.isBuffer(result) ? result : Buffer.from(result);
-      } else {
-        throw new Error("Nenhum método de download encontrado no objeto de storage");
+      // Usar o método correto do Replit Object Storage
+      try {
+        const downloadedBytes = await objectStorage.downloadAsBytes(key);
+        if (downloadedBytes && downloadedBytes.length > 0) {
+          // Converter Uint8Array para Buffer
+          const buffer = Buffer.from(downloadedBytes);
+          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${buffer.length} bytes)`);
+          return buffer;
+        } else {
+          throw new Error("Arquivo vazio ou não encontrado");
+        }
+      } catch (bytesError) {
+        console.log("🔄 Tentando download como texto...");
+        
+        // Tentar como texto se bytes falhar
+        try {
+          const downloadedText = await objectStorage.downloadAsText(key);
+          if (downloadedText) {
+            const buffer = Buffer.from(downloadedText, 'utf-8');
+            console.log(`📁 ☁️ Arquivo recuperado do Object Storage como texto: ${key} (${buffer.length} bytes)`);
+            return buffer;
+          }
+        } catch (textError) {
+          console.error("❌ Falha ao baixar como texto:", textError.message);
+        }
+        
+        throw bytesError;
       }
       
-      if (buffer) {
-        console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key}`);
-        return buffer;
-      }
     } catch (error) {
-      console.error("❌ Erro ao ler do Object Storage:", error);
+      console.error("❌ Erro ao ler do Object Storage:", {
+        message: error.message,
+        key: key,
+        objectStorageAvailable,
+        hasObjectStorage: !!objectStorage
+      });
       console.log("🔄 Tentando fallback para sistema local...");
     }
   }
