@@ -28,9 +28,9 @@ try {
   console.error("⚠️ O sistema não funcionará sem Object Storage configurado");
 }
 
-// Função utilitária para salvar arquivo no Object Storage
+// Função utilitária para salvar arquivo no Object Storage ou sistema local
 async function saveFileToStorage(buffer: Buffer, filename: string, orderId: string): Promise<string> {
-  // USAR APENAS OBJECT STORAGE
+  // PRIORIDADE 1: Tentar Object Storage primeiro
   if (objectStorage) {
     try {
       const key = `orders/${orderId}/${filename}`;
@@ -39,37 +39,57 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       return key;
     } catch (error) {
       console.error("❌ Erro ao salvar no Object Storage:", error);
-      throw new Error(`Falha ao salvar arquivo no Object Storage: ${error.message}`);
+      console.log("🔄 Fallback para sistema local...");
     }
   } else {
-    console.error("❌ Object Storage não configurado");
-    throw new Error("Object Storage não está disponível. Configure o Object Storage para continuar.");
+    console.log("⚠️ Object Storage não configurado, usando sistema local");
+  }
+  
+  // FALLBACK: Salvar no sistema local
+  try {
+    const orderDir = path.join(process.cwd(), "uploads", orderId);
+    if (!fs.existsSync(orderDir)) {
+      fs.mkdirSync(orderDir, { recursive: true });
+    }
+    const filePath = path.join(orderDir, filename);
+    fs.writeFileSync(filePath, buffer);
+    console.log(`📁 📂 Arquivo salvo localmente: ${filePath}`);
+    return filePath;
+  } catch (error) {
+    console.error("❌ Erro ao salvar localmente:", error);
+    throw new Error(`Falha ao salvar arquivo: ${error.message}`);
   }
 }
 
-// Função utilitária para ler arquivo do Object Storage
+// Função utilitária para ler arquivo do Object Storage ou sistema local
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<Buffer | null> {
-  // USAR APENAS OBJECT STORAGE
-  if (objectStorage) {
+  // PRIORIDADE 1: Tentar ler do Object Storage primeiro
+  if (objectStorage && key.startsWith('orders/')) {
     try {
-      // Se a key não começar com 'orders/', é um caminho local antigo - converter
-      let storageKey = key;
-      if (!key.startsWith('orders/')) {
-        storageKey = `orders/${orderId}/${filename}`;
-      }
-      
-      const buffer = await objectStorage.downloadAsBuffer(storageKey);
-      console.log(`📁 ✅ Arquivo lido do Object Storage: ${storageKey}`);
+      const buffer = await objectStorage.downloadAsBuffer(key);
+      console.log(`📁 ✅ Arquivo lido do Object Storage: ${key}`);
       return buffer;
     } catch (error) {
       console.error("❌ Erro ao ler do Object Storage:", error);
-      console.log(`❌ Arquivo não encontrado no Object Storage: ${key}`);
-      return null;
+      console.log("🔄 Tentando fallback para sistema local...");
     }
-  } else {
-    console.error("❌ Object Storage não configurado");
-    return null;
   }
+  
+  // FALLBACK: Tentar ler do sistema de arquivos local
+  const possiblePaths = [
+    path.join(process.cwd(), "uploads", orderId, filename),
+    key // Se key for um caminho local
+  ];
+  
+  for (const filePath of possiblePaths) {
+    if (fs.existsSync(filePath)) {
+      console.log(`📁 📂 Arquivo lido localmente: ${filePath}`);
+      return fs.readFileSync(filePath);
+    }
+  }
+  
+  console.log(`❌ Arquivo não encontrado nem no Object Storage nem localmente: ${filename}`);
+  return null;
 }
 
 // Função utilitária para converter data preservando o dia selecionado no calendário
