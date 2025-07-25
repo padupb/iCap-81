@@ -15,7 +15,10 @@ async function listObjectStorageFiles() {
     } catch (error) {
       console.error("❌ Object Storage não disponível:", error.message);
       console.log("📦 Para usar Object Storage, instale: npm install @replit/object-storage");
-      return;
+      console.log("\n💡 Execute os seguintes comandos:");
+      console.log("   npm install @replit/object-storage");
+      console.log("   node scripts/list-object-storage-files.js");
+      return { success: false, error: error.message };
     }
 
     // Listar todos os objetos
@@ -24,7 +27,11 @@ async function listObjectStorageFiles() {
 
     if (!objects || objects.length === 0) {
       console.log('❌ Nenhum objeto encontrado no Object Storage');
-      return;
+      console.log('💡 Isso pode significar que:');
+      console.log('   - Nenhum arquivo foi carregado ainda');
+      console.log('   - Os arquivos estão apenas no sistema local');
+      console.log('   - Há problemas de conectividade com o Object Storage');
+      return { success: true, count: 0, message: 'Nenhum objeto encontrado' };
     }
 
     console.log(`✅ Encontrados ${objects.length} objetos:`);
@@ -77,8 +84,17 @@ async function listObjectStorageFiles() {
     console.log('\n==========================================');
     console.log(`📊 Resumo: ${objects.length} arquivos em ${Object.keys(groupedFiles).length} pedidos`);
 
+    return { 
+      success: true, 
+      count: objects.length, 
+      groups: Object.keys(groupedFiles).length,
+      files: groupedFiles 
+    };
+
   } catch (error) {
     console.error('❌ Erro ao listar arquivos:', error.message);
+    console.error('   Stack trace:', error.stack);
+    return { success: false, error: error.message };
   }
 }
 
