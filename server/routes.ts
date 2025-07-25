@@ -20,36 +20,82 @@ let objectStorageAvailable = false;
 
 async function initializeObjectStorage() {
   try {
-    // Tentar usar a versão mais recente da API
-    let Client;
-    try {
-      const storage = require('@replit/object-storage');
-      Client = storage.Client || storage.getClient || storage.default;
-      if (typeof Client === 'function') {
-        objectStorage = typeof Client === 'function' && Client.name === 'getClient' ? Client() : new Client();
-      } else {
-        objectStorage = storage.getClient ? storage.getClient() : new storage.Client();
-      }
-    } catch (importError) {
-      console.log("⚠️ Tentando importação alternativa...");
-      const storage = require('@replit/object-storage');
-      objectStorage = storage;
+    // Verificar se estamos no Replit
+    if (!process.env.REPL_ID && !process.env.REPLIT_DB_URL) {
+      console.log("⚠️ Não está executando no Replit - Object Storage não disponível");
+      objectStorageAvailable = false;
+      return false;
     }
-    
-    // Testar se o Object Storage está funcionando
-    if (objectStorage && typeof objectStorage.list === 'function') {
+
+    // Tentar importar usando ES modules
+    let storageModule;
+    try {
+      storageModule = await import('@replit/object-storage');
+      console.log("✅ Módulo @replit/object-storage importado com sucesso");
+    } catch (importError) {
+      console.log("❌ Falha ao importar @replit/object-storage:", importError.message);
+      
+      // Verificar se o pacote está instalado
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const nodeModulesPath = path.join(process.cwd(), 'node_modules', '@replit', 'object-storage');
+        
+        if (!fs.existsSync(nodeModulesPath)) {
+          console.log("📦 Pacote @replit/object-storage não está instalado");
+          console.log("💡 Execute: npm install @replit/object-storage");
+        }
+      } catch (fsError) {
+        console.log("❌ Erro ao verificar instalação do pacote");
+      }
+      
+      objectStorageAvailable = false;
+      return false;
+    }
+
+    // Tentar criar cliente
+    try {
+      if (storageModule.Client) {
+        objectStorage = new storageModule.Client();
+        console.log("✅ Cliente criado usando new Client()");
+      } else if (storageModule.getClient) {
+        objectStorage = storageModule.getClient();
+        console.log("✅ Cliente criado usando getClient()");
+      } else if (storageModule.default && storageModule.default.Client) {
+        objectStorage = new storageModule.default.Client();
+        console.log("✅ Cliente criado usando default.Client()");
+      } else {
+        throw new Error("Nenhum método de criação de cliente encontrado no módulo");
+      }
+    } catch (clientError) {
+      console.log("❌ Erro ao criar cliente:", clientError.message);
+      objectStorageAvailable = false;
+      return false;
+    }
+
+    // Testar conectividade
+    try {
       await objectStorage.list();
       objectStorageAvailable = true;
-      console.log("✅ Object Storage do Replit inicializado com sucesso!");
+      console.log("✅ Object Storage do Replit inicializado e testado com sucesso!");
       console.log("📦 Arquivos serão persistidos no Object Storage entre deployments");
       return true;
-    } else {
-      throw new Error("Método list não disponível no objeto de storage");
+    } catch (testError) {
+      console.log("❌ Falha no teste de conectividade:", testError.message);
+      
+      // Diagnóstico adicional
+      if (testError.message.includes('permission') || testError.message.includes('unauthorized')) {
+        console.log("🔒 Problema de permissões - verifique se Object Storage está habilitado no Replit");
+      } else if (testError.message.includes('network') || testError.message.includes('timeout')) {
+        console.log("🌐 Problema de conectividade - tente novamente em alguns segundos");
+      }
+      
+      objectStorageAvailable = false;
+      return false;
     }
   } catch (error) {
-    console.warn("⚠️ Object Storage não disponível:", error.message);
+    console.warn("⚠️ Erro inesperado na inicialização do Object Storage:", error.message);
     console.log("📂 Usando armazenamento local temporário (será perdido no redeploy)");
-    console.log("💡 Para ativar persistência, instale: npm install @replit/object-storage");
     objectStorageAvailable = false;
     return false;
   }
@@ -65,24 +111,60 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     try {
       const key = `orders/${orderId}/${filename}`;
       
-      // Tentar diferentes métodos de upload
+      console.log(`📤 Tentando upload para Object Storage: ${key}`);
+      console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
+      
+      // Tentar diferentes métodos de upload com diagnóstico detalhado
+      let uploadSuccess = false;
+      
       if (typeof objectStorage.uploadFromBuffer === 'function') {
+        console.log("🔧 Usando método uploadFromBuffer");
         await objectStorage.uploadFromBuffer(key, buffer);
+        uploadSuccess = true;
       } else if (typeof objectStorage.upload === 'function') {
+        console.log("🔧 Usando método upload");
         await objectStorage.upload(key, buffer);
+        uploadSuccess = true;
       } else if (typeof objectStorage.put === 'function') {
+        console.log("🔧 Usando método put");
         await objectStorage.put(key, buffer);
+        uploadSuccess = true;
       } else {
+        // Listar métodos disponíveis para diagnóstico
+        const availableMethods = Object.getOwnPropertyNames(objectStorage).filter(name => 
+          typeof objectStorage[name] === 'function'
+        );
+        console.log("❌ Métodos disponíveis no object storage:", availableMethods);
         throw new Error("Nenhum método de upload encontrado no objeto de storage");
       }
       
-      console.log(`📁 ☁️ Arquivo persistido no Object Storage: ${key}`);
-      console.log(`✅ Arquivo estará disponível após redeploys`);
-      return key;
+      if (uploadSuccess) {
+        // Verificar se o arquivo foi realmente salvo
+        try {
+          await objectStorage.list();
+          console.log(`📁 ☁️ Arquivo persistido no Object Storage: ${key}`);
+          console.log(`✅ Arquivo estará disponível após redeploys`);
+          return key;
+        } catch (verifyError) {
+          console.warn("⚠️ Upload aparentemente bem-sucedido, mas não foi possível verificar");
+          return key;
+        }
+      }
     } catch (error) {
-      console.error("❌ Erro ao salvar no Object Storage:", error);
-      console.log("🔄 Tentando Google Drive...");
+      console.error("❌ Erro detalhado ao salvar no Object Storage:", {
+        message: error.message,
+        stack: error.stack,
+        objectStorageAvailable,
+        hasObjectStorage: !!objectStorage,
+        objectStorageType: typeof objectStorage
+      });
+      console.log("🔄 Tentando Google Drive como fallback...");
     }
+  } else {
+    console.log("⚠️ Object Storage não disponível:", {
+      objectStorageAvailable,
+      hasObjectStorage: !!objectStorage
+    });
   }
 
   // PRIORIDADE 2: Tentar Google Drive
