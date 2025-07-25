@@ -216,7 +216,24 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     }
   };
 
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  // Buscar configurações do sistema para obter a chave da API do Google Maps
+  const { data: settings = [] } = useQuery({
+    queryKey: ['/api/settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings');
+      if (!response.ok) throw new Error('Falha ao carregar configurações');
+      return response.json();
+    },
+  });
+
+  // Extrair chave da API do Google Maps das configurações
+  const googleMapsApiKey = React.useMemo(() => {
+    if (settings && settings.length > 0) {
+      const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
+      return googleMapsKeySetting ? googleMapsKeySetting.value : null;
+    }
+    return null;
+  }, [settings]);
 
   if (!googleMapsApiKey || googleMapsApiKey.trim() === '') {
     return (
