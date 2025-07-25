@@ -151,6 +151,9 @@ export class MemStorage implements IStorage {
       { key: "keyuser_password", value: "170824", description: "Senha do superadministrador" },
       { key: "order_id_pattern", value: "EMPRESA{DD}{MM}{YY}{NNNN}", description: "Padrão de numeração de pedidos (EMPRESA = sigla da empresa criadora)" },
       { key: "use_company_acronym", value: "true", description: "Usar sigla da empresa criadora no prefixo dos pedidos" },
+      { key: "google_drive_client_email", value: "", description: "Email da Service Account do Google Drive" },
+      { key: "google_drive_private_key", value: "", description: "Chave privada da Service Account do Google Drive" },
+      { key: "google_drive_project_id", value: "", description: "ID do projeto Google Cloud" },
     ];
 
     defaultSettings.forEach(setting => {

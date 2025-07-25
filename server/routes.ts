@@ -58,7 +58,7 @@ async function initializeObjectStorage() {
 // Inicializar Object Storage
 initializeObjectStorage();
 
-// Função utilitária para salvar arquivo no Object Storage ou sistema local
+// Função utilitária para salvar arquivo no Object Storage, Google Drive ou sistema local
 async function saveFileToStorage(buffer: Buffer, filename: string, orderId: string): Promise<string> {
   // PRIORIDADE 1: Tentar Object Storage se disponível
   if (objectStorageAvailable && objectStorage) {
@@ -81,34 +81,23 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       return key;
     } catch (error) {
       console.error("❌ Erro ao salvar no Object Storage:", error);
-      console.log("🔄 Tentando reconectar Object Storage...");
-      
-      // Tentar reinicializar o Object Storage
-      const reconnected = await initializeObjectStorage();
-      if (reconnected && objectStorage) {
-        try {
-          const key = `orders/${orderId}/${filename}`;
-          
-          if (typeof objectStorage.uploadFromBuffer === 'function') {
-            await objectStorage.uploadFromBuffer(key, buffer);
-          } else if (typeof objectStorage.upload === 'function') {
-            await objectStorage.upload(key, buffer);
-          } else if (typeof objectStorage.put === 'function') {
-            await objectStorage.put(key, buffer);
-          }
-          
-          console.log(`📁 ☁️ Arquivo salvo no Object Storage (após reconexão): ${key}`);
-          return key;
-        } catch (retryError) {
-          console.error("❌ Erro na segunda tentativa Object Storage:", retryError);
-        }
-      }
-      
-      console.log("🔄 Fallback para sistema local (temporário)...");
+      console.log("🔄 Tentando Google Drive...");
     }
-  } else {
-    console.log("⚠️ Object Storage não disponível, usando sistema local temporário");
-    console.log("💡 Arquivos no sistema local serão perdidos no próximo deploy");
+  }
+
+  // PRIORIDADE 2: Tentar Google Drive
+  try {
+    const { googleDriveService } = await import('./googleDrive');
+    const publicLink = await googleDriveService.uploadBuffer(buffer, filename, orderId);
+    
+    if (publicLink) {
+      console.log(`📁 🔗 Arquivo salvo no Google Drive: ${publicLink}`);
+      console.log(`✅ Link público gerado com sucesso`);
+      return `gdrive:${publicLink}`;
+    }
+  } catch (error) {
+    console.error("❌ Erro ao salvar no Google Drive:", error);
+    console.log("🔄 Fallback para sistema local...");
   }
   
   // FALLBACK: Salvar no sistema local (temporário)
@@ -128,8 +117,18 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   }
 }
 
-// Função utilitária para ler arquivo do Object Storage ou sistema local
+// Função utilitária para ler arquivo do Object Storage, Google Drive ou sistema local
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<Buffer | null> {
+  // Se for um link do Google Drive, redirecionar
+  if (key.startsWith('gdrive:')) {
+    const driveLink = key.replace('gdrive:', '');
+    console.log(`📁 🔗 Arquivo está no Google Drive: ${driveLink}`);
+    
+    // Para arquivos do Google Drive, vamos retornar um buffer especial
+    // que indica que é um redirect
+    return Buffer.from(`REDIRECT:${driveLink}`, 'utf-8');
+  }
+
   // PRIORIDADE 1: Tentar ler do Object Storage se disponível e key for válida
   if (objectStorageAvailable && objectStorage && key.startsWith('orders/')) {
     try {
@@ -3164,6 +3163,14 @@ mensagem: "Erro interno do servidor ao processar o upload",
       });
 
       const fileBuffer = await readFileFromStorage(storageKey || documentosInfo[tipo].path, orderId, filename);
+
+      // Verificar se é um redirect para Google Drive
+      if (fileBuffer && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+        const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+        console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+        
+        return res.redirect(302, driveLink);
+      }
 
       if (!fileBuffer) {
         console.log("❌ Arquivo não encontrado no Object Storage nem no sistema local");
