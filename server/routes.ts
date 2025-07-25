@@ -2465,7 +2465,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                  AND quantidade_recebida != '' 
                  AND quantidade_recebida ~ '^[0-9]*\.?[0-9]+$'
             THEN CAST(quantidade_recebida AS DECIMAL)
-            ELSE CAST(quantity AS DECIMAL)
+            WHEN quantity IS NOT NULL AND quantity != ''
+            THEN CAST(quantity AS DECIMAL)
+            ELSE 0
           END
         ), 0) as total_entregue
          FROM orders 
