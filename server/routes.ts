@@ -14,35 +14,63 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
-// Configuração do Object Storage (Replit) - OBRIGATÓRIO
+// Configuração do Object Storage (Replit)
 let objectStorage: any = null;
-try {
-  // Tentar importar e inicializar o Object Storage do Replit
-  const { Client } = require('@replit/object-storage');
-  objectStorage = new Client();
-  console.log("✅ Object Storage do Replit configurado e inicializado");
-  console.log("📦 Todos os arquivos serão salvos exclusivamente no Object Storage");
-} catch (error) {
-  console.error("❌ ERRO CRÍTICO: Object Storage não disponível!");
-  console.error("📦 SOLUÇÃO: Execute 'npm install @replit/object-storage'");
-  console.error("⚠️ O sistema não funcionará sem Object Storage configurado");
+let objectStorageAvailable = false;
+
+async function initializeObjectStorage() {
+  try {
+    const { Client } = require('@replit/object-storage');
+    objectStorage = new Client();
+    
+    // Testar se o Object Storage está funcionando
+    await objectStorage.list();
+    objectStorageAvailable = true;
+    
+    console.log("✅ Object Storage do Replit configurado e funcionando");
+    console.log("📦 Arquivos serão salvos no Object Storage quando possível");
+    return true;
+  } catch (error) {
+    console.warn("⚠️ Object Storage não disponível:", error.message);
+    console.log("📂 Sistema funcionará com armazenamento local como fallback");
+    objectStorageAvailable = false;
+    return false;
+  }
 }
+
+// Inicializar Object Storage
+initializeObjectStorage();
 
 // Função utilitária para salvar arquivo no Object Storage ou sistema local
 async function saveFileToStorage(buffer: Buffer, filename: string, orderId: string): Promise<string> {
-  // PRIORIDADE 1: Tentar Object Storage primeiro
-  if (objectStorage) {
+  // PRIORIDADE 1: Tentar Object Storage se disponível
+  if (objectStorageAvailable && objectStorage) {
     try {
       const key = `orders/${orderId}/${filename}`;
       await objectStorage.uploadFromBuffer(key, buffer);
-      console.log(`📁 ✅ Arquivo salvo no Object Storage: ${key}`);
+      console.log(`📁 ☁️ Arquivo salvo no Object Storage: ${key}`);
       return key;
     } catch (error) {
       console.error("❌ Erro ao salvar no Object Storage:", error);
+      console.log("🔄 Tentando reconectar Object Storage...");
+      
+      // Tentar reinicializar o Object Storage
+      const reconnected = await initializeObjectStorage();
+      if (reconnected) {
+        try {
+          const key = `orders/${orderId}/${filename}`;
+          await objectStorage.uploadFromBuffer(key, buffer);
+          console.log(`📁 ☁️ Arquivo salvo no Object Storage (após reconexão): ${key}`);
+          return key;
+        } catch (retryError) {
+          console.error("❌ Erro na segunda tentativa Object Storage:", retryError);
+        }
+      }
+      
       console.log("🔄 Fallback para sistema local...");
     }
   } else {
-    console.log("⚠️ Object Storage não configurado, usando sistema local");
+    console.log("⚠️ Object Storage não disponível, usando sistema local");
   }
   
   // FALLBACK: Salvar no sistema local
@@ -53,7 +81,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     }
     const filePath = path.join(orderDir, filename);
     fs.writeFileSync(filePath, buffer);
-    console.log(`📁 📂 Arquivo salvo localmente: ${filePath}`);
+    console.log(`📁 💾 Arquivo salvo localmente: ${filePath}`);
     return filePath;
   } catch (error) {
     console.error("❌ Erro ao salvar localmente:", error);
@@ -63,11 +91,11 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
 
 // Função utilitária para ler arquivo do Object Storage ou sistema local
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<Buffer | null> {
-  // PRIORIDADE 1: Tentar ler do Object Storage primeiro
-  if (objectStorage && key.startsWith('orders/')) {
+  // PRIORIDADE 1: Tentar ler do Object Storage se disponível e key for válida
+  if (objectStorageAvailable && objectStorage && key.startsWith('orders/')) {
     try {
       const buffer = await objectStorage.downloadAsBuffer(key);
-      console.log(`📁 ✅ Arquivo lido do Object Storage: ${key}`);
+      console.log(`📁 ☁️ Arquivo lido do Object Storage: ${key}`);
       return buffer;
     } catch (error) {
       console.error("❌ Erro ao ler do Object Storage:", error);
@@ -83,7 +111,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   
   for (const filePath of possiblePaths) {
     if (fs.existsSync(filePath)) {
-      console.log(`📁 📂 Arquivo lido localmente: ${filePath}`);
+      console.log(`📁 💾 Arquivo lido localmente: ${filePath}`);
       return fs.readFileSync(filePath);
     }
   }
