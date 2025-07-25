@@ -2712,19 +2712,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settings routes
+  // IMPORTANTE: Todas as configurações de API (incluindo Google Maps) são centralizadas
+  // e configuradas apenas pelo keyuser. Todos os usuários utilizam a mesma configuração.
   app.get("/api/settings", isAuthenticated, async (req, res) => {
     try {
       const settings = await storage.getAllSettings();
       
-      // Se não é KeyUser, filtrar configurações sensíveis
+      // Se não é KeyUser, retornar apenas configurações públicas (incluindo google_maps_api_key para uso)
       if (req.user.id !== 1 && !req.user.isKeyUser) {
         const publicSettings = settings.filter(setting => 
-          !setting.key.includes('database') && 
+          // Permitir google_maps_api_key para todos os usuários usarem
+          setting.key === 'google_maps_api_key' ||
+          (!setting.key.includes('database') && 
           !setting.key.includes('pg') && 
           !setting.key.includes('token') && 
-          !setting.key.includes('api_key') && 
           !setting.key.includes('smtp') &&
-          !setting.key.includes('password')
+          !setting.key.includes('password'))
         );
         res.json(publicSettings);
       } else {

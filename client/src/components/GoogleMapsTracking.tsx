@@ -45,20 +45,20 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     refetchInterval: 30000, // Atualizar a cada 30 segundos
   });
 
-  // Extrair chave da API do Google Maps das configurações
+  // Extrair chave da API do Google Maps das configurações do keyuser
   useEffect(() => {
-    console.log('🔍 Verificando configurações para Google Maps API Key:', settings);
+    console.log('🔍 Verificando configurações para Google Maps API Key (configurada pelo keyuser):', settings);
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      console.log('🗝️ Configuração encontrada:', googleMapsKeySetting);
+      console.log('🗝️ Configuração do keyuser encontrada:', googleMapsKeySetting);
       if (googleMapsKeySetting && googleMapsKeySetting.value) {
-        console.log('✅ Google Maps API Key encontrada, comprimento:', googleMapsKeySetting.value.length);
+        console.log('✅ Google Maps API Key do keyuser encontrada, comprimento:', googleMapsKeySetting.value.length);
         setGoogleMapsApiKey(googleMapsKeySetting.value);
       } else {
-        console.log('❌ Google Maps API Key não encontrada ou vazia');
+        console.log('❌ Google Maps API Key não configurada pelo keyuser');
       }
     } else {
-      console.log('❌ Nenhuma configuração encontrada');
+      console.log('❌ Nenhuma configuração do keyuser encontrada');
     }
   }, [settings]);
 
@@ -148,10 +148,10 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
           <div className="text-4xl mb-3">⚙️</div>
           <p className="text-sm text-yellow-600 font-medium mb-2">Configuração necessária</p>
           <p className="text-xs text-gray-600 mb-3 max-w-md">
-            A chave da API do Google Maps não foi configurada.
+            A chave da API do Google Maps não foi configurada pelo keyuser.
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            Entre em contato com o administrador para configurar.
+            Solicite ao keyuser para configurar a API do Google Maps no sistema.
           </p>
         </div>
       </div>

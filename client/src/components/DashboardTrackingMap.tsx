@@ -226,7 +226,7 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     },
   });
 
-  // Extrair chave da API do Google Maps das configurações
+  // Extrair chave da API do Google Maps das configurações do keyuser
   const googleMapsApiKey = React.useMemo(() => {
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
@@ -242,7 +242,7 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
           <AlertCircle className="mx-auto text-4xl text-yellow-500 mb-3" size={48} />
           <p className="text-muted-foreground font-medium">API do Google Maps não configurada</p>
           <p className="text-muted-foreground text-sm mt-1">
-            Entre em contato com o administrador para configurar a chave da API do Google Maps.
+            Solicite ao keyuser para configurar a chave da API do Google Maps no sistema.
           </p>
         </div>
       </div>

@@ -240,10 +240,10 @@ const MapComponent: React.FC<Props> = (props) => {
           <div className="mb-2">⚙️</div>
           <p className="text-gray-600 mb-2">Configuração necessária</p>
           <p className="text-sm text-gray-500">
-            A chave da API do Google Maps não foi configurada.
+            A chave da API do Google Maps não foi configurada pelo keyuser.
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            Entre em contato com o administrador para configurar.
+            Solicite ao keyuser para configurar a API do Google Maps no sistema.
           </p>
         </div>
       </div>
