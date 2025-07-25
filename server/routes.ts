@@ -4439,6 +4439,85 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
+  // Rota para o keyuser testar Object Storage
+  app.post("/api/keyuser/test-object-storage", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      console.log("🧪 KeyUser solicitou teste do Object Storage");
+
+      // Executar o teste do Object Storage
+      const { execSync } = await import('child_process');
+      
+      let testResult;
+      try {
+        // Executar o script de teste
+        const output = execSync('node scripts/test-object-storage-keyuser.js', { 
+          encoding: 'utf8',
+          timeout: 30000 // 30 segundos de timeout
+        });
+        
+        console.log("✅ Script de teste executado com sucesso");
+        console.log("📄 Output:", output);
+        
+        testResult = {
+          success: true,
+          message: "Teste do Object Storage executado com sucesso",
+          output: output,
+          timestamp: new Date().toISOString()
+        };
+        
+      } catch (execError) {
+        console.error("❌ Erro ao executar script de teste:", execError);
+        
+        testResult = {
+          success: false,
+          message: "Erro ao executar teste do Object Storage",
+          error: execError.message,
+          output: execError.stdout || "",
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      // Registrar log da ação
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Teste Object Storage",
+          itemType: "system",
+          itemId: "object_storage_test",
+          details: `KeyUser executou teste do Object Storage - ${testResult.success ? 'Sucesso' : 'Falha'}`
+        });
+      }
+
+      // Retornar resultado
+      if (testResult.success) {
+        res.json({
+          success: true,
+          message: testResult.message,
+          data: {
+            output: testResult.output,
+            timestamp: testResult.timestamp
+          }
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: testResult.message,
+          error: testResult.error,
+          output: testResult.output,
+          timestamp: testResult.timestamp
+        });
+      }
+
+    } catch (error) {
+      console.error("❌ Erro na rota de teste do Object Storage:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro interno do servidor",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Rota para configurar sigla personalizada de uma empresa
   app.post("/api/companies/:id/acronym", isAuthenticated, isKeyUser, async (req, res) => {
     try {

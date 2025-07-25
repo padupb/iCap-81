@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,7 +54,9 @@ import {
   Upload,
   Trash,
   UserPlus,
-  Download
+  Download,
+  TestTube,
+  Loader2
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -175,6 +177,12 @@ export default function Keyuser() {
   const [uploadingAPK, setUploadingAPK] = useState(false);
 
   const [isSystemConfigSaving, setIsSystemConfigSaving] = useState(false);
+
+  const [showSettings, setShowSettings] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isTestingObjectStorage, setIsTestingObjectStorage] = useState(false);
+  const [objectStorageTestResult, setObjectStorageTestResult] = useState<any>(null);
 
 
   const queryClient = useQueryClient();
@@ -840,6 +848,53 @@ export default function Keyuser() {
       urgent_days_threshold: "Limite de dias para pedidos urgentes"
     };
     return descriptions[key] || `Configuração ${key}`;
+  };
+
+  const handleTestObjectStorage = async () => {
+    setIsTestingObjectStorage(true);
+    setObjectStorageTestResult(null);
+
+    try {
+      const response = await fetch("/api/keyuser/test-object-storage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      const result = await response.json();
+
+      setObjectStorageTestResult(result);
+
+      if (result.success) {
+        toast({
+          title: "Teste Concluído",
+          description: "Object Storage testado com sucesso!",
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Falha no Teste",
+          description: result.message || "Erro ao testar Object Storage",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao testar Object Storage:", error);
+      setObjectStorageTestResult({
+        success: false,
+        message: "Erro de conexão ao executar teste",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+
+      toast({
+        title: "Erro",
+        description: "Não foi possível executar o teste do Object Storage",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTestingObjectStorage(false);
+    }
   };
 
   return (
@@ -1533,8 +1588,6 @@ export default function Keyuser() {
                   </div>
                 </div>
 
-
-
                 {/* Botões de Ação */}
                 <div className="flex justify-end gap-4 pt-6 border-t border-border">
                   <Button
@@ -1703,157 +1756,213 @@ export default function Keyuser() {
           </Card>
         </TabsContent>
 
-                {/* Tab iCapMob */}
-                <TabsContent value="icapmob" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Smartphone className="w-5 h-5" />
-                        Gestão do iCapMob - Transporte
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Upload de nova versão */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-medium">Atualizar Aplicativo</h3>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="apk-version">Versão</Label>
-                              <Input
-                                id="apk-version"
-                                placeholder="Ex: 1.2.0"
-                                className="bg-input border-border"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="apk-file">Arquivo APK</Label>
-                              <Input
-                                id="apk-file"
-                                type="file"
-                                accept=".apk"
-                                className="bg-input border-border"
-                              />
-                            </div>
-                            <Button 
-                              onClick={handleUploadAPK}
-                              disabled={uploadingAPK}
-                              className="w-full"
-                            >
-                              {uploadingAPK ? (
-                                <>
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                                  Enviando...
-                                </>
-                              ) : (
-                                <>
-                                  <Upload className="w-4 h-4 mr-2" />
-                                  Subir Atualização
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
+        {/* Tab iCapMob */}
+        <TabsContent value="icapmob" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5" />
+                Gestão do iCapMob - Transporte
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Upload de nova versão */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Atualizar Aplicativo</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="apk-version">Versão</Label>
+                      <Input
+                        id="apk-version"
+                        placeholder="Ex: 1.2.0"
+                        className="bg-input border-border"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="apk-file">Arquivo APK</Label>
+                      <Input
+                        id="apk-file"
+                        type="file"
+                        accept=".apk"
+                        className="bg-input border-border"
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleUploadAPK}
+                      disabled={uploadingAPK}
+                      className="w-full"
+                    >
+                      {uploadingAPK ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Subir Atualização
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
 
-                        {/* Informações da versão atual */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-medium">Versão Atual</h3>
-                          <div className="space-y-2">
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Versão:</span>
-                              <span className="font-medium">
-                                {currentVersion?.version || "Não disponível"}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Data:</span>
-                              <span className="font-medium">
-                                {currentVersion?.date 
-                                  ? new Date(currentVersion.date).toLocaleDateString('pt-BR')
-                                  : "Não disponível"
-                                }
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Status:</span>
-                              <span className={`font-medium ${currentVersion?.hasAPK ? 'text-green-600' : 'text-red-600'}`}>
-                                {currentVersion?.hasAPK ? "APK Disponível" : "APK Não Encontrado"}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">URL:</span>
-                              <span className="font-mono text-xs break-all">
-                                /icapmob/icapmob.apk
-                              </span>
-                            </div>
-                          </div>
+                {/* Informações da versão atual */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Versão Atual</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Versão:</span>
+                      <span className="font-medium">
+                        {currentVersion?.version || "Não disponível"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Data:</span>
+                      <span className="font-medium">
+                        {currentVersion?.date 
+                          ? new Date(currentVersion.date).toLocaleDateString('pt-BR')
+                          : "Não disponível"
+                        }
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className={`font-medium ${currentVersion?.hasAPK ? 'text-green-600' : 'text-red-600'}`}>
+                        {currentVersion?.hasAPK ? "APK Disponível" : "APK Não Encontrado"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">URL:</span>
+                      <span className="font-mono text-xs break-all">
+                        /icapmob/icapmob.apk
+                      </span>
+                    </div>
+                  </div>
 
-                          {/* QR Code para download */}
-                          <div className="mt-4">
-                            <h4 className="text-sm font-medium mb-2">QR Code para Download</h4>
-                            <div className="flex justify-center">
-                              <div className="p-4 bg-white rounded-lg">
-                                {currentVersion?.hasAPK ? (
-                                  <QRCodeComponent 
-                                    value={`${window.location.origin}/icapmob/icapmob.apk`}
-                                    size={128}
-                                  />
-                                ) : (
-                                  <div className="w-32 h-32 bg-gray-200 rounded flex items-center justify-center">
-                                    <span className="text-xs text-gray-500 text-center">
-                                      APK não<br/>disponível
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                  {/* QR Code para download */}
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium mb-2">QR Code para Download</h4>
+                    <div className="flex justify-center">
+                      <div className="p-4 bg-white rounded-lg">
+                        {currentVersion?.hasAPK ? (
+                          <QRCodeComponent 
+                            value={`${window.location.origin}/icapmob/icapmob.apk`}
+                            size={128}
+                          />
+                        ) : (
+                          <div className="w-32 h-32 bg-gray-200 rounded flex items-center justify-center">
+                            <span className="text-xs text-gray-500 text-center">
+                              APK não<br/>disponível
+                            </span>
                           </div>
-                        </div>
+                        )}
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                      {/* Histórico de versões */}
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-medium">Histórico de Versões</h3>
-                        <div className="border rounded-lg">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Versão</TableHead>
-                                <TableHead>Data</TableHead>
-                                <TableHead>Ações</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {versionHistory.length > 0 ? (
-                                versionHistory.map((version, index) => (
-                                  <TableRow key={version.id}>
-                                    <TableCell className="font-medium">{version.versao}</TableCell>
-                                    <TableCell>
-                                      {new Date(version.data).toLocaleDateString('pt-BR')}
-                                    </TableCell>
-                                    <TableCell>
-                                      {index === 0 ? (
-                                        <Badge variant="default">Atual</Badge>
-                                      ) : (
-                                        <Badge variant="secondary">Anterior</Badge>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))
+              {/* Histórico de versões */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Histórico de Versões</h3>
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Versão</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {versionHistory.length > 0 ? (
+                        versionHistory.map((version, index) => (
+                          <TableRow key={version.id}>
+                            <TableCell className="font-medium">{version.versao}</TableCell>
+                            <TableCell>
+                              {new Date(version.data).toLocaleDateString('pt-BR')}
+                            </TableCell>
+                            <TableCell>
+                              {index === 0 ? (
+                                <Badge variant="default">Atual</Badge>
                               ) : (
-                                <TableRow>
-                                  <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                    Nenhuma versão encontrada
-                                  </TableCell>
-                                </TableRow>
+                                <Badge variant="secondary">Anterior</Badge>
                               )}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground">
+                            Nenhuma versão encontrada
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Seção de Testes do Sistema */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TestTube className="w-5 h-5" />
+              Testes do Sistema
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={handleTestObjectStorage}
+              disabled={isTestingObjectStorage}
+              className="w-full"
+              variant="outline"
+            >
+              {isTestingObjectStorage ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Testando Object Storage...
+                </>
+              ) : (
+                <>
+                  <Database className="w-4 h-4 mr-2" />
+                  Testar Object Storage
+                </>
+              )}
+            </Button>
+
+            {objectStorageTestResult && (
+              <div className={`p-4 rounded-lg border ${
+                objectStorageTestResult.success 
+                  ? 'bg-green-50 border-green-200 text-green-800' 
+                  : 'bg-red-50border-red-200 text-red-800'
+              }`}>
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  {objectStorageTestResult.success ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <XCircle className="w-4 h-4" />
+                  )}
+                  Resultado do Teste
+                </h4>
+                <p className="text-sm mb-2">{objectStorageTestResult.message}</p>
+                {objectStorageTestResult.data?.output && (
+                  <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-40 border">
+                    {objectStorageTestResult.data.output}
+                  </pre>
+                )}
+                <p className="text-xs mt-2 opacity-75">
+                  Executado em: {new Date(objectStorageTestResult.data?.timestamp || Date.now()).toLocaleString('pt-BR')}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
               </Tabs>
             </div>
           );
