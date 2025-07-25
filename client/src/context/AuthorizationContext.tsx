@@ -136,8 +136,14 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
 
     // Função para verificar se pode acessar Google Maps
   const canAccessGoogleMaps = useCallback(() => {
-    // Qualquer usuário autenticado pode acessar Google Maps
-    return isAuthenticated;
+    // Verificar se o usuário está autenticado E se a API key está configurada
+    if (!isAuthenticated) {
+      return false;
+    }
+    
+    // Verificar se a chave da API do Google Maps está configurada no sistema
+    // Esta verificação será feita nos componentes que usam o Maps
+    return true;
   }, [isAuthenticated]);
 
   const menuPermissions = {

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
@@ -118,7 +117,7 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
           <div className="text-4xl mb-3">🗺️</div>
           <p className="text-sm text-red-600 font-medium mb-2">Erro ao carregar Google Maps</p>
           <p className="text-xs text-gray-600 mb-3 max-w-md">{mapError}</p>
-          
+
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3 text-left max-w-md">
             <p className="text-xs text-yellow-800 font-medium mb-1">Instruções:</p>
             <ul className="text-xs text-yellow-700 space-y-1">
@@ -127,7 +126,7 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
               <li>• Certifique-se de que a API Maps JavaScript está habilitada</li>
             </ul>
           </div>
-          
+
           <button 
             onClick={() => {
               setMapError(null);
@@ -142,7 +141,7 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     );
   }
 
-  if (!googleMapsApiKey) {
+  if (!googleMapsApiKey || googleMapsApiKey.trim() === '') {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100">
         <div className="text-center p-4">
@@ -151,8 +150,8 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
           <p className="text-xs text-gray-600 mb-3 max-w-md">
             A chave da API do Google Maps não foi configurada.
           </p>
-          <p className="text-xs text-blue-600">
-            Acesse Configurações → Google Maps API Key para configurar.
+          <p className="text-xs text-gray-500 mt-2">
+            Entre em contato com o administrador para configurar.
           </p>
         </div>
       </div>
@@ -190,7 +189,7 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
           ))}
         </gmp-map>
       </div>
-      
+
       {/* Indicador de status */}
       <div className="absolute top-2 right-2 bg-white rounded-lg shadow-md p-2 border">
         <div className="flex items-center text-xs text-gray-600">

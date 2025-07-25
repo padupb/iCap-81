@@ -216,6 +216,22 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     }
   };
 
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!googleMapsApiKey || googleMapsApiKey.trim() === '') {
+    return (
+      <div className="bg-input rounded-xl h-48 flex items-center justify-center border border-border">
+        <div className="text-center">
+          <AlertCircle className="mx-auto text-4xl text-yellow-500 mb-3" size={48} />
+          <p className="text-muted-foreground font-medium">API do Google Maps não configurada</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Entre em contato com o administrador para configurar a chave da API do Google Maps.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="bg-input rounded-xl h-48 flex items-center justify-center border border-border">

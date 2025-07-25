@@ -237,13 +237,13 @@ const MapComponent: React.FC<Props> = (props) => {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
         <div className="text-center p-4">
-          <div className="text-4xl mb-3">⚙️</div>
-          <p className="text-sm text-yellow-600 font-medium mb-2">Configuração necessária</p>
-          <p className="text-xs text-gray-600 mb-3 max-w-md">
+          <div className="mb-2">⚙️</div>
+          <p className="text-gray-600 mb-2">Configuração necessária</p>
+          <p className="text-sm text-gray-500">
             A chave da API do Google Maps não foi configurada.
           </p>
-          <p className="text-xs text-blue-600">
-            Acesse Configurações → Google Maps API Key para configurar.
+          <p className="text-xs text-gray-500 mt-2">
+            Entre em contato com o administrador para configurar.
           </p>
         </div>
       </div>
