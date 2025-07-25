@@ -20,19 +20,36 @@ let objectStorageAvailable = false;
 
 async function initializeObjectStorage() {
   try {
-    const { Client } = require('@replit/object-storage');
-    objectStorage = new Client();
+    // Tentar usar a versão mais recente da API
+    let Client;
+    try {
+      const storage = require('@replit/object-storage');
+      Client = storage.Client || storage.getClient || storage.default;
+      if (typeof Client === 'function') {
+        objectStorage = typeof Client === 'function' && Client.name === 'getClient' ? Client() : new Client();
+      } else {
+        objectStorage = storage.getClient ? storage.getClient() : new storage.Client();
+      }
+    } catch (importError) {
+      console.log("⚠️ Tentando importação alternativa...");
+      const storage = require('@replit/object-storage');
+      objectStorage = storage;
+    }
     
     // Testar se o Object Storage está funcionando
-    await objectStorage.list();
-    objectStorageAvailable = true;
-    
-    console.log("✅ Object Storage do Replit configurado e funcionando");
-    console.log("📦 Arquivos serão salvos no Object Storage quando possível");
-    return true;
+    if (objectStorage && typeof objectStorage.list === 'function') {
+      await objectStorage.list();
+      objectStorageAvailable = true;
+      console.log("✅ Object Storage do Replit inicializado com sucesso!");
+      console.log("📦 Arquivos serão persistidos no Object Storage entre deployments");
+      return true;
+    } else {
+      throw new Error("Método list não disponível no objeto de storage");
+    }
   } catch (error) {
     console.warn("⚠️ Object Storage não disponível:", error.message);
-    console.log("📂 Sistema funcionará com armazenamento local como fallback");
+    console.log("📂 Usando armazenamento local temporário (será perdido no redeploy)");
+    console.log("💡 Para ativar persistência, instale: npm install @replit/object-storage");
     objectStorageAvailable = false;
     return false;
   }
@@ -47,8 +64,20 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   if (objectStorageAvailable && objectStorage) {
     try {
       const key = `orders/${orderId}/${filename}`;
-      await objectStorage.uploadFromBuffer(key, buffer);
-      console.log(`📁 ☁️ Arquivo salvo no Object Storage: ${key}`);
+      
+      // Tentar diferentes métodos de upload
+      if (typeof objectStorage.uploadFromBuffer === 'function') {
+        await objectStorage.uploadFromBuffer(key, buffer);
+      } else if (typeof objectStorage.upload === 'function') {
+        await objectStorage.upload(key, buffer);
+      } else if (typeof objectStorage.put === 'function') {
+        await objectStorage.put(key, buffer);
+      } else {
+        throw new Error("Nenhum método de upload encontrado no objeto de storage");
+      }
+      
+      console.log(`📁 ☁️ Arquivo persistido no Object Storage: ${key}`);
+      console.log(`✅ Arquivo estará disponível após redeploys`);
       return key;
     } catch (error) {
       console.error("❌ Erro ao salvar no Object Storage:", error);
@@ -56,10 +85,18 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       
       // Tentar reinicializar o Object Storage
       const reconnected = await initializeObjectStorage();
-      if (reconnected) {
+      if (reconnected && objectStorage) {
         try {
           const key = `orders/${orderId}/${filename}`;
-          await objectStorage.uploadFromBuffer(key, buffer);
+          
+          if (typeof objectStorage.uploadFromBuffer === 'function') {
+            await objectStorage.uploadFromBuffer(key, buffer);
+          } else if (typeof objectStorage.upload === 'function') {
+            await objectStorage.upload(key, buffer);
+          } else if (typeof objectStorage.put === 'function') {
+            await objectStorage.put(key, buffer);
+          }
+          
           console.log(`📁 ☁️ Arquivo salvo no Object Storage (após reconexão): ${key}`);
           return key;
         } catch (retryError) {
@@ -67,13 +104,14 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
         }
       }
       
-      console.log("🔄 Fallback para sistema local...");
+      console.log("🔄 Fallback para sistema local (temporário)...");
     }
   } else {
-    console.log("⚠️ Object Storage não disponível, usando sistema local");
+    console.log("⚠️ Object Storage não disponível, usando sistema local temporário");
+    console.log("💡 Arquivos no sistema local serão perdidos no próximo deploy");
   }
   
-  // FALLBACK: Salvar no sistema local
+  // FALLBACK: Salvar no sistema local (temporário)
   try {
     const orderDir = path.join(process.cwd(), "uploads", orderId);
     if (!fs.existsSync(orderDir)) {
@@ -81,7 +119,8 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     }
     const filePath = path.join(orderDir, filename);
     fs.writeFileSync(filePath, buffer);
-    console.log(`📁 💾 Arquivo salvo localmente: ${filePath}`);
+    console.log(`📁 💾 Arquivo salvo localmente (temporário): ${filePath}`);
+    console.log(`⚠️ Este arquivo será perdido no próximo deploy!`);
     return filePath;
   } catch (error) {
     console.error("❌ Erro ao salvar localmente:", error);
@@ -94,9 +133,25 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   // PRIORIDADE 1: Tentar ler do Object Storage se disponível e key for válida
   if (objectStorageAvailable && objectStorage && key.startsWith('orders/')) {
     try {
-      const buffer = await objectStorage.downloadAsBuffer(key);
-      console.log(`📁 ☁️ Arquivo lido do Object Storage: ${key}`);
-      return buffer;
+      let buffer: Buffer | null = null;
+      
+      // Tentar diferentes métodos de download
+      if (typeof objectStorage.downloadAsBuffer === 'function') {
+        buffer = await objectStorage.downloadAsBuffer(key);
+      } else if (typeof objectStorage.download === 'function') {
+        const result = await objectStorage.download(key);
+        buffer = Buffer.isBuffer(result) ? result : Buffer.from(result);
+      } else if (typeof objectStorage.get === 'function') {
+        const result = await objectStorage.get(key);
+        buffer = Buffer.isBuffer(result) ? result : Buffer.from(result);
+      } else {
+        throw new Error("Nenhum método de download encontrado no objeto de storage");
+      }
+      
+      if (buffer) {
+        console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key}`);
+        return buffer;
+      }
     } catch (error) {
       console.error("❌ Erro ao ler do Object Storage:", error);
       console.log("🔄 Tentando fallback para sistema local...");
@@ -111,7 +166,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   
   for (const filePath of possiblePaths) {
     if (fs.existsSync(filePath)) {
-      console.log(`📁 💾 Arquivo lido localmente: ${filePath}`);
+      console.log(`📁 💾 Arquivo lido do sistema local: ${filePath}`);
       return fs.readFileSync(filePath);
     }
   }
