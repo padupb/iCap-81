@@ -59,43 +59,106 @@ Status: Teste em execução...
       console.log('⚠️ Conteúdo diferente do esperado');
       console.log(`📝 Diferença detectada:`);
       console.log(`   Tamanho original: ${testContent.length} caracteres`);
-      console.log(`   Tamanho baixado: ${downloadedContent.length} caracteres`);
+      console.log(`   Tamanho baixado: ${downloadedContent ? downloadedContent.length : 'undefined'} caracteres`);
     }
 
     // Listar arquivos no storage com foco nos testes do keyuser
     console.log('\n5. Listando objetos no Object Storage...');
-    const objects = await client.list();
-    console.log(`📂 Total de objetos encontrados: ${objects.length}`);
+    
+    let objects = [];
+    let totalObjects = 0;
+    
+    try {
+      const listResult = await client.list();
+      console.log('📋 Resposta do list():', typeof listResult, listResult);
+      
+      // Tratar diferentes formatos de resposta
+      if (Array.isArray(listResult)) {
+        objects = listResult;
+        totalObjects = objects.length;
+      } else if (listResult && typeof listResult === 'object') {
+        // Se for um objeto, pode ter uma propriedade com os itens
+        if (listResult.items && Array.isArray(listResult.items)) {
+          objects = listResult.items;
+          totalObjects = objects.length;
+        } else if (listResult.objects && Array.isArray(listResult.objects)) {
+          objects = listResult.objects;
+          totalObjects = objects.length;
+        } else {
+          // Tentar converter o objeto em array
+          objects = Object.values(listResult).filter(item => 
+            item && typeof item === 'object' && (item.key || item.name)
+          );
+          totalObjects = objects.length;
+        }
+      } else {
+        console.log('⚠️ Formato inesperado da resposta do list()');
+        totalObjects = 0;
+      }
+      
+      console.log(`📂 Total de objetos encontrados: ${totalObjects}`);
+    } catch (listError) {
+      console.log('❌ Erro ao listar objetos:', listError.message);
+      totalObjects = 0;
+    }
     
     // Filtrar e mostrar arquivos de teste do keyuser
-    const keyuserTests = objects.filter(obj => 
-      obj.key && obj.key.includes('keyuser-test')
-    );
-    
-    if (keyuserTests.length > 0) {
-      console.log(`\n🔑 Testes do KeyUser encontrados (${keyuserTests.length}):`);
-      keyuserTests.slice(-5).forEach((obj, index) => {
-        const size = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
-        const date = obj.timeCreated ? new Date(obj.timeCreated).toLocaleString('pt-BR') : 'N/A';
-        console.log(`   ${index + 1}. ${obj.key} ${size} - ${date}`);
-      });
+    let keyuserTests = [];
+    if (objects.length > 0) {
+      try {
+        keyuserTests = objects.filter(obj => {
+          const key = obj.key || obj.name || obj;
+          return key && typeof key === 'string' && key.includes('keyuser-test');
+        });
+        
+        if (keyuserTests.length > 0) {
+          console.log(`\n🔑 Testes do KeyUser encontrados (${keyuserTests.length}):`);
+          keyuserTests.slice(-5).forEach((obj, index) => {
+            const key = obj.key || obj.name || obj;
+            const size = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
+            const date = obj.timeCreated ? new Date(obj.timeCreated).toLocaleString('pt-BR') : 'N/A';
+            console.log(`   ${index + 1}. ${key} ${size} - ${date}`);
+          });
+        }
+      } catch (filterError) {
+        console.log('⚠️ Erro ao filtrar testes do keyuser:', filterError.message);
+      }
     }
 
     // Mostrar estatísticas gerais
     console.log(`\n📊 Estatísticas do Object Storage:`);
-    const totalSize = objects.reduce((sum, obj) => sum + (obj.size || 0), 0);
-    console.log(`   • Total de objetos: ${objects.length}`);
+    
+    let totalSize = 0;
+    try {
+      totalSize = objects.reduce((sum, obj) => {
+        const size = obj.size || 0;
+        return sum + (typeof size === 'number' ? size : 0);
+      }, 0);
+    } catch (sizeError) {
+      console.log('⚠️ Erro ao calcular tamanho total');
+    }
+    
+    console.log(`   • Total de objetos: ${totalObjects}`);
     console.log(`   • Tamanho total: ${(totalSize / (1024 * 1024)).toFixed(2)} MB`);
     console.log(`   • Testes do keyuser: ${keyuserTests.length}`);
 
     // Verificar estrutura de pastas
-    const orderFolders = objects.filter(obj => 
-      obj.key && obj.key.startsWith('orders/')
-    ).length;
+    let orderFolders = 0;
+    let testFolders = 0;
     
-    const testFolders = objects.filter(obj => 
-      obj.key && obj.key.startsWith('test/')
-    ).length;
+    try {
+      orderFolders = objects.filter(obj => {
+        const key = obj.key || obj.name || obj;
+        return key && typeof key === 'string' && key.startsWith('orders/');
+      }).length;
+      
+      testFolders = objects.filter(obj => {
+        const key = obj.key || obj.name || obj;
+        return key && typeof key === 'string' && key.startsWith('test/');
+      }).length;
+    } catch (folderError) {
+      console.log('⚠️ Erro ao verificar estrutura de pastas');
+    }
 
     console.log(`   • Arquivos de pedidos: ${orderFolders}`);
     console.log(`   • Arquivos de teste: ${testFolders}`);
@@ -133,7 +196,7 @@ Status: Teste em execução...
 
     console.log('\n🎉 TESTE DO KEYUSER CONCLUÍDO COM SUCESSO!');
     console.log(`📦 Arquivo principal salvo em: ${storageKey}`);
-    console.log(`📊 Total de objetos no storage: ${objects.length}`);
+    console.log(`📊 Total de objetos no storage: ${totalObjects}`);
     console.log(`⚡ Performance: ${duration}ms para upload/download`);
     console.log('✅ Object Storage está funcionando perfeitamente!');
     
@@ -146,7 +209,7 @@ Status: Teste em execução...
     return {
       success: true,
       storageKey,
-      totalObjects: objects.length,
+      totalObjects: totalObjects,
       keyuserTests: keyuserTests.length,
       performance: duration,
       totalSize: (totalSize / (1024 * 1024)).toFixed(2),
@@ -171,6 +234,7 @@ Status: Teste em execução...
       console.log('   • Problemas de conectividade');
       console.log('   • Object Storage temporariamente indisponível');
       console.log('   • Problemas de configuração do Replit');
+      console.log('   • Formato inesperado da resposta da API');
     }
 
     console.log('\n📞 SUPORTE TÉCNICO:');
