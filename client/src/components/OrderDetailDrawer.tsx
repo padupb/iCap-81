@@ -1874,7 +1874,7 @@ export function OrderDetailDrawer({
                                     fetch(
                                       `/api/pedidos/${orderId}/documentos/nota_xml`,
                                     )
-                                      .then((response)<previous_generation>
+                                      .then((response) => {
                                         if (!response.ok) {
                                           throw new Error(
                                             `Erro ao baixar: ${response.status}`,
