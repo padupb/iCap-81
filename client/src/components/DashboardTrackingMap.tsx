@@ -89,9 +89,9 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
               console.warn(`Erro ao buscar tracking para pedido ${order.id}`);
               return null;
             }
-            
+
             const trackingPoints: TrackingPoint[] = await response.json();
-            
+
             // Pegar o último ponto de rastreamento
             const lastPoint = trackingPoints.length > 0 
               ? trackingPoints[trackingPoints.length - 1] 
@@ -117,7 +117,7 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
 
         const results = await Promise.all(trackingPromises);
         const validResults: DashboardTrackingData[] = [];
-        
+
         for (const result of results) {
           if (result && result.lastTrackingPoint) {
             validResults.push(result);
@@ -179,21 +179,21 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     // Calcular bounding box (maior e menor latitude/longitude)
     const latitudes = markers.map(marker => marker.lat);
     const longitudes = markers.map(marker => marker.lng);
-    
+
     const minLat = Math.min(...latitudes);
     const maxLat = Math.max(...latitudes);
     const minLng = Math.min(...longitudes);
     const maxLng = Math.max(...longitudes);
-    
+
     // Calcular centro do bounding box
     const centerLat = (minLat + maxLat) / 2;
     const centerLng = (minLng + maxLng) / 2;
-    
+
     // Calcular diferenças para determinar zoom apropriado
     const latDiff = maxLat - minLat;
     const lngDiff = maxLng - minLng;
     const maxDiff = Math.max(latDiff, lngDiff);
-    
+
     // Calcular zoom baseado na diferença (com margem de segurança)
     let zoom = 10; // zoom padrão
     if (maxDiff > 10) zoom = 4;       // muito distante
@@ -203,7 +203,7 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     else if (maxDiff > 0.5) zoom = 8; // próximo
     else if (maxDiff > 0.2) zoom = 9; // muito próximo
     else zoom = 10;                   // bem próximo
-    
+
     return {
       center: { lat: centerLat, lng: centerLng },
       zoom: zoom
@@ -323,4 +323,4 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
       )}
     </div>
   );
-} 
+}

@@ -966,8 +966,7 @@ export function OrderDetailDrawer({
           <!DOCTYPE html>
           <html>
             <head>
-              <title>Pedido ${orderDetails.orderId}</title>
-              <style>
+              <title>Pedido ${orderDetails.orderId}</title>              <style>
                 * {
                   margin: 0;
                   padding: 0;
@@ -1875,7 +1874,7 @@ export function OrderDetailDrawer({
                                     fetch(
                                       `/api/pedidos/${orderId}/documentos/nota_xml`,
                                     )
-                                      .then((response) => {
+                                      .then((response)<previous_generation>
                                         if (!response.ok) {
                                           throw new Error(
                                             `Erro ao baixar: ${response.status}`,

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from "react";
+import React, { createContext, useContext, ReactNode, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 
 interface AuthorizationContextType {
@@ -19,6 +19,11 @@ interface AuthorizationContextType {
    * @param area Identificador da área (orders, purchase_orders, companies, users, products)
    */
   canCreate: (area: string) => boolean;
+
+  /**
+   * Verifica se pode acessar Google Maps
+   */
+  canAccessGoogleMaps: () => boolean;
 }
 
 const AuthorizationContext = createContext<AuthorizationContextType | undefined>(undefined);
@@ -119,7 +124,7 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     // Para usuários normais, verificar apenas permissões específicas da role
     const rolePermissions = user.role?.permissions || [];
     const hasPermission = rolePermissions.includes(`create_${area}`);
-    
+
     if (hasPermission) {
       console.log(`✅ [AuthorizationContext] Permissão create_${area} encontrada na role - liberando criação`);
       return true;
@@ -128,6 +133,12 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     console.log(`❌ [AuthorizationContext] Permissão create_${area} não encontrada - negando criação`);
     return false;
   };
+
+    // Função para verificar se pode acessar Google Maps
+  const canAccessGoogleMaps = useCallback(() => {
+    // Qualquer usuário autenticado pode acessar Google Maps
+    return isAuthenticated;
+  }, [isAuthenticated]);
 
   const menuPermissions = {
     dashboard: true, // Dashboard é sempre visível para usuários autenticados
@@ -142,7 +153,7 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
   };
 
   return (
-    <AuthorizationContext.Provider value={{ canView, canEdit, canCreate }}>
+    <AuthorizationContext.Provider value={{ canView, canEdit, canCreate, canAccessGoogleMaps }}>
       {children}
     </AuthorizationContext.Provider>
   );

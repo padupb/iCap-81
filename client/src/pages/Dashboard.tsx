@@ -32,11 +32,11 @@ import { DashboardTrackingMap } from "@/components/DashboardTrackingMap";
 export default function Dashboard() {
   const [showOrdersCard, setShowOrdersCard] = useState(true);
   const [showTrackingCard, setShowTrackingCard] = useState(true);
-  
+
   // Estado para controlar o drawer de detalhes do pedido
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  
+
   const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
   });
@@ -108,7 +108,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
-        
+
         {/* Recent Orders Table */}
         <Card className="rounded-lg border text-card-foreground shadow-sm bg-card border-border">
           <CardHeader 
@@ -252,7 +252,7 @@ function DashboardSkeleton() {
           </Card>
         ))}
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <Card className="bg-card border-border">
@@ -266,7 +266,7 @@ function DashboardSkeleton() {
             </CardContent>
           </Card>
         </div>
-        
+
         <div className="space-y-8">
           <Card className="bg-card border-border">
             <CardContent className="p-6">
