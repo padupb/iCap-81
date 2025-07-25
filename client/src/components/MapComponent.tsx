@@ -1,4 +1,3 @@
-
 import React from "react";
 import {
   GoogleMap,
@@ -233,7 +232,7 @@ const MapComponent: React.FC<Props> = (props) => {
 
   // Verificar se a chave da API está configurada
   const shouldLoadGoogleMaps = googleMapsApiKey && googleMapsApiKey.trim() !== '';
-  
+
   if (!shouldLoadGoogleMaps) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
