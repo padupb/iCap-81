@@ -1803,7 +1803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ordem = ordemResult.rows[0];
       console.log(`🔍 Buscando PDF para ordem: ${ordem.numero_ordem}`);
 
-      // 1. PRIORIDADE: Tentar buscar do Object Storage usando pdf_info
+      // 1. PRIORIDADE: Tentar buscar do Object Storage na pasta OC
       if (ordem.pdf_info) {
         try {
           const pdfInfo = typeof ordem.pdf_info === 'string' 
@@ -1812,8 +1812,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           console.log(`📊 Informações do PDF encontradas:`, pdfInfo);
 
-          const storageKey = pdfInfo.storageKey;
+          let storageKey = pdfInfo.storageKey;
           const filename = pdfInfo.filename;
+
+          // Se a chave não está na pasta OC, tentar a nova localização
+          if (storageKey && !storageKey.startsWith('OC/')) {
+            const ocKey = `OC/${ordem.numero_ordem}.pdf`;
+            console.log(`📂 Tentando nova localização na pasta OC: ${ocKey}`);
+            
+            // Tentar buscar diretamente do Object Storage na pasta OC
+            if (objectStorageAvailable && objectStorage) {
+              try {
+                const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
+                if (downloadedBytes && downloadedBytes.length > 0) {
+                  const buffer = Buffer.from(downloadedBytes);
+                  console.log(`✅ PDF recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
+                  res.setHeader("Content-Type", "application/pdf");
+                  res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
+                  return res.end(buffer);
+                }
+              } catch (ocError) {
+                console.log(`❌ PDF não encontrado na pasta OC: ${ocError.message}`);
+              }
+            }
+            
+            // Se não encontrou na pasta OC, usar a chave original
+            storageKey = pdfInfo.storageKey;
+          }
 
           if (storageKey) {
             console.log(`📂 Tentando acessar PDF do Object Storage: ${storageKey}`);
@@ -1920,12 +1945,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const numeroOrdem = ordemResult.rows[0].numero_ordem;
         console.log(`📋 Ordem encontrada: ${numeroOrdem}`);
 
-        // Salvar arquivo no Object Storage usando a mesma função dos pedidos
-        const pdfKey = await saveFileToStorage(
-          fs.readFileSync(req.file.path),
-          req.file.filename,
-          `ordens_compra_${numeroOrdem}` // Usar prefixo específico para ordens de compra
-        );
+        // Salvar arquivo diretamente na pasta OC do Object Storage
+        let pdfKey;
+        try {
+          // Tentar salvar diretamente no Object Storage na pasta OC
+          if (objectStorageAvailable && objectStorage) {
+            const buffer = fs.readFileSync(req.file.path);
+            const storageKey = `OC/${numeroOrdem}.pdf`;
+            
+            console.log(`📤 Salvando PDF na pasta OC: ${storageKey}`);
+            
+            // Usar o método correto do Replit Object Storage
+            const uint8Array = new Uint8Array(buffer);
+            await objectStorage.uploadFromBytes(storageKey, uint8Array);
+            
+            console.log(`✅ PDF salvo na pasta OC: ${storageKey}`);
+            pdfKey = storageKey;
+            
+          } else {
+            // Fallback para função existente se Object Storage não disponível
+            pdfKey = await saveFileToStorage(
+              fs.readFileSync(req.file.path),
+              req.file.filename,
+              `ordens_compra_${numeroOrdem}`
+            );
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao salvar PDF na pasta OC:`, error);
+          // Fallback para função existente
+          pdfKey = await saveFileToStorage(
+            fs.readFileSync(req.file.path),
+            req.file.filename,
+            `ordens_compra_${numeroOrdem}`
+          );
+        }
 
         console.log(`✅ PDF salvo no Object Storage com chave: ${pdfKey}`);
 
