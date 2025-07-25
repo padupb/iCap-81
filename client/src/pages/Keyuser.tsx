@@ -1730,6 +1730,56 @@ export default function Keyuser() {
                     </div>
                   </div>
 
+                  {/* Seção de Testes do Sistema */}
+                  <div className="space-y-4 pt-6 border-t border-border">
+                    <h3 className="text-lg font-medium text-foreground">Testes do Sistema</h3>
+                    
+                    <Button 
+                      onClick={handleTestObjectStorage}
+                      disabled={isTestingObjectStorage}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      {isTestingObjectStorage ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Testando Object Storage...
+                        </>
+                      ) : (
+                        <>
+                          <Database className="w-4 h-4 mr-2" />
+                          Testar Object Storage
+                        </>
+                      )}
+                    </Button>
+
+                    {objectStorageTestResult && (
+                      <div className={`p-4 rounded-lg border ${
+                        objectStorageTestResult.success 
+                          ? 'bg-green-50 border-green-200 text-green-800' 
+                          : 'bg-red-50 border-red-200 text-red-800'
+                      }`}>
+                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                          {objectStorageTestResult.success ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                          Resultado do Teste
+                        </h4>
+                        <p className="text-sm mb-2">{objectStorageTestResult.message}</p>
+                        {objectStorageTestResult.data?.output && (
+                          <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-40 border">
+                            {objectStorageTestResult.data.output}
+                          </pre>
+                        )}
+                        <p className="text-xs mt-2 opacity-75">
+                          Executado em: {new Date(objectStorageTestResult.data?.timestamp || Date.now()).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Botões de Ação */}
                   <div className="flex justify-end gap-4 pt-6 border-t border-border">
                     <Button
@@ -1908,61 +1958,7 @@ export default function Keyuser() {
           </Card>
         </TabsContent>
 
-        {/* Seção de Testes do Sistema */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TestTube className="w-5 h-5" />
-              Testes do Sistema
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button 
-              onClick={handleTestObjectStorage}
-              disabled={isTestingObjectStorage}
-              className="w-full"
-              variant="outline"
-            >
-              {isTestingObjectStorage ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Testando Object Storage...
-                </>
-              ) : (
-                <>
-                  <Database className="w-4 h-4 mr-2" />
-                  Testar Object Storage
-                </>
-              )}
-            </Button>
-
-            {objectStorageTestResult && (
-              <div className={`p-4 rounded-lg border ${
-                objectStorageTestResult.success 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-red-50border-red-200 text-red-800'
-              }`}>
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  {objectStorageTestResult.success ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    <XCircle className="w-4 h-4" />
-                  )}
-                  Resultado do Teste
-                </h4>
-                <p className="text-sm mb-2">{objectStorageTestResult.message}</p>
-                {objectStorageTestResult.data?.output && (
-                  <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-40 border">
-                    {objectStorageTestResult.data.output}
-                  </pre>
-                )}
-                <p className="text-xs mt-2 opacity-75">
-                  Executado em: {new Date(objectStorageTestResult.data?.timestamp || Date.now()).toLocaleString('pt-BR')}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        
               </Tabs>
             </div>
           );
