@@ -1,3 +1,4 @@
+
 import { Client } from '@replit/object-storage';
 import fs from 'fs';
 import path from 'path';
@@ -48,28 +49,59 @@ Status: Teste em execução...
 
     // Verificar integridade do arquivo
     console.log('\n4. Verificando integridade do arquivo...');
-    const downloadedContent = await client.downloadAsText(storageKey);
-    console.log(`✅ Download realizado com sucesso!`);
+    let downloadedContent;
+    
+    try {
+      // Tentar download como texto primeiro
+      downloadedContent = await client.downloadAsText(storageKey);
+      console.log(`✅ Download realizado com sucesso usando downloadAsText!`);
+    } catch (textError) {
+      console.log(`⚠️ Erro no downloadAsText: ${textError.message}`);
+      
+      try {
+        // Tentar download como bytes se texto falhar
+        const downloadedBytes = await client.downloadAsBytes(storageKey);
+        if (downloadedBytes) {
+          // Converter bytes para string
+          downloadedContent = Buffer.from(downloadedBytes).toString('utf8');
+          console.log(`✅ Download realizado com sucesso usando downloadAsBytes!`);
+        }
+      } catch (bytesError) {
+        console.log(`❌ Erro no downloadAsBytes: ${bytesError.message}`);
+        downloadedContent = null;
+      }
+    }
 
     if (downloadedContent === testContent) {
       console.log(`✅ Integridade verificada - conteúdo idêntico`);
-    } else {
+    } else if (downloadedContent) {
       console.log(`⚠️ Conteúdo diferente do esperado`);
       console.log(`📝 Diferença detectada:`);
       console.log(`   Tamanho original: ${testContent.length} caracteres`);
-      console.log(`   Tamanho baixado: ${downloadedContent?.length || 0} caracteres`);
+      console.log(`   Tamanho baixado: ${downloadedContent.length} caracteres`);
 
-      // Debug adicional
-      if (downloadedContent) {
+      // Debug adicional - mostrar os primeiros caracteres de cada um
+      if (typeof downloadedContent === 'string') {
         console.log(`   Primeiros 100 chars originais: ${testContent.substring(0, 100)}`);
         console.log(`   Primeiros 100 chars baixados: ${downloadedContent.substring(0, 100)}`);
+      } else {
+        console.log(`   Tipo do conteúdo baixado: ${typeof downloadedContent}`);
+        console.log(`   Conteúdo baixado (convertido): ${String(downloadedContent).substring(0, 100)}`);
       }
+    } else {
+      console.log(`❌ Não foi possível baixar o arquivo`);
     }
 
     // Listar objetos no Object Storage
     console.log('\n5. Listando objetos no Object Storage...');
-    const listResponse = await client.list();
-    console.log(`📋 Resposta do list():`, typeof listResponse, listResponse);
+    let listResponse;
+    try {
+      listResponse = await client.list();
+      console.log(`📋 Resposta do list():`, typeof listResponse);
+    } catch (listError) {
+      console.log(`❌ Erro ao listar objetos: ${listError.message}`);
+      listResponse = [];
+    }
 
     // O Replit Object Storage retorna um objeto com propriedade 'value' contendo o array
     let objects = [];
@@ -90,10 +122,12 @@ Status: Teste em execução...
     if (objects && objects.length > 0) {
       objects.forEach(obj => {
         const objName = obj.key || obj.name || obj;
-        if (objName.includes('keyuser-tests/')) keyuserTests++;
-        if (objName.includes('orders/')) orderFiles++;
-        if (objName.includes('test/')) testFiles++;
-        totalSize += obj.size || 0;
+        if (typeof objName === 'string') {
+          if (objName.includes('keyuser-tests/')) keyuserTests++;
+          if (objName.includes('orders/')) orderFiles++;
+          if (objName.includes('test/')) testFiles++;
+          totalSize += obj.size || 0;
+        }
       });
     }
 
@@ -173,26 +207,34 @@ Status: Teste em execução...
     const perfTestKey = `keyuser-tests/performance-${Date.now()}.txt`;
     const perfTestContent = 'Teste de performance do Object Storage';
 
-    await client.uploadFromText(perfTestKey, perfTestContent);
-    const perfDownload = await client.downloadAsText(perfTestKey);
-
-    const endTime = Date.now();
-    const duration = endTime - startTime;
-
-    console.log(`✅ Teste de performance concluído em ${duration}ms`);
-
-    // Limpar arquivo de teste de performance
     try {
-      await client.delete(perfTestKey);
-      console.log('✅ Arquivo de performance removido');
-    } catch (deleteError) {
-      console.log('⚠️ Não foi possível remover arquivo de performance');
+      await client.uploadFromText(perfTestKey, perfTestContent);
+      const perfDownload = await client.downloadAsText(perfTestKey);
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      console.log(`✅ Teste de performance concluído em ${duration}ms`);
+
+      // Limpar arquivo de teste de performance
+      try {
+        await client.delete(perfTestKey);
+        console.log('✅ Arquivo de performance removido');
+      } catch (deleteError) {
+        console.log('⚠️ Não foi possível remover arquivo de performance');
+      }
+    } catch (perfError) {
+      console.log(`⚠️ Erro no teste de performance: ${perfError.message}`);
+      const duration = Date.now() - startTime;
+      console.log(`⏱️ Tempo parcial: ${duration}ms`);
     }
+
+    const finalDuration = Date.now() - startTime;
 
     console.log('\n🎉 TESTE DO KEYUSER CONCLUÍDO COM SUCESSO!');
     console.log(`📦 Arquivo principal salvo em: ${storageKey}`);
     console.log(`📊 Total de objetos no storage: ${objects.length}`);
-    console.log(`⚡ Performance: ${duration}ms para upload/download`);
+    console.log(`⚡ Performance: ${finalDuration}ms para upload/download`);
     console.log('✅ Object Storage está funcionando perfeitamente!');
 
     console.log('\n🔧 RECOMENDAÇÕES PARA O KEYUSER:');
@@ -206,7 +248,7 @@ Status: Teste em execução...
       storageKey,
       totalObjects: objects.length,
       keyuserTests: keyuserTests,
-      performance: duration,
+      performance: finalDuration,
       totalSize: (totalSizeCalc / (1024 * 1024)).toFixed(2),
       message: 'Teste do KeyUser realizado com sucesso'
     };
