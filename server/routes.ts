@@ -220,53 +220,50 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     return Buffer.from(`REDIRECT:${driveLink}`, 'utf-8');
   }
 
-  // PRIORIDADE 1: Tentar ler do Object Storage se disponível e key for válida
-  if (objectStorageAvailable && objectStorage && key.startsWith('orders/')) {
-    try {
-      console.log(`📥 Tentando download do Object Storage: ${key}`);
-      
-      // Usar o método correto do Replit Object Storage
+  // PRIORIDADE 1: Tentar ler do Object Storage se disponível
+  if (objectStorageAvailable && objectStorage) {
+    // Para PDFs de ordens de compra, tentar primeiro na pasta OC
+    if (key.startsWith('OC/') || orderId.includes('orden')) {
+      const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
       try {
+        console.log(`📥 Tentando download da pasta OC: ${ocKey}`);
+        
+        const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
+        if (downloadedBytes && downloadedBytes.length > 0) {
+          const buffer = Buffer.from(downloadedBytes);
+          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
+          return buffer;
+        }
+      } catch (ocError) {
+        console.log(`🔄 Arquivo não encontrado na pasta OC: ${ocError.message}`);
+      }
+    }
+
+    // Tentar com a chave original se fornecida
+    if (key && (key.startsWith('orders/') || key.startsWith('OC/'))) {
+      try {
+        console.log(`📥 Tentando download do Object Storage: ${key}`);
+        
         const downloadedBytes = await objectStorage.downloadAsBytes(key);
         if (downloadedBytes && downloadedBytes.length > 0) {
-          // Converter Uint8Array para Buffer
           const buffer = Buffer.from(downloadedBytes);
           console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${buffer.length} bytes)`);
           return buffer;
-        } else {
-          throw new Error("Arquivo vazio ou não encontrado");
         }
-      } catch (bytesError) {
-        console.log("🔄 Tentando download como texto...");
-        
-        // Tentar como texto se bytes falhar
-        try {
-          const downloadedText = await objectStorage.downloadAsText(key);
-          if (downloadedText) {
-            const buffer = Buffer.from(downloadedText, 'utf-8');
-            console.log(`📁 ☁️ Arquivo recuperado do Object Storage como texto: ${key} (${buffer.length} bytes)`);
-            return buffer;
-          }
-        } catch (textError) {
-          console.error("❌ Falha ao baixar como texto:", textError.message);
-        }
-        
-        throw bytesError;
+      } catch (error) {
+        console.error("❌ Erro ao ler do Object Storage:", {
+          message: error.message,
+          key: key,
+          objectStorageAvailable,
+          hasObjectStorage: !!objectStorage
+        });
       }
-      
-    } catch (error) {
-      console.error("❌ Erro ao ler do Object Storage:", {
-        message: error.message,
-        key: key,
-        objectStorageAvailable,
-        hasObjectStorage: !!objectStorage
-      });
-      console.log("🔄 Tentando fallback para sistema local...");
     }
   }
   
   // FALLBACK: Tentar ler do sistema de arquivos local
   const possiblePaths = [
+    path.join(process.cwd(), "uploads", `${filename}`), // PDF direto na pasta uploads
     path.join(process.cwd(), "uploads", orderId, filename),
     key // Se key for um caminho local
   ];
@@ -1803,7 +1800,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ordem = ordemResult.rows[0];
       console.log(`🔍 Buscando PDF para ordem: ${ordem.numero_ordem}`);
 
-      // 1. PRIORIDADE: Tentar buscar do Object Storage na pasta OC
+      // Tentar buscar do Object Storage na pasta OC primeiro
+      const ocKey = `OC/${ordem.numero_ordem}.pdf`;
+      console.log(`📂 Tentando buscar na pasta OC: ${ocKey}`);
+      
+      if (objectStorageAvailable && objectStorage) {
+        try {
+          const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
+          if (downloadedBytes && downloadedBytes.length > 0) {
+            const buffer = Buffer.from(downloadedBytes);
+            console.log(`✅ PDF recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
+            res.setHeader("Content-Type", "application/pdf");
+            res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
+            return res.end(buffer);
+          }
+        } catch (ocError) {
+          console.log(`🔄 PDF não encontrado na pasta OC: ${ocError.message}`);
+        }
+      }
+
+      // Se tem pdf_info, tentar usar as informações armazenadas
       if (ordem.pdf_info) {
         try {
           const pdfInfo = typeof ordem.pdf_info === 'string' 
@@ -1812,33 +1828,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           console.log(`📊 Informações do PDF encontradas:`, pdfInfo);
 
-          let storageKey = pdfInfo.storageKey;
+          const storageKey = pdfInfo.storageKey;
           const filename = pdfInfo.filename;
-
-          // Se a chave não está na pasta OC, tentar a nova localização
-          if (storageKey && !storageKey.startsWith('OC/')) {
-            const ocKey = `OC/${ordem.numero_ordem}.pdf`;
-            console.log(`📂 Tentando nova localização na pasta OC: ${ocKey}`);
-            
-            // Tentar buscar diretamente do Object Storage na pasta OC
-            if (objectStorageAvailable && objectStorage) {
-              try {
-                const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
-                if (downloadedBytes && downloadedBytes.length > 0) {
-                  const buffer = Buffer.from(downloadedBytes);
-                  console.log(`✅ PDF recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
-                  res.setHeader("Content-Type", "application/pdf");
-                  res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
-                  return res.end(buffer);
-                }
-              } catch (ocError) {
-                console.log(`❌ PDF não encontrado na pasta OC: ${ocError.message}`);
-              }
-            }
-            
-            // Se não encontrou na pasta OC, usar a chave original
-            storageKey = pdfInfo.storageKey;
-          }
 
           if (storageKey) {
             console.log(`📂 Tentando acessar PDF do Object Storage: ${storageKey}`);
@@ -1846,7 +1837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const fileBuffer = await readFileFromStorage(
               storageKey, 
               `ordens_compra_${ordem.numero_ordem}`, 
-              filename
+              filename || `${ordem.numero_ordem}.pdf`
             );
 
             // Verificar se é um redirect para Google Drive
@@ -1861,8 +1852,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               res.setHeader("Content-Type", "application/pdf");
               res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
               return res.end(fileBuffer);
-            } else {
-              console.log(`❌ PDF não encontrado no Object Storage`);
             }
           }
         } catch (error) {
@@ -1870,7 +1859,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // 2. FALLBACK: Tentar buscar o arquivo na pasta uploads usando o número da ordem
+      // FALLBACK: Tentar buscar o arquivo na pasta uploads usando o número da ordem
       const uploadsPath = path.join(process.cwd(), "uploads", `${ordem.numero_ordem}.pdf`);
       console.log(`📁 Tentando PDF em uploads: ${uploadsPath}`);
       
@@ -1879,11 +1868,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
         return res.sendFile(uploadsPath);
-      } else {
-        console.log(`❌ PDF não encontrado em uploads: ${uploadsPath}`);
       }
 
-      // 3. Listar arquivos disponíveis para debug
+      // Debug: Listar arquivos disponíveis
       const uploadsDir = path.join(process.cwd(), "uploads");
       if (fs.existsSync(uploadsDir)) {
         const files = fs.readdirSync(uploadsDir).filter(f => f.endsWith('.pdf'));
