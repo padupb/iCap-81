@@ -1787,21 +1787,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Buscar informações da ordem de compra (verificar se coluna pdf_url existe)
-      let ordemResult;
-      try {
-        ordemResult = await pool.query(
-          "SELECT numero_ordem, pdf_url FROM ordens_compra WHERE id = $1",
-          [id]
-        );
-      } catch (columnError) {
-        // Se a coluna pdf_url não existir, buscar apenas o número da ordem
-        console.log("⚠️ Coluna pdf_url não existe, buscando apenas numero_ordem");
-        ordemResult = await pool.query(
-          "SELECT numero_ordem FROM ordens_compra WHERE id = $1",
-          [id]
-        );
-      }
+      // Buscar informações da ordem de compra incluindo pdf_info
+      const ordemResult = await pool.query(
+        "SELECT numero_ordem, pdf_info FROM ordens_compra WHERE id = $1",
+        [id]
+      );
 
       if (!ordemResult.rows.length) {
         return res.status(404).json({
@@ -1813,29 +1803,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ordem = ordemResult.rows[0];
       console.log(`🔍 Buscando PDF para ordem: ${ordem.numero_ordem}`);
 
-      // 1. Verificar se existe PDF_URL na base de dados (se a coluna existir)
-      if (ordem.pdf_url) {
-        console.log(`📁 Tentando PDF pelo pdf_url: ${ordem.pdf_url}`);
-        let pdfPath;
-        
-        // Se começar com /, é um caminho absoluto do sistema
-        if (ordem.pdf_url.startsWith('/')) {
-          pdfPath = path.join(process.cwd(), "public", ordem.pdf_url);
-        } else {
-          pdfPath = path.join(process.cwd(), ordem.pdf_url);
-        }
-        
-        if (fs.existsSync(pdfPath)) {
-          console.log(`✅ PDF encontrado em: ${pdfPath}`);
-          res.setHeader("Content-Type", "application/pdf");
-          res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
-          return res.sendFile(pdfPath);
-        } else {
-          console.log(`❌ PDF não encontrado em: ${pdfPath}`);
+      // 1. PRIORIDADE: Tentar buscar do Object Storage usando pdf_info
+      if (ordem.pdf_info) {
+        try {
+          const pdfInfo = typeof ordem.pdf_info === 'string' 
+            ? JSON.parse(ordem.pdf_info) 
+            : ordem.pdf_info;
+
+          console.log(`📊 Informações do PDF encontradas:`, pdfInfo);
+
+          const storageKey = pdfInfo.storageKey;
+          const filename = pdfInfo.filename;
+
+          if (storageKey) {
+            console.log(`📂 Tentando acessar PDF do Object Storage: ${storageKey}`);
+
+            const fileBuffer = await readFileFromStorage(
+              storageKey, 
+              `ordens_compra_${ordem.numero_ordem}`, 
+              filename
+            );
+
+            // Verificar se é um redirect para Google Drive
+            if (fileBuffer && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+              const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+              console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+              return res.redirect(302, driveLink);
+            }
+
+            if (fileBuffer) {
+              console.log(`✅ PDF recuperado do Object Storage (${fileBuffer.length} bytes)`);
+              res.setHeader("Content-Type", "application/pdf");
+              res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
+              return res.end(fileBuffer);
+            } else {
+              console.log(`❌ PDF não encontrado no Object Storage`);
+            }
+          }
+        } catch (error) {
+          console.log(`❌ Erro ao processar pdf_info:`, error);
         }
       }
 
-      // 2. Tentar buscar o arquivo na pasta uploads usando o número da ordem
+      // 2. FALLBACK: Tentar buscar o arquivo na pasta uploads usando o número da ordem
       const uploadsPath = path.join(process.cwd(), "uploads", `${ordem.numero_ordem}.pdf`);
       console.log(`📁 Tentando PDF em uploads: ${uploadsPath}`);
       
@@ -1891,12 +1901,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // Atualizar o campo pdf_url na tabela ordens_compra
-        const pdfUrl = `/uploads/${req.file.filename}`; // Caminho para o arquivo
-        await pool.query(
-          `UPDATE ordens_compra SET pdf_url = $1 WHERE id = $2`,
-          [pdfUrl, id]
+        console.log(`📤 Iniciando upload de PDF da ordem de compra ID: ${id}`);
+        console.log(`📄 Arquivo recebido: ${req.file.filename} (${req.file.size} bytes)`);
+
+        // Buscar informações da ordem de compra
+        const ordemResult = await pool.query(
+          "SELECT numero_ordem FROM ordens_compra WHERE id = $1",
+          [id]
         );
+
+        if (!ordemResult.rows.length) {
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: "Ordem de compra não encontrada"
+          });
+        }
+
+        const numeroOrdem = ordemResult.rows[0].numero_ordem;
+        console.log(`📋 Ordem encontrada: ${numeroOrdem}`);
+
+        // Salvar arquivo no Object Storage usando a mesma função dos pedidos
+        const pdfKey = await saveFileToStorage(
+          fs.readFileSync(req.file.path),
+          req.file.filename,
+          `ordens_compra_${numeroOrdem}` // Usar prefixo específico para ordens de compra
+        );
+
+        console.log(`✅ PDF salvo no Object Storage com chave: ${pdfKey}`);
+
+        // Construir informações do PDF para armazenar no banco
+        const pdfInfo = {
+          name: req.file.originalname,
+          filename: req.file.filename,
+          size: req.file.size,
+          path: req.file.path,
+          storageKey: pdfKey,
+          date: new Date().toISOString()
+        };
+
+        // Atualizar a tabela ordens_compra com as informações do PDF
+        await pool.query(
+          `UPDATE ordens_compra SET pdf_info = $1 WHERE id = $2`,
+          [JSON.stringify(pdfInfo), id]
+        );
+
+        console.log(`📊 Informações do PDF salvas no banco para ordem ${numeroOrdem}`);
 
         // Registrar log de upload
         if (req.session.userId) {
@@ -1905,14 +1954,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             action: "Upload de PDF da ordem de compra",
             itemType: "purchase_order",
             itemId: id.toString(),
-            details: `PDF da ordem de compra ${id} enviado`
+            details: `PDF da ordem de compra ${numeroOrdem} enviado e salvo no Object Storage`
           });
         }
 
         res.json({
           sucesso: true,
-          mensagem: "Upload do PDF realizado com sucesso",
-          pdfUrl: pdfUrl
+          mensagem: "Upload do PDF realizado com sucesso e salvo no Object Storage",
+          pdfInfo: pdfInfo
         });
       } catch (error) {
         console.error("Erro ao fazer upload do PDF:", error);
