@@ -2692,6 +2692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota para upload de documentos (versão completa com validação)
   app.post(
     "/api/pedidos/:id/documentos", 
+    isAuthenticated,
     upload.fields([
       { name: 'nota_pdf', maxCount: 1 },
       { name: 'nota_xml', maxCount: 1 },
@@ -2758,6 +2759,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        // O middleware isAuthenticated já verificou a autenticação
+        // req.user está disponível com os dados do usuário
+
         // Verificar se é pedido urgente não aprovado
         const deliveryDate = new Date(order.deliveryDate);
         const today = new Date();
@@ -2768,14 +2772,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({
             sucesso: false,
             mensagem: "Pedidos urgentes devem ser aprovados antes de permitir upload de documentos"
-          });
-        }
-
-        // Verificar se o usuário está autenticado
-        if (!req.session.userId) {
-          return res.status(401).json({
-            sucesso: false,
-            mensagem: "Usuário não autenticado"
           });
         }
 
@@ -2921,7 +2917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Registrar no log do sistema
         await storage.createLog({
-          userId: req.session.userId,
+          userId: req.user.id,
           action: "Upload de documentos",
           itemType: "order",
           itemId: id.toString(),
