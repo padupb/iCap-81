@@ -88,8 +88,9 @@ export default function Sidebar() {
 
           // Se é item do dev, mostrar apenas para keyuser (isKeyUser)
           // Para outros itens, verificar permissões normalmente
-          const canShowItem = (isDeveloperItem && user?.isKeyUser) || 
-                             (!isDeveloperItem && item.area && canView(item.area));
+          const canShowItem = isDeveloperItem 
+            ? user?.isKeyUser 
+            : (item.area && canView(item.area));
 
           // Não renderizar se o usuário não tem permissão para ver este item
           if (!canShowItem) return null;

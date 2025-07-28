@@ -24,6 +24,12 @@ interface AuthorizationContextType {
    * Verifica se pode acessar Google Maps
    */
   canAccessGoogleMaps: () => boolean;
+
+  /**
+   * Verifica se pode acessar dados para dropdowns (sem visualizar a página completa)
+   * @param dataType Tipo de dados (companies, products, etc)
+   */
+  canAccessDropdownData: (dataType: string) => boolean;
 }
 
 const AuthorizationContext = createContext<AuthorizationContextType | undefined>(undefined);
@@ -56,10 +62,10 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
       return true;
     }
 
-    // Áreas que todos os usuários autenticados podem visualizar (necessário para dropdowns)
-    const publicAreas = ['companies', 'user_roles', 'units', 'products'];
-    if (publicAreas.includes(area)) {
-      console.log(`✅ [AuthorizationContext] Área pública ${area} - liberando acesso para usuário autenticado`);
+    // Apenas dados essenciais do sistema são liberados automaticamente
+    const systemData = ['user_roles', 'units'];
+    if (systemData.includes(area)) {
+      console.log(`✅ [AuthorizationContext] Dados do sistema ${area} - liberando acesso para usuário autenticado`);
       return true;
     }
 
@@ -146,6 +152,21 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     return true;
   }, [isAuthenticated]);
 
+  // Função para verificar acesso a dados para dropdowns
+  const canAccessDropdownData = useCallback((dataType: string) => {
+    // Se não há usuário autenticado, nega acesso
+    if (!user) return false;
+
+    // APENAS o usuário keyuser (ID = 1) tem acesso total
+    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+      return true;
+    }
+
+    // Dados necessários para formulários são sempre acessíveis para usuários autenticados
+    const allowedDropdownData = ['companies', 'products', 'user_roles', 'units'];
+    return allowedDropdownData.includes(dataType);
+  }, [user]);
+
   const menuPermissions = {
     dashboard: true, // Dashboard é sempre visível para usuários autenticados
     orders: canView || canCreate,
@@ -159,7 +180,7 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
   };
 
   return (
-    <AuthorizationContext.Provider value={{ canView, canEdit, canCreate, canAccessGoogleMaps }}>
+    <AuthorizationContext.Provider value={{ canView, canEdit, canCreate, canAccessGoogleMaps, canAccessDropdownData }}>
       {children}
     </AuthorizationContext.Provider>
   );
