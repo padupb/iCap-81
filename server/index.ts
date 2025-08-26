@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import session from "express-session";
+import memorystore from "memorystore";
 import "./types";
 import { storage } from "./storage";
 import { db, pool } from "./db";
@@ -34,6 +35,8 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/public", express.static(path.join(process.cwd(), "public")));
 app.use("/icapmob", express.static(path.join(process.cwd(), "icapmob")));
 
+const MemoryStore = memorystore(session);
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'icap-secret-2024-very-long-and-secure-key-for-session-management',
@@ -48,7 +51,9 @@ app.use(
     },
     name: 'icap.sid', // Nome personalizado para o cookie de sessão
     // Adicionar store em memória para desenvolvimento
-    store: new (require('express-session').MemoryStore)(),
+    store: new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    }),
   }),
 );
 
