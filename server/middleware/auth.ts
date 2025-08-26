@@ -7,12 +7,18 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
   try {
     console.log("🔍 Verificando autenticação:", {
       sessionExists: !!req.session,
+      sessionId: req.session?.id,
       userId: req.session?.userId,
-      url: req.url
+      url: req.url,
+      sessionData: req.session
     });
 
     if (!req.session?.userId) {
       console.log("❌ Usuário não autenticado - sem session.userId");
+      console.log("🔍 Detalhes da sessão:", {
+        session: req.session,
+        cookies: req.headers.cookie
+      });
       return res.status(401).json({ 
         success: false, 
         message: "Não autenticado" 

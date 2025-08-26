@@ -600,8 +600,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("🔑 USUÁRIO ID 1 DETECTADO - CONCEDENDO PERMISSÕES DE KEYUSER");
       }
 
-      // Salvar o ID do usuário na sessão
+      // Salvar o ID do usuário na sessão e garantir que seja persistida
       req.session.userId = user.id;
+      
+      // Forçar salvamento da sessão
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("❌ Erro ao salvar sessão:", err);
+            reject(err);
+          } else {
+            console.log(`✅ Sessão salva com sucesso para usuário ${user.id}`);
+            resolve();
+          }
+        });
+      });
 
       // Log de atividade
       await storage.createLog({

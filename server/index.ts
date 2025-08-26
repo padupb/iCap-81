@@ -36,15 +36,17 @@ app.use("/icapmob", express.static(path.join(process.cwd(), "icapmob")));
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "icap-5.0-secret-key",
+    secret: process.env.SESSION_SECRET || 'icap-secret-2024-very-long-and-secure-key',
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production" && process.env.REPL_SLUG ? false : process.env.NODE_ENV === "production",
+    rolling: true, // Renovar cookie a cada requisição
+    cookie: { 
+      secure: false, // Para desenvolvimento, definir como true em produção com HTTPS
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: process.env.NODE_ENV === "production" ? 'lax' : 'strict',
+      maxAge: 24 * 60 * 60 * 1000, // 24 horas
+      sameSite: 'lax' // Importante para funcionar em desenvolvimento
     },
+    name: 'icap.sid' // Nome personalizado para o cookie de sessão
   }),
 );
 
