@@ -1,20 +1,11 @@
-
 import { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 
 // Middleware para verificar se o usuário está autenticado
 export const isAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log("🔍 Verificando autenticação:", {
-      sessionExists: !!req.session,
-      sessionId: req.session?.id,
-      userId: req.session?.userId,
-      url: req.url,
-      sessionData: req.session
-    });
-
     if (!req.session?.userId) {
-      console.log("❌ Usuário não autenticado - sem session.userId");
+      console.log("❌ Usuário não autenticado - sessão sem userId");
       console.log("🔍 Detalhes da sessão:", {
         session: req.session,
         cookies: req.headers.cookie
@@ -25,64 +16,57 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       });
     }
 
-    try {
-      // Buscar usuário
-      const user = await storage.getUser(req.session.userId);
+    console.log(`🔍 Verificando usuário da sessão: ${req.session.userId}`);
 
-      if (!user) {
-        // Limpar a sessão se o usuário não for encontrado
-        req.session.destroy((err) => {
-          if (err) {
-            console.error("Erro ao destruir sessão:", err);
-          }
-        });
-
-        return res.status(401).json({ 
-          success: false, 
-          message: "Usuário não encontrado" 
-        });
-      }
-
-      // Verificar se é o usuário KeyUser (ID = 1)
-      const isRealKeyUser = user.id === 1;
-
-      // Buscar a função do usuário e suas permissões
-      let permissions: string[] = [];
-      let role = null;
-
-      if (user.roleId && !isRealKeyUser) {
-        role = await storage.getUserRole(user.roleId);
-        if (role && role.permissions) {
-          permissions = role.permissions;
+    // Buscar dados completos do usuário
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      // Limpar a sessão se o usuário não for encontrado
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Erro ao destruir sessão:", err);
         }
-      } else if (isRealKeyUser) {
-        // Para o keyuser real, criar função virtual
-        role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
-        permissions = ["*"];
-      }
-
-      // Adicionar o usuário com suas permissões ao objeto de requisição
-      req.user = {
-        ...user,
-        isKeyUser: isRealKeyUser,
-        isDeveloper: isRealKeyUser,
-        permissions,
-        role
-      };
-
-      next();
-    } catch (error) {
-      console.error("Erro ao verificar autenticação:", error);
-      res.status(500).json({ 
+      });
+      console.log(`❌ Usuário ${req.session.userId} não encontrado no banco`);
+      return res.status(401).json({ 
         success: false, 
-        message: "Erro ao verificar autenticação" 
+        message: "Usuário não encontrado" 
       });
     }
+
+    // NOVA REGRA: Se o usuário tem ID = 1, dar permissões de keyuser
+    const isKeyUser = user.id === 1;
+    let permissions: string[] = [];
+    let role = null;
+
+    if (user.roleId && !isKeyUser) {
+      role = await storage.getUserRole(user.roleId);
+      if (role && role.permissions) {
+        permissions = role.permissions;
+      }
+    } else if (isKeyUser) {
+      // Para o keyuser real, criar função virtual
+      console.log("🔑 USUÁRIO ID 1 DETECTADO - CONCEDENDO PERMISSÕES DE KEYUSER");
+      role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
+      permissions = ["*"];
+    }
+
+    // Adicionar dados do usuário ao objeto req para uso em outras rotas
+    req.user = {
+      ...user,
+      isKeyUser: isKeyUser,
+      isDeveloper: isKeyUser,
+      permissions,
+      role
+    };
+
+    console.log(`✅ Usuário autenticado: ${user.name} (ID: ${user.id})${isKeyUser ? ' - KeyUser' : ''}`);
+    next();
   } catch (error) {
-    console.error("Erro geral no middleware de autenticação:", error);
+    console.error("❌ Erro na verificação de autenticação:", error);
     res.status(500).json({ 
       success: false, 
-      message: "Erro interno do servidor" 
+      message: "Erro ao verificar autenticação" 
     });
   }
 };
@@ -186,19 +170,19 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
   try {
     // Para compatibilidade com apps mobile, verificar token no header Authorization
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       // Implementação simplificada para desenvolvimento
       // Em produção, você validaria o JWT token aqui
       const token = authHeader.substring(7);
-      
+
       // Por enquanto, assumir que é um usuário válido se o token existe
       // Você pode implementar validação JWT aqui se necessário
       req.user = {
         id: 1,
         role: 'admin'
       };
-      
+
       return next();
     }
 

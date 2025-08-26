@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +25,7 @@ export default function FirstPasswordChange() {
         const response = await fetch('/api/auth/me', {
           credentials: 'include'
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.user) {
@@ -50,79 +49,89 @@ export default function FirstPasswordChange() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log("🔄 Iniciando alteração de senha...");
-    console.log("👤 Usuário do contexto:", user);
-    console.log("👤 Usuário atual:", currentUser);
-    console.log("📝 Dados do formulário:", {
-      newPasswordLength: formData.newPassword?.length,
-      confirmPasswordLength: formData.confirmPassword?.length,
-      passwordsMatch: formData.newPassword === formData.confirmPassword
-    });
 
-    // Validações básicas
-    if (!formData.newPassword || formData.newPassword.trim() === "") {
-      toast({
-        title: "Erro",
-        description: "Nova senha é obrigatória",
-        variant: "destructive"
-      });
-      return;
-    }
+    const target = e.target as typeof e.target & {
+      newPassword: { value: string };
+      confirmPassword: { value: string };
+    };
 
-    if (!formData.confirmPassword || formData.confirmPassword.trim() === "") {
-      toast({
-        title: "Erro",
-        description: "Confirmação de senha é obrigatória",
-        variant: "destructive"
-      });
-      return;
-    }
+    const newPassword = target.newPassword.value;
+    const confirmPassword = target.confirmPassword.value;
 
-    if (formData.newPassword !== formData.confirmPassword) {
-      toast({
-        title: "Erro",
-        description: "As senhas não coincidem",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (formData.newPassword.length < 6) {
-      toast({
-        title: "Erro", 
-        description: "A senha deve ter pelo menos 6 caracteres",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Usar currentUser ou user como fallback
-    const activeUser = currentUser || user;
-    
-    if (!activeUser?.id) {
-      toast({
-        title: "Erro",
-        description: "Usuário não identificado. Faça login novamente.",
-        variant: "destructive"
-      });
-      // Redirecionar para login se não conseguir identificar o usuário
-      setLocation('/login');
-      return;
-    }
-
-    setIsLoading(true);
+    setFormData({ newPassword, confirmPassword });
 
     try {
+      console.log("🔄 Iniciando alteração de senha...");
+      console.log("👤 Usuário do contexto:", user);
+      console.log("👤 Usuário atual:", currentUser);
+      console.log("📝 Dados do formulário:", {
+        newPasswordLength: newPassword?.length,
+        confirmPasswordLength: confirmPassword?.length,
+        passwordsMatch: newPassword === confirmPassword
+      });
+
+      // Verificar se existe usuário no contexto ou na URL
+      const userId = currentUser?.id || user?.id;
+
+      if (!userId) {
+        console.log("❌ Nenhum usuário encontrado no contexto");
+        toast({
+          title: "Erro",
+          description: "Sessão expirada. Faça login novamente.",
+          variant: "destructive",
+        });
+        setLocation('/login');
+        return;
+      }
+
+      // Validações básicas
+      if (!newPassword || newPassword.trim() === "") {
+        toast({
+          title: "Erro",
+          description: "Nova senha é obrigatória",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!confirmPassword || confirmPassword.trim() === "") {
+        toast({
+          title: "Erro",
+          description: "Confirmação de senha é obrigatória",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        toast({
+          title: "Erro",
+          description: "As senhas não coincidem",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        toast({
+          title: "Erro",
+          description: "A senha deve ter pelo menos 6 caracteres",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setIsLoading(true);
+
       const requestData = {
-        userId: activeUser.id,
-        newPassword: formData.newPassword.trim(),
-        confirmPassword: formData.confirmPassword.trim()
+        userId: userId,
+        newPassword: newPassword.trim(),
+        confirmPassword: confirmPassword.trim()
       };
 
       console.log("📤 Enviando dados:", {
         userId: requestData.userId,
-        userName: activeUser.name,
+        userName: currentUser?.name || user?.name,
         newPasswordLength: requestData.newPassword.length,
         confirmPasswordLength: requestData.confirmPassword.length
       });
@@ -145,7 +154,7 @@ export default function FirstPasswordChange() {
           title: "Sucesso",
           description: "Senha alterada com sucesso! Faça login novamente."
         });
-        
+
         // Fazer logout e redirecionar para login
         await logout();
         setLocation('/login');
@@ -203,9 +212,9 @@ export default function FirstPasswordChange() {
               />
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={isLoading}
             >
               {isLoading ? 'Salvando...' : 'Salvar Nova Senha'}

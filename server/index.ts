@@ -37,9 +37,9 @@ app.use("/icapmob", express.static(path.join(process.cwd(), "icapmob")));
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'icap-secret-2024-very-long-and-secure-key-for-session-management',
-    resave: true, // Força salvar sessão mesmo se não modificada
+    resave: false, // Não forçar salvamento se não modificada
     saveUninitialized: false,
-    rolling: true, // Renovar cookie a cada requisição
+    rolling: false, // Não renovar cookie a cada requisição para evitar problemas
     cookie: { 
       secure: false, // Para desenvolvimento, definir como true em produção com HTTPS
       httpOnly: true,
