@@ -48,18 +48,20 @@ export default function Approvals() {
       console.log("Approving order:", orderId);
       return apiRequest("PUT", `/api/orders/${orderId}/approve`, {});
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders/urgent"] });
       toast({
         title: "Sucesso",
-        description: "Pedido aprovado com sucesso",
+        description: data?.message || "Pedido aprovado com sucesso",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Erro ao aprovar pedido:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao aprovar pedido";
       toast({
         title: "Erro",
-        description: "Erro ao aprovar pedido",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -70,18 +72,20 @@ export default function Approvals() {
       console.log("Rejecting order:", orderId);
       return apiRequest("PUT", `/api/orders/${orderId}/reject`, {});
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders/urgent"] });
       toast({
         title: "Sucesso",
-        description: "Pedido rejeitado com sucesso",
+        description: data?.message || "Pedido rejeitado com sucesso",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Erro ao rejeitar pedido:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao rejeitar pedido";
       toast({
         title: "Erro",
-        description: "Erro ao rejeitar pedido",
+        description: errorMessage,
         variant: "destructive",
       });
     },

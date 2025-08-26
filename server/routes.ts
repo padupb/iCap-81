@@ -3807,36 +3807,90 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+          success: false, 
+          message: "ID de pedido inválido" 
         });
       }
 
+      console.log(`🔍 Tentativa de aprovação do pedido ${id} pelo usuário ${req.user.id} (${req.user.name})`);
+
+      // Verificar se o pedido existe
+      const order = await storage.getOrder(id);
+      if (!order) {
+        console.log(`❌ Pedido ${id} não encontrado`);
+        return res.status(404).json({ 
+          success: false, 
+          message: "Pedido não encontrado" 
+        });
+      }
+
+      console.log(`📋 Pedido encontrado: ${order.orderId} - Status: ${order.status}`);
+
       // Verificar se o usuário tem permissão para aprovar
       let hasApprovalPermission = false;
+      let approvalReason = "";
       
       if (req.user.id === 1 || req.user.isKeyUser === true) {
         hasApprovalPermission = true;
-      } else if (req.user.companyId) {
-        const userCompany = await storage.getCompany(req.user.companyId);
-        if (userCompany && userCompany.approverId === req.user.id) {
-          hasApprovalPermission = true;
+        approvalReason = "KeyUser";
+        console.log(`✅ Permissão concedida - KeyUser`);
+      } else {
+        // Verificar se o usuário é aprovador de alguma empresa
+        const approverCheck = await pool.query(`
+          SELECT c.id, c.name, c.approver_id
+          FROM companies c 
+          WHERE c.approver_id = $1
+        `, [req.user.id]);
+
+        if (approverCheck.rows.length > 0) {
+          console.log(`👤 Usuário é aprovador de ${approverCheck.rows.length} empresa(s):`);
+          approverCheck.rows.forEach(company => {
+            console.log(`  - ${company.name} (ID: ${company.id})`);
+          });
+
+          // Verificar se o pedido é da empresa que o usuário aprova
+          if (order.purchaseOrderId) {
+            const ordemCompraResult = await pool.query(
+              "SELECT cnpj FROM ordens_compra WHERE id = $1",
+              [order.purchaseOrderId]
+            );
+
+            if (ordemCompraResult.rows.length > 0) {
+              const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+              
+              // Verificar se alguma das empresas que o usuário aprova corresponde ao CNPJ de destino
+              const empresaDestinoCheck = await pool.query(`
+                SELECT c.id, c.name
+                FROM companies c 
+                WHERE c.cnpj = $1 AND c.approver_id = $2
+              `, [cnpjDestino, req.user.id]);
+
+              if (empresaDestinoCheck.rows.length > 0) {
+                hasApprovalPermission = true;
+                approvalReason = `Aprovador da empresa ${empresaDestinoCheck.rows[0].name}`;
+                console.log(`✅ Permissão concedida - ${approvalReason}`);
+              } else {
+                console.log(`❌ Usuário não é aprovador da empresa de destino (CNPJ: ${cnpjDestino})`);
+              }
+            }
+          }
+        } else {
+          console.log(`❌ Usuário ${req.user.name} não é aprovador de nenhuma empresa`);
         }
       }
 
       if (!hasApprovalPermission) {
         return res.status(403).json({ 
-          sucesso: false, 
-          mensagem: "Sem permissão para aprovar pedidos" 
+          success: false, 
+          message: "Sem permissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresas podem aprovar pedidos urgentes." 
         });
       }
 
-      // Verificar se o pedido existe
-      const order = await storage.getOrder(id);
-      if (!order) {
-        return res.status(404).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não encontrado" 
+      // Verificar se o pedido pode ser aprovado (status deve ser "Registrado")
+      if (order.status !== "Registrado") {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Pedido não pode ser aprovado. Status atual: ${order.status}` 
         });
       }
 
@@ -3846,24 +3900,27 @@ mensagem: "Erro interno do servidor ao processar o upload",
         ["Aprovado", id]
       );
 
+      console.log(`✅ Pedido ${order.orderId} aprovado com sucesso por ${approvalReason}`);
+
       // Registrar log
       await storage.createLog({
         userId: req.user.id,
         action: "Aprovação de pedido",
         itemType: "order",
         itemId: id.toString(),
-        details: `Pedido ${order.orderId} foi aprovado`
+        details: `Pedido ${order.orderId} foi aprovado por ${req.user.name} (${approvalReason})`
       });
 
       res.json({ 
-        sucesso: true, 
-        mensagem: "Pedido aprovado com sucesso" 
+        success: true, 
+        message: "Pedido aprovado com sucesso" 
       });
     } catch (error) {
-      console.error("Erro ao aprovar pedido:", error);
+      console.error("❌ Erro detalhado ao aprovar pedido:", error);
       res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao aprovar pedido" 
+        success: false, 
+        message: "Erro interno do servidor ao aprovar pedido",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   });
@@ -3874,36 +3931,83 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+          success: false, 
+          message: "ID de pedido inválido" 
         });
       }
 
+      console.log(`🔍 Tentativa de rejeição do pedido ${id} pelo usuário ${req.user.id} (${req.user.name})`);
+
+      // Verificar se o pedido existe
+      const order = await storage.getOrder(id);
+      if (!order) {
+        console.log(`❌ Pedido ${id} não encontrado`);
+        return res.status(404).json({ 
+          success: false, 
+          message: "Pedido não encontrado" 
+        });
+      }
+
+      console.log(`📋 Pedido encontrado: ${order.orderId} - Status: ${order.status}`);
+
       // Verificar se o usuário tem permissão para rejeitar
       let hasApprovalPermission = false;
+      let approvalReason = "";
       
       if (req.user.id === 1 || req.user.isKeyUser === true) {
         hasApprovalPermission = true;
-      } else if (req.user.companyId) {
-        const userCompany = await storage.getCompany(req.user.companyId);
-        if (userCompany && userCompany.approverId === req.user.id) {
-          hasApprovalPermission = true;
+        approvalReason = "KeyUser";
+        console.log(`✅ Permissão concedida - KeyUser`);
+      } else {
+        // Verificar se o usuário é aprovador de alguma empresa
+        const approverCheck = await pool.query(`
+          SELECT c.id, c.name, c.approver_id
+          FROM companies c 
+          WHERE c.approver_id = $1
+        `, [req.user.id]);
+
+        if (approverCheck.rows.length > 0) {
+          console.log(`👤 Usuário é aprovador de ${approverCheck.rows.length} empresa(s):`);
+
+          // Verificar se o pedido é da empresa que o usuário aprova
+          if (order.purchaseOrderId) {
+            const ordemCompraResult = await pool.query(
+              "SELECT cnpj FROM ordens_compra WHERE id = $1",
+              [order.purchaseOrderId]
+            );
+
+            if (ordemCompraResult.rows.length > 0) {
+              const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+              
+              // Verificar se alguma das empresas que o usuário aprova corresponde ao CNPJ de destino
+              const empresaDestinoCheck = await pool.query(`
+                SELECT c.id, c.name
+                FROM companies c 
+                WHERE c.cnpj = $1 AND c.approver_id = $2
+              `, [cnpjDestino, req.user.id]);
+
+              if (empresaDestinoCheck.rows.length > 0) {
+                hasApprovalPermission = true;
+                approvalReason = `Aprovador da empresa ${empresaDestinoCheck.rows[0].name}`;
+                console.log(`✅ Permissão concedida - ${approvalReason}`);
+              }
+            }
+          }
         }
       }
 
       if (!hasApprovalPermission) {
         return res.status(403).json({ 
-          sucesso: false, 
-          mensagem: "Sem permissão para rejeitar pedidos" 
+          success: false, 
+          message: "Sem permissão para rejeitar pedidos. Apenas KeyUsers e aprovadores de empresas podem rejeitar pedidos urgentes." 
         });
       }
 
-      // Verificar se o pedido existe
-      const order = await storage.getOrder(id);
-      if (!order) {
-        return res.status(404).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não encontrado" 
+      // Verificar se o pedido pode ser rejeitado (status deve ser "Registrado")
+      if (order.status !== "Registrado") {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Pedido não pode ser rejeitado. Status atual: ${order.status}` 
         });
       }
 
@@ -3913,24 +4017,27 @@ mensagem: "Erro interno do servidor ao processar o upload",
         ["Cancelado", id]
       );
 
+      console.log(`✅ Pedido ${order.orderId} rejeitado com sucesso por ${approvalReason}`);
+
       // Registrar log
       await storage.createLog({
         userId: req.user.id,
         action: "Rejeição de pedido",
         itemType: "order",
         itemId: id.toString(),
-        details: `Pedido ${order.orderId} foi rejeitado`
+        details: `Pedido ${order.orderId} foi rejeitado por ${req.user.name} (${approvalReason})`
       });
 
       res.json({ 
-        sucesso: true, 
-        mensagem: "Pedido rejeitado com sucesso" 
+        success: true, 
+        message: "Pedido rejeitado com sucesso" 
       });
     } catch (error) {
-      console.error("Erro ao rejeitar pedido:", error);
+      console.error("❌ Erro detalhado ao rejeitar pedido:", error);
       res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao rejeitar pedido" 
+        success: false, 
+        message: "Erro interno do servidor ao rejeitar pedido",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   });

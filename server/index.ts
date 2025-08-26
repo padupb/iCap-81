@@ -36,8 +36,8 @@ app.use("/icapmob", express.static(path.join(process.cwd(), "icapmob")));
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || 'icap-secret-2024-very-long-and-secure-key',
-    resave: false,
+    secret: process.env.SESSION_SECRET || 'icap-secret-2024-very-long-and-secure-key-for-session-management',
+    resave: true, // Força salvar sessão mesmo se não modificada
     saveUninitialized: false,
     rolling: true, // Renovar cookie a cada requisição
     cookie: { 
@@ -46,7 +46,9 @@ app.use(
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
       sameSite: 'lax' // Importante para funcionar em desenvolvimento
     },
-    name: 'icap.sid' // Nome personalizado para o cookie de sessão
+    name: 'icap.sid', // Nome personalizado para o cookie de sessão
+    // Adicionar store em memória para desenvolvimento
+    store: new (require('express-session').MemoryStore)(),
   }),
 );
 
