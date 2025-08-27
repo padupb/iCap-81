@@ -708,9 +708,10 @@ export default function OrdensCompra() {
         </Dialog>
 
         {/* Botão Nova Ordem */}
+        {hasAvailableCompanies && (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button disabled={!hasAvailableCompanies}>
+            <Button>
               <Plus className="mr-2 h-4 w-4" />
               Nova Ordem
             </Button>
@@ -965,6 +966,7 @@ export default function OrdensCompra() {
             </Form>
           </DialogContent>
         </Dialog>
+        )}
 
         {/* Campo de busca centralizado */}
         <div className="relative flex-1 max-w-md mx-4">
