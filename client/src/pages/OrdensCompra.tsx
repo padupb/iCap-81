@@ -59,6 +59,7 @@ import {
 import { formatDate } from "@/lib/utils";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from "@/context/AuthContext";
+import { useAuthorization } from "@/context/AuthorizationContext";
 
 // Função para formatar números com vírgula (formato brasileiro)
 const formatNumber = (value: string | number): string => {
@@ -210,6 +211,7 @@ type PurchaseOrderFormData = z.infer<typeof purchaseOrderSchema>;
 
 export default function OrdensCompra() {
   const { user } = useAuth();
+  const { canCreatePurchaseOrders } = useAuthorization();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -376,6 +378,16 @@ export default function OrdensCompra() {
         return;
       }
 
+      // Verificar se tem permissão para criar ordens de compra
+      if (!canCreatePurchaseOrders()) {
+        toast({
+          title: "Erro",
+          description: "Você não tem permissão para criar ordens de compra",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setIsSubmitting(true);
 
       // Buscar o CNPJ da obra selecionada
@@ -501,6 +513,9 @@ export default function OrdensCompra() {
 
   // Verificar se há empresas disponíveis para seleção
   const hasAvailableCompanies = filteredCompanies.length > 0;
+  
+  // Verificar se o usuário pode criar ordens de compra (autorização + empresas disponíveis)
+  const canShowNovaOrdemButton = canCreatePurchaseOrders() && hasAvailableCompanies;
 
   return (
     <div className="space-y-6">
@@ -708,7 +723,7 @@ export default function OrdensCompra() {
         </Dialog>
 
         {/* Botão Nova Ordem */}
-        {hasAvailableCompanies && (
+        {canShowNovaOrdemButton && (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>

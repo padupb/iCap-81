@@ -30,6 +30,11 @@ interface AuthorizationContextType {
    * @param dataType Tipo de dados (companies, products, etc)
    */
   canAccessDropdownData: (dataType: string) => boolean;
+
+  /**
+   * Verifica se o usuário pode criar ordens de compra
+   */
+  canCreatePurchaseOrders: () => boolean;
 }
 
 const AuthorizationContext = createContext<AuthorizationContextType | undefined>(undefined);
@@ -167,6 +172,33 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     return allowedDropdownData.includes(dataType);
   }, [user]);
 
+  // Função para verificar se pode criar ordens de compra
+  const canCreatePurchaseOrders = useCallback(() => {
+    // Se não há usuário autenticado, nega acesso
+    if (!user) {
+      console.log(`❌ [AuthorizationContext] Usuário não autenticado - negando criação de ordens de compra`);
+      return false;
+    }
+
+    // APENAS o usuário keyuser (ID = 1) tem acesso total
+    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+      console.log(`🔑 [AuthorizationContext] KeyUser detectado - liberando criação de ordens de compra`);
+      return true;
+    }
+
+    // Para usuários normais, verificar permissões específicas da role
+    const rolePermissions = user.role?.permissions || [];
+    const hasPermission = rolePermissions.includes('create_purchase_orders');
+
+    if (hasPermission) {
+      console.log(`✅ [AuthorizationContext] Permissão create_purchase_orders encontrada - liberando criação`);
+      return true;
+    }
+
+    console.log(`❌ [AuthorizationContext] Permissão create_purchase_orders não encontrada - negando criação`);
+    return false;
+  }, [user]);
+
   const menuPermissions = {
     dashboard: true, // Dashboard é sempre visível para usuários autenticados
     orders: canView || canCreate,
@@ -180,7 +212,7 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
   };
 
   return (
-    <AuthorizationContext.Provider value={{ canView, canEdit, canCreate, canAccessGoogleMaps, canAccessDropdownData }}>
+    <AuthorizationContext.Provider value={{ canView, canEdit, canCreate, canAccessGoogleMaps, canAccessDropdownData, canCreatePurchaseOrders }}>
       {children}
     </AuthorizationContext.Provider>
   );
