@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db, pool } from "./db";
 import { isAuthenticated, hasPermission, isKeyUser, authenticateUser } from "./middleware/auth";
-import { 
+import {
   insertUserSchema, insertCompanySchema, insertCompanyCategorySchema,
   insertUserRoleSchema, insertProductSchema, insertUnitSchema,
   insertOrderSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
@@ -34,13 +34,13 @@ async function initializeObjectStorage() {
       console.log("✅ Módulo @replit/object-storage importado com sucesso");
     } catch (importError) {
       console.log("❌ Falha ao importar @replit/object-storage:", importError.message);
-      
+
       // Verificar se o pacote está instalado
       try {
         const fs = await import('fs');
         const path = await import('path');
         const nodeModulesPath = path.join(process.cwd(), 'node_modules', '@replit', 'object-storage');
-        
+
         if (!fs.existsSync(nodeModulesPath)) {
           console.log("📦 Pacote @replit/object-storage não está instalado");
           console.log("💡 Execute: npm install @replit/object-storage");
@@ -48,7 +48,7 @@ async function initializeObjectStorage() {
       } catch (fsError) {
         console.log("❌ Erro ao verificar instalação do pacote");
       }
-      
+
       objectStorageAvailable = false;
       return false;
     }
@@ -82,14 +82,14 @@ async function initializeObjectStorage() {
       return true;
     } catch (testError) {
       console.log("❌ Falha no teste de conectividade:", testError.message);
-      
+
       // Diagnóstico adicional
       if (testError.message.includes('permission') || testError.message.includes('unauthorized')) {
         console.log("🔒 Problema de permissões - verifique se Object Storage está habilitado no Replit");
       } else if (testError.message.includes('network') || testError.message.includes('timeout')) {
         console.log("🌐 Problema de conectividade - tente novamente em alguns segundos");
       }
-      
+
       objectStorageAvailable = false;
       return false;
     }
@@ -110,10 +110,10 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   if (objectStorageAvailable && objectStorage) {
     try {
       const key = `orders/${orderId}/${filename}`;
-      
+
       console.log(`📤 Tentando upload para Object Storage: ${key}`);
       console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
-      
+
       // Usar o método correto do Replit Object Storage
       try {
         // O método correto é uploadFromText para texto ou uploadFromBytes para buffer
@@ -125,9 +125,9 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
           // Fallback para texto se não for buffer
           await objectStorage.uploadFromText(key, buffer.toString());
         }
-        
+
         console.log("✅ Upload realizado com método uploadFromBytes/uploadFromText");
-        
+
         // Verificar se o arquivo foi realmente salvo tentando fazer download
         try {
           const downloadTest = await objectStorage.downloadAsBytes(key);
@@ -142,23 +142,23 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
           console.warn("⚠️ Upload realizado mas verificação falhou:", verifyError.message);
           return key; // Retornar mesmo assim, pois o upload pode ter funcionado
         }
-        
+
       } catch (uploadError) {
         console.error("❌ Erro específico no upload:", uploadError.message);
-        
+
         // Tentar métodos alternativos se o principal falhar
         console.log("🔄 Tentando métodos alternativos...");
-        
+
         if (typeof objectStorage.upload === 'function') {
           console.log("🔧 Tentando método upload genérico");
           await objectStorage.upload(key, buffer);
           console.log("✅ Upload realizado com método genérico");
           return key;
         }
-        
+
         throw uploadError;
       }
-      
+
     } catch (error) {
       console.error("❌ Erro detalhado ao salvar no Object Storage:", {
         message: error.message,
@@ -180,7 +180,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   try {
     const { googleDriveService } = await import('./googleDrive');
     const publicLink = await googleDriveService.uploadBuffer(buffer, filename, orderId);
-    
+
     if (publicLink) {
       console.log(`📁 🔗 Arquivo salvo no Google Drive: ${publicLink}`);
       console.log(`✅ Link público gerado com sucesso`);
@@ -190,7 +190,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     console.error("❌ Erro ao salvar no Google Drive:", error);
     console.log("🔄 Fallback para sistema local...");
   }
-  
+
   // FALLBACK: Salvar no sistema local (temporário)
   try {
     const orderDir = path.join(process.cwd(), "uploads", orderId);
@@ -214,7 +214,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   if (key.startsWith('gdrive:')) {
     const driveLink = key.replace('gdrive:', '');
     console.log(`📁 🔗 Arquivo está no Google Drive: ${driveLink}`);
-    
+
     // Para arquivos do Google Drive, vamos retornar um buffer especial
     // que indica que é um redirect
     return Buffer.from(`REDIRECT:${driveLink}`, 'utf-8');
@@ -227,7 +227,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
       try {
         console.log(`📥 Tentando download da pasta OC: ${ocKey}`);
-        
+
         const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
         if (downloadedBytes && downloadedBytes.length > 0) {
           const buffer = Buffer.from(downloadedBytes);
@@ -243,7 +243,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     if (key && (key.startsWith('orders/') || key.startsWith('OC/'))) {
       try {
         console.log(`📥 Tentando download do Object Storage: ${key}`);
-        
+
         const downloadedBytes = await objectStorage.downloadAsBytes(key);
         if (downloadedBytes && downloadedBytes.length > 0) {
           const buffer = Buffer.from(downloadedBytes);
@@ -260,21 +260,21 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       }
     }
   }
-  
+
   // FALLBACK: Tentar ler do sistema de arquivos local
   const possiblePaths = [
     path.join(process.cwd(), "uploads", `${filename}`), // PDF direto na pasta uploads
     path.join(process.cwd(), "uploads", orderId, filename),
     key // Se key for um caminho local
   ];
-  
+
   for (const filePath of possiblePaths) {
     if (fs.existsSync(filePath)) {
       console.log(`📁 💾 Arquivo lido do sistema local: ${filePath}`);
       return fs.readFileSync(filePath);
     }
   }
-  
+
   console.log(`❌ Arquivo não encontrado nem no Object Storage nem localmente: ${filename}`);
   return null;
 }
@@ -282,45 +282,45 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 // Função utilitária para converter data preservando o dia selecionado no calendário
 function convertToLocalDate(dateString: string): Date {
   console.log(`🔍 convertToLocalDate - entrada: ${dateString}`);
-  
+
   // Para datas com timezone (como as do frontend), manter a data original
   if (dateString.includes('Z') || dateString.includes('+') || dateString.includes('-', 10)) {
     const originalDate = new Date(dateString);
-    
+
     // Extrair os componentes da data original (UTC)
     const year = originalDate.getUTCFullYear();
     const month = originalDate.getUTCMonth();
     const day = originalDate.getUTCDate();
-    
+
     // Criar uma nova data preservando exatamente o dia selecionado no calendário
     // Usando 12:00 UTC para evitar problemas de fuso horário
     const preservedDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-    
+
     console.log(`📅 Data recebida: ${originalDate.toISOString()}`);
     console.log(`📅 Dia extraído (UTC): ${day}/${month + 1}/${year}`);
     console.log(`📅 Data preservada: ${preservedDate.toISOString()}`);
     console.log(`📅 Data em formato brasileiro: ${preservedDate.toLocaleDateString('pt-BR')}`);
-    
+
     return preservedDate;
   }
-  
+
   // Para datas sem timezone (formato YYYY-MM-DD)
   const dateParts = dateString.split('T')[0].split('-');
   if (dateParts.length === 3) {
     const year = parseInt(dateParts[0]);
     const month = parseInt(dateParts[1]) - 1; // Mês é 0-indexed no JavaScript
     const day = parseInt(dateParts[2]);
-    
+
     // Criar a data exatamente como selecionada (sem ajustes)
     const exactDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-    
+
     console.log(`📅 Data parseada: ${day}/${month + 1}/${year}`);
     console.log(`📅 Data UTC exata: ${exactDate.toISOString()}`);
     console.log(`📅 Data em formato brasileiro: ${exactDate.toLocaleDateString('pt-BR')}`);
-    
+
     return exactDate;
   }
-  
+
   // Fallback para outros formatos
   const fallbackDate = new Date(dateString);
   console.log(`📅 Fallback date: ${fallbackDate.toISOString()}`);
@@ -357,12 +357,12 @@ const storage_upload = multer.diskStorage({
       // Criar diretório com o order_id (número do pedido)
       const orderDir = path.join(uploadDir, orderId);
       console.log("📂 Diretório final do pedido:", orderDir);
-      
+
       try {
         if (!fs.existsSync(orderDir)) {
           fs.mkdirSync(orderDir, { recursive: true });
           console.log("📂 Diretório do pedido criado com sucesso:", orderDir);
-          
+
           // Verificar se o diretório foi realmente criado
           if (fs.existsSync(orderDir)) {
             console.log("✅ Confirmado: Diretório existe após criação");
@@ -424,7 +424,7 @@ const fileFilter = function(req: any, file: Express.Multer.File, cb: multer.File
   }
 };
 
-const upload = multer({ 
+const upload = multer({
   storage: storage_upload,
   fileFilter: fileFilter,
   limits: {
@@ -490,7 +490,7 @@ const logoFileFilter = function(req: any, file: Express.Multer.File, cb: multer.
   }
 };
 
-const uploadLogo = multer({ 
+const uploadLogo = multer({
     storage: logoStorage,
     fileFilter: logoFileFilter,
     limits: {
@@ -507,7 +507,7 @@ const uploadLogo = multer({
     }
   };
 
-  const uploadOrdemCompraPdf = multer({ 
+  const uploadOrdemCompraPdf = multer({
     storage: ordemCompraStorage,
     fileFilter: ordemCompraPdfFilter,
     limits: {
@@ -525,9 +525,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🔍 Tentativa de login:", { email: email, passwordLength: password?.length });
 
       if (!email || !password) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Email e senha são obrigatórios" 
+        return res.status(400).json({
+          success: false,
+          message: "Email e senha são obrigatórios"
         });
       }
 
@@ -538,9 +538,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!user) {
         console.log("❌ Usuário não encontrado:", email);
-        return res.status(401).json({ 
-          success: false, 
-          message: "Usuário não encontrado" 
+        return res.status(401).json({
+          success: false,
+          message: "Usuário não encontrado"
         });
       }
 
@@ -566,9 +566,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!senhaCorreta) {
         console.log("❌ Senha incorreta para usuário:", email);
-        return res.status(401).json({ 
-          success: false, 
-          message: "Senha incorreta" 
+        return res.status(401).json({
+          success: false,
+          message: "Senha incorreta"
         });
       }
 
@@ -577,10 +577,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se é o primeiro login
       if (user.primeiroLogin) {
         console.log("🔑 Primeiro login detectado para usuário:", user.name);
-        
+
         // Salvar o ID do usuário na sessão mesmo no primeiro login
         req.session.userId = user.id;
-        
+
         return res.json({
           success: true,
           requiresPasswordChange: true,
@@ -602,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Salvar o ID do usuário na sessão e garantir que seja persistida
       req.session.userId = user.id;
-      
+
       // Forçar salvamento da sessão
       await new Promise<void>((resolve, reject) => {
         req.session.save((err) => {
@@ -649,6 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         roleId: user.roleId,
         canConfirmDelivery: user.canConfirmDelivery,
         canCreateOrder: user.canCreateOrder,
+        canCreatePurchaseOrder: user.canCreatePurchaseOrder, // Adicionado
         // Adicionar propriedades de keyuser apenas se ID = 1
         isKeyUser: isKeyUser,
         isDeveloper: isKeyUser,
@@ -658,15 +659,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("📤 Resposta do login:", userResponse);
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         user: userResponse
       });
     } catch (error) {
       console.error("Erro ao fazer login:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Erro ao fazer login" 
+      res.status(500).json({
+        success: false,
+        message: "Erro ao fazer login"
       });
     }
   });
@@ -690,6 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           roleId: req.user.roleId,
           canConfirmDelivery: req.user.canConfirmDelivery,
           canCreateOrder: req.user.canCreateOrder,
+          canCreatePurchaseOrder: req.user.canCreatePurchaseOrder, // Adicionado
           isKeyUser: req.user.isKeyUser,
           isDeveloper: req.user.isDeveloper,
           // Incluir informações da função
@@ -713,33 +715,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/logout", (req, res) => {
     console.log("🚪 Requisição de logout recebida. Session userId:", req.session.userId);
-    
+
     if (req.session.userId) {
       const userId = req.session.userId;
-      
+
       req.session.destroy((err) => {
         if (err) {
           console.error("❌ Erro ao destruir sessão no logout:", err);
-          return res.status(500).json({ 
-            success: false, 
-            message: "Erro ao fazer logout" 
+          return res.status(500).json({
+            success: false,
+            message: "Erro ao fazer logout"
           });
         }
 
         console.log(`✅ Logout realizado com sucesso para usuário ${userId}`);
-        
-        res.json({ 
-          success: true, 
-          message: "Logout realizado com sucesso" 
+
+        res.json({
+          success: true,
+          message: "Logout realizado com sucesso"
         });
       });
     } else {
       console.log("⚠️ Tentativa de logout sem sessão ativa");
-      
+
       // Mesmo sem sessão, retornar sucesso para não bloquear o logout no frontend
-      res.json({ 
-        success: true, 
-        message: "Logout realizado (sem sessão ativa)" 
+      res.json({
+        success: true,
+        message: "Logout realizado (sem sessão ativa)"
       });
     }
   });
@@ -749,7 +751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("📝 Dados recebidos para alteração de senha:", req.body);
       console.log("📝 Session userId:", req.session.userId);
-      
+
       const { userId, newPassword, confirmPassword } = req.body;
 
       // Validação mais detalhada dos dados
@@ -763,7 +765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Usar userId do body ou da sessão como fallback
       const finalUserId = userId || req.session.userId;
-      
+
       if (!finalUserId) {
         console.log("❌ UserId não fornecido nem na requisição nem na sessão");
         return res.status(400).json({
@@ -771,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "ID do usuário é obrigatório"
         });
       }
-      
+
       console.log("✅ Usando userId:", finalUserId);
 
       if (!newPassword || newPassword.trim() === "") {
@@ -931,7 +933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Users routes  
+  // Users routes
   app.get("/api/users", isAuthenticated, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
@@ -947,15 +949,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se o usuário tem permissão para criar usuários OU é keyuser
       const hasCreatePermission = req.user.permissions?.includes("create_users") || req.user.permissions?.includes("*");
       const isKeyUserCheck = req.user.id === 1 || req.user.isKeyUser;
-      
+
       if (!hasCreatePermission && !isKeyUserCheck) {
-        return res.status(403).json({ 
-          success: false, 
-          message: "Permissão 'create_users' necessária para criar usuários" 
+        return res.status(403).json({
+          success: false,
+          message: "Permissão 'create_users' necessária para criar usuários"
         });
       }
 
-      const userData = insertUserSchema.parse(req.body);
+      const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder } = req.body; // Adicionado canCreatePurchaseOrder
+
+      // Validar dados com Zod (incluindo o novo campo)
+      const userData = insertUserSchema.parse({
+        name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder
+      });
+
       const newUser = await storage.createUser(userData);
 
       // Registrar log de criação
@@ -970,6 +978,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(newUser);
     } catch (error) {
       console.error("Erro ao criar usuário:", error);
+      // Tratar erros de validação Zod
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Erro de validação",
+          errors: error.errors
+        });
+      }
       res.status(500).json({ message: "Erro ao criar usuário" });
     }
   });
@@ -979,11 +995,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se o usuário tem permissão para editar usuários OU é keyuser
       const hasEditPermission = req.user.permissions?.includes("edit_users") || req.user.permissions?.includes("*");
       const isKeyUserCheck = req.user.id === 1 || req.user.isKeyUser;
-      
+
       if (!hasEditPermission && !isKeyUserCheck) {
-        return res.status(403).json({ 
-          success: false, 
-          message: "Permissão 'edit_users' necessária para editar usuários" 
+        return res.status(403).json({
+          success: false,
+          message: "Permissão 'edit_users' necessária para editar usuários"
         });
       }
 
@@ -998,7 +1014,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
 
-      const userData = req.body;
+      const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder } = req.body; // Adicionado canCreatePurchaseOrder
+
+      // Validar dados com Zod (incluindo o novo campo)
+      const userData = insertUserSchema.parse({
+        name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder
+      });
+
       console.log("Updating user:", { id, user: userData });
       const updatedUser = await storage.updateUser(id, userData);
 
@@ -1016,6 +1038,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedUser);
     } catch (error) {
       console.error("Erro ao atualizar usuário:", error);
+      // Tratar erros de validação Zod
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Erro de validação",
+          errors: error.errors
+        });
+      }
       res.status(500).json({ message: "Erro ao atualizar usuário" });
     }
   });
@@ -1035,8 +1065,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar se o usuário está tentando excluir a si mesmo
       if (req.session.userId === id) {
-        return res.status(400).json({ 
-          message: "Não é possível excluir seu próprio usuário" 
+        return res.status(400).json({
+          message: "Não é possível excluir seu próprio usuário"
         });
       }
 
@@ -1186,7 +1216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // NOVA REGRA: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
       const isApprover = await pool.query(`
         SELECT COUNT(*) as total
-        FROM companies 
+        FROM companies
         WHERE approver_id = $1
       `, [req.user.id]);
 
@@ -1194,10 +1224,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (userIsApprover && req.user.id !== 1 && !req.user.isKeyUser) {
         console.log(`🔒 Usuário ${req.user.name} (ID: ${req.user.id}) é aprovador - aplicando filtro restritivo`);
-        
+
         // Filtrar apenas pedidos onde o usuário é aprovador da obra de destino
         const filteredOrders = [];
-        
+
         for (const order of orders) {
           if (order.purchaseOrderId) {
             try {
@@ -1209,7 +1239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 LEFT JOIN companies c ON oc.cnpj = c.cnpj
                 WHERE o.id = $1 AND c.approver_id = $2
               `, [order.id, req.user.id]);
-              
+
               if (approverCheck.rows.length > 0) {
                 filteredOrders.push(order);
                 console.log(`✅ Pedido ${order.orderId} incluído - usuário é aprovador da obra ${approverCheck.rows[0].name}`);
@@ -1219,37 +1249,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
-        
+
         orders = filteredOrders;
         console.log(`🔒 Aprovador ${req.user.name} - visualização restrita a ${orders.length} pedidos onde é aprovador`);
-        
+
       } else {
         // Aplicar restrição baseada nos critérios da empresa do usuário (para não-aprovadores)
         if (req.user && req.user.companyId && req.user.id !== 1 && !req.user.isKeyUser) {
           // Buscar a empresa do usuário
           const userCompany = await storage.getCompany(req.user.companyId);
-          
+
           if (userCompany) {
             // Buscar a categoria da empresa
             const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
-            
+
             if (companyCategory) {
               // Verificar se a empresa tem pelo menos 1 critério ativo
-              const hasAnyCriteria = companyCategory.requiresApprover || 
-                                   companyCategory.requiresContract || 
+              const hasAnyCriteria = companyCategory.requiresApprover ||
+                                   companyCategory.requiresContract ||
                                    companyCategory.receivesPurchaseOrders;
-              
+
               if (hasAnyCriteria) {
                 // Filtrar pedidos onde a empresa é fornecedora OU obra de destino
                 const filteredOrders = [];
-                
+
                 for (const order of orders) {
                   // 1. Incluir pedidos criados pela empresa (fornecedor)
                   if (order.supplierId === req.user.companyId) {
                     filteredOrders.push(order);
                     continue;
                   }
-                  
+
                   // 2. Incluir pedidos destinados à empresa (obra de destino)
                   if (order.purchaseOrderId) {
                     try {
@@ -1258,10 +1288,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         "SELECT cnpj FROM ordens_compra WHERE id = $1",
                         [order.purchaseOrderId]
                       );
-                      
+
                       if (ordemCompraResult.rows.length > 0) {
                         const cnpjDestino = ordemCompraResult.rows[0].cnpj;
-                        
+
                         // Verificar se o CNPJ de destino corresponde à empresa do usuário
                         if (cnpjDestino === userCompany.cnpj) {
                           filteredOrders.push(order);
@@ -1272,7 +1302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     }
                   }
                 }
-                
+
                 orders = filteredOrders;
                 console.log(`🔒 Usuário da empresa ${userCompany.name} - visualização restrita a pedidos próprios e destinados à empresa`);
               } else {
@@ -1296,11 +1326,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // CONTROLE DE ACESSO PARA PEDIDOS URGENTES
       // Apenas usuários com perfil específico podem visualizar pedidos urgentes
-      
+
       // 1. Verificar se é o usuário KeyUser (ID = 1)
       if (req.user.id === 1 || req.user.isKeyUser === true) {
         console.log(`🔑 Acesso liberado para pedidos urgentes - KeyUser: ${req.user.name}`);
-        
+
         // KeyUser vê todos os pedidos urgentes
         const urgentOrders = await storage.getUrgentOrders();
         console.log(`🔑 KeyUser - exibindo todos os ${urgentOrders.length} pedidos urgentes`);
@@ -1310,12 +1340,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 2. Verificar se o usuário é aprovador de alguma empresa/obra
       const approverResult = await pool.query(`
         SELECT COUNT(*) as total
-        FROM companies 
+        FROM companies
         WHERE approver_id = $1
       `, [req.user.id]);
 
       const isApprover = parseInt(approverResult.rows[0].total) > 0;
-      
+
       if (!isApprover) {
         console.log(`🔒 Acesso negado para pedidos urgentes - Usuário ${req.user.name} (ID: ${req.user.id}) não é aprovador`);
         return res.json([]);
@@ -1325,7 +1355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 3. Buscar pedidos urgentes específicos para este aprovador
       const urgentOrders = await storage.getUrgentOrdersForApprover(req.user.id);
-      
+
       console.log(`📊 Total de pedidos urgentes para aprovador ${req.user.name}: ${urgentOrders.length}`);
 
       res.json(urgentOrders);
@@ -1372,7 +1402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (pool) {
         // Se temos banco de dados, usar queries SQL
         const saldoResult = await pool.query(
-          `SELECT quantidade FROM itens_ordem_compra 
+          `SELECT quantidade FROM itens_ordem_compra
            WHERE ordem_compra_id = $1 AND produto_id = $2`,
           [orderData.purchaseOrderId, orderData.productId]
         );
@@ -1389,7 +1419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Buscar quantidade já usada em pedidos (excluindo cancelados)
         const usadoResult = await pool.query(
           `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
-           FROM orders 
+           FROM orders
            WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
           [orderData.purchaseOrderId, orderData.productId]
         );
@@ -1423,17 +1453,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calcular se o pedido é urgente baseado na data de entrega
       const now = new Date();
       const deliveryDate = convertToLocalDate(orderData.deliveryDate); // Conversão para fuso brasileiro
-      
+
       console.log(`📅 Debug conversão de data:`, {
         original: orderData.deliveryDate,
         converted: deliveryDate.toISOString(),
         localString: deliveryDate.toLocaleDateString('pt-BR'),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       });
-      
+
       const daysDiff = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
       const isUrgent = daysDiff <= 7;
-      
+
       // Definir status baseado na urgência:
       // - Pedidos urgentes: "Registrado" (precisam de aprovação)
       // - Pedidos não urgentes: "Aprovado" (aprovação automática)
@@ -1550,7 +1580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let query = `
-        SELECT 
+        SELECT
           oc.id,
           oc.numero_ordem,
           oc.empresa_id,
@@ -1571,17 +1601,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.user && req.user.companyId) {
         // Buscar a empresa do usuário
         const userCompany = await storage.getCompany(req.user.companyId);
-        
+
         if (userCompany) {
           // Buscar a categoria da empresa
           const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
-          
+
           if (companyCategory) {
             // Verificar se a empresa tem pelo menos 1 critério ativo
-            const hasAnyCriteria = companyCategory.requiresApprover || 
-                                 companyCategory.requiresContract || 
+            const hasAnyCriteria = companyCategory.requiresApprover ||
+                                 companyCategory.requiresContract ||
                                  companyCategory.receivesPurchaseOrders;
-            
+
             if (hasAnyCriteria) {
               // Filtrar ordens de compra onde:
               // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
@@ -1639,7 +1669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let query = `
-        SELECT 
+        SELECT
           oc.id,
           oc.numero_ordem as order_number,
           oc.empresa_id as company_id,
@@ -1665,17 +1695,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.user && req.user.companyId) {
         // Buscar a empresa do usuário
         const userCompany = await storage.getCompany(req.user.companyId);
-        
+
         if (userCompany) {
           // Buscar a categoria da empresa
           const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
-          
+
           if (companyCategory) {
             // Verificar se a empresa tem pelo menos 1 critério ativo
-            const hasAnyCriteria = companyCategory.requiresApprover || 
-                                 companyCategory.requiresContract || 
+            const hasAnyCriteria = companyCategory.requiresApprover ||
+                                 companyCategory.requiresContract ||
                                  companyCategory.receivesPurchaseOrders;
-            
+
             if (hasAnyCriteria) {
               // Filtrar ordens de compra onde:
               // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
@@ -1741,8 +1771,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.session.userId || 999; // Usar ID do usuário da sessão ou um padrão
 
       const ordemResult = await pool.query(
-        `INSERT INTO ordens_compra 
-         (numero_ordem, empresa_id, cnpj, usuario_id, valido_ate, status, data_criacao) 
+        `INSERT INTO ordens_compra
+         (numero_ordem, empresa_id, cnpj, usuario_id, valido_ate, status, data_criacao)
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
         [numeroOrdem, empresaId, cnpj, userId, validoAte, "Ativo", new Date()]
       );
@@ -1752,8 +1782,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Inserir os itens da ordem
       for (const produto of produtos) {
         await pool.query(
-          `INSERT INTO itens_ordem_compra 
-           (ordem_compra_id, produto_id, quantidade) 
+          `INSERT INTO itens_ordem_compra
+           (ordem_compra_id, produto_id, quantidade)
            VALUES ($1, $2, $3)`,
           [novaOrdem.id, produto.id, produto.qtd.toString()]
         );
@@ -1817,7 +1847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (objectStorageAvailable && objectStorage) {
         const ocKey = `OC/${ordem.numero_ordem}.pdf`;
         console.log(`📂 Tentando buscar na pasta OC: ${ocKey}`);
-        
+
         try {
           const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
           if (downloadedBytes && downloadedBytes.length > 0) {
@@ -1837,8 +1867,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // PRIORIDADE 2: Se tem pdf_info, tentar usar as informações armazenadas
       if (ordem.pdf_info) {
         try {
-          const pdfInfo = typeof ordem.pdf_info === 'string' 
-            ? JSON.parse(ordem.pdf_info) 
+          const pdfInfo = typeof ordem.pdf_info === 'string'
+            ? JSON.parse(ordem.pdf_info)
             : ordem.pdf_info;
 
           console.log(`📊 Informações do PDF encontradas:`, pdfInfo);
@@ -1850,8 +1880,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`📂 Tentando acessar PDF usando storageKey: ${storageKey}`);
 
             const fileBuffer = await readFileFromStorage(
-              storageKey, 
-              `ordens_compra_${ordem.numero_ordem}`, 
+              storageKey,
+              `ordens_compra_${ordem.numero_ordem}`,
               filename || `${ordem.numero_ordem}.pdf`
             );
 
@@ -1877,7 +1907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // PRIORIDADE 3: FALLBACK - Tentar buscar o arquivo na pasta uploads usando o número da ordem
       const uploadsPath = path.join(process.cwd(), "uploads", `${ordem.numero_ordem}.pdf`);
       console.log(`📁 Tentando PDF em uploads: ${uploadsPath}`);
-      
+
       if (fs.existsSync(uploadsPath)) {
         console.log(`✅ PDF encontrado em uploads: ${uploadsPath}`);
         res.setHeader("Content-Type", "application/pdf");
@@ -1965,14 +1995,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (objectStorageAvailable && objectStorage) {
             const buffer = fs.readFileSync(req.file.path);
             const storageKey = `OC/${numeroOrdem}.pdf`;
-            
+
             console.log(`📤 Salvando PDF na pasta OC: ${storageKey}`);
             console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
-            
+
             // Usar o método correto do Replit Object Storage
             const uint8Array = new Uint8Array(buffer);
             await objectStorage.uploadFromBytes(storageKey, uint8Array);
-            
+
             // Verificar se o upload foi bem-sucedido
             try {
               const verification = await objectStorage.downloadAsBytes(storageKey);
@@ -1986,7 +2016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`⚠️ Upload realizado mas verificação falhou: ${verifyError.message}`);
               pdfKey = storageKey; // Usar mesmo assim
             }
-            
+
           } else {
             console.log(`⚠️ Object Storage não disponível - usando fallback`);
             // Fallback para função existente se Object Storage não disponível
@@ -1999,7 +2029,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (error) {
           console.error(`❌ Erro ao salvar PDF na pasta OC:`, error);
           console.log(`🔄 Tentando fallback para função saveFileToStorage`);
-          
+
           // Fallback para função existente
           try {
             pdfKey = await saveFileToStorage(
@@ -2089,7 +2119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Atualizar a ordem
       await pool.query(
-        `UPDATE ordens_compra 
+        `UPDATE ordens_compra
          SET numero_ordem = $1, empresa_id = $2, cnpj = $3, valido_ate = $4
          WHERE id = $5`,
         [numeroOrdem, empresaId, cnpj, validoAte, id]
@@ -2102,8 +2132,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (items && items.length > 0) {
         for (const item of items) {
           await pool.query(
-            `INSERT INTO itens_ordem_compra 
-             (ordem_compra_id, produto_id, quantidade) 
+            `INSERT INTO itens_ordem_compra
+             (ordem_compra_id, produto_id, quantidade)
              VALUES ($1, $2, $3)`,
             [id, item.productId, item.quantity]
           );
@@ -2243,7 +2273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar os itens da ordem com informações do produto
       const result = await pool.query(`
-        SELECT 
+        SELECT
           i.id,
           i.ordem_compra_id,
           i.produto_id,
@@ -2266,7 +2296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ordem_compra_id: item.ordem_compra_id,
         produto_id: item.produto_id,
         produto_nome: item.produto_nome || "Produto não encontrado",
-        unidade: item.unidade || item.unidade_nome || "un",
+        unidade: item.unidade || item.unidade_nome || 'un',
         quantidade: parseFloat(item.quantidade || 0)
       }));
 
@@ -2382,7 +2412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar os itens da ordem com informações do produto
       const result = await pool.query(`
-        SELECT 
+        SELECT
           i.id,
           i.ordem_compra_id as purchase_order_id,
           i.produto_id as product_id,
@@ -2435,7 +2465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 1. Buscar a quantidade total na ordem de compra
       const itemOrdemResult = await pool.query(
-        `SELECT quantidade FROM itens_ordem_compra 
+        `SELECT quantidade FROM itens_ordem_compra
          WHERE ordem_compra_id = $1 AND produto_id = $2`,
         [ordemId, produtoId]
       );
@@ -2456,7 +2486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 2. Buscar a quantidade já usada em pedidos (MESMA LÓGICA DA CRIAÇÃO DE PEDIDOS)
       const pedidosResult = await pool.query(
         `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
-         FROM orders 
+         FROM orders
          WHERE purchase_order_id = $1 AND product_id = $2 AND status != 'Cancelado'`,
         [ordemId, produtoId]
       );
@@ -2507,9 +2537,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Buscar a quantidade entregue (somatório de pedidos com status "Entregue")
       const entregueResult = await pool.query(
         `SELECT COALESCE(SUM(
-          CASE 
-            WHEN quantidade_recebida IS NOT NULL 
-                 AND quantidade_recebida != '' 
+          CASE
+            WHEN quantidade_recebida IS NOT NULL
+                 AND quantidade_recebida != ''
                  AND quantidade_recebida ~ '^[0-9]*\.?[0-9]+$'
             THEN CAST(quantidade_recebida AS DECIMAL)
             WHEN quantity IS NOT NULL AND quantity != ''
@@ -2517,7 +2547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ELSE 0
           END
         ), 0) as total_entregue
-         FROM orders 
+         FROM orders
          WHERE purchase_order_id = $1 AND product_id = $2 AND status = 'Entregue'`,
         [ordemId, produtoId]
       );
@@ -2615,8 +2645,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasCompanies = companies.some(company => company.categoryId === id);
 
       if (hasCompanies) {
-        return res.status(400).json({ 
-          message: "Não é possível excluir esta categoria porque existem empresas associadas a ela" 
+        return res.status(400).json({
+          message: "Não é possível excluir esta categoria porque existem empresas associadas a ela"
         });
       }
 
@@ -2714,8 +2744,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasUsers = users.some(user => user.roleId === id);
 
       if (hasUsers) {
-        return res.status(400).json({ 
-          message: "Não é possível excluir esta função porque existem usuários associados a ela" 
+        return res.status(400).json({
+          message: "Não é possível excluir esta função porque existem usuários associados a ela"
         });
       }
 
@@ -2813,8 +2843,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasProducts = products.some(product => product.unitId === id);
 
       if (hasProducts) {
-        return res.status(400).json({ 
-          message: "Não é possível excluir esta unidade porque existem produtos associados a ela" 
+        return res.status(400).json({
+          message: "Não é possível excluir esta unidade porque existem produtos associados a ela"
         });
       }
 
@@ -2855,15 +2885,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/settings", isAuthenticated, async (req, res) => {
     try {
       const settings = await storage.getAllSettings();
-      
+
       // Se não é KeyUser, retornar apenas configurações públicas (incluindo google_maps_api_key para uso)
       if (req.user.id !== 1 && !req.user.isKeyUser) {
-        const publicSettings = settings.filter(setting => 
+        const publicSettings = settings.filter(setting =>
           // Permitir google_maps_api_key para todos os usuários usarem
           setting.key === 'google_maps_api_key' ||
-          (!setting.key.includes('database') && 
-          !setting.key.includes('pg') && 
-          !setting.key.includes('token') && 
+          (!setting.key.includes('database') &&
+          !setting.key.includes('pg') &&
+          !setting.key.includes('token') &&
           !setting.key.includes('smtp') &&
           !setting.key.includes('password'))
         );
@@ -2892,14 +2922,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ];
 
       // Verificar se há configurações sensíveis sendo alteradas
-      const hasSensitiveSettings = settingsArray.some(setting => 
+      const hasSensitiveSettings = settingsArray.some(setting =>
         sensitiveKeys.includes(setting.key)
       );
 
       // Se há configurações sensíveis e não é KeyUser, negar acesso
       if (hasSensitiveSettings && req.user.id !== 1 && !req.user.isKeyUser) {
-        return res.status(403).json({ 
-          message: "Apenas o administrador pode alterar configurações de banco de dados e API keys" 
+        return res.status(403).json({
+          message: "Apenas o administrador pode alterar configurações de banco de dados e API keys"
         });
       }
 
@@ -2911,7 +2941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Definir descrições para as novas configurações
         let description = setting.description || "";
-        
+
         switch (setting.key) {
           case 'database_url':
             description = "String de conexão completa do PostgreSQL";
@@ -2993,7 +3023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: "URL do logo da aplicação"
       });
 
-      res.json({ 
+      res.json({
         message: "Logo enviado com sucesso",
         logoUrl: logoUrl,
         filename: req.file.filename
@@ -3005,7 +3035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Configuração do upload com multer (usando storage_upload que cria pastas por order_id)
-  const upload = multer({ 
+  const upload = multer({
     storage: storage_upload,
     fileFilter: fileFilter,
     limits: {
@@ -3015,18 +3045,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Rota para upload de documentos (versão completa com validação)
   app.post(
-    "/api/pedidos/:id/documentos", 
+    "/api/pedidos/:id/documentos",
     isAuthenticated,
     upload.fields([
       { name: 'nota_pdf', maxCount: 1 },
       { name: 'nota_xml', maxCount: 1 },
       { name: 'certificado_pdf', maxCount: 1 }
-    ]), 
+    ]),
     async (req, res) => {
       console.log("📤 Iniciando upload de documentos para o pedido ID:", req.params.id);
       console.log("📄 Arquivos recebidos:", req.files);
       console.log("👤 Sessão do usuário:", req.session.userId);
-      
+
       // Log adicional para verificar os caminhos dos arquivos
       if (req.files) {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
@@ -3044,16 +3074,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const pedidoId = parseInt(req.params.id);
         const orderResult = await pool.query("SELECT order_id FROM orders WHERE id = $1", [pedidoId]);
-        
+
         if (orderResult.rows.length > 0) {
           const orderId = orderResult.rows[0].order_id;
           const expectedDir = path.join(process.cwd(), "uploads", orderId);
-          
+
           console.log(`🔍 Verificação pós-upload:`);
           console.log(`📋 Order ID: ${orderId}`);
           console.log(`📂 Diretório esperado: ${expectedDir}`);
           console.log(`📂 Diretório existe: ${fs.existsSync(expectedDir)}`);
-          
+
           if (!fs.existsSync(expectedDir)) {
             console.log(`🔨 Criando diretório manualmente: ${expectedDir}`);
             fs.mkdirSync(expectedDir, { recursive: true });
@@ -3068,9 +3098,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Verificar se o pedido existe antes de iniciar o upload
         const id = parseInt(req.params.id);
         if (isNaN(id)) {
-          return res.status(400).json({ 
-            sucesso: false, 
-            mensagem: "ID de pedido inválido" 
+          return res.status(400).json({
+            sucesso: false,
+            mensagem: "ID de pedido inválido"
           });
         }
 
@@ -3091,7 +3121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const today = new Date();
         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
         const isUrgent = daysDiff <= 7;
-        
+
         if (isUrgent && order.status === "Registrado") {
           return res.status(403).json({
             sucesso: false,
@@ -3103,27 +3133,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
         if (!files || !files.nota_pdf || !files.nota_xml || !files.certificado_pdf) {
-          return res.status(400).json({ 
-            sucesso: false, 
-            mensagem: "Todos os três documentos são obrigatórios (nota fiscal PDF, nota fiscal XML e certificado PDF)" 
+          return res.status(400).json({
+            sucesso: false,
+            mensagem: "Todos os três documentos são obrigatórios (nota fiscal PDF, nota fiscal XML e certificado PDF)"
           });
         }
 
         // Extrair quantidade comercial do XML da nota fiscal
         let quantidadeComercial = null;
         let xmlAnalysis = null;
-        
+
         try {
           const xmlContent = fs.readFileSync(files.nota_xml[0].path, 'utf8');
           console.log("📄 Analisando XML da nota fiscal...");
-          
+
           // Extrair quantidade comercial usando regex (buscar por qCom)
           const qComMatch = xmlContent.match(/<qCom>([\d.,]+)<\/qCom>/);
           if (qComMatch) {
             // Converter vírgula para ponto e parsear como número
             quantidadeComercial = parseFloat(qComMatch[1].replace(',', '.'));
             console.log(`📊 Quantidade comercial encontrada no XML: ${quantidadeComercial}`);
-            
+
             xmlAnalysis = {
               quantidadeOriginal: order.quantity,
               quantidadeXML: quantidadeComercial,
@@ -3152,25 +3182,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const orderIdFromDB = await pool.query("SELECT order_id FROM orders WHERE id = $1", [id]);
         const expectedOrderId = orderIdFromDB.rows[0]?.order_id;
         const expectedDir = path.join(process.cwd(), "uploads", expectedOrderId);
-        
+
         console.log(`🔍 Verificação do diretório:`);
         console.log(`📋 Order ID esperado: ${expectedOrderId}`);
         console.log(`📂 Diretório esperado: ${expectedDir}`);
         console.log(`📂 Diretório existe: ${fs.existsSync(expectedDir)}`);
-        
+
         // Salvar arquivos no Object Storage ou sistema local
         const notaPdfKey = await saveFileToStorage(
           fs.readFileSync(files.nota_pdf[0].path),
           files.nota_pdf[0].filename,
           expectedOrderId
         );
-        
+
         const notaXmlKey = await saveFileToStorage(
           fs.readFileSync(files.nota_xml[0].path),
           files.nota_xml[0].filename,
           expectedOrderId
         );
-        
+
         const certificadoPdfKey = await saveFileToStorage(
           fs.readFileSync(files.certificado_pdf[0].path),
           files.certificado_pdf[0].filename,
@@ -3214,11 +3244,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               "UPDATE orders SET quantity = $1 WHERE id = $2",
               [quantidadeComercial, id]
             );
-            
+
             mensagemQuantidade = ` Quantidade do pedido atualizada de ${order.quantity} para ${quantidadeComercial} (conforme XML da nota fiscal).`;
-            
+
             console.log(`✅ Quantidade do pedido ${order.orderId} atualizada: ${order.quantity} → ${quantidadeComercial}`);
-            
+
             // Registrar log específico da alteração de quantidade
             await storage.createLog({
               userId: req.session.userId,
@@ -3259,7 +3289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Erro ao processar upload de documentos:", error);
         return res.status(500).json({
           sucesso: false,
-mensagem: "Erro interno do servidor ao processar o upload",
+          mensagem: "Erro interno do servidor ao processar o upload",
           erro: error instanceof Error ? error.message : "Erro desconhecido"
         });
       }
@@ -3272,9 +3302,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const id = parseInt(req.params.id);
 
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido"
         });
       }
 
@@ -3291,8 +3321,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
         });
       }
 
-      const fotoInfo = typeof result.rows[0].foto_confirmacao === 'string' 
-        ? JSON.parse(result.rows[0].foto_confirmacao) 
+      const fotoInfo = typeof result.rows[0].foto_confirmacao === 'string'
+        ? JSON.parse(result.rows[0].foto_confirmacao)
         : result.rows[0].foto_confirmacao;
       const orderId = result.rows[0].order_id;
 
@@ -3331,9 +3361,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const tipo = req.params.tipo;
 
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido"
         });
       }
 
@@ -3356,14 +3386,15 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Verificar se o pedido tem documentos carregados
       // Aceitar pedidos com status "Carregado", "Em Rota" ou "Entregue" mesmo se a flag não estiver definida
-      const hasDocuments = order.documentosCarregados || 
-                          order.status === 'Carregado' || 
-                          order.status === 'Em Rota' || 
+      const hasDocuments = order.documentosCarregados ||
+                          order.status === 'Carregado' ||
+                          order.status === 'Em Rota' ||
                           order.status === 'Entregue';
 
       if (!hasDocuments) {
-        return res.status(404).json({
-          sucesso: false,
+        return res.json({
+          sucesso: true,
+          temDocumentos: false,
           mensagem: "Este pedido não possui documentos carregados"
         });
       }
@@ -3383,8 +3414,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
         });
       }
 
-      const documentosInfo = typeof result.rows[0].documentosinfo === 'string' 
-        ? JSON.parse(result.rows[0].documentosinfo) 
+      const documentosInfo = typeof result.rows[0].documentosinfo === 'string'
+        ? JSON.parse(result.rows[0].documentosinfo)
         : result.rows[0].documentosinfo;
       const orderId = result.rows[0].order_id;
 
@@ -3403,7 +3434,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
       // Tentar ler arquivo do Object Storage ou sistema local
       const storageKey = documentosInfo[tipo].storageKey;
       const filename = documentosInfo[tipo].filename;
-      
+
       console.log("📂 Tentando acessar arquivo:", {
         tipo: tipo,
         filename: filename,
@@ -3417,23 +3448,23 @@ mensagem: "Erro interno do servidor ao processar o upload",
       if (fileBuffer && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
         const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
         console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-        
+
         return res.redirect(302, driveLink);
       }
 
       if (!fileBuffer) {
         console.log("❌ Arquivo não encontrado no Object Storage nem no sistema local");
-        
+
         // Debug adicional: listar arquivos no diretório do pedido
         const orderDir = path.join(process.cwd(), "uploads", orderId);
         console.log("🔍 Verificando diretório:", orderDir);
-        
+
         if (fs.existsSync(orderDir)) {
           const files = fs.readdirSync(orderDir);
           console.log(`📁 Arquivos disponíveis no diretório ${orderDir}:`, files);
         } else {
           console.log(`❌ Diretório ${orderDir} não existe`);
-          
+
           // Verificar se o diretório uploads existe
           const uploadsDir = path.join(process.cwd(), "uploads");
           if (fs.existsSync(uploadsDir)) {
@@ -3496,9 +3527,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const id = parseInt(req.params.id);
 
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido"
         });
       }
 
@@ -3557,9 +3588,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const orderId = parseInt(req.params.orderId);
 
       if (isNaN(orderId)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido"
         });
       }
 
@@ -3600,14 +3631,14 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Buscar pontos de rastreamento usando o número do pedido
       const result = await pool.query(
-        `SELECT 
-          id, 
-          order_id as "orderId", 
-          CAST(latitude AS DECIMAL(10,6)) as latitude, 
-          CAST(longitude AS DECIMAL(11,6)) as longitude, 
+        `SELECT
+          id,
+          order_id as "orderId",
+          CAST(latitude AS DECIMAL(10,6)) as latitude,
+          CAST(longitude AS DECIMAL(11,6)) as longitude,
           created_at as "createdAt"
-         FROM tracking_points 
-         WHERE order_id = $1 
+         FROM tracking_points
+         WHERE order_id = $1
          ORDER BY created_at ASC`,
         [orderNumber]
       );
@@ -3617,9 +3648,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const trackingPoints = result.rows.map((row: any) => {
         const latitude = parseFloat(row.latitude);
         const longitude = parseFloat(row.longitude);
-        
+
         console.log(`🔍 Processando ponto: lat=${latitude}, lng=${longitude}`);
-        
+
         return {
           id: row.id,
           orderId: row.orderId,
@@ -3640,9 +3671,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       res.json(trackingPoints);
     } catch (error) {
       console.error("Erro ao buscar pontos de rastreamento:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao buscar pontos de rastreamento" 
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar pontos de rastreamento"
       });
     }
   });
@@ -3656,8 +3687,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const result = await pool.query(
         `SELECT DISTINCT ON (order_id)
           order_id as "orderId",
-          CAST(latitude AS DECIMAL(10,6)) as latitude, 
-          CAST(longitude AS DECIMAL(11,6)) as longitude, 
+          CAST(latitude AS DECIMAL(10,6)) as latitude,
+          CAST(longitude AS DECIMAL(11,6)) as longitude,
           created_at as "createdAt",
           (SELECT COUNT(*) FROM tracking_points tp2 WHERE tp2.order_id = tp1.order_id) as "totalPoints"
          FROM tracking_points tp1
@@ -3669,14 +3700,14 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const summary = result.rows.reduce((acc: any, row: any) => {
         const latitude = parseFloat(row.latitude);
         const longitude = parseFloat(row.longitude);
-        
+
         acc[row.orderId] = {
           latitude: isNaN(latitude) ? 0 : latitude,
           longitude: isNaN(longitude) ? 0 : longitude,
           lastUpdate: row.createdAt,
           totalPoints: parseInt(row.totalPoints)
         };
-        
+
         return acc;
       }, {});
 
@@ -3685,9 +3716,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       res.json(summary);
     } catch (error) {
       console.error("Erro ao buscar resumo de coordenadas:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao buscar resumo de coordenadas" 
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar resumo de coordenadas"
       });
     }
   });
@@ -3746,20 +3777,20 @@ mensagem: "Erro interno do servidor ao processar o upload",
       // Inserir novo ponto de rastreamento com informações adicionais
       const result = await pool.query(
         `INSERT INTO tracking_points (
-          order_id, 
-          latitude, 
-          longitude, 
+          order_id,
+          latitude,
+          longitude,
           status,
           comment,
           user_id,
           created_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, NOW())
-        RETURNING 
-          id, 
-          order_id as "orderId", 
-          latitude, 
-          longitude, 
+        RETURNING
+          id,
+          order_id as "orderId",
+          latitude,
+          longitude,
           status,
           comment,
           user_id as "userId",
@@ -3793,8 +3824,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
     } catch (error) {
       console.error("Erro ao adicionar ponto de rastreamento:", error);
-      res.status(500).json({ 
-        sucesso: false, 
+      res.status(500).json({
+        sucesso: false,
         mensagem: "Erro ao adicionar ponto de rastreamento",
         erro: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
@@ -3806,9 +3837,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "ID de pedido inválido" 
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
         });
       }
 
@@ -3818,9 +3849,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const order = await storage.getOrder(id);
       if (!order) {
         console.log(`❌ Pedido ${id} não encontrado`);
-        return res.status(404).json({ 
-          success: false, 
-          message: "Pedido não encontrado" 
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
         });
       }
 
@@ -3829,7 +3860,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
       // Verificar se o usuário tem permissão para aprovar
       let hasApprovalPermission = false;
       let approvalReason = "";
-      
+
       if (req.user.id === 1 || req.user.isKeyUser === true) {
         hasApprovalPermission = true;
         approvalReason = "KeyUser";
@@ -3838,7 +3869,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
         // Verificar se o usuário é aprovador de alguma empresa
         const approverCheck = await pool.query(`
           SELECT c.id, c.name, c.approver_id
-          FROM companies c 
+          FROM companies c
           WHERE c.approver_id = $1
         `, [req.user.id]);
 
@@ -3857,11 +3888,11 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
             if (ordemCompraResult.rows.length > 0) {
               const cnpjDestino = ordemCompraResult.rows[0].cnpj;
-              
+
               // Verificar se alguma das empresas que o usuário aprova corresponde ao CNPJ de destino
               const empresaDestinoCheck = await pool.query(`
                 SELECT c.id, c.name
-                FROM companies c 
+                FROM companies c
                 WHERE c.cnpj = $1 AND c.approver_id = $2
               `, [cnpjDestino, req.user.id]);
 
@@ -3880,17 +3911,17 @@ mensagem: "Erro interno do servidor ao processar o upload",
       }
 
       if (!hasApprovalPermission) {
-        return res.status(403).json({ 
-          success: false, 
-          message: "Sem permissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresas podem aprovar pedidos urgentes." 
+        return res.status(403).json({
+          success: false,
+          message: "Sem permissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresas podem aprovar pedidos urgentes."
         });
       }
 
       // Verificar se o pedido pode ser aprovado (status deve ser "Registrado")
       if (order.status !== "Registrado") {
-        return res.status(400).json({ 
-          success: false, 
-          message: `Pedido não pode ser aprovado. Status atual: ${order.status}` 
+        return res.status(400).json({
+          success: false,
+          message: `Pedido não pode ser aprovado. Status atual: ${order.status}`
         });
       }
 
@@ -3911,14 +3942,14 @@ mensagem: "Erro interno do servidor ao processar o upload",
         details: `Pedido ${order.orderId} foi aprovado por ${req.user.name} (${approvalReason})`
       });
 
-      res.json({ 
-        success: true, 
-        message: "Pedido aprovado com sucesso" 
+      res.json({
+        success: true,
+        message: "Pedido aprovado com sucesso"
       });
     } catch (error) {
       console.error("❌ Erro detalhado ao aprovar pedido:", error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: "Erro interno do servidor ao aprovar pedido",
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
@@ -3930,9 +3961,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "ID de pedido inválido" 
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
         });
       }
 
@@ -3942,9 +3973,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const order = await storage.getOrder(id);
       if (!order) {
         console.log(`❌ Pedido ${id} não encontrado`);
-        return res.status(404).json({ 
-          success: false, 
-          message: "Pedido não encontrado" 
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
         });
       }
 
@@ -3953,7 +3984,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
       // Verificar se o usuário tem permissão para rejeitar
       let hasApprovalPermission = false;
       let approvalReason = "";
-      
+
       if (req.user.id === 1 || req.user.isKeyUser === true) {
         hasApprovalPermission = true;
         approvalReason = "KeyUser";
@@ -3962,7 +3993,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
         // Verificar se o usuário é aprovador de alguma empresa
         const approverCheck = await pool.query(`
           SELECT c.id, c.name, c.approver_id
-          FROM companies c 
+          FROM companies c
           WHERE c.approver_id = $1
         `, [req.user.id]);
 
@@ -3978,11 +4009,11 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
             if (ordemCompraResult.rows.length > 0) {
               const cnpjDestino = ordemCompraResult.rows[0].cnpj;
-              
+
               // Verificar se alguma das empresas que o usuário aprova corresponde ao CNPJ de destino
               const empresaDestinoCheck = await pool.query(`
                 SELECT c.id, c.name
-                FROM companies c 
+                FROM companies c
                 WHERE c.cnpj = $1 AND c.approver_id = $2
               `, [cnpjDestino, req.user.id]);
 
@@ -3997,17 +4028,17 @@ mensagem: "Erro interno do servidor ao processar o upload",
       }
 
       if (!hasApprovalPermission) {
-        return res.status(403).json({ 
-          success: false, 
-          message: "Sem permissão para rejeitar pedidos. Apenas KeyUsers e aprovadores de empresas podem rejeitar pedidos urgentes." 
+        return res.status(403).json({
+          success: false,
+          message: "Sem permissão para rejeitar pedidos. Apenas KeyUsers e aprovadores de empresas podem rejeitar pedidos urgentes."
         });
       }
 
       // Verificar se o pedido pode ser rejeitado (status deve ser "Registrado")
       if (order.status !== "Registrado") {
-        return res.status(400).json({ 
-          success: false, 
-          message: `Pedido não pode ser rejeitado. Status atual: ${order.status}` 
+        return res.status(400).json({
+          success: false,
+          message: `Pedido não pode ser rejeitado. Status atual: ${order.status}`
         });
       }
 
@@ -4028,14 +4059,14 @@ mensagem: "Erro interno do servidor ao processar o upload",
         details: `Pedido ${order.orderId} foi rejeitado por ${req.user.name} (${approvalReason})`
       });
 
-      res.json({ 
-        success: true, 
-        message: "Pedido rejeitado com sucesso" 
+      res.json({
+        success: true,
+        message: "Pedido rejeitado com sucesso"
       });
     } catch (error) {
       console.error("❌ Erro detalhado ao rejeitar pedido:", error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: "Erro interno do servidor ao rejeitar pedido",
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
@@ -4047,7 +4078,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
     destination: async function (req, file, cb) {
       try {
         const pedidoId = req.params.id;
-        
+
         // Buscar o order_id do pedido pelo ID
         const result = await pool.query("SELECT order_id FROM orders WHERE id = $1", [pedidoId]);
 
@@ -4057,7 +4088,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
         const orderId = result.rows[0].order_id;
         const orderDir = path.join(process.cwd(), "uploads", orderId);
-        
+
         // Verificar se o diretório existe, caso contrário criar
         if (!fs.existsSync(orderDir)) {
           fs.mkdirSync(orderDir, { recursive: true });
@@ -4085,7 +4116,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   };
 
-  const uploadConfirmDelivery = multer({ 
+  const uploadConfirmDelivery = multer({
     storage: confirmDeliveryStorage,
     fileFilter: confirmDeliveryFileFilter,
     limits: {
@@ -4100,40 +4131,40 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const { novaDataEntrega, justificativa } = req.body;
 
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido"
         });
       }
 
       if (!novaDataEntrega || !justificativa) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Nova data de entrega e justificativa são obrigatórias" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Nova data de entrega e justificativa são obrigatórias"
         });
       }
 
       if (justificativa.length > 100) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Justificativa deve ter no máximo 100 caracteres" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Justificativa deve ter no máximo 100 caracteres"
         });
       }
 
       // Verificar se o pedido existe
       const order = await storage.getOrder(id);
       if (!order) {
-        return res.status(404).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não encontrado" 
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
         });
       }
 
       // Verificar se o usuário pertence à empresa de destino
       if (!req.user.companyId) {
-        return res.status(403).json({ 
-          sucesso: false, 
-          mensagem: "Usuário não possui empresa associada" 
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Usuário não possui empresa associada"
         });
       }
 
@@ -4144,20 +4175,20 @@ mensagem: "Erro interno do servidor ao processar o upload",
       );
 
       if (!ordemCompraResult.rows.length) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Ordem de compra não encontrada" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Ordem de compra não encontrada"
         });
       }
 
       const cnpjDestino = ordemCompraResult.rows[0].cnpj;
-      
+
       // Verificar se a empresa do usuário é a empresa de destino
       const userCompany = await storage.getCompany(req.user.companyId);
       if (!userCompany || userCompany.cnpj !== cnpjDestino) {
-        return res.status(403).json({ 
-          sucesso: false, 
-          mensagem: "Apenas a empresa de destino pode solicitar reprogramação" 
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Apenas a empresa de destino pode solicitar reprogramação"
         });
       }
 
@@ -4167,25 +4198,25 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const limite = new Date(hoje.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 dias a partir de hoje
 
       if (novaData > limite) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "A nova data de entrega deve ser no máximo 7 dias a partir de hoje" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "A nova data de entrega deve ser no máximo 7 dias a partir de hoje"
         });
       }
 
       if (novaData <= hoje) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "A nova data de entrega deve ser futura" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "A nova data de entrega deve ser futura"
         });
       }
 
       // Atualizar o pedido com os dados da reprogramação
       await pool.query(
-        `UPDATE orders SET 
-          status = $1, 
-          nova_data_entrega = $2, 
-          justificativa_reprogramacao = $3, 
+        `UPDATE orders SET
+          status = $1,
+          nova_data_entrega = $2,
+          justificativa_reprogramacao = $3,
           data_solicitacao_reprogramacao = $4,
           usuario_reprogramacao = $5
         WHERE id = $6`,
@@ -4201,15 +4232,15 @@ mensagem: "Erro interno do servidor ao processar o upload",
         details: `Pedido ${order.orderId} - Reprogramação solicitada para ${novaData.toLocaleDateString('pt-BR')}. Justificativa: ${justificativa}`
       });
 
-      res.json({ 
-        sucesso: true, 
-        mensagem: "Reprogramação solicitada com sucesso" 
+      res.json({
+        sucesso: true,
+        mensagem: "Reprogramação solicitada com sucesso"
       });
     } catch (error) {
       console.error("Erro ao solicitar reprogramação:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao solicitar reprogramação" 
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao solicitar reprogramação"
       });
     }
   });
@@ -4219,7 +4250,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
     try {
       // Buscar pedidos com status "Suspenso" que possuem reprogramação
       const result = await pool.query(`
-        SELECT 
+        SELECT
           o.*,
           p.name as product_name,
           u_nome.name as unit_name,
@@ -4271,33 +4302,33 @@ mensagem: "Erro interno do servidor ao processar o upload",
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido"
         });
       }
 
       // Verificar se o pedido existe e está suspenso
       const order = await storage.getOrder(id);
       if (!order) {
-        return res.status(404).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não encontrado" 
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
         });
       }
 
       if (order.status !== "Suspenso") {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não está suspenso para reprogramação" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Pedido não está suspenso para reprogramação"
         });
       }
 
       // Verificar se o usuário é o fornecedor do pedido
       if (req.user.companyId !== order.supplierId && !req.user.isKeyUser) {
-        return res.status(403).json({ 
-          sucesso: false, 
-          mensagem: "Apenas o fornecedor pode aprovar reprogramações" 
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Apenas o fornecedor pode aprovar reprogramações"
         });
       }
 
@@ -4308,9 +4339,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
       );
 
       if (!reprogramacaoResult.rows.length || !reprogramacaoResult.rows[0].nova_data_entrega) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Dados de reprogramação não encontrados" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Dados de reprogramação não encontrados"
         });
       }
 
@@ -4318,8 +4349,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Aprovar a reprogramação: atualizar data de entrega e status
       await pool.query(
-        `UPDATE orders SET 
-          delivery_date = $1, 
+        `UPDATE orders SET
+          delivery_date = $1,
           status = $2,
           nova_data_entrega = NULL,
           justificativa_reprogramacao = NULL,
@@ -4338,15 +4369,15 @@ mensagem: "Erro interno do servidor ao processar o upload",
         details: `Pedido ${order.orderId} - Reprogramação aprovada para ${new Date(novaDataEntrega).toLocaleDateString('pt-BR')}`
       });
 
-      res.json({ 
-        sucesso: true, 
-        mensagem: "Reprogramação aprovada com sucesso" 
+      res.json({
+        sucesso: true,
+        mensagem: "Reprogramação aprovada com sucesso"
       });
     } catch (error) {
       console.error("Erro ao aprovar reprogramação:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao aprovar reprogramação" 
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao aprovar reprogramação"
       });
     }
   });
@@ -4356,39 +4387,39 @@ mensagem: "Erro interno do servidor ao processar o upload",
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido"
         });
       }
 
       // Verificar se o pedido existe e está suspenso
       const order = await storage.getOrder(id);
       if (!order) {
-        return res.status(404).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não encontrado" 
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
         });
       }
 
       if (order.status !== "Suspenso") {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não está suspenso para reprogramação" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Pedido não está suspenso para reprogramação"
         });
       }
 
       // Verificar se o usuário é o fornecedor do pedido
       if (req.user.companyId !== order.supplierId && !req.user.isKeyUser) {
-        return res.status(403).json({ 
-          sucesso: false, 
-          mensagem: "Apenas o fornecedor pode rejeitar reprogramações" 
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Apenas o fornecedor pode rejeitar reprogramações"
         });
       }
 
       // Rejeitar a reprogramação: cancelar o pedido
       await pool.query(
-        `UPDATE orders SET 
+        `UPDATE orders SET
           status = $1,
           quantity = 0,
           nova_data_entrega = NULL,
@@ -4408,15 +4439,15 @@ mensagem: "Erro interno do servidor ao processar o upload",
         details: `Pedido ${order.orderId} - Reprogramação rejeitada, pedido cancelado`
       });
 
-      res.json({ 
-        sucesso: true, 
-        mensagem: "Reprogramação rejeitada, pedido cancelado" 
+      res.json({
+        sucesso: true,
+        mensagem: "Reprogramação rejeitada, pedido cancelado"
       });
     } catch (error) {
       console.error("Erro ao rejeitar reprogramação:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao rejeitar reprogramação" 
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao rejeitar reprogramação"
       });
     }
   });
@@ -4428,45 +4459,45 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const { quantidadeRecebida } = req.body;
 
       if (isNaN(id)) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "ID de pedido inválido" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido"
         });
       }
 
       if (!quantidadeRecebida) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Quantidade recebida é obrigatória" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Quantidade recebida é obrigatória"
         });
       }
 
       if (!req.file) {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Foto da nota fiscal assinada é obrigatória" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Foto da nota fiscal assinada é obrigatória"
         });
       }
 
       // Verificar se o pedido existe e se está em rota
       const order = await storage.getOrder(id);
       if (!order) {
-        return res.status(404).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não encontrado" 
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
         });
       }
 
       if (order.status !== "Em Rota") {
-        return res.status(400).json({ 
-          sucesso: false, 
-          mensagem: "Pedido não está em rota" 
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Pedido não está em rota"
         });
       }
 
       // Buscar o order_id do pedido
       const orderResult = await pool.query("SELECT order_id FROM orders WHERE id = $1", [id]);
-      
+
       if (!orderResult.rows.length) {
         return res.status(404).json({
           sucesso: false,
@@ -4506,16 +4537,16 @@ mensagem: "Erro interno do servidor ao processar o upload",
         details: `Pedido ${order.orderId} foi confirmado como entregue. Quantidade recebida: ${quantidadeRecebida}. Foto da nota assinada enviada.`
       });
 
-      res.json({ 
-        sucesso: true, 
-        mensagem: "Entrega confirmada com sucesso", 
+      res.json({
+        sucesso: true,
+        mensagem: "Entrega confirmada com sucesso",
         fotoInfo: fotoInfo
       });
     } catch (error) {
       console.error("Erro ao confirmar entrega:", error);
-      res.status(500).json({ 
-        sucesso: false, 
-        mensagem: "Erro ao confirmar entrega" 
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao confirmar entrega"
       });
     }
   });
@@ -4568,16 +4599,16 @@ mensagem: "Erro interno do servidor ao processar o upload",
         success: true,
         allSettings: allSettings,
         keyUserEmail: keyUserEmailSetting,
-        keyUserPassword: keyUserPasswordSetting ? { 
-          key: keyUserPasswordSetting.key, 
+        keyUserPassword: keyUserPasswordSetting ? {
+          key: keyUserPasswordSetting.key,
           hasValue: !!keyUserPasswordSetting.value,
-          valueLength: keyUserPasswordSetting.value?.length 
+          valueLength: keyUserPasswordSetting.value?.length
         } : null
       });
     } catch (error) {
       console.error("❌ Erro ao verificar configurações:", error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: "Erro ao verificar configurações",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
@@ -4590,12 +4621,12 @@ mensagem: "Erro interno do servidor ao processar o upload",
       console.log("🔍 Debug: Testando geração de siglas das empresas");
 
       const companies = await storage.getAllCompanies();
-      
+
       const acronyms = companies.map(company => {
         // Simular a função de geração de sigla
         const generateCompanyAcronym = (companyName: string): string => {
           const commonWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre'];
-          
+
           const words = companyName
             .toLowerCase()
             .replace(/[^\w\s]/g, '')
@@ -4603,7 +4634,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
             .filter(word => word.length > 0 && !commonWords.includes(word));
 
           let acronym = '';
-          
+
           if (words.length === 1) {
             acronym = words[0].substring(0, 3).toUpperCase();
           } else if (words.length === 2) {
@@ -4636,14 +4667,14 @@ mensagem: "Erro interno do servidor ao processar o upload",
         companies: acronyms,
         examples: [
           "Concessionária Nova Rota do Oeste → CNRO",
-          "Consórcio Nova Imigrantes → CNI", 
+          "Consórcio Nova Imigrantes → CNI",
           "Consórcio Construtor BR163 → CCB"
         ]
       });
     } catch (error) {
       console.error("❌ Erro ao testar siglas:", error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: "Erro ao testar siglas",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
@@ -4657,10 +4688,10 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Buscar todos os pedidos diretamente do banco
       const allOrdersResult = await pool.query(`
-        SELECT 
+        SELECT
           id, order_id, status, is_urgent, delivery_date, created_at,
           EXTRACT(DAY FROM (delivery_date - CURRENT_DATE)) as days_to_delivery
-        FROM orders 
+        FROM orders
         ORDER BY created_at DESC
       `);
 
@@ -4670,7 +4701,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
       // Analisar urgência
       const urgentOrders = allOrders.filter(order => order.is_urgent);
       const registeredUrgent = urgentOrders.filter(order => order.status === 'Registrado');
-      
+
       console.log(`🔥 Pedidos marcados como urgentes: ${urgentOrders.length}`);
       console.log(`📋 Pedidos urgentes com status Registrado: ${registeredUrgent.length}`);
 
@@ -4678,7 +4709,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
       const analysis = allOrders.map(order => {
         const daysToDelivery = order.days_to_delivery;
         const shouldBeUrgent = daysToDelivery !== null && daysToDelivery <= 7;
-        
+
         return {
           id: order.id,
           orderId: order.order_id,
@@ -4705,8 +4736,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
       });
     } catch (error) {
       console.error("❌ Erro ao investigar pedidos urgentes:", error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: "Erro ao investigar pedidos urgentes",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
@@ -4720,28 +4751,28 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Executar o teste do Object Storage
       const { execSync } = await import('child_process');
-      
+
       let testResult;
       try {
         // Executar o script de teste
-        const output = execSync('node scripts/test-object-storage-keyuser.js', { 
+        const output = execSync('node scripts/test-object-storage-keyuser.js', {
           encoding: 'utf8',
           timeout: 30000 // 30 segundos de timeout
         });
-        
+
         console.log("✅ Script de teste executado com sucesso");
         console.log("📄 Output:", output);
-        
+
         testResult = {
           success: true,
           message: "Teste do Object Storage executado com sucesso",
           output: output,
           timestamp: new Date().toISOString()
         };
-        
+
       } catch (execError) {
         console.error("❌ Erro ao executar script de teste:", execError);
-        
+
         testResult = {
           success: false,
           message: "Erro ao executar teste do Object Storage",
@@ -4803,8 +4834,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
       }
 
       if (!acronym || acronym.length < 2 || acronym.length > 4) {
-        return res.status(400).json({ 
-          message: "Sigla deve ter entre 2 e 4 caracteres" 
+        return res.status(400).json({
+          message: "Sigla deve ter entre 2 e 4 caracteres"
         });
       }
 
@@ -4849,12 +4880,12 @@ mensagem: "Erro interno do servidor ao processar o upload",
   const icapMobStorage = multer.diskStorage({
     destination: function (req, file, cb) {
       const icapMobDir = path.join(process.cwd(), "icapmob");
-      
+
       // Criar diretório se não existir
       if (!fs.existsSync(icapMobDir)) {
         fs.mkdirSync(icapMobDir, { recursive: true });
       }
-      
+
       cb(null, icapMobDir);
     },
     filename: function (req, file, cb) {
@@ -4871,7 +4902,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   };
 
-  const uploadIcapMobAPK = multer({ 
+  const uploadIcapMobAPK = multer({
     storage: icapMobStorage,
     fileFilter: icapMobFileFilter,
     limits: {
@@ -4900,7 +4931,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
 
       // Atualizar registro na tabela icapmob
       await pool.query(
-        `INSERT INTO icapmob (versao, data, created_at) 
+        `INSERT INTO icapmob (versao, data, created_at)
          VALUES ($1, CURRENT_DATE, CURRENT_TIMESTAMP)`,
         [version]
       );
@@ -4938,9 +4969,9 @@ mensagem: "Erro interno do servidor ao processar o upload",
   app.get("/api/icapmob/version", async (req, res) => {
     try {
       const result = await pool.query(
-        `SELECT versao, data, created_at 
-         FROM icapmob 
-         ORDER BY created_at DESC 
+        `SELECT versao, data, created_at
+         FROM icapmob
+         ORDER BY created_at DESC
          LIMIT 1`
       );
 
@@ -4954,7 +4985,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
       }
 
       const currentVersion = result.rows[0];
-      
+
       // Verificar se o arquivo APK existe
       const apkPath = path.join(process.cwd(), "icapmob", "icapmob.apk");
       const hasAPK = fs.existsSync(apkPath);
@@ -4980,8 +5011,8 @@ mensagem: "Erro interno do servidor ao processar o upload",
   app.get("/api/icapmob/history", isAuthenticated, isKeyUser, async (req, res) => {
     try {
       const result = await pool.query(
-        `SELECT id, versao, data, created_at 
-         FROM icapmob 
+        `SELECT id, versao, data, created_at
+         FROM icapmob
          ORDER BY created_at DESC`
       );
 
@@ -5020,7 +5051,7 @@ mensagem: "Erro interno do servidor ao processar o upload",
     }
   });
 
-  // Configurar servidor HTTP com o app Express
+  // Configuração do servidor HTTP com o app Express
   const server = createServer(app);
   return server;
 }

@@ -592,6 +592,30 @@ export default function Users() {
                   )}
                 />
 
+                <FormField
+                  control={editForm.control}
+                  name="canCreatePurchaseOrder"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mt-3">
+                      <FormControl>
+                        <input
+                          type="checkbox" 
+                          checked={field.value === true}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          id="edit-create-purchase-order"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Permissão para Criação de Ordem de Compra</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Permite que o usuário crie novas ordens de compra no sistema.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
                 <div className="flex gap-2 justify-between">
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

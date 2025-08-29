@@ -186,16 +186,15 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
       return true;
     }
 
-    // Para usuários normais, verificar permissões específicas da role
-    const rolePermissions = user.role?.permissions || [];
-    const hasPermission = rolePermissions.includes('create_purchase_orders');
+    // Para usuários normais, verificar permissão específica canCreatePurchaseOrder
+    const hasPermission = user.canCreatePurchaseOrder === true;
 
     if (hasPermission) {
-      console.log(`✅ [AuthorizationContext] Permissão create_purchase_orders encontrada - liberando criação`);
+      console.log(`✅ [AuthorizationContext] Permissão canCreatePurchaseOrder encontrada - liberando criação`);
       return true;
     }
 
-    console.log(`❌ [AuthorizationContext] Permissão create_purchase_orders não encontrada - negando criação`);
+    console.log(`❌ [AuthorizationContext] Permissão canCreatePurchaseOrder não encontrada - negando criação`);
     return false;
   }, [user]);
 
