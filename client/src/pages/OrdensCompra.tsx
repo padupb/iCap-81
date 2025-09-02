@@ -162,6 +162,7 @@ type OrdemCompra = {
   numero_ordem: string;
   empresa_id: number;
   empresa_nome: string;
+  valido_desde: string;
   valido_ate: string;
   status: string;
   data_criacao: string;
@@ -190,21 +191,24 @@ const purchaseOrderSchema = z.object({
     .regex(/^\d+$/, "Número da ordem deve conter apenas dígitos"),
   companyId: z.string().min(1, "Fornecedor é obrigatório"),
   obraId: z.string().min(1, "Obra é obrigatória"),
+  validFrom: z.string()
+    .min(1, "Data de início da validade é obrigatória"),
   validUntil: z.string()
-    .min(1, "Data de validade é obrigatória")
-    .refine((date) => {
-      // Comparar com a data atual
-      const selectedDate = new Date(date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Zerar horas para comparação apenas de datas
-      return selectedDate >= today;
-    }, "A data deve ser igual ou posterior a hoje"),
+    .min(1, "Data de fim da validade é obrigatória"),
   items: z.array(z.object({
     productId: z.string().min(1, "Produto é obrigatório"),
     quantity: z.string()
       .min(1, "Quantidade é obrigatória")
       .refine((val) => parseInt(val) > 0, "A quantidade deve ser maior que zero"),
   })).min(1, "Pelo menos um produto é obrigatório").max(4, "Máximo 4 produtos por ordem"),
+}).refine((data) => {
+  // Validar se a data de início é anterior à data de fim
+  const startDate = new Date(data.validFrom);
+  const endDate = new Date(data.validUntil);
+  return startDate < endDate;
+}, {
+  message: "A data de início deve ser anterior à data de fim",
+  path: ["validFrom"],
 });
 
 type PurchaseOrderFormData = z.infer<typeof purchaseOrderSchema>;
@@ -279,18 +283,26 @@ export default function OrdensCompra() {
     queryKey: ["/api/products"],
   });
 
-  // Função para verificar se o pedido está expirado
-  const isOrderExpired = (validUntil: string): boolean => {
-    const validDate = new Date(validUntil);
+  // Função para verificar se a ordem está fora do período de validade
+  const isOrderOutOfValidPeriod = (validFrom: string, validUntil: string): string => {
+    const startDate = new Date(validFrom);
+    const endDate = new Date(validUntil);
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Zerar horas para comparação apenas de datas
-    return validDate < today;
+    today.setHours(0, 0, 0, 0);
+    
+    if (today < startDate) {
+      return "Não Iniciado";
+    } else if (today > endDate) {
+      return "Expirado";
+    }
+    return "Ativo";
   };
 
-  // Função para obter status real com base na data de validade
+  // Função para obter status real com base no período de validade
   const getRealStatus = (ordem: OrdemCompra): string => {
-    if (isOrderExpired(ordem.valido_ate)) {
-      return "Expirado";
+    const periodStatus = isOrderOutOfValidPeriod(ordem.valido_desde, ordem.valido_ate);
+    if (periodStatus !== "Ativo") {
+      return periodStatus;
     }
     return ordem.status;
   };
@@ -302,6 +314,7 @@ export default function OrdensCompra() {
       orderNumber: "",
       companyId: "",
       obraId: "",
+      validFrom: "",
       validUntil: "",
       items: [{ productId: "", quantity: "" }],
     },
@@ -401,6 +414,7 @@ export default function OrdensCompra() {
         numeroOrdem: data.orderNumber,
         empresaId: parseInt(data.companyId),
         cnpj: obraSelecionada.cnpj, // CNPJ da obra de destino
+        validoDesde: new Date(data.validFrom).toISOString(),
         validoAte: new Date(data.validUntil).toISOString(),
         produtos: data.items.map(item => ({
           id: parseInt(item.productId),
@@ -476,6 +490,8 @@ export default function OrdensCompra() {
     switch (status.toLowerCase()) {
       case 'ativo':
         return 'default';
+      case 'não iniciado':
+        return 'secondary';
       case 'pendente':
         return 'destructive';
       case 'processando':
@@ -821,6 +837,25 @@ export default function OrdensCompra() {
 
                   <FormField
                     control={form.control}
+                    name="validFrom"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Válido Desde</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="date" 
+                            {...field}
+                            min={getTodayFormatted()}
+                            className="bg-input border-border"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="validUntil"
                     render={({ field }) => (
                       <FormItem>
@@ -829,7 +864,7 @@ export default function OrdensCompra() {
                           <Input 
                             type="date" 
                             {...field}
-                            min={getTodayFormatted()}
+                            min={form.watch("validFrom") || getTodayFormatted()}
                             className="bg-input border-border"
                           />
                         </FormControl>
@@ -1036,20 +1071,7 @@ export default function OrdensCompra() {
                     </Button>
                   </TableHead>
                   <TableHead>Fornecedor</TableHead>
-                  <TableHead>
-                    <Button
-                      variant="ghost"
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort('validUntil')}
-                    >
-                      Válido Até
-                      {sortColumn === 'validUntil' && (
-                        sortDirection === 'asc' ? 
-                        <ChevronUp className="ml-1 h-4 w-4" /> : 
-                        <ChevronDown className="ml-1 h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableHead>
+                  <TableHead>Período de Validade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -1073,9 +1095,17 @@ export default function OrdensCompra() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                          {formatDate(new Date(ordem.valido_ate))}
+                        <div className="flex flex-col text-sm">
+                          <div className="flex items-center">
+                            <Calendar className="h-3 w-3 mr-1 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Desde:</span>
+                            <span className="ml-1">{formatDate(new Date(ordem.valido_desde))}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Calendar className="h-3 w-3 mr-1 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Até:</span>
+                            <span className="ml-1">{formatDate(new Date(ordem.valido_ate))}</span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

@@ -1587,6 +1587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oc.cnpj,
           c.name as empresa_nome,
           obra.name as obra_nome,
+          oc.valido_desde,
           oc.valido_ate,
           oc.status,
           oc.data_criacao
@@ -1646,6 +1647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cnpj: row.cnpj,
         empresa_nome: row.empresa_nome || "Empresa não encontrada",
         obra_nome: row.obra_nome || null,
+        valido_desde: row.valido_desde ? new Date(row.valido_desde).toISOString() : new Date().toISOString(),
         valido_ate: row.valido_ate ? new Date(row.valido_ate).toISOString() : new Date().toISOString(),
         status: row.status || "Ativo",
         data_criacao: row.data_criacao ? new Date(row.data_criacao).toISOString() : new Date().toISOString()
@@ -1687,7 +1689,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let queryParams: any[] = [];
       let whereConditions: string[] = [];
 
-      // NOVO: Filtrar apenas ordens válidas (não expiradas) para criação de pedidos
+      // NOVO: Filtrar apenas ordens válidas (dentro do período) para criação de pedidos
+      whereConditions.push("oc.valido_desde <= CURRENT_DATE");
       whereConditions.push("oc.valido_ate >= CURRENT_DATE");
       whereConditions.push("oc.status = 'Ativo'");
 
@@ -1756,12 +1759,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Criar nova ordem de compra
   app.post("/api/ordem-compra-nova", async (req, res) => {
     try {
-      const { numeroOrdem, empresaId, cnpj, validoAte, produtos } = req.body;
+      const { numeroOrdem, empresaId, cnpj, validoDesde, validoAte, produtos } = req.body;
 
-      if (!numeroOrdem || !empresaId || !cnpj || !validoAte || !produtos || !produtos.length) {
+      if (!numeroOrdem || !empresaId || !cnpj || !validoDesde || !validoAte || !produtos || !produtos.length) {
         return res.status(400).json({
           sucesso: false,
-          mensagem: "Dados incompletos para criar ordem de compra"
+          mensagem: "Dados incompletos para criar ordem de compra. Período de validade (início e fim) é obrigatório."
+        });
+      }
+
+      // Validar se a data de início é anterior à data de fim
+      const dataInicio = new Date(validoDesde);
+      const dataFim = new Date(validoAte);
+      
+      if (dataInicio >= dataFim) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "A data de início da validade deve ser anterior à data de fim"
         });
       }
 
@@ -1772,9 +1786,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const ordemResult = await pool.query(
         `INSERT INTO ordens_compra
-         (numero_ordem, empresa_id, cnpj, usuario_id, valido_ate, status, data_criacao)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [numeroOrdem, empresaId, cnpj, userId, validoAte, "Ativo", new Date()]
+         (numero_ordem, empresa_id, cnpj, usuario_id, valido_desde, valido_ate, status, data_criacao)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [numeroOrdem, empresaId, cnpj, userId, validoDesde, validoAte, "Ativo", new Date()]
       );
 
       const novaOrdem = ordemResult.rows[0];

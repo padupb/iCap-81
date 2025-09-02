@@ -95,6 +95,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
   id: serial("id").primaryKey(),
   orderNumber: text("order_number").notNull().unique(),
   companyId: integer("company_id").notNull(),
+  validFrom: timestamp("valid_from").notNull(),
   validUntil: timestamp("valid_until").notNull(),
   status: text("status").notNull().default("Ativo"),
   userId: integer("user_id").notNull(),
