@@ -733,15 +733,28 @@ export default function Orders() {
                           <Input
                             type="date"
                             className="bg-input border-border"
-                            min={new Date().toISOString().split('T')[0]}
+                            min={selectedPurchaseOrder ? 
+                              Math.max(
+                                new Date().getTime(),
+                                new Date(selectedPurchaseOrder.valido_desde || new Date()).getTime()
+                              ) > new Date().getTime() ?
+                                new Date(selectedPurchaseOrder.valido_desde).toISOString().split('T')[0] :
+                                new Date().toISOString().split('T')[0]
+                              : new Date().toISOString().split('T')[0]
+                            }
                             max={selectedPurchaseOrder ? new Date(selectedPurchaseOrder.valido_ate).toISOString().split('T')[0] : undefined}
                             {...field}
                           />
                         </FormControl>
                         {selectedPurchaseOrder && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Data máxima: {new Date(selectedPurchaseOrder.valido_ate).toLocaleDateString('pt-BR')} (validade da ordem de compra)
-                          </p>
+                          <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                            <p>
+                              Período válido: {new Date(selectedPurchaseOrder.valido_desde || new Date()).toLocaleDateString('pt-BR')} até {new Date(selectedPurchaseOrder.valido_ate).toLocaleDateString('pt-BR')}
+                            </p>
+                            <p className="text-amber-600">
+                              ⚠️ A data de entrega deve estar dentro do período de validade da ordem de compra
+                            </p>
+                          </div>
                         )}
                         {isUrgentOrder && (
                           <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">

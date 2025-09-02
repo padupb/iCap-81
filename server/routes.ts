@@ -1381,7 +1381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar se a ordem de compra existe na tabela ordens_compra
       const ordemCompraResult = await pool.query(
-        "SELECT id, numero_ordem, status FROM ordens_compra WHERE id = $1",
+        "SELECT id, numero_ordem, status, valido_desde, valido_ate FROM ordens_compra WHERE id = $1",
         [orderData.purchaseOrderId]
       );
 
@@ -1393,6 +1393,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const ordemCompra = ordemCompraResult.rows[0];
+
+      // Verificar se a ordem de compra está dentro do período de validade
+      const dataEntrega = new Date(orderData.deliveryDate);
+      const validoDesde = new Date(ordemCompra.valido_desde);
+      const validoAte = new Date(ordemCompra.valido_ate);
+
+      console.log(`📅 Validação de período da ordem ${ordemCompra.numero_ordem}:`, {
+        dataEntrega: dataEntrega.toISOString().split('T')[0],
+        validoDesde: validoDesde.toISOString().split('T')[0],
+        validoAte: validoAte.toISOString().split('T')[0]
+      });
+
+      // Verificar se a data de entrega está dentro do período de validade
+      if (dataEntrega < validoDesde) {
+        return res.status(400).json({
+          success: false,
+          message: `Data de entrega não pode ser anterior ao início da validade da ordem de compra (${validoDesde.toLocaleDateString('pt-BR')})`
+        });
+      }
+
+      if (dataEntrega > validoAte) {
+        return res.status(400).json({
+          success: false,
+          message: `Data de entrega não pode ser posterior ao fim da validade da ordem de compra (${validoAte.toLocaleDateString('pt-BR')})`
+        });
+      }
 
       // Para armazenamento em memória, vamos simular a verificação de saldo
       // Em produção com banco, isso seria feito com queries SQL
@@ -1678,6 +1704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oc.cnpj,
           c.name as empresa_nome,
           obra.name as obra_nome,
+          oc.valido_desde as valid_from,
           oc.valido_ate as valid_until,
           oc.status,
           oc.data_criacao as created_at
@@ -1737,12 +1764,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cnpj: row.cnpj,
         empresa_nome: row.empresa_nome || "Empresa não encontrada",
         obra_nome: row.obra_nome || null,
+        valid_from: row.valid_from ? new Date(row.valid_from).toISOString() : new Date().toISOString(),
         valid_until: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
         status: row.status || "Ativo",
         created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         // Campos adicionais para compatibilidade
         numero_ordem: row.order_number,
         empresa_id: row.company_id,
+        valido_desde: row.valid_from ? new Date(row.valid_from).toISOString() : new Date().toISOString(),
         valido_ate: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
         data_criacao: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
       }));
