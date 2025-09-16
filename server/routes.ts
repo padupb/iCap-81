@@ -959,6 +959,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder } = req.body; // Adicionado canCreatePurchaseOrder
 
+      // Verificar se o email já existe antes de tentar criar
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: `Já existe um usuário cadastrado com o email ${email}. Escolha outro email.`
+        });
+      }
+
       // Validar dados com Zod (incluindo o novo campo)
       const userData = insertUserSchema.parse({
         name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder
@@ -978,6 +987,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(newUser);
     } catch (error) {
       console.error("Erro ao criar usuário:", error);
+      
+      // Tratar erro de email duplicado especificamente
+      if (error.code === '23505' && error.constraint === 'users_email_unique') {
+        return res.status(400).json({
+          success: false,
+          message: `Já existe um usuário cadastrado com este email. Escolha outro email.`
+        });
+      }
+      
       // Tratar erros de validação Zod
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -986,7 +1004,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errors: error.errors
         });
       }
-      res.status(500).json({ message: "Erro ao criar usuário" });
+      
+      res.status(500).json({ 
+        success: false,
+        message: "Erro ao criar usuário" 
+      });
     }
   });
 

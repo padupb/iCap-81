@@ -60,15 +60,27 @@ export default function Users() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setIsCreateDialogOpen(false);
+      form.reset(); // Limpar o formulário após sucesso
       toast({
         title: "Sucesso",
         description: "Usuário criado com sucesso",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Erro ao criar usuário:", error);
+      
+      let errorMessage = "Erro ao criar usuário";
+      
+      // Verificar se há uma mensagem específica do servidor
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Erro",
-        description: "Erro ao criar usuário",
+        description: errorMessage,
         variant: "destructive",
       });
     },
