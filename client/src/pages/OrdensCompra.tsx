@@ -226,12 +226,33 @@ export default function OrdensCompra() {
 
   // Verificar se o usuário é keyuser
   const isKeyUser = user?.isKeyUser || user?.isDeveloper;
+
+  // Verificar se o usuário pode editar ordens de compra
+  const canEditPurchaseOrders = (): boolean => {
+    if (isKeyUser) return true;
+    
+    if (user?.companyId && companies.length > 0) {
+      const userCompany = companies.find(c => c.id === user.companyId);
+      if (userCompany) {
+        // @ts-ignore - categoria foi adicionada no servidor
+        const category = userCompany.category;
+        return category?.canEditPurchaseOrders === true;
+      }
+    }
+    
+    return false;
+  };
   const [orderItems, setOrderItems] = useState<OrdemCompraItem[]>([]);
   const queryClient = useQueryClient();
 
   // Estados para ordenação
   const [sortColumn, setSortColumn] = useState<'id' | 'validUntil' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Estados para edição avançada
+  const [isAdvancedEditOpen, setIsAdvancedEditOpen] = useState(false);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<OrdemCompra | null>(null);
+  const [editPdfFile, setEditPdfFile] = useState<File | null>(null);
 
   // Formulário para edição
   const editForm = useForm<PurchaseOrderFormData>({
@@ -253,6 +274,36 @@ export default function OrdensCompra() {
   const showOrderDetails = (orderId: number) => {
     setSelectedOrderId(orderId);
     setDrawerOpen(true);
+  };
+
+  // Função para abrir edição avançada
+  const handleEditOrder = async (ordem: OrdemCompra) => {
+    setSelectedOrderForEdit(ordem);
+    
+    // Carregar dados da ordem para o formulário de edição
+    try {
+      const itensResponse = await fetch(`/api/ordem-compra/${ordem.id}/itens`);
+      if (itensResponse.ok) {
+        const itens = await itensResponse.json();
+        setOrderItems(itens);
+        
+        // Configurar valores do formulário
+        editForm.reset({
+          orderNumber: ordem.numero_ordem,
+          companyId: ordem.empresa_id.toString(),
+          obraId: "", // Será preenchido com base no CNPJ
+          validUntil: new Date(ordem.valido_ate).toISOString().split('T')[0],
+          items: itens.map((item: any) => ({
+            productId: item.produto_id.toString(),
+            quantity: item.quantidade.toString()
+          }))
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados da ordem:", error);
+    }
+    
+    setIsAdvancedEditOpen(true);
   };
 
   // Buscar todas as ordens de compra (incluindo expiradas para visualização)
@@ -544,6 +595,292 @@ export default function OrdensCompra() {
 
       {/* Header com ações */}
       <div className="flex justify-between items-center mb-6">
+
+        {/* Dialog de Edição Avançada */}
+        <Dialog open={isAdvancedEditOpen} onOpenChange={setIsAdvancedEditOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edição Avançada - Ordem de Compra</DialogTitle>
+              <DialogDescription>
+                Edite o número, PDF e quantidades da ordem de compra. Esta edição não afetará pedidos já existentes.
+              </DialogDescription>
+            </DialogHeader>
+
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(async (data) => {
+                if (!selectedOrderForEdit) return;
+
+                setIsSubmitting(true);
+                try {
+                  // Primeiro, fazer upload do PDF se fornecido
+                  if (editPdfFile) {
+                    const formData = new FormData();
+                    formData.append('ordem_pdf', editPdfFile);
+
+                    const uploadResponse = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}/upload-pdf`, {
+                      method: "POST",
+                      body: formData
+                    });
+
+                    if (!uploadResponse.ok) {
+                      throw new Error("Erro ao fazer upload do PDF");
+                    }
+                  }
+
+                  // Buscar o CNPJ da obra selecionada
+                  const obraSelecionada = obras.find(obra => obra.id === parseInt(data.obraId));
+                  if (!obraSelecionada) {
+                    throw new Error("Obra selecionada não encontrada");
+                  }
+
+                  // Atualizar a ordem
+                  const requestData = {
+                    numeroOrdem: data.orderNumber,
+                    empresaId: parseInt(data.companyId),
+                    cnpj: obraSelecionada.cnpj,
+                    validoAte: new Date(data.validUntil).toISOString(),
+                    items: data.items.map(item => ({
+                      productId: parseInt(item.productId),
+                      quantity: item.quantity
+                    }))
+                  };
+
+                  const response = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData),
+                  });
+
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.mensagem || 'Falha ao atualizar ordem');
+                  }
+
+                  toast({
+                    title: "Sucesso",
+                    description: "Ordem de compra atualizada com sucesso",
+                  });
+
+                  // Fechar diálogo e recarregar dados
+                  setIsAdvancedEditOpen(false);
+                  setSelectedOrderForEdit(null);
+                  setEditPdfFile(null);
+                  queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
+                } catch (error) {
+                  toast({
+                    title: "Erro",
+                    description: error instanceof Error ? error.message : "Erro ao atualizar ordem de compra",
+                    variant: "destructive",
+                  });
+                  console.error(error);
+                } finally {
+                  setIsSubmitting(false);
+                }
+              })} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="orderNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número da Ordem</FormLabel>
+                        <FormControl>
+                          <Input {...field} maxLength={6} className="bg-input border-border" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="companyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fornecedor</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione um fornecedor" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {companies.map((company) => (
+                              <SelectItem key={company.id} value={company.id.toString()}>
+                                {company.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="obraId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Obra</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione uma obra" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {obras.map((obra) => (
+                              <SelectItem key={obra.id} value={obra.id.toString()}>
+                                {obra.name} {obra.contractNumber ? `(${obra.contractNumber})` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="validUntil"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Válido Até</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="date"
+                            {...field}
+                            className="bg-input border-border"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Upload de novo PDF */}
+                <div className="space-y-2">
+                  <FormLabel>Novo PDF da Ordem de Compra (opcional)</FormLabel>
+                  <Input 
+                    type="file" 
+                    accept=".pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setEditPdfFile(file);
+                      }
+                    }}
+                    className="bg-input border-border"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Selecione um novo PDF para substituir o atual (deixe vazio para manter o atual)
+                  </p>
+                </div>
+
+                {/* Lista de itens editável */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-medium">Produtos e Quantidades</h3>
+                  </div>
+
+                  {editForm.watch("items").map((item, index) => (
+                    <Card key={index} className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={editForm.control}
+                          name={`items.${index}.productId`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Produto</FormLabel>
+                              <Select 
+                                onValueChange={field.onChange} 
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="bg-input border-border">
+                                    <SelectValue placeholder="Selecione um produto" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {products.map((product) => (
+                                    <SelectItem key={product.id} value={product.id.toString()}>
+                                      {product.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={editForm.control}
+                          name={`items.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Quantidade</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  type="number" 
+                                  min="1"
+                                  placeholder="Qtd"
+                                  className="bg-input border-border"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsAdvancedEditOpen(false);
+                      setSelectedOrderForEdit(null);
+                      setEditPdfFile(null);
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    type="submit"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar Alterações"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
 
         {/* Diálogo de Edição da Ordem de Compra */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -1120,6 +1457,21 @@ export default function OrdensCompra() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                        {/* Botão de edição avançada para usuários autorizados */}
+                        {(isKeyUser || canEditPurchaseOrders()) && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Editar ordem de compra"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditOrder(ordem);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+
                         {/* Botão de exclusão apenas para keyuser */}
                         {isKeyUser && (
                           <AlertDialog>

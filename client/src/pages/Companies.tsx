@@ -23,6 +23,7 @@ import {
   type Company, 
   type CompanyCategory,
 } from "@shared/schema";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type UserType = {
   id: number;
@@ -35,6 +36,16 @@ type UserType = {
 const companyFormSchema = insertCompanySchemaZod;
 
 type CompanyFormData = z.infer<typeof companyFormSchema>;
+
+const companyCategorySchema = z.object({
+  name: z.string().min(2, { message: "O nome da categoria deve ter pelo menos 2 caracteres." }),
+  requiresApprover: z.boolean(),
+  receivesPurchaseOrders: z.boolean(),
+  requiresContract: z.boolean(),
+  canEditPurchaseOrders: z.boolean(),
+});
+
+type CompanyCategoryFormData = z.infer<typeof companyCategorySchema>;
 
 export default function Companies() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);

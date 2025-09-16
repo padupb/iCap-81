@@ -655,7 +655,8 @@ export class DatabaseStorage implements IStorage {
     const safeInsertCategory = {
       ...insertCategory,
       requiresApprover: insertCategory.requiresApprover ?? null,
-      requiresContract: insertCategory.requiresContract ?? null
+      requiresContract: insertCategory.requiresContract ?? null,
+      canEditPurchaseOrders: insertCategory.canEditPurchaseOrders ?? false
     };
     const [category] = await db.insert(companyCategories).values(safeInsertCategory).returning();
     return category;

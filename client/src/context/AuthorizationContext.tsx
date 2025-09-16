@@ -216,3 +216,22 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     </AuthorizationContext.Provider>
   );
 };
+// Adicionar após as outras funções de permissão no AuthorizationContext
+
+export const canEditPurchaseOrders = (): boolean => {
+  const { user } = useAuth();
+  
+  // KeyUser sempre pode editar
+  if (user?.isKeyUser || user?.isDeveloper) {
+    return true;
+  }
+  
+  // Verificar categoria da empresa do usuário
+  if (user?.companyId) {
+    // Esta verificação seria feita com base na categoria da empresa
+    // Por enquanto, retornar false para usuários normais
+    return false;
+  }
+  
+  return false;
+};

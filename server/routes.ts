@@ -2147,6 +2147,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { numeroOrdem, empresaId, cnpj, validoAte, items } = req.body;
 
+      // Verificar se o usuário tem permissão para editar ordens de compra
+      let hasEditPermission = false;
+
+      // KeyUser sempre tem permissão
+      if (req.user.id === 1 || req.user.isKeyUser) {
+        hasEditPermission = true;
+      } else if (req.user.companyId) {
+        // Verificar se a empresa do usuário tem categoria que permite editar ordens
+        const userCompany = await storage.getCompany(req.user.companyId);
+        if (userCompany) {
+          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+          hasEditPermission = companyCategory?.canEditPurchaseOrders === true;
+        }
+      }
+
+      if (!hasEditPermission) {
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Você não tem permissão para editar ordens de compra"
+        });
+      }
+
       // Verificar se a ordem existe
       const checkOrdem = await pool.query(
         "SELECT * FROM ordens_compra WHERE id = $1",

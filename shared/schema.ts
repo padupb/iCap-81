@@ -46,6 +46,7 @@ export const companyCategories = pgTable("company_categories", {
   requiresApprover: boolean("requires_approver").default(false),
   receivesPurchaseOrders: boolean("receives_purchase_orders").default(false),
   requiresContract: boolean("requires_contract").default(false),
+  canEditPurchaseOrders: boolean("can_edit_purchase_orders").default(false),
 });
 
 // User roles table
@@ -233,6 +234,7 @@ export const insertCompanyCategorySchema = createInsertSchema(companyCategories)
   .extend({
     receivesPurchaseOrders: z.boolean().default(false),
     requiresContract: z.boolean().default(false),
+    canEditPurchaseOrders: z.boolean().default(false),
   });
 export const insertUserRoleSchema = createInsertSchema(userRoles).omit({
   id: true,
