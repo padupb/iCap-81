@@ -215,7 +215,7 @@ type PurchaseOrderFormData = z.infer<typeof purchaseOrderSchema>;
 
 export default function OrdensCompra() {
   const { user } = useAuth();
-  const { canCreatePurchaseOrders } = useAuthorization();
+  const { canCreatePurchaseOrders, canEdit, canEditPurchaseOrders: contextCanEditPurchaseOrders } = useAuthorization();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -227,19 +227,44 @@ export default function OrdensCompra() {
   // Verificar se o usuário é keyuser
   const isKeyUser = user?.isKeyUser || user?.isDeveloper;
 
+  // Dados das categorias para verificação de permissões
+  const { data: categories = [] } = useQuery({
+    queryKey: ["/api/company-categories"],
+  });
+
   // Verificar se o usuário pode editar ordens de compra
   const canEditPurchaseOrders = (): boolean => {
-    if (isKeyUser) return true;
+    console.log('🔍 Verificando permissão para editar ordens de compra:', {
+      isKeyUser,
+      userId: user?.id,
+      companyId: user?.companyId,
+      companiesLoaded: companies.length,
+      categoriesLoaded: categories.length
+    });
     
-    if (user?.companyId && companies.length > 0) {
+    // KeyUser sempre pode editar
+    if (isKeyUser) {
+      console.log('✅ KeyUser - permissão concedida');
+      return true;
+    }
+    
+    // Verificar categoria da empresa do usuário
+    if (user?.companyId && companies.length > 0 && categories.length > 0) {
       const userCompany = companies.find(c => c.id === user.companyId);
+      console.log('🏢 Empresa do usuário:', userCompany);
+      
       if (userCompany) {
-        // @ts-ignore - categoria foi adicionada no servidor
-        const category = userCompany.category;
-        return category?.canEditPurchaseOrders === true;
+        const companyCategory = categories.find(cat => cat.id === userCompany.categoryId);
+        console.log('📂 Categoria da empresa:', companyCategory);
+        
+        const canEditByCategory = companyCategory?.canEditPurchaseOrders === true;
+        console.log('✏️ Pode editar por categoria:', canEditByCategory);
+        
+        return canEditByCategory;
       }
     }
     
+    console.log('❌ Permissão negada - dados insuficientes ou sem permissão');
     return false;
   };
   const [orderItems, setOrderItems] = useState<OrdemCompraItem[]>([]);
@@ -1458,19 +1483,30 @@ export default function OrdensCompra() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                         {/* Botão de edição avançada para usuários autorizados */}
-                        {(isKeyUser || canEditPurchaseOrders()) && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            title="Editar ordem de compra"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditOrder(ordem);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
+                        {(() => {
+                          const canEdit = isKeyUser || canEditPurchaseOrders();
+                          console.log(`🔧 Botão de edição para ordem ${ordem.numero_ordem}:`, {
+                            isKeyUser,
+                            canEditPurchaseOrders: canEditPurchaseOrders(),
+                            canEdit,
+                            userId: user?.id,
+                            companyId: user?.companyId
+                          });
+                          
+                          return canEdit && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              title="Editar ordem de compra"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditOrder(ordem);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          );
+                        })()}
 
                         {/* Botão de exclusão apenas para keyuser */}
                         {isKeyUser && (
