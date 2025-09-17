@@ -987,6 +987,102 @@ export default function OrdensCompra() {
                       "Salvar Alterações"
                     )}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={isSubmitting}
+                    onClick={async () => {
+                      console.log('🔥 Botão Salvar 2 clicado!');
+                      
+                      if (!selectedOrderForEdit) {
+                        console.error('❌ Nenhuma ordem selecionada para edição');
+                        toast({
+                          title: "Erro",
+                          description: "Nenhuma ordem selecionada para edição",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      const formData = editForm.getValues();
+                      console.log('📝 Dados do formulário capturados:', formData);
+
+                      setIsSubmitting(true);
+                      try {
+                        // Buscar o CNPJ da obra selecionada
+                        const obraSelecionada = obras.find(obra => obra.id === parseInt(formData.obraId));
+                        console.log('🏗️ Obra selecionada:', obraSelecionada);
+
+                        if (!obraSelecionada) {
+                          throw new Error("Obra selecionada não encontrada");
+                        }
+
+                        // Preparar dados para atualização
+                        const requestData = {
+                          numeroOrdem: formData.orderNumber,
+                          empresaId: parseInt(formData.companyId),
+                          cnpj: obraSelecionada.cnpj,
+                          validoAte: new Date(formData.validUntil).toISOString(),
+                          items: formData.items
+                            .filter(item => item.productId && item.quantity)
+                            .map(item => ({
+                              productId: parseInt(item.productId),
+                              quantity: item.quantity.toString()
+                            }))
+                        };
+
+                        console.log('📤 Enviando dados via Salvar 2:', requestData);
+
+                        const response = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}`, {
+                          method: 'PUT',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify(requestData),
+                        });
+
+                        if (!response.ok) {
+                          const errorData = await response.json().catch(() => null);
+                          console.error('❌ Erro na resposta da API via Salvar 2:', errorData);
+                          throw new Error(errorData?.mensagem || `Erro HTTP ${response.status}: ${response.statusText}`);
+                        }
+
+                        const result = await response.json();
+                        console.log('✅ Resposta via Salvar 2:', result);
+
+                        toast({
+                          title: "Sucesso (Salvar 2)",
+                          description: "Ordem de compra atualizada com sucesso via Salvar 2",
+                        });
+
+                        // Fechar diálogo e recarregar dados
+                        setIsAdvancedEditOpen(false);
+                        setSelectedOrderForEdit(null);
+                        setEditPdfFile(null);
+                        editForm.reset();
+                        queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
+
+                      } catch (error) {
+                        console.error('❌ Erro via Salvar 2:', error);
+                        toast({
+                          title: "Erro (Salvar 2)",
+                          description: error instanceof Error ? error.message : "Erro ao atualizar ordem de compra via Salvar 2",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    }}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando 2...
+                      </>
+                    ) : (
+                      "Salvar 2"
+                    )}
+                  </Button>
                 </div>
               </form>
             </Form>
