@@ -4,19 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
@@ -41,8 +41,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  Plus, 
+import {
+  Plus,
   Search,
   Trash2,
   Building,
@@ -142,6 +142,7 @@ type Company = {
   name: string;
   contractNumber: string | null;
   category?: {
+    id: number; // Adicionado id da categoria
     name?: string;
     receivesPurchaseOrders: boolean;
     requiresContract: boolean;
@@ -241,29 +242,29 @@ export default function OrdensCompra() {
       companiesLoaded: companies.length,
       categoriesLoaded: categories.length
     });
-    
+
     // KeyUser sempre pode editar
     if (isKeyUser) {
       console.log('✅ KeyUser - permissão concedida');
       return true;
     }
-    
+
     // Verificar categoria da empresa do usuário
     if (user?.companyId && companies.length > 0 && categories.length > 0) {
       const userCompany = companies.find(c => c.id === user.companyId);
       console.log('🏢 Empresa do usuário:', userCompany);
-      
+
       if (userCompany) {
         const companyCategory = categories.find(cat => cat.id === userCompany.categoryId);
         console.log('📂 Categoria da empresa:', companyCategory);
-        
-        const canEditByCategory = companyCategory?.canEditPurchaseOrders === true;
+
+        const canEditByCategory = companyCategory?.receivesPurchaseOrders === true;
         console.log('✏️ Pode editar por categoria:', canEditByCategory);
-        
+
         return canEditByCategory;
       }
     }
-    
+
     console.log('❌ Permissão negada - dados insuficientes ou sem permissão');
     return false;
   };
@@ -304,14 +305,14 @@ export default function OrdensCompra() {
   // Função para abrir edição avançada
   const handleEditOrder = async (ordem: OrdemCompra) => {
     setSelectedOrderForEdit(ordem);
-    
+
     // Carregar dados da ordem para o formulário de edição
     try {
       const itensResponse = await fetch(`/api/ordem-compra/${ordem.id}/itens`);
       if (itensResponse.ok) {
         const itens = await itensResponse.json();
         setOrderItems(itens);
-        
+
         // Configurar valores do formulário
         editForm.reset({
           orderNumber: ordem.numero_ordem,
@@ -327,7 +328,7 @@ export default function OrdensCompra() {
     } catch (error) {
       console.error("Erro ao carregar dados da ordem:", error);
     }
-    
+
     setIsAdvancedEditOpen(true);
   };
 
@@ -351,7 +352,7 @@ export default function OrdensCompra() {
 
   // Não usamos a rota específica devido a problemas de conexão com o banco de dados
   // Em vez disso, filtramos os dados localmente
-  const obras = companies.filter(company => 
+  const obras = companies.filter(company =>
     company.contractNumber && company.contractNumber.trim() !== ''
   );
 
@@ -365,7 +366,7 @@ export default function OrdensCompra() {
     const endDate = new Date(validUntil);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (today < startDate) {
       return "Não Iniciado";
     } else if (today > endDate) {
@@ -592,20 +593,20 @@ export default function OrdensCompra() {
     const requiresContract = company.category.requiresContract === true;
 
     // Se precisar de contrato, verificar se tem
-    const hasContract = requiresContract ? 
+    const hasContract = requiresContract ?
       (company.contractNumber && company.contractNumber.trim() !== '') : true;
 
     return canReceiveOrders && hasContract;
   });
 
   // Filtrar apenas empresas com contrato preenchido para o campo de Obra
-  const filteredObras = companies.filter(company => 
+  const filteredObras = companies.filter(company =>
     company.contractNumber && company.contractNumber.trim() !== ''
   );
 
   // Verificar se há empresas disponíveis para seleção
   const hasAvailableCompanies = filteredCompanies.length > 0;
-  
+
   // Verificar se o usuário pode criar ordens de compra (autorização + empresas disponíveis)
   const canShowNovaOrdemButton = canCreatePurchaseOrders() && hasAvailableCompanies;
 
@@ -664,11 +665,15 @@ export default function OrdensCompra() {
                     empresaId: parseInt(data.companyId),
                     cnpj: obraSelecionada.cnpj,
                     validoAte: new Date(data.validUntil).toISOString(),
-                    items: data.items.map(item => ({
-                      productId: parseInt(item.productId),
-                      quantity: item.quantity
-                    }))
+                    items: data.items
+                      .filter(item => item.productId && item.quantity) // Filtrar itens válidos
+                      .map(item => ({
+                        productId: parseInt(item.productId),
+                        quantity: parseFloat(item.quantity) // Garantir que seja número
+                      }))
                   };
+
+                  console.log('📤 Enviando dados de atualização:', requestData);
 
                   const response = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}`, {
                     method: 'PUT',
@@ -725,8 +730,8 @@ export default function OrdensCompra() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fornecedor</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <Select
+                          onValueChange={field.onChange}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -755,8 +760,8 @@ export default function OrdensCompra() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Obra</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <Select
+                          onValueChange={field.onChange}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -784,7 +789,7 @@ export default function OrdensCompra() {
                       <FormItem>
                         <FormLabel>Válido Até</FormLabel>
                         <FormControl>
-                          <Input 
+                          <Input
                             type="date"
                             {...field}
                             className="bg-input border-border"
@@ -799,8 +804,8 @@ export default function OrdensCompra() {
                 {/* Upload de novo PDF */}
                 <div className="space-y-2">
                   <FormLabel>Novo PDF da Ordem de Compra (opcional)</FormLabel>
-                  <Input 
-                    type="file" 
+                  <Input
+                    type="file"
                     accept=".pdf"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
@@ -830,8 +835,8 @@ export default function OrdensCompra() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Produto</FormLabel>
-                              <Select 
-                                onValueChange={field.onChange} 
+                              <Select
+                                onValueChange={field.onChange}
                                 defaultValue={field.value}
                               >
                                 <FormControl>
@@ -859,9 +864,9 @@ export default function OrdensCompra() {
                             <FormItem>
                               <FormLabel>Quantidade</FormLabel>
                               <FormControl>
-                                <Input 
-                                  {...field} 
-                                  type="number" 
+                                <Input
+                                  {...field}
+                                  type="number"
                                   min="1"
                                   placeholder="Qtd"
                                   className="bg-input border-border"
@@ -888,7 +893,7 @@ export default function OrdensCompra() {
                   >
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button
                     type="submit"
                     disabled={isSubmitting}
                   >
@@ -987,8 +992,8 @@ export default function OrdensCompra() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fornecedor</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <Select
+                          onValueChange={field.onChange}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -1015,8 +1020,8 @@ export default function OrdensCompra() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Obra</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <Select
+                          onValueChange={field.onChange}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -1044,7 +1049,7 @@ export default function OrdensCompra() {
                       <FormItem>
                         <FormLabel>Válido Até</FormLabel>
                         <FormControl>
-                          <Input 
+                          <Input
                             type="date"
                             min={getTodayFormatted()}
                             {...field}
@@ -1081,7 +1086,7 @@ export default function OrdensCompra() {
                   >
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button
                     type="submit"
                     disabled={isSubmitting}
                   >
@@ -1127,8 +1132,8 @@ export default function OrdensCompra() {
                       <FormItem>
                         <FormLabel>Número da Ordem</FormLabel>
                         <FormControl>
-                          <Input 
-                            {...field} 
+                          <Input
+                            {...field}
                             placeholder="Digite o número da ordem (até 6 dígitos)"
                             maxLength={6}
                             className="bg-input border-border"
@@ -1145,8 +1150,8 @@ export default function OrdensCompra() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fornecedor</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <Select
+                          onValueChange={field.onChange}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -1158,7 +1163,7 @@ export default function OrdensCompra() {
                             {filteredCompanies.map((company) => (
                               <SelectItem key={company.id} value={company.id.toString()}>
                                 {company.name}
-                                {company.contractNumber && 
+                                {company.contractNumber &&
                                   ` (Contrato: ${company.contractNumber})`}
                               </SelectItem>
                             ))}
@@ -1175,8 +1180,8 @@ export default function OrdensCompra() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Obra</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <Select
+                          onValueChange={field.onChange}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -1204,8 +1209,8 @@ export default function OrdensCompra() {
                       <FormItem>
                         <FormLabel>Válido Desde</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="date" 
+                          <Input
+                            type="date"
                             {...field}
                             min={getTodayFormatted()}
                             className="bg-input border-border"
@@ -1223,8 +1228,8 @@ export default function OrdensCompra() {
                       <FormItem>
                         <FormLabel>Válido Até</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="date" 
+                          <Input
+                            type="date"
                             {...field}
                             min={form.watch("validFrom") || getTodayFormatted()}
                             className="bg-input border-border"
@@ -1241,8 +1246,8 @@ export default function OrdensCompra() {
                   <FormItem>
                     <FormLabel>Anexar PDF da Ordem de Compra</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="file" 
+                      <Input
+                        type="file"
                         accept=".pdf"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -1287,8 +1292,8 @@ export default function OrdensCompra() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Produto</FormLabel>
-                                  <Select 
-                                    onValueChange={field.onChange} 
+                                  <Select
+                                    onValueChange={field.onChange}
                                     defaultValue={field.value}
                                   >
                                     <FormControl>
@@ -1298,8 +1303,8 @@ export default function OrdensCompra() {
                                     </FormControl>
                                     <SelectContent>
                                       {products.map((product) => (
-                                        <SelectItem 
-                                          key={product.id} 
+                                        <SelectItem
+                                          key={product.id}
                                           value={product.id.toString()}
                                         >
                                           {product.name}
@@ -1321,9 +1326,9 @@ export default function OrdensCompra() {
                                 <FormItem>
                                   <FormLabel>Quantidade</FormLabel>
                                   <FormControl>
-                                    <Input 
-                                      {...field} 
-                                      type="number" 
+                                    <Input
+                                      {...field}
+                                      type="number"
                                       min="1"
                                       placeholder="Qtd"
                                       className="bg-input border-border"
@@ -1359,7 +1364,7 @@ export default function OrdensCompra() {
                   >
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button
                     type="submit"
                     disabled={isSubmitting}
                     className="bg-primary hover:bg-primary/90"
@@ -1426,8 +1431,8 @@ export default function OrdensCompra() {
                     >
                       Número
                       {sortColumn === 'id' && (
-                        sortDirection === 'asc' ? 
-                        <ChevronUp className="ml-1 h-4 w-4" /> : 
+                        sortDirection === 'asc' ?
+                        <ChevronUp className="ml-1 h-4 w-4" /> :
                         <ChevronDown className="ml-1 h-4 w-4" />
                       )}
                     </Button>
@@ -1440,7 +1445,7 @@ export default function OrdensCompra() {
               </TableHeader>
               <TableBody>
                 {ordensFiltradas.map((ordem) => (
-                  <TableRow 
+                  <TableRow
                     key={ordem.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => showOrderDetails(ordem.id)}
@@ -1492,11 +1497,11 @@ export default function OrdensCompra() {
                             userId: user?.id,
                             companyId: user?.companyId
                           });
-                          
+
                           return canEdit && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               title="Editar ordem de compra"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1512,9 +1517,9 @@ export default function OrdensCompra() {
                         {isKeyUser && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 title="Excluir ordem"
                                 onClick={(e) => e.stopPropagation()} // Evita que o clique abra o drawer
                               >
@@ -1531,7 +1536,7 @@ export default function OrdensCompra() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction 
+                              <AlertDialogAction
                                 onClick={async () => {
                                   try {
                                     const response = await fetch(`/api/ordem-compra/${ordem.id}`, {
@@ -1573,7 +1578,7 @@ export default function OrdensCompra() {
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <Package className="h-10 w-10 mb-2 text-muted-foreground" />
               <p className="text-muted-foreground">
-                {searchTerm 
+                {searchTerm
                   ? "Nenhuma ordem de compra encontrada com este termo de busca."
                   : "Nenhuma ordem de compra cadastrada ainda."
                 }

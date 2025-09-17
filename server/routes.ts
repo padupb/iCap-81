@@ -2157,7 +2157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Atualizar ordem de compra existente
-  app.put("/api/ordem-compra/:id", async (req, res) => {
+  app.put("/api/ordem-compra/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -2169,22 +2169,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { numeroOrdem, empresaId, cnpj, validoAte, items } = req.body;
 
+      console.log(`🔄 Atualizando ordem de compra ${id}:`, {
+        numeroOrdem,
+        empresaId,
+        cnpj,
+        validoAte,
+        items: items?.length || 0
+      });
+
       // Verificar se o usuário tem permissão para editar ordens de compra
       let hasEditPermission = false;
 
       // KeyUser sempre tem permissão
       if (req.user.id === 1 || req.user.isKeyUser) {
         hasEditPermission = true;
+        console.log(`✅ Permissão concedida - KeyUser`);
       } else if (req.user.companyId) {
         // Verificar se a empresa do usuário tem categoria que permite editar ordens
         const userCompany = await storage.getCompany(req.user.companyId);
         if (userCompany) {
           const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
           hasEditPermission = companyCategory?.canEditPurchaseOrders === true;
+          console.log(`📋 Permissão da categoria: ${hasEditPermission}`);
         }
       }
 
       if (!hasEditPermission) {
+        console.log(`❌ Permissão negada para usuário ${req.user.id}`);
         return res.status(403).json({
           sucesso: false,
           mensagem: "Você não tem permissão para editar ordens de compra"
@@ -2198,32 +2209,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (!checkOrdem || !checkOrdem.rows || checkOrdem.rows.length === 0) {
+        console.log(`❌ Ordem ${id} não encontrada`);
         return res.status(404).json({
           sucesso: false,
           mensagem: "Ordem de compra não encontrada"
         });
       }
 
+      console.log(`✅ Ordem ${id} encontrada, iniciando atualização`);
+
+      // Validar dados obrigatórios
+      if (!numeroOrdem || !empresaId || !validoAte) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Dados obrigatórios não fornecidos (numeroOrdem, empresaId, validoAte)"
+        });
+      }
+
+      // Buscar CNPJ da empresa se não fornecido
+      let cnpjFinal = cnpj;
+      if (!cnpjFinal && empresaId) {
+        const empresaResult = await pool.query(
+          "SELECT cnpj FROM companies WHERE id = $1",
+          [empresaId]
+        );
+        if (empresaResult.rows.length > 0) {
+          cnpjFinal = empresaResult.rows[0].cnpj;
+          console.log(`📋 CNPJ da empresa ${empresaId}: ${cnpjFinal}`);
+        }
+      }
+
       // Atualizar a ordem
-      await pool.query(
+      const updateResult = await pool.query(
         `UPDATE ordens_compra
          SET numero_ordem = $1, empresa_id = $2, cnpj = $3, valido_ate = $4
-         WHERE id = $5`,
-        [numeroOrdem, empresaId, cnpj, validoAte, id]
+         WHERE id = $5
+         RETURNING *`,
+        [numeroOrdem, empresaId, cnpjFinal, validoAte, id]
       );
+
+      console.log(`✅ Ordem atualizada:`, updateResult.rows[0]);
 
       // Remover itens antigos
       await pool.query("DELETE FROM itens_ordem_compra WHERE ordem_compra_id = $1", [id]);
+      console.log(`🗑️ Itens antigos removidos`);
 
       // Inserir novos itens
       if (items && items.length > 0) {
         for (const item of items) {
-          await pool.query(
-            `INSERT INTO itens_ordem_compra
-             (ordem_compra_id, produto_id, quantidade)
-             VALUES ($1, $2, $3)`,
-            [id, item.productId, item.quantity]
-          );
+          if (item.productId && item.quantity) {
+            await pool.query(
+              `INSERT INTO itens_ordem_compra
+               (ordem_compra_id, produto_id, quantidade)
+               VALUES ($1, $2, $3)`,
+              [id, item.productId, item.quantity]
+            );
+            console.log(`➕ Item adicionado: produto ${item.productId}, qtd ${item.quantity}`);
+          }
         }
       }
 
@@ -2238,13 +2280,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      console.log(`✅ Ordem de compra ${numeroOrdem} atualizada com sucesso`);
+
       res.json({
         sucesso: true,
-        mensagem: "Ordem de compra atualizada com sucesso"
+        mensagem: "Ordem de compra atualizada com sucesso",
+        ordem: updateResult.rows[0]
       });
 
     } catch (error) {
-      console.error("Erro ao atualizar ordem de compra:", error);
+      console.error("❌ Erro ao atualizar ordem de compra:", error);
       res.status(500).json({
         sucesso: false,
         mensagem: "Erro ao atualizar ordem de compra",
