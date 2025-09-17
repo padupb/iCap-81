@@ -364,7 +364,7 @@ export default function OrdensCompra() {
           editForm.setValue('companyId', ordem.empresa_id.toString());
           editForm.setValue('obraId', obraId);
           editForm.setValue('validUntil', new Date(ordem.valido_ate).toISOString().split('T')[0]);
-          
+
           // Definir os itens um por um
           itens.forEach((item: any, index: number) => {
             editForm.setValue(`items.${index}.productId`, item.produto_id.toString());
@@ -609,7 +609,7 @@ export default function OrdensCompra() {
       toast({
         title: "Erro",
         description: error instanceof Error ? error.message : "Erro desconhecido",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -739,7 +739,7 @@ export default function OrdensCompra() {
                       .filter(item => item.productId && item.quantity) // Filtrar itens válidos
                       .map(item => ({
                         productId: parseInt(item.productId),
-                        quantity: parseFloat(item.quantity.toString()) // Garantir conversão correta
+                        quantity: item.quantity.toString() // Manter como string conforme esperado pelo servidor
                       }))
                   };
 

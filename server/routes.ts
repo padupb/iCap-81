@@ -2278,54 +2278,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Atualizar a ordem
-      const updateResult = await pool.query(
-        `UPDATE ordens_compra
-         SET numero_ordem = $1, empresa_id = $2, cnpj = $3, valido_ate = $4
-         WHERE id = $5
-         RETURNING *`,
-        [numeroOrdem, empresaId, cnpjFinal, validoAte, id]
-      );
+      // Iniciar transação para garantir atomicidade
+      await pool.query('BEGIN');
 
-      console.log(`✅ Ordem atualizada:`, updateResult.rows[0]);
+      try {
+        // Atualizar a ordem
+        const updateResult = await pool.query(
+          `UPDATE ordens_compra
+           SET numero_ordem = $1, empresa_id = $2, cnpj = $3, valido_ate = $4
+           WHERE id = $5
+           RETURNING *`,
+          [numeroOrdem, empresaId, cnpjFinal, validoAte, id]
+        );
 
-      // Remover itens antigos
-      await pool.query("DELETE FROM itens_ordem_compra WHERE ordem_compra_id = $1", [id]);
-      console.log(`🗑️ Itens antigos removidos`);
+        console.log(`✅ Ordem atualizada:`, updateResult.rows[0]);
 
-      // Inserir novos itens
-      if (items && items.length > 0) {
-        for (const item of items) {
-          if (item.productId && item.quantity) {
-            await pool.query(
-              `INSERT INTO itens_ordem_compra
-               (ordem_compra_id, produto_id, quantidade)
-               VALUES ($1, $2, $3)`,
-              [id, item.productId, item.quantity]
-            );
-            console.log(`➕ Item adicionado: produto ${item.productId}, qtd ${item.quantity}`);
+        // Remover itens antigos
+        await pool.query("DELETE FROM itens_ordem_compra WHERE ordem_compra_id = $1", [id]);
+        console.log(`🗑️ Itens antigos removidos`);
+
+        // Inserir novos itens
+        if (items && items.length > 0) {
+          for (const item of items) {
+            if (item.productId && item.quantity) {
+              await pool.query(
+                `INSERT INTO itens_ordem_compra
+                 (ordem_compra_id, produto_id, quantidade)
+                 VALUES ($1, $2, $3)`,
+                [id, item.productId, item.quantity]
+              );
+              console.log(`➕ Item adicionado: produto ${item.productId}, qtd ${item.quantity}`);
+            }
           }
         }
-      }
 
-      // Registrar log de atualização
-      if (req.session.userId) {
-        await storage.createLog({
-          userId: req.session.userId,
-          action: "Atualizou ordem de compra",
-          itemType: "purchase_order",
-          itemId: id.toString(),
-          details: `Ordem de compra ${numeroOrdem} atualizada`
+        // Confirmar transação
+        await pool.query('COMMIT');
+
+        // Registrar log de atualização
+        if (req.session.userId) {
+          await storage.createLog({
+            userId: req.session.userId,
+            action: "Atualizou ordem de compra",
+            itemType: "purchase_order",
+            itemId: id.toString(),
+            details: `Ordem de compra ${numeroOrdem} atualizada`
+          });
+        }
+
+        console.log(`✅ Ordem de compra ${numeroOrdem} atualizada com sucesso`);
+
+        res.json({
+          sucesso: true,
+          mensagem: "Ordem de compra atualizada com sucesso",
+          ordem: updateResult.rows[0]
         });
+
+      } catch (transactionError) {
+        // Reverter transação em caso de erro
+        await pool.query('ROLLBACK');
+        throw transactionError;
       }
-
-      console.log(`✅ Ordem de compra ${numeroOrdem} atualizada com sucesso`);
-
-      res.json({
-        sucesso: true,
-        mensagem: "Ordem de compra atualizada com sucesso",
-        ordem: updateResult.rows[0]
-      });
 
     } catch (error) {
       console.error("❌ Erro ao atualizar ordem de compra:", error);
