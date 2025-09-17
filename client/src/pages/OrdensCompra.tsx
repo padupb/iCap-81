@@ -705,7 +705,7 @@ export default function OrdensCompra() {
                 try {
                   // Primeiro, fazer upload do PDF se fornecido
                   if (editPdfFile) {
-                    console.log('📤 Fazendo upload do PDF...');
+                    console.log('ArchiveAction Fazendo upload do PDF...');
                     const formData = new FormData();
                     formData.append('ordem_pdf', editPdfFile);
 
@@ -723,7 +723,7 @@ export default function OrdensCompra() {
 
                   // Buscar o CNPJ da obra selecionada
                   const obraSelecionada = obras.find(obra => obra.id === parseInt(data.obraId));
-                  console.log('🏗️ Obra selecionada:', obraSelecionada);
+                  console.log('ArchiveAction Obra selecionada:', obraSelecionada);
 
                   if (!obraSelecionada) {
                     throw new Error("Obra selecionada não encontrada");
@@ -743,7 +743,7 @@ export default function OrdensCompra() {
                       }))
                   };
 
-                  console.log('📤 Enviando dados de atualização da ordem:', requestData);
+                  console.log('ArchiveAction Enviando dados de atualização da ordem:', requestData);
 
                   const response = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}`, {
                     method: 'PUT',
@@ -972,6 +972,15 @@ export default function OrdensCompra() {
                   <Button
                     type="submit"
                     disabled={isSubmitting}
+                    onClick={(e) => {
+                      console.log('🔘 Botão Salvar Alterações clicado');
+                      console.log('📝 Estado do formulário:', editForm.getValues());
+                      console.log('❗ Erros do formulário:', editForm.formState.errors);
+                      console.log('✅ Formulário válido:', editForm.formState.isValid);
+
+                      // Não prevenir o comportamento padrão, deixar o submit acontecer
+                      // e.preventDefault();
+                    }}
                   >
                     {isSubmitting ? (
                       <>
