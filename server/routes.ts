@@ -3283,8 +3283,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const pesoLMatch = xmlContent.match(/<pesoL>([\d.,]+)<\/pesoL>/);
           if (pesoLMatch) {
             // Converter vírgula para ponto e parsear como número
-            quantidadeComercial = parseFloat(pesoLMatch[1].replace(',', '.'));
-            console.log(`📊 Peso líquido encontrado no XML: ${quantidadeComercial}`);
+            let pesoLValue = parseFloat(pesoLMatch[1].replace(',', '.'));
+            
+            // NOVA REGRA: Se pesoL > 99, dividir por 1000 (conversão de gramas para kg)
+            if (pesoLValue > 99) {
+              const pesoLOriginal = pesoLValue;
+              pesoLValue = pesoLValue / 1000;
+              console.log(`📊 Peso líquido convertido: ${pesoLOriginal} → ${pesoLValue} (divisão por 1000 aplicada)`);
+            }
+            
+            quantidadeComercial = pesoLValue;
+            console.log(`📊 Peso líquido final encontrado no XML: ${quantidadeComercial}`);
 
             xmlAnalysis = {
               quantidadeOriginal: order.quantity,
