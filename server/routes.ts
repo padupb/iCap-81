@@ -515,6 +515,46 @@ const uploadLogo = multer({
     }
   });
 
+// Middleware para verificar o token de autenticação (necessário para algumas rotas)
+const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+  // Verificar se o usuário está autenticado através da sessão
+  if (req.session && req.session.userId) {
+    // Buscar o usuário para garantir que ele existe e obter suas permissões
+    storage.getUser(req.session.userId).then(user => {
+      if (user) {
+        // Adicionar informações do usuário à requisição para uso posterior
+        req.user = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          companyId: user.companyId,
+          roleId: user.roleId,
+          permissions: user.role ? user.role.permissions || [] : [],
+          isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
+          canConfirmDelivery: user.canConfirmDelivery,
+          canCreateOrder: user.canCreateOrder,
+          canCreatePurchaseOrder: user.canCreatePurchaseOrder
+        };
+        // Adicionar informações de role e permissões
+        req.user.role = user.role;
+        req.user.permissions = user.role ? user.role.permissions || [] : [];
+
+        console.log(`✅ Autenticado: Usuário ${user.name} (ID: ${user.id})`);
+        next();
+      } else {
+        console.log(`❌ Usuário não encontrado na sessão: ID ${req.session.userId}`);
+        res.status(401).json({ success: false, message: "Usuário não encontrado" });
+      }
+    }).catch(error => {
+      console.error("❌ Erro ao buscar usuário na autenticação:", error);
+      res.status(500).json({ success: false, message: "Erro interno do servidor" });
+    });
+  } else {
+    console.log("⚠️ Sessão não encontrada ou usuário não autenticado");
+    res.status(401).json({ success: false, message: "Não autorizado. Faça login novamente." });
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
 
   // Rotas de autenticação
@@ -987,7 +1027,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(newUser);
     } catch (error) {
       console.error("Erro ao criar usuário:", error);
-      
       // Tratar erro de email duplicado especificamente
       if (error.code === '23505' && error.constraint === 'users_email_unique') {
         return res.status(400).json({
@@ -995,7 +1034,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: `Já existe um usuário cadastrado com este email. Escolha outro email.`
         });
       }
-      
+
       // Tratar erros de validação Zod
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -1004,10 +1043,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errors: error.errors
         });
       }
-      
-      res.status(500).json({ 
+
+      res.status(500).json({
         success: false,
-        message: "Erro ao criar usuário" 
+        message: "Erro ao criar usuário"
       });
     }
   });
@@ -1166,7 +1205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedCompany = await storage.updateCompany(id, companyData);
 
       // Registrar log de atualização
-      if (req.session.userId) {
+      if (req.session.userId && updatedCompany) {
         await storage.createLog({
           userId: req.session.userId,
           action: "Atualizou empresa",
@@ -1822,7 +1861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validar se a data de início é anterior à data de fim
       const dataInicio = new Date(validoDesde);
       const dataFim = new Date(validoAte);
-      
+
       if (dataInicio >= dataFim) {
         return res.status(400).json({
           sucesso: false,
@@ -3284,14 +3323,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (pesoLMatch) {
             // Converter vírgula para ponto e parsear como número
             let pesoLValue = parseFloat(pesoLMatch[1].replace(',', '.'));
-            
+
             // NOVA REGRA: Se pesoL > 99, dividir por 1000 (conversão de gramas para kg)
             if (pesoLValue > 99) {
               const pesoLOriginal = pesoLValue;
               pesoLValue = pesoLValue / 1000;
               console.log(`📊 Peso líquido convertido: ${pesoLOriginal} → ${pesoLValue} (divisão por 1000 aplicada)`);
             }
-            
+
             quantidadeComercial = pesoLValue;
             console.log(`📊 Peso líquido final encontrado no XML: ${quantidadeComercial}`);
 

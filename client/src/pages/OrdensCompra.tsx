@@ -313,11 +313,31 @@ export default function OrdensCompra() {
         const itens = await itensResponse.json();
         setOrderItems(itens);
 
+        // Buscar detalhes completos da ordem para obter o CNPJ
+        const ordemResponse = await fetch(`/api/ordem-compra/${ordem.id}`);
+        let obraId = "";
+        
+        if (ordemResponse.ok) {
+          const ordemDetalhes = await ordemResponse.json();
+          console.log('🔍 Detalhes da ordem para edição:', ordemDetalhes);
+          
+          // Buscar a obra pelo CNPJ se disponível
+          if (ordemDetalhes.cnpj && companies.length > 0) {
+            const obraEncontrada = companies.find(company => company.cnpj === ordemDetalhes.cnpj);
+            if (obraEncontrada) {
+              obraId = obraEncontrada.id.toString();
+              console.log('🏗️ Obra encontrada para edição:', obraEncontrada.name, 'ID:', obraId);
+            } else {
+              console.log('⚠️ Obra não encontrada para CNPJ:', ordemDetalhes.cnpj);
+            }
+          }
+        }
+
         // Configurar valores do formulário
         editForm.reset({
           orderNumber: ordem.numero_ordem,
           companyId: ordem.empresa_id.toString(),
-          obraId: "", // Será preenchido com base no CNPJ
+          obraId: obraId, // Preenchido com base no CNPJ encontrado
           validUntil: new Date(ordem.valido_ate).toISOString().split('T')[0],
           items: itens.map((item: any) => ({
             productId: item.produto_id.toString(),
