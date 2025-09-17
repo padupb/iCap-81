@@ -238,14 +238,16 @@ export default function OrdensCompra() {
     console.log('🔍 Verificando permissão para editar ordens de compra:', {
       isKeyUser,
       userId: user?.id,
+      userIsKeyUser: user?.isKeyUser,
+      userIsDeveloper: user?.isDeveloper,
       companyId: user?.companyId,
       companiesLoaded: companies.length,
       categoriesLoaded: categories.length
     });
 
-    // KeyUser sempre pode editar
-    if (isKeyUser) {
-      console.log('✅ KeyUser - permissão concedida');
+    // KeyUser sempre pode editar - verificação mais robusta
+    if (user?.id === 1 || user?.isKeyUser === true || user?.isDeveloper === true || isKeyUser) {
+      console.log('✅ KeyUser - permissão concedida para editar ordens de compra');
       return true;
     }
 
@@ -1574,12 +1576,18 @@ export default function OrdensCompra() {
                         <div className="flex justify-end gap-2">
                         {/* Botão de edição avançada para usuários autorizados */}
                         {(() => {
-                          const canEdit = isKeyUser || canEditPurchaseOrders();
+                          // Verificação mais robusta para keyuser
+                          const userIsKeyUser = user?.id === 1 || user?.isKeyUser === true || user?.isDeveloper === true || isKeyUser;
+                          const canEdit = userIsKeyUser || canEditPurchaseOrders();
+                          
                           console.log(`🔧 Botão de edição para ordem ${ordem.numero_ordem}:`, {
+                            userIsKeyUser,
                             isKeyUser,
+                            userId: user?.id,
+                            userIsKeyUserFlag: user?.isKeyUser,
+                            userIsDeveloper: user?.isDeveloper,
                             canEditPurchaseOrders: canEditPurchaseOrders(),
                             canEdit,
-                            userId: user?.id,
                             companyId: user?.companyId
                           });
 

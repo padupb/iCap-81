@@ -2219,17 +2219,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se o usuário tem permissão para editar ordens de compra
       let hasEditPermission = false;
 
-      // KeyUser sempre tem permissão
-      if (req.user.id === 1 || req.user.isKeyUser) {
+      console.log(`🔍 Verificando permissões de edição para usuário ${req.user.id}:`, {
+        userId: req.user.id,
+        isKeyUser: req.user.isKeyUser,
+        isDeveloper: req.user.isDeveloper,
+        companyId: req.user.companyId,
+        permissions: req.user.permissions
+      });
+
+      // KeyUser sempre tem permissão - verificação mais robusta
+      if (req.user.id === 1 || req.user.isKeyUser === true || req.user.isDeveloper === true || 
+          (req.user.permissions && req.user.permissions.includes("*"))) {
         hasEditPermission = true;
-        console.log(`✅ Permissão concedida - KeyUser`);
+        console.log(`✅ Permissão concedida - KeyUser detectado`);
       } else if (req.user.companyId) {
         // Verificar se a empresa do usuário tem categoria que permite editar ordens
         const userCompany = await storage.getCompany(req.user.companyId);
         if (userCompany) {
           const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
-          hasEditPermission = companyCategory?.canEditPurchaseOrders === true;
-          console.log(`📋 Permissão da categoria: ${hasEditPermission}`);
+          hasEditPermission = companyCategory?.receivesPurchaseOrders === true;
+          console.log(`📋 Permissão da categoria ${companyCategory?.name}: ${hasEditPermission}`);
         }
       }
 
