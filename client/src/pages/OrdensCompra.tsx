@@ -322,14 +322,20 @@ export default function OrdensCompra() {
           console.log('🔍 Detalhes da ordem para edição:', ordemDetalhes);
           
           // Buscar a obra pelo CNPJ se disponível
-          if (ordemDetalhes.cnpj && companies.length > 0) {
-            const obraEncontrada = companies.find(company => company.cnpj === ordemDetalhes.cnpj);
+          if (ordemDetalhes.cnpj && obras.length > 0) {
+            const obraEncontrada = obras.find(obra => obra.cnpj === ordemDetalhes.cnpj);
             if (obraEncontrada) {
               obraId = obraEncontrada.id.toString();
               console.log('🏗️ Obra encontrada para edição:', obraEncontrada.name, 'ID:', obraId);
             } else {
               console.log('⚠️ Obra não encontrada para CNPJ:', ordemDetalhes.cnpj);
+              console.log('🔍 CNPJ procurado:', ordemDetalhes.cnpj);
+              console.log('🔍 Obras disponíveis:', obras.map(o => ({ id: o.id, name: o.name, cnpj: o.cnpj })));
             }
+          } else {
+            console.log('⚠️ CNPJ não disponível ou lista de obras vazia');
+            console.log('📊 Detalhes da ordem:', ordemDetalhes);
+            console.log('📊 Quantidade de obras:', obras.length);
           }
         }
 

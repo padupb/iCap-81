@@ -2413,6 +2413,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Obter detalhes completos de uma ordem de compra
+  app.get("/api/ordem-compra/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID inválido"
+        });
+      }
+
+      console.log(`🔍 Buscando detalhes da ordem de compra ID: ${id}`);
+
+      // Buscar a ordem de compra completa
+      const result = await pool.query(`
+        SELECT 
+          oc.id,
+          oc.numero_ordem,
+          oc.empresa_id,
+          oc.cnpj,
+          oc.valido_desde,
+          oc.valido_ate,
+          oc.status,
+          oc.data_criacao,
+          c.name as empresa_nome,
+          obra.name as obra_nome
+        FROM ordens_compra oc
+        LEFT JOIN companies c ON oc.empresa_id = c.id
+        LEFT JOIN companies obra ON oc.cnpj = obra.cnpj
+        WHERE oc.id = $1
+      `, [id]);
+
+      if (!result.rows.length) {
+        console.log(`❌ Ordem de compra ${id} não encontrada`);
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Ordem de compra não encontrada"
+        });
+      }
+
+      const ordem = result.rows[0];
+      console.log(`✅ Ordem encontrada: ${ordem.numero_ordem}`, ordem);
+
+      res.json(ordem);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar detalhes da ordem de compra:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar detalhes da ordem de compra",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Obter itens de uma ordem de compra
   app.get("/api/ordem-compra/:id/itens", async (req, res) => {
     try {
