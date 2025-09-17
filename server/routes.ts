@@ -3279,12 +3279,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const xmlContent = fs.readFileSync(files.nota_xml[0].path, 'utf8');
           console.log("📄 Analisando XML da nota fiscal...");
 
-          // Extrair quantidade comercial usando regex (buscar por qCom)
-          const qComMatch = xmlContent.match(/<qCom>([\d.,]+)<\/qCom>/);
-          if (qComMatch) {
+          // Extrair peso líquido usando regex (buscar por pesoL)
+          const pesoLMatch = xmlContent.match(/<pesoL>([\d.,]+)<\/pesoL>/);
+          if (pesoLMatch) {
             // Converter vírgula para ponto e parsear como número
-            quantidadeComercial = parseFloat(qComMatch[1].replace(',', '.'));
-            console.log(`📊 Quantidade comercial encontrada no XML: ${quantidadeComercial}`);
+            quantidadeComercial = parseFloat(pesoLMatch[1].replace(',', '.'));
+            console.log(`📊 Peso líquido encontrado no XML: ${quantidadeComercial}`);
 
             xmlAnalysis = {
               quantidadeOriginal: order.quantity,
@@ -3292,12 +3292,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               alteracaoNecessaria: quantidadeComercial !== order.quantity
             };
           } else {
-            console.log("⚠️ Quantidade comercial não encontrada no XML");
+            console.log("⚠️ Peso líquido não encontrado no XML");
             xmlAnalysis = {
               quantidadeOriginal: order.quantity,
               quantidadeXML: null,
               alteracaoNecessaria: false,
-              erro: "Quantidade comercial não encontrada no XML"
+              erro: "Peso líquido não encontrado no XML"
             };
           }
         } catch (xmlError) {
