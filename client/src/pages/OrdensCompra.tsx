@@ -688,8 +688,8 @@ export default function OrdensCompra() {
 
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(async (data) => {
-                console.log('📝 Dados do formulário:', data);
-                console.log('🔍 Ordem selecionada:', selectedOrderForEdit);
+                console.log('📝 Dados do formulário de edição:', data);
+                console.log('🔍 Ordem selecionada para edição:', selectedOrderForEdit);
 
                 if (!selectedOrderForEdit) {
                   console.error('❌ Nenhuma ordem selecionada para edição');
@@ -729,7 +729,7 @@ export default function OrdensCompra() {
                     throw new Error("Obra selecionada não encontrada");
                   }
 
-                  // Preparar dados para atualização
+                  // Preparar dados para atualização - incluindo todos os campos necessários
                   const requestData = {
                     numeroOrdem: data.orderNumber,
                     empresaId: parseInt(data.companyId),
@@ -743,7 +743,7 @@ export default function OrdensCompra() {
                       }))
                   };
 
-                  console.log('📤 Enviando dados de atualização:', requestData);
+                  console.log('📤 Enviando dados de atualização da ordem:', requestData);
 
                   const response = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}`, {
                     method: 'PUT',
@@ -755,12 +755,12 @@ export default function OrdensCompra() {
 
                   if (!response.ok) {
                     const errorData = await response.json().catch(() => null);
-                    console.error('❌ Erro na resposta:', errorData);
+                    console.error('❌ Erro na resposta da API:', errorData);
                     throw new Error(errorData?.mensagem || `Erro HTTP ${response.status}: ${response.statusText}`);
                   }
 
                   const result = await response.json();
-                  console.log('✅ Resposta da atualização:', result);
+                  console.log('✅ Resposta da atualização da ordem:', result);
 
                   toast({
                     title: "Sucesso",
@@ -771,10 +771,11 @@ export default function OrdensCompra() {
                   setIsAdvancedEditOpen(false);
                   setSelectedOrderForEdit(null);
                   setEditPdfFile(null);
+                  editForm.reset();
                   queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
 
                 } catch (error) {
-                  console.error('❌ Erro completo:', error);
+                  console.error('❌ Erro completo ao atualizar ordem:', error);
                   toast({
                     title: "Erro",
                     description: error instanceof Error ? error.message : "Erro ao atualizar ordem de compra",

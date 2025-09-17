@@ -2413,6 +2413,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Atualizar uma ordem de compra
+  app.put("/api/ordem-compra/:id", async (req, res) => {
+    try {
+      const ordemId = parseInt(req.params.id);
+      const { numeroOrdem, empresaId, cnpj, validoAte, items } = req.body;
+
+      if (isNaN(ordemId)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID da ordem inválido"
+        });
+      }
+
+      console.log(`🔧 Atualizando ordem de compra ID: ${ordemId}`, {
+        numeroOrdem,
+        empresaId,
+        cnpj,
+        validoAte,
+        items
+      });
+
+      // Iniciar transação
+      await pool.query('BEGIN');
+
+      try {
+        // Atualizar dados principais da ordem de compra
+        const updateResult = await pool.query(`
+          UPDATE ordens_compra 
+          SET 
+            numero_ordem = $1,
+            empresa_id = $2,
+            cnpj = $3,
+            valido_ate = $4
+          WHERE id = $5
+          RETURNING *
+        `, [numeroOrdem, empresaId, cnpj, validoAte, ordemId]);
+
+        if (!updateResult.rows.length) {
+          throw new Error("Ordem de compra não encontrada");
+        }
+
+        // Remover itens existentes
+        await pool.query('DELETE FROM ordem_compra_itens WHERE ordem_compra_id = $1', [ordemId]);
+
+        // Adicionar novos itens
+        if (items && items.length > 0) {
+          for (const item of items) {
+            await pool.query(`
+              INSERT INTO ordem_compra_itens (ordem_compra_id, produto_id, quantidade)
+              VALUES ($1, $2, $3)
+            `, [ordemId, item.productId, item.quantity]);
+          }
+        }
+
+        // Confirmar transação
+        await pool.query('COMMIT');
+
+        console.log(`✅ Ordem de compra ${ordemId} atualizada com sucesso`);
+
+        res.json({
+          sucesso: true,
+          mensagem: "Ordem de compra atualizada com sucesso",
+          ordem: updateResult.rows[0]
+        });
+
+      } catch (error) {
+        // Reverter transação em caso de erro
+        await pool.query('ROLLBACK');
+        throw error;
+      }
+
+    } catch (error) {
+      console.error("❌ Erro ao atualizar ordem de compra:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao atualizar ordem de compra",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Obter detalhes completos de uma ordem de compra
   app.get("/api/ordem-compra/:id", async (req, res) => {
     try {
