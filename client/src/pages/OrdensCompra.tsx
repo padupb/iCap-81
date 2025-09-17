@@ -690,105 +690,112 @@ export default function OrdensCompra() {
 
             <Form {...editForm}>
               <form 
-                onSubmit={editForm.handleSubmit(async (data) => {
-                  console.log('🔥 Botão Salvar Alterações clicado!');
+                onSubmit={(e) => {
+                  e.preventDefault();
                   
-                  if (!selectedOrderForEdit) {
-                    console.error('❌ Nenhuma ordem selecionada para edição');
-                    toast({
-                      title: "Erro",
-                      description: "Nenhuma ordem selecionada para edição",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
+                  const handleSaveChanges = async () => {
+                    console.log('🔥 Botão Salvar Alterações clicado!');
+                    
+                    if (!selectedOrderForEdit) {
+                      console.error('❌ Nenhuma ordem selecionada para edição');
+                      toast({
+                        title: "Erro",
+                        description: "Nenhuma ordem selecionada para edição",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
 
-                  console.log('📝 Dados do formulário capturados:', data);
+                    const formData = editForm.getValues();
+                    console.log('📝 Dados do formulário capturados:', formData);
 
-                  setIsSubmitting(true);
-                  try {
-                    // Primeiro, fazer upload do PDF se fornecido
-                    if (editPdfFile) {
-                      console.log('📎 Fazendo upload do PDF...');
-                      const formData = new FormData();
-                      formData.append('ordem_pdf', editPdfFile);
+                    setIsSubmitting(true);
+                    try {
+                      // Primeiro, fazer upload do PDF se fornecido
+                      if (editPdfFile) {
+                        console.log('📎 Fazendo upload do PDF...');
+                        const pdfFormData = new FormData();
+                        pdfFormData.append('ordem_pdf', editPdfFile);
 
-                      const uploadResponse = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}/upload-pdf`, {
-                        method: "POST",
-                        body: formData
+                        const uploadResponse = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}/upload-pdf`, {
+                          method: "POST",
+                          body: pdfFormData
+                        });
+
+                        if (!uploadResponse.ok) {
+                          const uploadError = await uploadResponse.json().catch(() => ({}));
+                          throw new Error(uploadError.mensagem || "Erro ao fazer upload do PDF");
+                        }
+                        console.log('✅ PDF enviado com sucesso');
+                      }
+
+                      // Buscar o CNPJ da obra selecionada
+                      const obraSelecionada = obras.find(obra => obra.id === parseInt(formData.obraId));
+                      console.log('🏗️ Obra selecionada:', obraSelecionada);
+
+                      if (!obraSelecionada) {
+                        throw new Error("Obra selecionada não encontrada");
+                      }
+
+                      // Preparar dados para atualização
+                      const requestData = {
+                        numeroOrdem: formData.orderNumber,
+                        empresaId: parseInt(formData.companyId),
+                        cnpj: obraSelecionada.cnpj,
+                        validoAte: new Date(formData.validUntil).toISOString(),
+                        items: formData.items
+                          .filter(item => item.productId && item.quantity)
+                          .map(item => ({
+                            productId: parseInt(item.productId),
+                            quantity: item.quantity.toString()
+                          }))
+                      };
+
+                      console.log('📤 Enviando dados via Salvar Alterações:', requestData);
+
+                      const response = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData),
                       });
 
-                      if (!uploadResponse.ok) {
-                        const uploadError = await uploadResponse.json().catch(() => ({}));
-                        throw new Error(uploadError.mensagem || "Erro ao fazer upload do PDF");
+                      if (!response.ok) {
+                        const errorData = await response.json().catch(() => null);
+                        console.error('❌ Erro na resposta da API via Salvar Alterações:', errorData);
+                        throw new Error(errorData?.mensagem || `Erro HTTP ${response.status}: ${response.statusText}`);
                       }
-                      console.log('✅ PDF enviado com sucesso');
+
+                      const result = await response.json();
+                      console.log('✅ Resposta via Salvar Alterações:', result);
+
+                      toast({
+                        title: "Sucesso",
+                        description: "Ordem de compra atualizada com sucesso",
+                      });
+
+                      // Fechar diálogo e recarregar dados
+                      setIsAdvancedEditOpen(false);
+                      setSelectedOrderForEdit(null);
+                      setEditPdfFile(null);
+                      editForm.reset();
+                      queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
+
+                    } catch (error) {
+                      console.error('❌ Erro via Salvar Alterações:', error);
+                      toast({
+                        title: "Erro",
+                        description: error instanceof Error ? error.message : "Erro ao atualizar ordem de compra",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setIsSubmitting(false);
                     }
+                  };
 
-                    // Buscar o CNPJ da obra selecionada
-                    const obraSelecionada = obras.find(obra => obra.id === parseInt(data.obraId));
-                    console.log('🏗️ Obra selecionada:', obraSelecionada);
-
-                    if (!obraSelecionada) {
-                      throw new Error("Obra selecionada não encontrada");
-                    }
-
-                    // Preparar dados para atualização
-                    const requestData = {
-                      numeroOrdem: data.orderNumber,
-                      empresaId: parseInt(data.companyId),
-                      cnpj: obraSelecionada.cnpj,
-                      validoAte: new Date(data.validUntil).toISOString(),
-                      items: data.items
-                        .filter(item => item.productId && item.quantity)
-                        .map(item => ({
-                          productId: parseInt(item.productId),
-                          quantity: item.quantity.toString()
-                        }))
-                    };
-
-                    console.log('📤 Enviando dados via Salvar Alterações:', requestData);
-
-                    const response = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}`, {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify(requestData),
-                    });
-
-                    if (!response.ok) {
-                      const errorData = await response.json().catch(() => null);
-                      console.error('❌ Erro na resposta da API via Salvar Alterações:', errorData);
-                      throw new Error(errorData?.mensagem || `Erro HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    const result = await response.json();
-                    console.log('✅ Resposta via Salvar Alterações:', result);
-
-                    toast({
-                      title: "Sucesso",
-                      description: "Ordem de compra atualizada com sucesso",
-                    });
-
-                    // Fechar diálogo e recarregar dados
-                    setIsAdvancedEditOpen(false);
-                    setSelectedOrderForEdit(null);
-                    setEditPdfFile(null);
-                    editForm.reset();
-                    queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
-
-                  } catch (error) {
-                    console.error('❌ Erro via Salvar Alterações:', error);
-                    toast({
-                      title: "Erro",
-                      description: error instanceof Error ? error.message : "Erro ao atualizar ordem de compra",
-                      variant: "destructive",
-                    });
-                  } finally {
-                    setIsSubmitting(false);
-                  }
-                })} 
+                  handleSaveChanges();
+                }} 
                 className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
