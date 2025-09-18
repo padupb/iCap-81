@@ -3728,13 +3728,13 @@ const uploadLogo = multer({
           try {
             // DOWNLOAD DIRETO DO OBJECT STORAGE SEM FUNÇÃO INTERMEDIÁRIA
             if (objectStorageAvailable && objectStorage && documentInfo.storageKey) {
-              console.log(`📥 Download direto Object Storage: ${documentInfo.storageKey}`);
+              console.log(`📥 Tentando download direto do Object Storage: ${documentInfo.storageKey}`);
 
               try {
-                const rawBytes = await objectStorage.downloadAsBytes(documentInfo.storageKey);
+                const rawData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
 
-                if (rawBytes && rawBytes.length > 0) {
-                  console.log(`✅ Arquivo recuperado: ${rawBytes.length} bytes`);
+                if (rawData && rawData.length > 0) {
+                  console.log(`✅ Arquivo recuperado: ${rawData.length} bytes`);
 
                   // Determinar content type automaticamente pela extensão do arquivo original
                   let contentType = 'application/octet-stream';
@@ -3747,18 +3747,31 @@ const uploadLogo = multer({
                     contentType = 'text/xml';
                   }
 
-                  console.log(`📤 DOWNLOAD: ${originalFilename} (${rawBytes.length} bytes)`);
+                  console.log(`📤 DOWNLOAD: ${originalFilename} (${rawData.length} bytes)`);
 
                   // Headers com nome EXATO do arquivo no storage
                   res.setHeader('Content-Type', contentType);
-                  res.setHeader('Content-Length', rawBytes.length);
+                  res.setHeader('Content-Length', rawData.length);
                   res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
                   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
                   res.setHeader('Pragma', 'no-cache');
                   res.setHeader('Expires', '0');
 
                   // Retornar dados brutos sem processamento
-                  return res.end(Buffer.isBuffer(rawBytes) ? rawBytes : Buffer.from(rawBytes));
+                  // CONVERSÃO CORRETA DOS DADOS BINÁRIOS
+                  let bufferData;
+                  if (rawData instanceof Uint8Array) {
+                    bufferData = Buffer.from(rawData);
+                  } else if (Buffer.isBuffer(rawData)) {
+                    bufferData = rawData;
+                  } else {
+                    // Se não for nem Uint8Array nem Buffer, tentar converter
+                    bufferData = Buffer.from(rawData, 'binary');
+                  }
+
+                  console.log(`📊 Dados convertidos: ${bufferData.length} bytes (tipo: ${bufferData.constructor.name})`);
+
+                  return res.end(bufferData);
                 }
               } catch (storageError) {
                 console.log(`⚠️ Object Storage falhou: ${storageError.message}`);
@@ -4761,7 +4774,7 @@ const uploadLogo = multer({
       }
     });
 
-    // Rota para confirmar entrega de pedido com foto da nota assinada
+    // Rota para confirmar entrega de pedidocom foto da nota assinada
     app.post("/api/pedidos/:id/confirmar", uploadConfirmDelivery.single("fotoNotaAssinada"), async (req, res) => {
       try {
         const id = parseInt(req.params.id);
