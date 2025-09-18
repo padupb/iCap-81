@@ -224,11 +224,11 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
       try {
         console.log(`📥 Tentando download da pasta OC: ${ocKey}`);
-        const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
-        if (downloadedBytes && downloadedBytes.length > 0) {
-          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${downloadedBytes.length} bytes)`);
-          // Retornar os dados exatamente como vieram do Object Storage
-          return downloadedBytes;
+        const rawData = await objectStorage.downloadAsBytes(ocKey);
+        if (rawData && rawData.length > 0) {
+          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${rawData.length} bytes)`);
+          // Retornar os dados RAW sem qualquer processamento
+          return rawData;
         }
       } catch (ocError) {
         console.log(`🔄 Arquivo não encontrado na pasta OC: ${ocError.message}`);
@@ -239,11 +239,11 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     if (key && (key.startsWith('orders/') || key.startsWith('OC/'))) {
       try {
         console.log(`📥 Tentando download do Object Storage: ${key}`);
-        const downloadedBytes = await objectStorage.downloadAsBytes(key);
-        if (downloadedBytes && downloadedBytes.length > 0) {
-          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${downloadedBytes.length} bytes)`);
-          // Retornar os dados exatamente como vieram do Object Storage
-          return downloadedBytes;
+        const rawData = await objectStorage.downloadAsBytes(key);
+        if (rawData && rawData.length > 0) {
+          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${rawData.length} bytes)`);
+          // Retornar os dados RAW sem qualquer processamento
+          return rawData;
         }
       } catch (error) {
         console.error("❌ Erro ao ler do Object Storage:", {
@@ -3713,19 +3713,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             contentType = 'application/xml';
           }
 
-          // Usar o nome original do arquivo armazenado
-          const originalFilename = documentInfo.name || `${tipo}_${orderId}`;
+          // Usar o nome do arquivo EXATAMENTE como está no storage
+          const storageFilename = documentInfo.filename || documentInfo.name || `${tipo}_${orderId}`;
 
-          // Definir headers corretos para download - sem forçar extensão
+          // Definir headers corretos para download RAW
           res.setHeader('Content-Type', contentType);
           res.setHeader('Content-Length', fileBuffer.length);
-          res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+          res.setHeader('Content-Disposition', `attachment; filename="${storageFilename}"`);
           res.setHeader('Cache-Control', 'no-cache');
 
-          console.log(`📁 Enviando arquivo ${tipo} do pedido ${orderId} (${fileBuffer.length} bytes) - nome original: ${originalFilename}`);
+          console.log(`📁 Enviando arquivo ${tipo} do pedido ${orderId} (${fileBuffer.length} bytes) - nome no storage: ${storageFilename}`);
           
-          // Enviar os dados binários exatos sem qualquer conversão
-          return res.send(fileBuffer);
+          // Verificar se é Buffer e enviar RAW
+          if (Buffer.isBuffer(fileBuffer)) {
+            console.log(`✅ Enviando como Buffer direto (${fileBuffer.length} bytes)`);
+            return res.end(fileBuffer);
+          } else if (fileBuffer instanceof Uint8Array) {
+            console.log(`✅ Enviando Uint8Array como Buffer (${fileBuffer.length} bytes)`);
+            return res.end(Buffer.from(fileBuffer));
+          } else {
+            console.log(`⚠️ Tipo de dados desconhecido: ${typeof fileBuffer}, tentando conversão`);
+            return res.end(Buffer.from(fileBuffer));
+          }
 
         } catch (downloadError) {
           console.error("Erro ao fazer download do documento:", downloadError);
