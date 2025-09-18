@@ -230,7 +230,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
         const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
         if (downloadedBytes && downloadedBytes.length > 0) {
-          const buffer = Buffer.from(downloadedBytes);
+          // Garantir que é um Buffer válido
+          let buffer;
+          if (downloadedBytes instanceof Uint8Array) {
+            buffer = Buffer.from(downloadedBytes);
+          } else if (Buffer.isBuffer(downloadedBytes)) {
+            buffer = downloadedBytes;
+          } else {
+            buffer = Buffer.from(downloadedBytes);
+          }
           console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
           return buffer;
         }
@@ -246,8 +254,26 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
         const downloadedBytes = await objectStorage.downloadAsBytes(key);
         if (downloadedBytes && downloadedBytes.length > 0) {
-          const buffer = Buffer.from(downloadedBytes);
+          // Garantir que é um Buffer válido
+          let buffer;
+          if (downloadedBytes instanceof Uint8Array) {
+            buffer = Buffer.from(downloadedBytes);
+          } else if (Buffer.isBuffer(downloadedBytes)) {
+            buffer = downloadedBytes;
+          } else if (typeof downloadedBytes === 'string') {
+            // Se for string, tratar como base64 ou texto
+            buffer = Buffer.from(downloadedBytes, 'base64');
+          } else {
+            buffer = Buffer.from(downloadedBytes);
+          }
           console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${buffer.length} bytes)`);
+          
+          // Verificar se o buffer não está vazio ou corrompido
+          if (buffer.length === 0) {
+            console.log(`⚠️ Buffer vazio para ${key}, tentando fallback`);
+            throw new Error("Buffer vazio");
+          }
+          
           return buffer;
         }
       } catch (error) {
@@ -271,7 +297,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   for (const filePath of possiblePaths) {
     if (fs.existsSync(filePath)) {
       console.log(`📁 💾 Arquivo lido do sistema local: ${filePath}`);
-      return fs.readFileSync(filePath);
+      const localBuffer = fs.readFileSync(filePath);
+      
+      // Verificar se o arquivo local não está corrompido
+      if (localBuffer.length === 0) {
+        console.log(`⚠️ Arquivo local vazio: ${filePath}`);
+        continue;
+      }
+      
+      return localBuffer;
     }
   }
 
@@ -3662,8 +3696,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [id]
       );
 
-      console.log("Resultado da consulta:", result.rows[0]);
-
       if (result.rowCount === 0 || !result.rows[0].documentosinfo) {
         return res.json({
           sucesso: true,
@@ -3672,8 +3704,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const documentosInfo = result.rows[0].documentosinfo;
+      const documentosInfo = typeof result.rows[0].documentosinfo === 'string' 
+        ? JSON.parse(result.rows[0].documentosinfo)
+        : result.rows[0].documentosinfo;
 
+      const orderId = result.rows[0].order_id;
+
+      // Se o query parameter 'download' estiver presente, fazer download do arquivo
+      if (req.query.download === 'true') {
+        const documentInfo = documentosInfo[tipo];
+        if (!documentInfo) {
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: `Documento ${tipo} não encontrado`
+          });
+        }
+
+        try {
+          const fileBuffer = await readFileFromStorage(
+            documentInfo.storageKey || documentInfo.path,
+            orderId,
+            documentInfo.filename
+          );
+
+          // Verificar se é um redirect para Google Drive
+          if (fileBuffer && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+            const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+            return res.redirect(302, driveLink);
+          }
+
+          if (!fileBuffer || fileBuffer.length === 0) {
+            return res.status(404).json({
+              sucesso: false,
+              mensagem: "Arquivo não encontrado ou está corrompido"
+            });
+          }
+
+          // Definir content type baseado no tipo do documento
+          let contentType = 'application/octet-stream';
+          let fileExtension = '';
+          
+          if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
+            contentType = 'application/pdf';
+            fileExtension = '.pdf';
+          } else if (tipo === 'nota_xml') {
+            contentType = 'application/xml';
+            fileExtension = '.xml';
+          }
+
+          // Definir headers corretos para download
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Length', fileBuffer.length);
+          res.setHeader('Content-Disposition', `attachment; filename="${tipo}_${orderId}${fileExtension}"`);
+          res.setHeader('Cache-Control', 'no-cache');
+
+          console.log(`📁 Enviando arquivo ${tipo} do pedido ${orderId} (${fileBuffer.length} bytes)`);
+          
+          return res.end(fileBuffer);
+
+        } catch (downloadError) {
+          console.error("Erro ao fazer download do documento:", downloadError);
+          return res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao fazer download do documento"
+          });
+        }
+      }
+
+      // Se não for download, retornar apenas as informações
       return res.json({
         sucesso: true,
         temDocumentos: true,
