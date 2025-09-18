@@ -3734,6 +3734,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // DOWNLOAD DIRETO DO OBJECT STORAGE SEM FUNÇÃO INTERMEDIÁRIA
           if (objectStorageAvailable && objectStorage && documentInfo.storageKey) {
             console.log(`📥 Tentando download direto do Object Storage: ${documentInfo.storageKey}`);
+            console.log(`📋 Nome original no storage: ${documentInfo.filename}`);
+            console.log(`📋 StorageKey: ${documentInfo.storageKey}`);
             
             try {
               const rawData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
@@ -3749,18 +3751,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   contentType = 'application/xml';
                 }
 
-                // Usar nome original do storage
-                const originalFilename = documentInfo.filename || documentInfo.name || `${tipo}_${orderId}`;
+                // USAR O NOME EXATO DO ARQUIVO COMO ESTÁ NO STORAGE - SEM RENOMEAR
+                const storageFilename = documentInfo.filename; // Nome exato do storage
+                
+                console.log(`📤 ENVIANDO ARQUIVO SEM RENOMEAR:`);
+                console.log(`   🔸 Nome no storage: ${storageFilename}`);
+                console.log(`   🔸 Tamanho: ${rawData.length} bytes`);
+                console.log(`   🔸 Tipo: ${contentType}`);
 
-                // Configurar headers e enviar RAW
+                // Configurar headers com nome EXATO do storage
                 res.setHeader('Content-Type', contentType);
                 res.setHeader('Content-Length', rawData.length);
-                res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+                res.setHeader('Content-Disposition', `attachment; filename="${storageFilename}"`);
                 res.setHeader('Cache-Control', 'no-cache');
-
-                console.log(`📤 Enviando ${originalFilename} (${rawData.length} bytes)`);
                 
-                // Enviar dados RAW diretamente
+                // Enviar dados RAW diretamente SEM QUALQUER CONVERSÃO
                 return res.end(rawData instanceof Uint8Array ? Buffer.from(rawData) : rawData);
               }
             } catch (storageError) {
@@ -3784,14 +3789,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 contentType = 'application/xml';
               }
 
-              const originalFilename = documentInfo.filename || documentInfo.name || `${tipo}_${orderId}`;
+              // USAR NOME EXATO SEM RENOMEAR
+              const localFilename = documentInfo.filename;
+              
+              console.log(`📤 ENVIANDO ARQUIVO LOCAL SEM RENOMEAR:`);
+              console.log(`   🔸 Nome original: ${localFilename}`);
+              console.log(`   🔸 Tamanho: ${localBuffer.length} bytes`);
 
               res.setHeader('Content-Type', contentType);
               res.setHeader('Content-Length', localBuffer.length);
-              res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+              res.setHeader('Content-Disposition', `attachment; filename="${localFilename}"`);
               res.setHeader('Cache-Control', 'no-cache');
 
-              console.log(`📤 Enviando do local ${originalFilename} (${localBuffer.length} bytes)`);
               return res.end(localBuffer);
             }
           }
