@@ -3748,7 +3748,7 @@ const uploadLogo = multer({
                   if (fileExtension === '.pdf') {
                     contentType = 'application/pdf';
                   } else if (fileExtension === '.xml') {
-                    contentType = 'text/xml';
+                    contentType = 'application/xml';
                   }
 
                   console.log(`📤 ENVIANDO: ${originalFilename} | ${buffer.length} bytes | ${contentType}`);
@@ -3784,7 +3784,7 @@ const uploadLogo = multer({
               if (fileExt === '.pdf') {
                 contentType = 'application/pdf';
               } else if (fileExt === '.xml') {
-                contentType = 'text/xml';
+                contentType = 'application/xml';
               }
 
               console.log(`📤 ENVIANDO LOCAL: ${originalName} | ${fileBuffer.length} bytes`);
@@ -4840,7 +4840,7 @@ const uploadLogo = multer({
         await storage.createLog({
           userId: req.session.userId || 0,
           action: "Confirmação de entrega",
-          item          type: "order",
+          itemType: "order",
           itemId: id.toString(),
           details: `Pedido ${order.orderId} foi confirmado como entregue. Quantidade recebida: ${quantidadeRecebida}. Foto da nota assinada enviada.`
         });
@@ -4914,7 +4914,7 @@ const uploadLogo = multer({
           } : null
         });
       } catch (error) {
-        console.error("❌ Erro ao verificar configurações:", error);
+        console.error("❌Erro ao verificar configurações:", error);
         res.status(500).json({
           success: false,
           message: "Erro ao verificar configurações",
