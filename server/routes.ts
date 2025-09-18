@@ -258,9 +258,9 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
   // FALLBACK: Tentar ler do sistema de arquivos local
   const possiblePaths = [
-    path.join(process.cwd(), "uploads", `${filename}`),
-    path.join(process.cwd(), "uploads", orderId, filename),
-    key
+    path.join(process.cwd(), "uploads", `${filename}`), // Tenta no root de uploads primeiro
+    path.join(process.cwd(), "uploads", orderId, filename), // Tenta no diretório específico do pedido
+    key // Tenta usar a 'key' diretamente como path, caso seja um path local salvo anteriormente
   ];
 
   for (const filePath of possiblePaths) {
@@ -273,7 +273,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     }
   }
 
-  console.log(`❌ Arquivo não encontrado: ${filename}`);
+  console.log(`❌ Arquivo não encontrado nos caminhos: ${possiblePaths.join(', ')}`);
   return null;
 }
 
@@ -393,6 +393,7 @@ const storage_upload = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const fileExt = path.extname(file.originalname);
+    // Campo do arquivo + data atual + extensão original
     const fileName = file.fieldname + "-" + Date.now() + fileExt;
     console.log("📄 Nome do arquivo gerado:", fileName);
     cb(null, fileName);
@@ -443,7 +444,7 @@ const logoStorage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const fileExt = path.extname(file.originalname);
-    const fileName = "logo" + fileExt;
+    const fileName = "logo" + fileExt; // Sempre o mesmo nome para sobrescrever
     cb(null, fileName);
   }
 });
@@ -470,10 +471,11 @@ const logoStorage = multer.diskStorage({
         }
 
         const numeroOrdem = result.rows[0].numero_ordem;
+        // Salva o PDF com o nome do número da ordem + extensão .pdf
         const fileName = `${numeroOrdem}.pdf`;
         cb(null, fileName);
       } catch (error) {
-        console.error("Erro ao gerar nome do arquivo:", error);
+        console.error("Erro ao gerar nome do arquivo da ordem de compra:", error);
         cb(error as Error, "");
       }
     }
@@ -1509,12 +1511,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           [orderData.purchaseOrderId, orderData.productId]
         );
 
-                 quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
-       } else {
-         // Para armazenamento em memória, assumir que há saldo suficiente
-         quantidadeTotal = 1000; // Valor padrão para desenvolvimento
-         quantidadeUsada = 0;
-       }
+        quantidadeUsada = parseFloat(usadoResult.rows[0].total_usado || 0);
+      } else {
+        // Para armazenamento em memória, assumir que há saldo suficiente
+        quantidadeTotal = 1000; // Valor padrão para desenvolvimento
+        quantidadeUsada = 0;
+      }
       const saldoDisponivel = quantidadeTotal - quantidadeUsada;
       const quantidadePedido = parseFloat(orderData.quantity);
 
@@ -2226,7 +2228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // KeyUser sempre tem permissão - verificação mais robusta
-      if (req.user.id === 1 || req.user.isKeyUser === true || req.user.isDeveloper === true || 
+      if (req.user.id === 1 || req.user.isKeyUser === true || req.user.isDeveloper === true ||
           (req.user.permissions && req.user.permissions.includes("*"))) {
         hasEditPermission = true;
         console.log(`✅ Permissão concedida - KeyUser detectado`);
@@ -2448,7 +2450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar a ordem de compra completa
       const result = await pool.query(`
-        SELECT 
+        SELECT
           oc.id,
           oc.numero_ordem,
           oc.empresa_id,
@@ -3594,7 +3596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Configurar headers para download da imagem
-      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Content-Type", "image/jpeg"); // Assumindo JPEG, mas pode ser configurável
       res.setHeader("Content-Disposition", `attachment; filename=${fotoInfo.name}`);
 
       // Enviar o arquivo
@@ -3668,7 +3670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const documentosInfo = typeof result.rows[0].documentosinfo === 'string' 
+      const documentosInfo = typeof result.rows[0].documentosinfo === 'string'
         ? JSON.parse(result.rows[0].documentosinfo)
         : result.rows[0].documentosinfo;
 
@@ -3684,9 +3686,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        console.log(`\n=== DOWNLOAD ${tipo.toUpperCase()} - PEDIDO ${orderId} ===`);
+        console.log(`🔍 Documento encontrado no banco:`, {
+          id: documentInfo?.id,
+          name: documentInfo?.name,
+          filename: documentInfo?.filename,
+          size: documentInfo?.size,
+          path: documentInfo?.path,
+          storageKey: documentInfo?.storageKey
+        });
+        console.log(`📊 Tamanho registrado: ${documentInfo?.size || 'não informado'} bytes`);
+        console.log(`📂 Chave do storage: ${documentInfo?.filename || documentInfo?.storageKey || 'não informado'}`);
+        console.log(`🗃️ Path completo: ${documentInfo?.path || 'não informado'}`);
+
         try {
           const fileBuffer = await readFileFromStorage(
-            documentInfo.storageKey || documentInfo.path,
+            documentInfo.storageKey || documentInfo.path, // Tenta a chave de storage primeiro, depois o path local
             orderId,
             documentInfo.filename
           );
@@ -3694,10 +3709,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Verificar se é um redirect para Google Drive
           if (fileBuffer && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
             const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+            console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
             return res.redirect(302, driveLink);
           }
 
           if (!fileBuffer || fileBuffer.length === 0) {
+            console.log(`❌ Arquivo não encontrado ou está vazio (storageKey: ${documentInfo?.storageKey})`);
             return res.status(404).json({
               sucesso: false,
               mensagem: "Arquivo não encontrado ou está corrompido"
@@ -3705,8 +3722,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Definir content type baseado no tipo do documento
-          let contentType = 'application/octet-stream';
-          
+          let contentType = 'application/octet-stream'; // Tipo genérico para download
+
           if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
             contentType = 'application/pdf';
           } else if (tipo === 'nota_xml') {
@@ -3723,7 +3740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.setHeader('Cache-Control', 'no-cache');
 
           console.log(`📁 Enviando arquivo ${tipo} do pedido ${orderId} (${fileBuffer.length} bytes) - nome no storage: ${storageFilename}`);
-          
+
           // Verificar se é Buffer e enviar RAW
           if (Buffer.isBuffer(fileBuffer)) {
             console.log(`✅ Enviando como Buffer direto (${fileBuffer.length} bytes)`);
@@ -3737,28 +3754,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
         } catch (downloadError) {
-          console.error("Erro ao fazer download do documento:", downloadError);
+          console.error(`❌ Erro detalhado no download do ${tipo}:`, {
+            orderId,
+            tipo,
+            error: downloadError.message,
+            stack: downloadError.stack
+          });
           return res.status(500).json({
             sucesso: false,
-            mensagem: "Erro ao fazer download do documento"
+            mensagem: `Erro ao fazer download do documento: ${downloadError.message}`
           });
         }
+
+      } else {
+        console.log(`❌ Documento ${tipo} não encontrado para o pedido ${orderId}`);
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: `Documento ${tipo} não encontrado para este pedido`
+        });
       }
 
-      // Se não for download, retornar apenas as informações
-      return res.json({
-        sucesso: true,
-        temDocumentos: true,
-        documentos: documentosInfo
-      });
     } catch (error) {
-      console.error("Erro ao buscar informações dos documentos:", error);
+      console.error(`❌ Erro geral ao buscar documento ${tipo}:`, {
+        orderId,
+        tipo,
+        error: error.message,
+        stack: error.stack
+      });
       res.status(500).json({
         sucesso: false,
-        mensagem: "Erro interno do servidor ao buscar informações dos documentos",
-        erro: error instanceof Error ? error.message : "Erro desconhecido"
+        mensagem: "Erro interno do servidor"
       });
     }
+    console.log(`=== FIM DOWNLOAD ${tipo.toUpperCase()} ===\n`);
   });
 
   // Rota para obter informações sobre os documentos de um pedido
@@ -4984,7 +5012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Rota para o keyuser testar Object Storage
+  // Rota para keyuser testar Object Storage
   app.post("/api/keyuser/test-object-storage", isAuthenticated, isKeyUser, async (req, res) => {
     try {
       console.log("🧪 KeyUser solicitou teste do Object Storage");
