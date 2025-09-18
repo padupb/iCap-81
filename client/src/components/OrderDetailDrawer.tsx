@@ -1814,8 +1814,8 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
-                                    // DOWNLOAD DIRETO SEM CONVERSÕES
-                                    window.open(`/api/pedidos/${orderId}/documentos/nota_pdf`, '_blank');
+                                    // DOWNLOAD DIRETO COM QUERY PARAMETER
+                                    window.open(`/api/pedidos/${orderId}/documentos/nota_pdf?download=true`, '_blank');
                                   }
                                 }}
                                 title="Clique para baixar a Nota Fiscal (PDF)"
@@ -1835,8 +1835,8 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
-                                    // DOWNLOAD DIRETO SEM CONVERSÕES
-                                    window.open(`/api/pedidos/${orderId}/documentos/nota_xml`, '_blank');
+                                    // DOWNLOAD DIRETO COM QUERY PARAMETER
+                                    window.open(`/api/pedidos/${orderId}/documentos/nota_xml?download=true`, '_blank');
                                   }
                                 }}
                                 title="Clique para baixar a Nota Fiscal (XML)"
@@ -1856,8 +1856,8 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
-                                    // DOWNLOAD DIRETO SEM CONVERSÕES
-                                    window.open(`/api/pedidos/${orderId}/documentos/certificado_pdf`, '_blank');
+                                    // DOWNLOAD DIRETO COM QUERY PARAMETER
+                                    window.open(`/api/pedidos/${orderId}/documentos/certificado_pdf?download=true`, '_blank');
                                   }
                                 }}
                                 title="Clique para baixar o Certificado (PDF)"

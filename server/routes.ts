@@ -3726,65 +3726,57 @@ const uploadLogo = multer({
           });
 
           try {
-            // DOWNLOAD DIRETO DO OBJECT STORAGE SEM FUNÇÃO INTERMEDIÁRIA
+            // PRIORIDADE 1: DOWNLOAD DIRETO DO OBJECT STORAGE
             if (objectStorageAvailable && objectStorage && documentInfo.storageKey) {
-              console.log(`📥 Tentando download direto do Object Storage: ${documentInfo.storageKey}`);
+              console.log(`📥 Buscando arquivo no Object Storage: ${documentInfo.storageKey}`);
 
               try {
-                const rawData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
+                const fileData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
 
-                if (rawData && rawData.length > 0) {
-                  console.log(`✅ Arquivo recuperado: ${rawData.length} bytes`);
+                if (fileData && fileData.length > 0) {
+                  console.log(`✅ SUCESSO Object Storage: ${fileData.length} bytes recuperados`);
 
-                  // Determinar content type automaticamente pela extensão do arquivo original
-                  let contentType = 'application/octet-stream';
+                  // Converter para Buffer se necessário
+                  const buffer = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData);
+                  
+                  // Nome original do arquivo
                   const originalFilename = documentInfo.filename;
+                  
+                  // Content type baseado na extensão
                   const fileExtension = path.extname(originalFilename).toLowerCase();
-
+                  let contentType = 'application/octet-stream';
                   if (fileExtension === '.pdf') {
                     contentType = 'application/pdf';
                   } else if (fileExtension === '.xml') {
                     contentType = 'text/xml';
                   }
 
-                  console.log(`📤 DOWNLOAD: ${originalFilename} (${rawData.length} bytes)`);
+                  console.log(`📤 ENVIANDO: ${originalFilename} | ${buffer.length} bytes | ${contentType}`);
 
-                  // Headers com nome EXATO do arquivo no storage
+                  // Headers de resposta
                   res.setHeader('Content-Type', contentType);
-                  res.setHeader('Content-Length', rawData.length);
+                  res.setHeader('Content-Length', buffer.length);
                   res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
-                  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-                  res.setHeader('Pragma', 'no-cache');
-                  res.setHeader('Expires', '0');
+                  res.setHeader('Cache-Control', 'no-cache');
 
-                  // Retornar dados brutos sem processamento
-                  // CONVERSÃO CORRETA DOS DADOS BINÁRIOS
-                  let bufferData;
-                  if (rawData instanceof Uint8Array) {
-                    bufferData = Buffer.from(rawData);
-                  } else if (Buffer.isBuffer(rawData)) {
-                    bufferData = rawData;
-                  } else {
-                    // Se não for nem Uint8Array nem Buffer, tentar converter
-                    bufferData = Buffer.from(rawData, 'binary');
-                  }
-
-                  console.log(`📊 Dados convertidos: ${bufferData.length} bytes (tipo: ${bufferData.constructor.name})`);
-
-                  return res.end(bufferData);
+                  // Enviar arquivo diretamente
+                  return res.end(buffer);
+                } else {
+                  console.log(`⚠️ Arquivo vazio ou não encontrado no Object Storage`);
                 }
               } catch (storageError) {
-                console.log(`⚠️ Object Storage falhou: ${storageError.message}`);
+                console.log(`❌ Erro no Object Storage: ${storageError.message}`);
               }
             }
 
-            // FALLBACK: Sistema local (também sem renomeação)
+            // PRIORIDADE 2: FALLBACK SISTEMA LOCAL
             const localFilePath = path.join(process.cwd(), "uploads", orderId, documentInfo.filename);
+            console.log(`📁 Tentando arquivo local: ${localFilePath}`);
 
             if (fs.existsSync(localFilePath)) {
-              console.log(`📁 Arquivo local encontrado: ${localFilePath}`);
-
               const fileBuffer = fs.readFileSync(localFilePath);
+              console.log(`✅ SUCESSO Local: ${fileBuffer.length} bytes recuperados`);
+
               const originalName = documentInfo.filename;
               const fileExt = path.extname(originalName).toLowerCase();
 
@@ -3795,32 +3787,32 @@ const uploadLogo = multer({
                 contentType = 'text/xml';
               }
 
-              console.log(`📤 DOWNLOAD LOCAL: ${originalName} (${fileBuffer.length} bytes)`);
+              console.log(`📤 ENVIANDO LOCAL: ${originalName} | ${fileBuffer.length} bytes`);
 
               res.setHeader('Content-Type', contentType);
               res.setHeader('Content-Length', fileBuffer.length);
               res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+              res.setHeader('Cache-Control', 'no-cache');
 
               return res.end(fileBuffer);
             }
 
-            console.log(`❌ Arquivo não localizado: ${documentInfo.filename}`);
+            console.log(`❌ Arquivo não encontrado em nenhum local`);
             return res.status(404).json({
               sucesso: false,
-              mensagem: "Arquivo não encontrado"
+              mensagem: "Arquivo não encontrado no servidor"
             });
 
           } catch (downloadError) {
-            console.error(`❌ Erro no download:`, downloadError);
+            console.error(`❌ Erro crítico no download:`, downloadError);
             return res.status(500).json({
               sucesso: false,
-              mensagem: "Erro interno no download"
+              mensagem: "Erro interno no processo de download"
             });
           }
         }
 
-        // Se não tem query parameter de download, retornar info dos documentos
+        // Se não é download, retornar informações dos documentos
         return res.json({
           sucesso: true,
           temDocumentos: true,
@@ -3829,12 +3821,7 @@ const uploadLogo = multer({
         });
 
       } catch (error) {
-        console.error(`❌ Erro geral ao buscar documento ${tipo}:`, {
-          orderId,
-          tipo,
-          error: error.message,
-          stack: error.stack
-        });
+        console.error(`❌ Erro geral na rota de documentos:`, error);
         res.status(500).json({
           sucesso: false,
           mensagem: "Erro interno do servidor"
