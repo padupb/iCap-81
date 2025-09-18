@@ -208,95 +208,87 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   }
 }
 
-// Função utilitária para ler arquivo do Object Storage, Google Drive ou sistema local
+// Função utilitária para ler arquivo PRESERVANDO nome original
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer | Uint8Array, originalName: string } | null> {
-  console.log(`🔍 Buscando arquivo - Key: ${key}, OrderId: ${orderId}, Filename: ${filename}`);
+  console.log(`🔍 Buscando: ${filename} | Key: ${key}`);
   
-  // Se for um link do Google Drive, redirecionar
+  // Google Drive redirect
   if (key.startsWith('gdrive:')) {
     const driveLink = key.replace('gdrive:', '');
-    console.log(`📁 🔗 Arquivo está no Google Drive: ${driveLink}`);
     return { 
       data: Buffer.from(`REDIRECT:${driveLink}`, 'utf-8'),
       originalName: filename
     };
   }
 
-  // PRIORIDADE 1: Tentar ler do Object Storage se disponível
+  // Object Storage com nome PRESERVADO
   if (objectStorageAvailable && objectStorage) {
-    const keysToTry = [];
+    const storageKeys = [];
     
-    // Adicionar diferentes possibilidades de chave
+    // Prioridades de busca mantendo nome original
     if (key) {
-      keysToTry.push({ key, originalName: filename });
+      storageKeys.push({ key, name: filename });
     }
     
-    // Para pedidos, tentar na pasta orders
     if (!key.startsWith('OC/')) {
-      keysToTry.push({ 
+      storageKeys.push({ 
         key: `orders/${orderId}/${filename}`,
-        originalName: filename
+        name: filename  // NOME ORIGINAL PRESERVADO
       });
     }
     
-    // Para PDFs de ordens de compra, tentar na pasta OC
     if (key.startsWith('OC/') || orderId.includes('orden')) {
       const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
-      keysToTry.unshift({ 
+      // IMPORTANTE: extrair nome real do arquivo no storage
+      const realStorageName = ocKey.includes('/') ? ocKey.split('/').pop() : ocKey;
+      storageKeys.unshift({ 
         key: ocKey,
-        originalName: path.basename(ocKey) // Usar nome original do storage
+        name: realStorageName || filename
       });
     }
 
-    for (const { key: storageKey, originalName } of keysToTry) {
+    for (const { key: storageKey, name: storageName } of storageKeys) {
       try {
-        console.log(`📥 Tentando download: ${storageKey}`);
         const rawData = await objectStorage.downloadAsBytes(storageKey);
         
         if (rawData && rawData.length > 0) {
-          console.log(`✅ Arquivo encontrado: ${storageKey} (${rawData.length} bytes) - Nome original: ${originalName}`);
+          console.log(`✅ Storage: ${storageName} (${rawData.length} bytes)`);
           
           return {
             data: rawData instanceof Uint8Array ? rawData : Buffer.from(rawData),
-            originalName: originalName
+            originalName: storageName  // NOME EXATO DO STORAGE
           };
         }
       } catch (error) {
-        console.log(`⚠️ Chave ${storageKey} não encontrada: ${error.message}`);
+        console.log(`⚠️ ${storageKey}: ${error.message}`);
       }
     }
-    
-    console.log(`❌ Arquivo não encontrado no Object Storage após tentar ${keysToTry.length} chaves`);
-  } else {
-    console.log(`⚠️ Object Storage não disponível`);
   }
 
-  // FALLBACK: Tentar ler do sistema de arquivos local
-  const possiblePaths = [
+  // Sistema local com nome preservado
+  const localPaths = [
     { path: path.join(process.cwd(), "uploads", orderId, filename), name: filename },
-    { path: path.join(process.cwd(), "uploads", filename), name: filename },
-    { path: key.startsWith('/') ? key : path.join(process.cwd(), key), name: path.basename(key) }
+    { path: path.join(process.cwd(), "uploads", filename), name: filename }
   ];
 
-  for (const { path: filePath, name } of possiblePaths) {
+  for (const { path: filePath, name } of localPaths) {
     try {
       if (fs.existsSync(filePath)) {
-        console.log(`📁 Arquivo encontrado localmente: ${filePath}`);
-        const localBuffer = fs.readFileSync(filePath);
-        if (localBuffer.length > 0) {
-          console.log(`✅ Arquivo local lido: ${localBuffer.length} bytes - Nome: ${name}`);
+        const buffer = fs.readFileSync(filePath);
+        if (buffer.length > 0) {
+          console.log(`✅ Local: ${name} (${buffer.length} bytes)`);
           return {
-            data: localBuffer,
-            originalName: name
+            data: buffer,
+            originalName: name  // NOME ORIGINAL PRESERVADO
           };
         }
       }
     } catch (error) {
-      console.log(`⚠️ Erro ao ler ${filePath}: ${error.message}`);
+      console.log(`⚠️ ${filePath}: ${error.message}`);
     }
   }
 
-  console.log(`❌ Arquivo não encontrado em nenhum local`);
+  console.log(`❌ Arquivo ${filename} não encontrado`);
   return null;
 }
 
@@ -3731,92 +3723,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         try {
-          // DOWNLOAD DIRETO DO OBJECT STORAGE SEM FUNÇÃO INTERMEDIÁRIA
+          // DOWNLOAD DIRETO DO OBJECT STORAGE SEM CONVERSÃO OU RENOMEAÇÃO
           if (objectStorageAvailable && objectStorage && documentInfo.storageKey) {
-            console.log(`📥 Tentando download direto do Object Storage: ${documentInfo.storageKey}`);
-            console.log(`📋 Nome original no storage: ${documentInfo.filename}`);
-            console.log(`📋 StorageKey: ${documentInfo.storageKey}`);
+            console.log(`📥 Download direto Object Storage: ${documentInfo.storageKey}`);
             
             try {
-              const rawData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
+              const rawBytes = await objectStorage.downloadAsBytes(documentInfo.storageKey);
               
-              if (rawData && rawData.length > 0) {
-                console.log(`✅ Download direto bem-sucedido (${rawData.length} bytes)`);
+              if (rawBytes && rawBytes.length > 0) {
+                console.log(`✅ Arquivo recuperado: ${rawBytes.length} bytes`);
                 
-                // Definir content type baseado no tipo do documento
+                // Determinar content type automaticamente pela extensão do arquivo original
                 let contentType = 'application/octet-stream';
-                if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
+                const originalFilename = documentInfo.filename;
+                const fileExtension = path.extname(originalFilename).toLowerCase();
+                
+                if (fileExtension === '.pdf') {
                   contentType = 'application/pdf';
-                } else if (tipo === 'nota_xml') {
-                  contentType = 'application/xml';
+                } else if (fileExtension === '.xml') {
+                  contentType = 'text/xml';
                 }
 
-                // USAR O NOME EXATO DO ARQUIVO COMO ESTÁ NO STORAGE - SEM RENOMEAR
-                const storageFilename = documentInfo.filename; // Nome exato do storage
-                
-                console.log(`📤 ENVIANDO ARQUIVO SEM RENOMEAR:`);
-                console.log(`   🔸 Nome no storage: ${storageFilename}`);
-                console.log(`   🔸 Tamanho: ${rawData.length} bytes`);
-                console.log(`   🔸 Tipo: ${contentType}`);
+                console.log(`📤 DOWNLOAD: ${originalFilename} (${rawBytes.length} bytes)`);
 
-                // Configurar headers com nome EXATO do storage
+                // Headers com nome EXATO do arquivo no storage
                 res.setHeader('Content-Type', contentType);
-                res.setHeader('Content-Length', rawData.length);
-                res.setHeader('Content-Disposition', `attachment; filename="${storageFilename}"`);
-                res.setHeader('Cache-Control', 'no-cache');
+                res.setHeader('Content-Length', rawBytes.length);
+                res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
                 
-                // Enviar dados RAW diretamente SEM QUALQUER CONVERSÃO
-                return res.end(rawData instanceof Uint8Array ? Buffer.from(rawData) : rawData);
+                // Retornar dados brutos sem processamento
+                return res.end(Buffer.isBuffer(rawBytes) ? rawBytes : Buffer.from(rawBytes));
               }
             } catch (storageError) {
-              console.log(`❌ Erro no download direto: ${storageError.message}`);
+              console.log(`⚠️ Object Storage falhou: ${storageError.message}`);
             }
           }
 
-          // FALLBACK: Tentar sistema de arquivos local
-          console.log(`🔄 Tentando fallback para sistema local`);
-          const localPath = path.join(process.cwd(), "uploads", orderId, documentInfo.filename);
+          // FALLBACK: Sistema local (também sem renomeação)
+          const localFilePath = path.join(process.cwd(), "uploads", orderId, documentInfo.filename);
           
-          if (fs.existsSync(localPath)) {
-            console.log(`📁 Arquivo encontrado localmente: ${localPath}`);
-            const localBuffer = fs.readFileSync(localPath);
+          if (fs.existsSync(localFilePath)) {
+            console.log(`📁 Arquivo local encontrado: ${localFilePath}`);
             
-            if (localBuffer.length > 0) {
-              let contentType = 'application/octet-stream';
-              if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
-                contentType = 'application/pdf';
-              } else if (tipo === 'nota_xml') {
-                contentType = 'application/xml';
-              }
-
-              // USAR NOME EXATO SEM RENOMEAR
-              const localFilename = documentInfo.filename;
-              
-              console.log(`📤 ENVIANDO ARQUIVO LOCAL SEM RENOMEAR:`);
-              console.log(`   🔸 Nome original: ${localFilename}`);
-              console.log(`   🔸 Tamanho: ${localBuffer.length} bytes`);
-
-              res.setHeader('Content-Type', contentType);
-              res.setHeader('Content-Length', localBuffer.length);
-              res.setHeader('Content-Disposition', `attachment; filename="${localFilename}"`);
-              res.setHeader('Cache-Control', 'no-cache');
-
-              return res.end(localBuffer);
+            const fileBuffer = fs.readFileSync(localFilePath);
+            const originalName = documentInfo.filename;
+            const fileExt = path.extname(originalName).toLowerCase();
+            
+            let contentType = 'application/octet-stream';
+            if (fileExt === '.pdf') {
+              contentType = 'application/pdf';
+            } else if (fileExt === '.xml') {
+              contentType = 'text/xml';
             }
+
+            console.log(`📤 DOWNLOAD LOCAL: ${originalName} (${fileBuffer.length} bytes)`);
+
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Length', fileBuffer.length);
+            res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            
+            return res.end(fileBuffer);
           }
 
-          // Se chegou aqui, não encontrou o arquivo
-          console.log(`❌ Arquivo não encontrado em nenhum local`);
+          console.log(`❌ Arquivo não localizado: ${documentInfo.filename}`);
           return res.status(404).json({
             sucesso: false,
-            mensagem: "Documento não encontrado no storage"
+            mensagem: "Arquivo não encontrado"
           });
 
         } catch (downloadError) {
-          console.error(`❌ Erro ao baixar documento ${tipo}:`, downloadError);
+          console.error(`❌ Erro no download:`, downloadError);
           return res.status(500).json({
             sucesso: false,
-            mensagem: `Erro ao processar download: ${downloadError.message}`
+            mensagem: "Erro interno no download"
           });
         }
       }
