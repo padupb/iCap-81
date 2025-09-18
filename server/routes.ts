@@ -227,8 +227,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
         if (downloadedBytes && downloadedBytes.length > 0) {
           console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${downloadedBytes.length} bytes)`);
-          // Retornar diretamente os bytes sem conversão Buffer.from()
-          return downloadedBytes instanceof Buffer ? downloadedBytes : Buffer.from(downloadedBytes);
+          // Retornar diretamente sem qualquer conversão
+          return downloadedBytes;
         }
       } catch (ocError) {
         console.log(`🔄 Arquivo não encontrado na pasta OC: ${ocError.message}`);
@@ -242,8 +242,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         const downloadedBytes = await objectStorage.downloadAsBytes(key);
         if (downloadedBytes && downloadedBytes.length > 0) {
           console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${downloadedBytes.length} bytes)`);
-          // Retornar diretamente os bytes sem conversão Buffer.from()
-          return downloadedBytes instanceof Buffer ? downloadedBytes : Buffer.from(downloadedBytes);
+          // Retornar diretamente sem qualquer conversão
+          return downloadedBytes;
         }
       } catch (error) {
         console.error("❌ Erro ao ler do Object Storage:", {
