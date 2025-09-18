@@ -3738,10 +3738,10 @@ const uploadLogo = multer({
 
                   // Converter para Buffer se necessário
                   const buffer = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData);
-                  
+
                   // Nome original do arquivo
                   const originalFilename = documentInfo.filename;
-                  
+
                   // Content type baseado na extensão
                   const fileExtension = path.extname(originalFilename).toLowerCase();
                   let contentType = 'application/octet-stream';
@@ -3819,7 +3819,6 @@ const uploadLogo = multer({
           documentos: Object.keys(documentosInfo),
           info: documentosInfo
         });
-
       } catch (error) {
         console.error(`❌ Erro geral na rota de documentos:`, error);
         res.status(500).json({
@@ -4841,7 +4840,7 @@ const uploadLogo = multer({
         await storage.createLog({
           userId: req.session.userId || 0,
           action: "Confirmação de entrega",
-          itemType: "order",
+          item          type: "order",
           itemId: id.toString(),
           details: `Pedido ${order.orderId} foi confirmado como entregue. Quantidade recebida: ${quantidadeRecebida}. Foto da nota assinada enviada.`
         });
