@@ -224,15 +224,11 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
       try {
         console.log(`📥 Tentando download da pasta OC: ${ocKey}`);
-        const downloadedData = await objectStorage.downloadAsBytes(ocKey);
-        if (downloadedData && downloadedData.length > 0) {
-          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${downloadedData.length} bytes)`);
-          // Verificar se já é um Buffer, se não, converter apenas uma vez
-          if (Buffer.isBuffer(downloadedData)) {
-            return downloadedData;
-          } else {
-            return Buffer.from(downloadedData);
-          }
+        const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
+        if (downloadedBytes && downloadedBytes.length > 0) {
+          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${downloadedBytes.length} bytes)`);
+          // Retornar diretamente como Buffer sem conversões
+          return Buffer.from(downloadedBytes);
         }
       } catch (ocError) {
         console.log(`🔄 Arquivo não encontrado na pasta OC: ${ocError.message}`);
@@ -243,15 +239,11 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     if (key && (key.startsWith('orders/') || key.startsWith('OC/'))) {
       try {
         console.log(`📥 Tentando download do Object Storage: ${key}`);
-        const downloadedData = await objectStorage.downloadAsBytes(key);
-        if (downloadedData && downloadedData.length > 0) {
-          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${downloadedData.length} bytes)`);
-          // Verificar se já é um Buffer, se não, converter apenas uma vez
-          if (Buffer.isBuffer(downloadedData)) {
-            return downloadedData;
-          } else {
-            return Buffer.from(downloadedData);
-          }
+        const downloadedBytes = await objectStorage.downloadAsBytes(key);
+        if (downloadedBytes && downloadedBytes.length > 0) {
+          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${downloadedBytes.length} bytes)`);
+          // Retornar diretamente como Buffer sem conversões
+          return Buffer.from(downloadedBytes);
         }
       } catch (error) {
         console.error("❌ Erro ao ler do Object Storage:", {
