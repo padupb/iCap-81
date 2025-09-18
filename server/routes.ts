@@ -3731,71 +3731,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         try {
-          const fileResult = await readFileFromStorage(
-            documentInfo.storageKey || documentInfo.path,
-            orderId,
-            documentInfo.filename
-          );
+          // DOWNLOAD DIRETO DO OBJECT STORAGE SEM FUNÇÃO INTERMEDIÁRIA
+          if (objectStorageAvailable && objectStorage && documentInfo.storageKey) {
+            console.log(`📥 Tentando download direto do Object Storage: ${documentInfo.storageKey}`);
+            
+            try {
+              const rawData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
+              
+              if (rawData && rawData.length > 0) {
+                console.log(`✅ Download direto bem-sucedido (${rawData.length} bytes)`);
+                
+                // Definir content type baseado no tipo do documento
+                let contentType = 'application/octet-stream';
+                if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
+                  contentType = 'application/pdf';
+                } else if (tipo === 'nota_xml') {
+                  contentType = 'application/xml';
+                }
 
-          // Verificar se o arquivo foi encontrado
-          if (!fileResult) {
-            console.log(`❌ Arquivo não encontrado (storageKey: ${documentInfo?.storageKey})`);
-            return res.status(404).json({
-              sucesso: false,
-              mensagem: "Documento não encontrado no storage"
-            });
+                // Usar nome original do storage
+                const originalFilename = documentInfo.filename || documentInfo.name || `${tipo}_${orderId}`;
+
+                // Configurar headers e enviar RAW
+                res.setHeader('Content-Type', contentType);
+                res.setHeader('Content-Length', rawData.length);
+                res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+                res.setHeader('Cache-Control', 'no-cache');
+
+                console.log(`📤 Enviando ${originalFilename} (${rawData.length} bytes)`);
+                
+                // Enviar dados RAW diretamente
+                return res.end(rawData instanceof Uint8Array ? Buffer.from(rawData) : rawData);
+              }
+            } catch (storageError) {
+              console.log(`❌ Erro no download direto: ${storageError.message}`);
+            }
           }
 
-          const { data: fileBuffer, originalName } = fileResult;
-
-          // Verificar se é um redirect para Google Drive
-          if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
-            const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-            console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-            return res.redirect(302, driveLink);
-          }
-
-          // Converter para Buffer se necessário (mantendo dados RAW)
-          let finalBuffer: Buffer;
-          if (Buffer.isBuffer(fileBuffer)) {
-            finalBuffer = fileBuffer;
-          } else if (fileBuffer instanceof Uint8Array) {
-            finalBuffer = Buffer.from(fileBuffer);
-          } else {
-            console.log(`⚠️ Tipo de dados inesperado: ${typeof fileBuffer}`);
-            finalBuffer = Buffer.from(fileBuffer);
-          }
-
-          // Verificar se o buffer tem conteúdo
-          if (finalBuffer.length === 0) {
-            console.log(`❌ Arquivo está vazio`);
-            return res.status(404).json({
-              sucesso: false,
-              mensagem: "Documento está vazio ou corrompido"
-            });
-          }
-
-          // Definir content type baseado no tipo do documento
-          let contentType = 'application/octet-stream';
-          if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
-            contentType = 'application/pdf';
-          } else if (tipo === 'nota_xml') {
-            contentType = 'application/xml';
-          }
-
-          // USAR O NOME ORIGINAL DO STORAGE SEM CONVERSÕES
-          const downloadFilename = originalName || documentInfo.filename || documentInfo.name || `${tipo}_${orderId}`;
-
-          // Configurar headers para download RAW
-          res.setHeader('Content-Type', contentType);
-          res.setHeader('Content-Length', finalBuffer.length);
-          res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
-          res.setHeader('Cache-Control', 'no-cache');
-
-          console.log(`✅ Enviando arquivo ${tipo} (${finalBuffer.length} bytes) - Nome original: ${downloadFilename}`);
+          // FALLBACK: Tentar sistema de arquivos local
+          console.log(`🔄 Tentando fallback para sistema local`);
+          const localPath = path.join(process.cwd(), "uploads", orderId, documentInfo.filename);
           
-          // Enviar arquivo RAW sem qualquer processamento adicional
-          return res.end(finalBuffer);
+          if (fs.existsSync(localPath)) {
+            console.log(`📁 Arquivo encontrado localmente: ${localPath}`);
+            const localBuffer = fs.readFileSync(localPath);
+            
+            if (localBuffer.length > 0) {
+              let contentType = 'application/octet-stream';
+              if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
+                contentType = 'application/pdf';
+              } else if (tipo === 'nota_xml') {
+                contentType = 'application/xml';
+              }
+
+              const originalFilename = documentInfo.filename || documentInfo.name || `${tipo}_${orderId}`;
+
+              res.setHeader('Content-Type', contentType);
+              res.setHeader('Content-Length', localBuffer.length);
+              res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+              res.setHeader('Cache-Control', 'no-cache');
+
+              console.log(`📤 Enviando do local ${originalFilename} (${localBuffer.length} bytes)`);
+              return res.end(localBuffer);
+            }
+          }
+
+          // Se chegou aqui, não encontrou o arquivo
+          console.log(`❌ Arquivo não encontrado em nenhum local`);
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: "Documento não encontrado no storage"
+          });
 
         } catch (downloadError) {
           console.error(`❌ Erro ao baixar documento ${tipo}:`, downloadError);
