@@ -1814,7 +1814,7 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
-                                    // Usar fetch para fazer o download manualmente
+                                    // Usar fetch para fazer o download SEM RENOMEAR
                                     fetch(
                                       `/api/pedidos/${orderId}/documentos/nota_pdf`,
                                     )
@@ -1824,20 +1824,35 @@ export function OrderDetailDrawer({
                                             `Erro ao baixar: ${response.status}`,
                                           );
                                         }
-                                        return response.blob();
+                                        
+                                        // EXTRAIR NOME ORIGINAL DO HEADER Content-Disposition
+                                        const contentDisposition = response.headers.get('Content-Disposition');
+                                        let originalFileName = "nota_pdf_documento.pdf"; // fallback
+                                        
+                                        if (contentDisposition) {
+                                          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                                          if (filenameMatch) {
+                                            originalFileName = filenameMatch[1];
+                                          }
+                                        }
+                                        
+                                        console.log(`📥 Nome original do arquivo PDF: ${originalFileName}`);
+                                        
+                                        return response.blob().then(blob => ({ blob, originalFileName }));
                                       })
-                                      .then((blob) => {
+                                      .then(({ blob, originalFileName }) => {
                                         // Criar um URL temporário para o blob
-                                        const url =
-                                          window.URL.createObjectURL(blob);
+                                        const url = window.URL.createObjectURL(blob);
                                         // Criar um elemento de link para download
                                         const a = document.createElement("a");
                                         a.href = url;
-                                        a.download = "nota_fiscal.pdf";
+                                        a.download = originalFileName; // USAR NOME ORIGINAL
                                         document.body.appendChild(a);
                                         a.click();
                                         window.URL.revokeObjectURL(url);
                                         a.remove();
+                                        
+                                        console.log(`✅ Download realizado com nome original: ${originalFileName}`);
                                       })
                                       .catch((error) => {
                                         console.error(
@@ -1870,7 +1885,7 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
-                                    // Usar fetch para fazer o download manualmente
+                                    // Usar fetch para fazer o download SEM RENOMEAR
                                     fetch(
                                       `/api/pedidos/${orderId}/documentos/nota_xml`,
                                     )
@@ -1880,20 +1895,35 @@ export function OrderDetailDrawer({
                                             `Erro ao baixar: ${response.status}`,
                                           );
                                         }
-                                        return response.blob();
+                                        
+                                        // EXTRAIR NOME ORIGINAL DO HEADER Content-Disposition
+                                        const contentDisposition = response.headers.get('Content-Disposition');
+                                        let originalFileName = "nota_xml_documento.xml"; // fallback
+                                        
+                                        if (contentDisposition) {
+                                          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                                          if (filenameMatch) {
+                                            originalFileName = filenameMatch[1];
+                                          }
+                                        }
+                                        
+                                        console.log(`📥 Nome original do arquivo XML: ${originalFileName}`);
+                                        
+                                        return response.blob().then(blob => ({ blob, originalFileName }));
                                       })
-                                      .then((blob) => {
+                                      .then(({ blob, originalFileName }) => {
                                         // Criar um URL temporário para o blob
-                                        const url =
-                                          window.URL.createObjectURL(blob);
+                                        const url = window.URL.createObjectURL(blob);
                                         // Criar um elemento de link para download
                                         const a = document.createElement("a");
                                         a.href = url;
-                                        a.download = "nota_fiscal.xml";
+                                        a.download = originalFileName; // USAR NOME ORIGINAL
                                         document.body.appendChild(a);
                                         a.click();
                                         window.URL.revokeObjectURL(url);
                                         a.remove();
+                                        
+                                        console.log(`✅ Download realizado com nome original: ${originalFileName}`);
                                       })
                                       .catch((error) => {
                                         console.error(
@@ -1926,7 +1956,7 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
-                                    // Usar fetch para fazer o download manualmente
+                                    // Usar fetch para fazer o download SEM RENOMEAR
                                     fetch(
                                       `/api/pedidos/${orderId}/documentos/certificado_pdf`,
                                     )
@@ -1936,20 +1966,35 @@ export function OrderDetailDrawer({
                                             `Erro ao baixar: ${response.status}`,
                                           );
                                         }
-                                        return response.blob();
+                                        
+                                        // EXTRAIR NOME ORIGINAL DO HEADER Content-Disposition
+                                        const contentDisposition = response.headers.get('Content-Disposition');
+                                        let originalFileName = "certificado_documento.pdf"; // fallback
+                                        
+                                        if (contentDisposition) {
+                                          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                                          if (filenameMatch) {
+                                            originalFileName = filenameMatch[1];
+                                          }
+                                        }
+                                        
+                                        console.log(`📥 Nome original do arquivo Certificado: ${originalFileName}`);
+                                        
+                                        return response.blob().then(blob => ({ blob, originalFileName }));
                                       })
-                                      .then((blob) => {
+                                      .then(({ blob, originalFileName }) => {
                                         // Criar um URL temporário para o blob
-                                        const url =
-                                          window.URL.createObjectURL(blob);
+                                        const url = window.URL.createObjectURL(blob);
                                         // Criar um elemento de link para download
                                         const a = document.createElement("a");
                                         a.href = url;
-                                        a.download = "certificado.pdf";
+                                        a.download = originalFileName; // USAR NOME ORIGINAL
                                         document.body.appendChild(a);
                                         a.click();
                                         window.URL.revokeObjectURL(url);
                                         a.remove();
+                                        
+                                        console.log(`✅ Download realizado com nome original: ${originalFileName}`);
                                       })
                                       .catch((error) => {
                                         console.error(
