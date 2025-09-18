@@ -214,9 +214,6 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   if (key.startsWith('gdrive:')) {
     const driveLink = key.replace('gdrive:', '');
     console.log(`📁 🔗 Arquivo está no Google Drive: ${driveLink}`);
-
-    // Para arquivos do Google Drive, vamos retornar um buffer especial
-    // que indica que é um redirect
     return Buffer.from(`REDIRECT:${driveLink}`, 'utf-8');
   }
 
@@ -227,20 +224,10 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
       try {
         console.log(`📥 Tentando download da pasta OC: ${ocKey}`);
-
         const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
         if (downloadedBytes && downloadedBytes.length > 0) {
-          // Garantir que é um Buffer válido
-          let buffer;
-          if (downloadedBytes instanceof Uint8Array) {
-            buffer = Buffer.from(downloadedBytes);
-          } else if (Buffer.isBuffer(downloadedBytes)) {
-            buffer = downloadedBytes;
-          } else {
-            buffer = Buffer.from(downloadedBytes);
-          }
-          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
-          return buffer;
+          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${downloadedBytes.length} bytes)`);
+          return Buffer.from(downloadedBytes);
         }
       } catch (ocError) {
         console.log(`🔄 Arquivo não encontrado na pasta OC: ${ocError.message}`);
@@ -251,30 +238,10 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     if (key && (key.startsWith('orders/') || key.startsWith('OC/'))) {
       try {
         console.log(`📥 Tentando download do Object Storage: ${key}`);
-
         const downloadedBytes = await objectStorage.downloadAsBytes(key);
         if (downloadedBytes && downloadedBytes.length > 0) {
-          // Garantir que é um Buffer válido
-          let buffer;
-          if (downloadedBytes instanceof Uint8Array) {
-            buffer = Buffer.from(downloadedBytes);
-          } else if (Buffer.isBuffer(downloadedBytes)) {
-            buffer = downloadedBytes;
-          } else if (typeof downloadedBytes === 'string') {
-            // Se for string, tratar como base64 ou texto
-            buffer = Buffer.from(downloadedBytes, 'base64');
-          } else {
-            buffer = Buffer.from(downloadedBytes);
-          }
-          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${buffer.length} bytes)`);
-          
-          // Verificar se o buffer não está vazio ou corrompido
-          if (buffer.length === 0) {
-            console.log(`⚠️ Buffer vazio para ${key}, tentando fallback`);
-            throw new Error("Buffer vazio");
-          }
-          
-          return buffer;
+          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${downloadedBytes.length} bytes)`);
+          return Buffer.from(downloadedBytes);
         }
       } catch (error) {
         console.error("❌ Erro ao ler do Object Storage:", {
@@ -289,27 +256,22 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
   // FALLBACK: Tentar ler do sistema de arquivos local
   const possiblePaths = [
-    path.join(process.cwd(), "uploads", `${filename}`), // PDF direto na pasta uploads
+    path.join(process.cwd(), "uploads", `${filename}`),
     path.join(process.cwd(), "uploads", orderId, filename),
-    key // Se key for um caminho local
+    key
   ];
 
   for (const filePath of possiblePaths) {
     if (fs.existsSync(filePath)) {
       console.log(`📁 💾 Arquivo lido do sistema local: ${filePath}`);
       const localBuffer = fs.readFileSync(filePath);
-      
-      // Verificar se o arquivo local não está corrompido
-      if (localBuffer.length === 0) {
-        console.log(`⚠️ Arquivo local vazio: ${filePath}`);
-        continue;
+      if (localBuffer.length > 0) {
+        return localBuffer;
       }
-      
-      return localBuffer;
     }
   }
 
-  console.log(`❌ Arquivo não encontrado nem no Object Storage nem localmente: ${filename}`);
+  console.log(`❌ Arquivo não encontrado: ${filename}`);
   return null;
 }
 
