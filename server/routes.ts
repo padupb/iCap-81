@@ -224,11 +224,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
       try {
         console.log(`📥 Tentando download da pasta OC: ${ocKey}`);
-        const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
-        if (downloadedBytes && downloadedBytes.length > 0) {
-          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${downloadedBytes.length} bytes)`);
-          // Retornar diretamente sem qualquer conversão
-          return downloadedBytes;
+        const downloadedData = await objectStorage.downloadAsBytes(ocKey);
+        if (downloadedData && downloadedData.length > 0) {
+          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${downloadedData.length} bytes)`);
+          // Verificar se já é um Buffer, se não, converter apenas uma vez
+          if (Buffer.isBuffer(downloadedData)) {
+            return downloadedData;
+          } else {
+            return Buffer.from(downloadedData);
+          }
         }
       } catch (ocError) {
         console.log(`🔄 Arquivo não encontrado na pasta OC: ${ocError.message}`);
@@ -239,11 +243,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     if (key && (key.startsWith('orders/') || key.startsWith('OC/'))) {
       try {
         console.log(`📥 Tentando download do Object Storage: ${key}`);
-        const downloadedBytes = await objectStorage.downloadAsBytes(key);
-        if (downloadedBytes && downloadedBytes.length > 0) {
-          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${downloadedBytes.length} bytes)`);
-          // Retornar diretamente sem qualquer conversão
-          return downloadedBytes;
+        const downloadedData = await objectStorage.downloadAsBytes(key);
+        if (downloadedData && downloadedData.length > 0) {
+          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${downloadedData.length} bytes)`);
+          // Verificar se já é um Buffer, se não, converter apenas uma vez
+          if (Buffer.isBuffer(downloadedData)) {
+            return downloadedData;
+          } else {
+            return Buffer.from(downloadedData);
+          }
         }
       } catch (error) {
         console.error("❌ Erro ao ler do Object Storage:", {
@@ -3706,25 +3714,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Definir content type baseado no tipo do documento
           let contentType = 'application/octet-stream';
-          let fileExtension = '';
           
           if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
             contentType = 'application/pdf';
-            fileExtension = '.pdf';
           } else if (tipo === 'nota_xml') {
             contentType = 'application/xml';
-            fileExtension = '.xml';
           }
 
-          // Definir headers corretos para download
+          // Usar o nome original do arquivo armazenado
+          const originalFilename = documentInfo.name || `${tipo}_${orderId}`;
+
+          // Definir headers corretos para download - sem forçar extensão
           res.setHeader('Content-Type', contentType);
           res.setHeader('Content-Length', fileBuffer.length);
-          res.setHeader('Content-Disposition', `attachment; filename="${tipo}_${orderId}${fileExtension}"`);
+          res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
           res.setHeader('Cache-Control', 'no-cache');
 
-          console.log(`📁 Enviando arquivo ${tipo} do pedido ${orderId} (${fileBuffer.length} bytes)`);
+          console.log(`📁 Enviando arquivo ${tipo} do pedido ${orderId} (${fileBuffer.length} bytes) - nome original: ${originalFilename}`);
           
-          return res.end(fileBuffer);
+          // Enviar os dados binários exatos sem qualquer conversão
+          return res.send(fileBuffer);
 
         } catch (downloadError) {
           console.error("Erro ao fazer download do documento:", downloadError);
