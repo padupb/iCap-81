@@ -2435,87 +2435,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Atualizar uma ordem de compra
-  app.put("/api/ordem-compra/:id", async (req, res) => {
-    try {
-      const ordemId = parseInt(req.params.id);
-      const { numeroOrdem, empresaId, cnpj, validoAte, items } = req.body;
-
-      if (isNaN(ordemId)) {
-        return res.status(400).json({
-          sucesso: false,
-          mensagem: "ID da ordem inválido"
-        });
-      }
-
-      console.log(`🔧 Atualizando ordem de compra ID: ${ordemId}`, {
-        numeroOrdem,
-        empresaId,
-        cnpj,
-        validoAte,
-        items
-      });
-
-      // Iniciar transação
-      await pool.query('BEGIN');
-
-      try {
-        // Atualizar dados principais da ordem de compra
-        const updateResult = await pool.query(`
-          UPDATE ordens_compra 
-          SET 
-            numero_ordem = $1,
-            empresa_id = $2,
-            cnpj = $3,
-            valido_ate = $4
-          WHERE id = $5
-          RETURNING *
-        `, [numeroOrdem, empresaId, cnpj, validoAte, ordemId]);
-
-        if (!updateResult.rows.length) {
-          throw new Error("Ordem de compra não encontrada");
-        }
-
-        // Remover itens existentes
-        await pool.query('DELETE FROM ordem_compra_itens WHERE ordem_compra_id = $1', [ordemId]);
-
-        // Adicionar novos itens
-        if (items && items.length > 0) {
-          for (const item of items) {
-            await pool.query(`
-              INSERT INTO ordem_compra_itens (ordem_compra_id, produto_id, quantidade)
-              VALUES ($1, $2, $3)
-            `, [ordemId, item.productId, item.quantity]);
-          }
-        }
-
-        // Confirmar transação
-        await pool.query('COMMIT');
-
-        console.log(`✅ Ordem de compra ${ordemId} atualizada com sucesso`);
-
-        res.json({
-          sucesso: true,
-          mensagem: "Ordem de compra atualizada com sucesso",
-          ordem: updateResult.rows[0]
-        });
-
-      } catch (error) {
-        // Reverter transação em caso de erro
-        await pool.query('ROLLBACK');
-        throw error;
-      }
-
-    } catch (error) {
-      console.error("❌ Erro ao atualizar ordem de compra:", error);
-      res.status(500).json({
-        sucesso: false,
-        mensagem: "Erro ao atualizar ordem de compra",
-        erro: error instanceof Error ? error.message : "Erro desconhecido"
-      });
-    }
-  });
-
   // Obter detalhes completos de uma ordem de compra
   app.get("/api/ordem-compra/:id", async (req, res) => {
     try {
@@ -3746,114 +3665,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Resultado da consulta:", result.rows[0]);
 
       if (result.rowCount === 0 || !result.rows[0].documentosinfo) {
-        return res.status(404).json({
-          sucesso: false,
+        return res.json({
+          sucesso: true,
+          temDocumentos: false,
           mensagem: "Informações dos documentos não encontradas"
         });
       }
 
-      const documentosInfo = typeof result.rows[0].documentosinfo === 'string'
-        ? JSON.parse(result.rows[0].documentosinfo)
-        : result.rows[0].documentosinfo;
-      const orderId = result.rows[0].order_id;
+      const documentosInfo = result.rows[0].documentosinfo;
 
-      console.log("Informações dos documentos:", documentosInfo);
-      console.log("Order ID:", orderId);
-      console.log("Tipo solicitado:", tipo);
-
-      // Verificar se o documento solicitado existe
-      if (!documentosInfo[tipo]) {
-        return res.status(404).json({
-          sucesso: false,
-          mensagem: `Documento ${tipo} não encontrado para este pedido`
-        });
-      }
-
-      // Tentar ler arquivo do Object Storage ou sistema local
-      const storageKey = documentosInfo[tipo].storageKey;
-      const filename = documentosInfo[tipo].filename;
-
-      console.log("📂 Tentando acessar arquivo:", {
-        tipo: tipo,
-        filename: filename,
-        storageKey: storageKey,
-        orderId: orderId
+      return res.json({
+        sucesso: true,
+        temDocumentos: true,
+        documentos: documentosInfo
       });
-
-      const fileBuffer = await readFileFromStorage(storageKey || documentosInfo[tipo].path, orderId, filename);
-
-      // Verificar se é um redirect para Google Drive
-      if (fileBuffer && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
-        const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-        console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-
-        return res.redirect(302, driveLink);
-      }
-
-      if (!fileBuffer) {
-        console.log("❌ Arquivo não encontrado no Object Storage nem no sistema local");
-
-        // Debug adicional: listar arquivos no diretório do pedido
-        const orderDir = path.join(process.cwd(), "uploads", orderId);
-        console.log("🔍 Verificando diretório:", orderDir);
-
-        if (fs.existsSync(orderDir)) {
-          const files = fs.readdirSync(orderDir);
-          console.log(`📁 Arquivos disponíveis no diretório ${orderDir}:`, files);
-        } else {
-          console.log(`❌ Diretório ${orderDir} não existe`);
-
-          // Verificar se o diretório uploads existe
-          const uploadsDir = path.join(process.cwd(), "uploads");
-          if (fs.existsSync(uploadsDir)) {
-            const uploadsDirs = fs.readdirSync(uploadsDir, { withFileTypes: true })
-              .filter(dirent => dirent.isDirectory())
-              .map(dirent => dirent.name);
-            console.log(`📁 Diretórios disponíveis em uploads:`, uploadsDirs);
-          } else {
-            console.log(`❌ Diretório uploads não existe em: ${uploadsDir}`);
-          }
-        }
-
-        return res.status(404).json({
-          sucesso: false,
-          mensagem: "Arquivo não encontrado no servidor",
-          debug: {
-            orderId: orderId,
-            tipo: tipo,
-            filename: filename,
-            storageKey: storageKey
-          }
-        });
-      }
-
-      // Definir o Content-Type apropriado
-      let contentType = "application/octet-stream";
-      if (tipo === "nota_pdf" || tipo === "certificado_pdf") {
-        contentType = "application/pdf";
-      } else if (tipo === "nota_xml") {
-        contentType = "application/xml";
-      }
-
-      // Configurar os headers para download
-      res.setHeader("Content-Type", contentType);
-      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(documentosInfo[tipo].name)}"`);
-
-      // Enviar o arquivo
-      try {
-        res.end(fileBuffer);
-      } catch (error) {
-        console.error("Erro ao enviar arquivo:", error);
-        res.status(500).json({
-          sucesso: false,
-          mensagem: "Erro ao processar arquivo"
-        });
-      }
     } catch (error) {
-      console.error("Erro ao fazer download do documento:", error);
+      console.error("Erro ao buscar informações dos documentos:", error);
       res.status(500).json({
         sucesso: false,
-        mensagem: "Erro interno do servidor ao processar o download",
+        mensagem: "Erro interno do servidor ao buscar informações dos documentos",
         erro: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }
@@ -4917,8 +4747,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ success: true, message: 'Configuração salva com sucesso' });
     } catch (error) {
-      console.error('Erro ao salvar configuração:', error);
-      res.status(500).json({ message: 'Erro interno do servidor' });
+      console.error("Erro ao salvar configuração:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
 
