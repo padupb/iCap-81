@@ -209,7 +209,9 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
 }
 
 // Função utilitária para ler arquivo do Object Storage, Google Drive ou sistema local
-async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<Buffer | null> {
+async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<Buffer | Uint8Array | null> {
+  console.log(`🔍 Buscando arquivo - Key: ${key}, OrderId: ${orderId}, Filename: ${filename}`);
+  
   // Se for um link do Google Drive, redirecionar
   if (key.startsWith('gdrive:')) {
     const driveLink = key.replace('gdrive:', '');
@@ -219,61 +221,71 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
   // PRIORIDADE 1: Tentar ler do Object Storage se disponível
   if (objectStorageAvailable && objectStorage) {
-    // Para PDFs de ordens de compra, tentar primeiro na pasta OC
+    const keysToTry = [];
+    
+    // Adicionar diferentes possibilidades de chave
+    if (key) {
+      keysToTry.push(key);
+    }
+    
+    // Para pedidos, tentar na pasta orders
+    if (!key.startsWith('OC/')) {
+      keysToTry.push(`orders/${orderId}/${filename}`);
+    }
+    
+    // Para PDFs de ordens de compra, tentar na pasta OC
     if (key.startsWith('OC/') || orderId.includes('orden')) {
       const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
-      try {
-        console.log(`📥 Tentando download da pasta OC: ${ocKey}`);
-        const rawData = await objectStorage.downloadAsBytes(ocKey);
-        if (rawData && rawData.length > 0) {
-          console.log(`📁 ☁️ Arquivo recuperado da pasta OC: ${ocKey} (${rawData.length} bytes)`);
-          // Retornar os dados RAW sem qualquer processamento
-          return rawData;
-        }
-      } catch (ocError) {
-        console.log(`🔄 Arquivo não encontrado na pasta OC: ${ocError.message}`);
-      }
+      keysToTry.unshift(ocKey); // Adicionar no início para tentar primeiro
     }
 
-    // Tentar com a chave original se fornecida
-    if (key && (key.startsWith('orders/') || key.startsWith('OC/'))) {
+    for (const storageKey of keysToTry) {
       try {
-        console.log(`📥 Tentando download do Object Storage: ${key}`);
-        const rawData = await objectStorage.downloadAsBytes(key);
+        console.log(`📥 Tentando download: ${storageKey}`);
+        const rawData = await objectStorage.downloadAsBytes(storageKey);
+        
         if (rawData && rawData.length > 0) {
-          console.log(`📁 ☁️ Arquivo recuperado do Object Storage: ${key} (${rawData.length} bytes)`);
-          // Retornar os dados RAW sem qualquer processamento
+          console.log(`✅ Arquivo encontrado: ${storageKey} (${rawData.length} bytes)`);
+          
+          // Converter Uint8Array para Buffer se necessário
+          if (rawData instanceof Uint8Array) {
+            return Buffer.from(rawData);
+          }
           return rawData;
         }
       } catch (error) {
-        console.error("❌ Erro ao ler do Object Storage:", {
-          message: error.message,
-          key: key,
-          objectStorageAvailable,
-          hasObjectStorage: !!objectStorage
-        });
+        console.log(`⚠️ Chave ${storageKey} não encontrada: ${error.message}`);
       }
     }
+    
+    console.log(`❌ Arquivo não encontrado no Object Storage após tentar ${keysToTry.length} chaves`);
+  } else {
+    console.log(`⚠️ Object Storage não disponível`);
   }
 
   // FALLBACK: Tentar ler do sistema de arquivos local
   const possiblePaths = [
-    path.join(process.cwd(), "uploads", `${filename}`), // Tenta no root de uploads primeiro
-    path.join(process.cwd(), "uploads", orderId, filename), // Tenta no diretório específico do pedido
-    key // Tenta usar a 'key' diretamente como path, caso seja um path local salvo anteriormente
+    path.join(process.cwd(), "uploads", orderId, filename),
+    path.join(process.cwd(), "uploads", filename),
+    key.startsWith('/') ? key : path.join(process.cwd(), key) // Se key é um path absoluto ou relativo
   ];
 
   for (const filePath of possiblePaths) {
-    if (fs.existsSync(filePath)) {
-      console.log(`📁 💾 Arquivo lido do sistema local: ${filePath}`);
-      const localBuffer = fs.readFileSync(filePath);
-      if (localBuffer.length > 0) {
-        return localBuffer;
+    try {
+      if (fs.existsSync(filePath)) {
+        console.log(`📁 Arquivo encontrado localmente: ${filePath}`);
+        const localBuffer = fs.readFileSync(filePath);
+        if (localBuffer.length > 0) {
+          console.log(`✅ Arquivo local lido: ${localBuffer.length} bytes`);
+          return localBuffer;
+        }
       }
+    } catch (error) {
+      console.log(`⚠️ Erro ao ler ${filePath}: ${error.message}`);
     }
   }
 
-  console.log(`❌ Arquivo não encontrado nos caminhos: ${possiblePaths.join(', ')}`);
+  console.log(`❌ Arquivo não encontrado em nenhum local`);
   return null;
 }
 
@@ -3688,91 +3700,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`\n=== DOWNLOAD ${tipo.toUpperCase()} - PEDIDO ${orderId} ===`);
         console.log(`🔍 Documento encontrado no banco:`, {
-          id: documentInfo?.id,
           name: documentInfo?.name,
           filename: documentInfo?.filename,
           size: documentInfo?.size,
-          path: documentInfo?.path,
           storageKey: documentInfo?.storageKey
         });
-        console.log(`📊 Tamanho registrado: ${documentInfo?.size || 'não informado'} bytes`);
-        console.log(`📂 Chave do storage: ${documentInfo?.filename || documentInfo?.storageKey || 'não informado'}`);
-        console.log(`🗃️ Path completo: ${documentInfo?.path || 'não informado'}`);
 
         try {
           const fileBuffer = await readFileFromStorage(
-            documentInfo.storageKey || documentInfo.path, // Tenta a chave de storage primeiro, depois o path local
+            documentInfo.storageKey || documentInfo.path,
             orderId,
             documentInfo.filename
           );
 
           // Verificar se é um redirect para Google Drive
-          if (fileBuffer && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+          if (fileBuffer && Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
             const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
             console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
             return res.redirect(302, driveLink);
           }
 
-          if (!fileBuffer || fileBuffer.length === 0) {
-            console.log(`❌ Arquivo não encontrado ou está vazio (storageKey: ${documentInfo?.storageKey})`);
+          // Verificar se o arquivo foi encontrado
+          if (!fileBuffer) {
+            console.log(`❌ Arquivo não encontrado (storageKey: ${documentInfo?.storageKey})`);
             return res.status(404).json({
               sucesso: false,
-              mensagem: "Arquivo não encontrado ou está corrompido"
+              mensagem: "Documento não encontrado no storage"
+            });
+          }
+
+          // Converter para Buffer se necessário
+          let finalBuffer: Buffer;
+          if (Buffer.isBuffer(fileBuffer)) {
+            finalBuffer = fileBuffer;
+          } else if (fileBuffer instanceof Uint8Array) {
+            finalBuffer = Buffer.from(fileBuffer);
+          } else {
+            console.log(`⚠️ Tipo de dados inesperado: ${typeof fileBuffer}`);
+            finalBuffer = Buffer.from(fileBuffer);
+          }
+
+          // Verificar se o buffer tem conteúdo
+          if (finalBuffer.length === 0) {
+            console.log(`❌ Arquivo está vazio`);
+            return res.status(404).json({
+              sucesso: false,
+              mensagem: "Documento está vazio ou corrompido"
             });
           }
 
           // Definir content type baseado no tipo do documento
-          let contentType = 'application/octet-stream'; // Tipo genérico para download
-
+          let contentType = 'application/octet-stream';
           if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
             contentType = 'application/pdf';
           } else if (tipo === 'nota_xml') {
             contentType = 'application/xml';
           }
 
-          // Usar o nome do arquivo EXATAMENTE como está no storage
-          const storageFilename = documentInfo.filename || documentInfo.name || `${tipo}_${orderId}`;
+          // Nome do arquivo para download
+          const downloadFilename = documentInfo.filename || documentInfo.name || `${tipo}_${orderId}`;
 
-          // Definir headers corretos para download RAW
+          // Configurar headers para download
           res.setHeader('Content-Type', contentType);
-          res.setHeader('Content-Length', fileBuffer.length);
-          res.setHeader('Content-Disposition', `attachment; filename="${storageFilename}"`);
+          res.setHeader('Content-Length', finalBuffer.length);
+          res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
           res.setHeader('Cache-Control', 'no-cache');
 
-          console.log(`📁 Enviando arquivo ${tipo} do pedido ${orderId} (${fileBuffer.length} bytes) - nome no storage: ${storageFilename}`);
-
-          // Verificar se é Buffer e enviar RAW
-          if (Buffer.isBuffer(fileBuffer)) {
-            console.log(`✅ Enviando como Buffer direto (${fileBuffer.length} bytes)`);
-            return res.end(fileBuffer);
-          } else if (fileBuffer instanceof Uint8Array) {
-            console.log(`✅ Enviando Uint8Array como Buffer (${fileBuffer.length} bytes)`);
-            return res.end(Buffer.from(fileBuffer));
-          } else {
-            console.log(`⚠️ Tipo de dados desconhecido: ${typeof fileBuffer}, tentando conversão`);
-            return res.end(Buffer.from(fileBuffer));
-          }
+          console.log(`✅ Enviando arquivo ${tipo} (${finalBuffer.length} bytes) - ${downloadFilename}`);
+          
+          // Enviar arquivo
+          return res.end(finalBuffer);
 
         } catch (downloadError) {
-          console.error(`❌ Erro detalhado no download do ${tipo}:`, {
-            orderId,
-            tipo,
-            error: downloadError.message,
-            stack: downloadError.stack
-          });
+          console.error(`❌ Erro ao baixar documento ${tipo}:`, downloadError);
           return res.status(500).json({
             sucesso: false,
-            mensagem: `Erro ao fazer download do documento: ${downloadError.message}`
+            mensagem: `Erro ao processar download: ${downloadError.message}`
           });
         }
-
-      } else {
-        console.log(`❌ Documento ${tipo} não encontrado para o pedido ${orderId}`);
-        return res.status(404).json({
-          sucesso: false,
-          mensagem: `Documento ${tipo} não encontrado para este pedido`
-        });
       }
+
+      // Se não tem query parameter de download, retornar info dos documentos
+      return res.json({
+        sucesso: true,
+        temDocumentos: true,
+        documentos: Object.keys(documentosInfo),
+        info: documentosInfo
+      });
 
     } catch (error) {
       console.error(`❌ Erro geral ao buscar documento ${tipo}:`, {
