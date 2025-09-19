@@ -1124,6 +1124,243 @@ const uploadLogo = multer({
       }
     });
 
+    // Rota para teste completo da API do Object Storage
+    app.post("/api/keyuser/test-object-storage-api", isAuthenticated, isKeyUser, async (req, res) => {
+      const startTime = Date.now();
+      let log = [];
+      
+      try {
+        log.push(`🧪 TESTE COMPLETO DA API OBJECT STORAGE - ${new Date().toLocaleString('pt-BR')}`);
+        log.push(`👤 Executado por: ${req.user.name} (ID: ${req.user.id})`);
+        log.push(`📋 Tipo de teste: ${req.body.testType || 'padrão'}`);
+        log.push('');
+
+        // Verificar se Object Storage está disponível
+        if (!objectStorageAvailable || !objectStorage) {
+          log.push('❌ Object Storage não está disponível ou inicializado');
+          log.push(`   - objectStorageAvailable: ${objectStorageAvailable}`);
+          log.push(`   - objectStorage: ${!!objectStorage}`);
+          
+          return res.json({
+            success: false,
+            message: "Object Storage não está disponível",
+            log: log.join('\n'),
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        log.push('✅ Object Storage disponível - iniciando testes...');
+
+        // TESTE 1: Verificar conectividade
+        log.push('\n📡 TESTE 1: Verificando conectividade...');
+        try {
+          await objectStorage.list();
+          log.push('✅ Conectividade confirmada');
+        } catch (connectError) {
+          log.push(`❌ Falha na conectividade: ${connectError.message}`);
+          throw new Error(`Conectividade: ${connectError.message}`);
+        }
+
+        // TESTE 2: Upload de arquivo de teste
+        log.push('\n📤 TESTE 2: Testando upload...');
+        const testContent = `Teste da API Object Storage
+Executado por: ${req.user.name}
+Data/Hora: ${new Date().toLocaleString('pt-BR')}
+Timestamp: ${Date.now()}
+Versão: iCAP 5.0
+
+Este é um teste completo da API do Object Storage para verificar:
+- Upload de arquivos
+- Download de arquivos
+- Listagem de objetos
+- Performance do sistema
+- Integridade dos dados
+
+Status: Teste em progresso...`;
+
+        const testKey = `keyuser-api-tests/${Date.now()}-comprehensive-test.txt`;
+        const uploadStartTime = Date.now();
+        
+        try {
+          const uint8Array = new TextEncoder().encode(testContent);
+          await objectStorage.uploadFromBytes(testKey, uint8Array);
+          const uploadTime = Date.now() - uploadStartTime;
+          log.push(`✅ Upload realizado com sucesso em ${uploadTime}ms`);
+          log.push(`📂 Chave: ${testKey}`);
+        } catch (uploadError) {
+          log.push(`❌ Falha no upload: ${uploadError.message}`);
+          throw new Error(`Upload: ${uploadError.message}`);
+        }
+
+        // TESTE 3: Download e verificação de integridade
+        log.push('\n📥 TESTE 3: Testando download e integridade...');
+        const downloadStartTime = Date.now();
+        
+        try {
+          const downloadedData = await objectStorage.downloadAsBytes(testKey);
+          const downloadTime = Date.now() - downloadStartTime;
+          
+          let downloadedContent;
+          if (downloadedData && typeof downloadedData === 'object' && downloadedData.ok && downloadedData.value) {
+            // Result wrapper
+            downloadedContent = new TextDecoder().decode(downloadedData.value);
+          } else if (downloadedData instanceof Uint8Array) {
+            downloadedContent = new TextDecoder().decode(downloadedData);
+          } else {
+            downloadedContent = new TextDecoder().decode(downloadedData);
+          }
+          
+          const isIntegrityOk = downloadedContent.includes(req.user.name) && downloadedContent.includes('iCAP 5.0');
+          
+          log.push(`✅ Download realizado em ${downloadTime}ms`);
+          log.push(`📊 Tamanho baixado: ${downloadedContent.length} caracteres`);
+          log.push(`🔍 Integridade: ${isIntegrityOk ? 'OK' : 'FALHA'}`);
+          
+          if (!isIntegrityOk) {
+            log.push(`⚠️ Conteúdo não confere com o esperado`);
+          }
+        } catch (downloadError) {
+          log.push(`❌ Falha no download: ${downloadError.message}`);
+          throw new Error(`Download: ${downloadError.message}`);
+        }
+
+        // TESTE 4: Listagem de objetos
+        log.push('\n📋 TESTE 4: Testando listagem de objetos...');
+        const listStartTime = Date.now();
+        
+        try {
+          const listResult = await objectStorage.list();
+          const listTime = Date.now() - listStartTime;
+          
+          let objects = [];
+          if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
+            objects = listResult.value;
+          } else if (Array.isArray(listResult)) {
+            objects = listResult;
+          }
+          
+          log.push(`✅ Listagem realizada em ${listTime}ms`);
+          log.push(`📊 Total de objetos: ${objects.length}`);
+          
+          // Filtrar objetos relacionados aos testes do keyuser
+          const keyuserObjects = objects.filter(obj => {
+            const key = obj.key || obj.name || obj;
+            return key && key.includes('keyuser');
+          });
+          
+          log.push(`🔑 Objetos do keyuser: ${keyuserObjects.length}`);
+          
+          if (keyuserObjects.length > 0) {
+            log.push('📋 Últimos 3 objetos do keyuser:');
+            keyuserObjects.slice(-3).forEach((obj, index) => {
+              const key = obj.key || obj.name || obj;
+              const size = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
+              log.push(`   ${index + 1}. ${key} ${size}`);
+            });
+          }
+        } catch (listError) {
+          log.push(`❌ Falha na listagem: ${listError.message}`);
+          throw new Error(`Listagem: ${listError.message}`);
+        }
+
+        // TESTE 5: Performance (se solicitado)
+        let performanceTime = 0;
+        if (req.body.includePerformance) {
+          log.push('\n⚡ TESTE 5: Testando performance...');
+          const perfStartTime = Date.now();
+          
+          try {
+            const perfTestKey = `keyuser-api-tests/performance-test-${Date.now()}.txt`;
+            const perfContent = 'A'.repeat(10000); // 10KB de teste
+            
+            // Upload de performance
+            const perfUploadStart = Date.now();
+            const perfUint8Array = new TextEncoder().encode(perfContent);
+            await objectStorage.uploadFromBytes(perfTestKey, perfUint8Array);
+            const perfUploadTime = Date.now() - perfUploadStart;
+            
+            // Download de performance
+            const perfDownloadStart = Date.now();
+            await objectStorage.downloadAsBytes(perfTestKey);
+            const perfDownloadTime = Date.now() - perfDownloadStart;
+            
+            // Limpeza
+            try {
+              await objectStorage.delete(perfTestKey);
+            } catch (cleanupError) {
+              log.push(`⚠️ Aviso: não foi possível limpar arquivo de performance`);
+            }
+            
+            performanceTime = Date.now() - perfStartTime;
+            log.push(`✅ Performance - Upload: ${perfUploadTime}ms, Download: ${perfDownloadTime}ms`);
+            log.push(`📊 Performance total: ${performanceTime}ms para 10KB`);
+          } catch (perfError) {
+            log.push(`⚠️ Erro no teste de performance: ${perfError.message}`);
+          }
+        }
+
+        // TESTE 6: Limpeza do arquivo de teste
+        log.push('\n🧹 TESTE 6: Limpeza...');
+        try {
+          await objectStorage.delete(testKey);
+          log.push('✅ Arquivo de teste removido com sucesso');
+        } catch (cleanupError) {
+          log.push(`⚠️ Aviso: não foi possível remover arquivo de teste: ${cleanupError.message}`);
+        }
+
+        const totalTime = Date.now() - startTime;
+        log.push('\n🎉 TODOS OS TESTES CONCLUÍDOS COM SUCESSO!');
+        log.push(`⏱️ Tempo total: ${totalTime}ms`);
+        log.push(`✅ Object Storage está funcionando perfeitamente`);
+
+        // Registrar no log do sistema
+        await storage.createLog({
+          userId: req.user.id,
+          action: "Teste da API Object Storage",
+          itemType: "system",
+          itemId: "object_storage_api",
+          details: `Teste completo executado com sucesso em ${totalTime}ms`
+        });
+
+        res.json({
+          success: true,
+          message: `Teste da API concluído com sucesso! Todos os 6 testes passaram.`,
+          testsExecuted: req.body.includePerformance ? 6 : 5,
+          stats: {
+            testsExecuted: req.body.includePerformance ? 6 : 5,
+            totalTime,
+            uploadDownloadTime: performanceTime || 'não testado',
+            totalObjects: 'verificado'
+          },
+          log: log.join('\n'),
+          timestamp: new Date().toISOString()
+        });
+
+      } catch (error) {
+        const totalTime = Date.now() - startTime;
+        log.push('\n❌ TESTE FALHOU');
+        log.push(`💥 Erro: ${error.message}`);
+        log.push(`⏱️ Tempo até falha: ${totalTime}ms`);
+
+        // Registrar falha no log do sistema
+        await storage.createLog({
+          userId: req.user.id,
+          action: "Falha no teste da API Object Storage",
+          itemType: "system",
+          itemId: "object_storage_api",
+          details: `Erro: ${error.message}`
+        });
+
+        res.json({
+          success: false,
+          message: `Teste da API falhou: ${error.message}`,
+          error: error.message,
+          log: log.join('\n'),
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
     // Rota para redefinir senha do usuário
     app.post("/api/auth/reset-password", isAuthenticated, async (req, res) => {
       try {

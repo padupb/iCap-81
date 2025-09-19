@@ -183,6 +183,8 @@ export default function Keyuser() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTestingObjectStorage, setIsTestingObjectStorage] = useState(false);
   const [objectStorageTestResult, setObjectStorageTestResult] = useState<any>(null);
+  const [isTestingObjectStorageAPI, setIsTestingObjectStorageAPI] = useState(false);
+  const [objectStorageAPITestResult, setObjectStorageAPITestResult] = useState<any>(null);
 
 
   const queryClient = useQueryClient();
@@ -894,6 +896,57 @@ export default function Keyuser() {
       });
     } finally {
       setIsTestingObjectStorage(false);
+    }
+  };
+
+  const handleTestObjectStorageAPI = async () => {
+    setIsTestingObjectStorageAPI(true);
+    setObjectStorageAPITestResult(null);
+
+    try {
+      const response = await fetch("/api/keyuser/test-object-storage-api", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          testType: "comprehensive",
+          includePerformance: true
+        })
+      });
+
+      const result = await response.json();
+
+      setObjectStorageAPITestResult(result);
+
+      if (result.success) {
+        toast({
+          title: "Teste da API Concluído",
+          description: `Teste executado com sucesso! ${result.testsExecuted || 0} testes realizados.`,
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Falha no Teste da API",
+          description: result.message || "Erro ao testar API do Object Storage",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao testar API do Object Storage:", error);
+      setObjectStorageAPITestResult({
+        success: false,
+        message: "Erro de conexão ao executar teste da API",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+
+      toast({
+        title: "Erro",
+        description: "Não foi possível executar o teste da API do Object Storage",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTestingObjectStorageAPI(false);
     }
   };
 
@@ -1734,24 +1787,45 @@ export default function Keyuser() {
                   <div className="space-y-4 pt-6 border-t border-border">
                     <h3 className="text-lg font-medium text-foreground">Testes do Sistema</h3>
                     
-                    <Button 
-                      onClick={handleTestObjectStorage}
-                      disabled={isTestingObjectStorage}
-                      className="w-full"
-                      variant="outline"
-                    >
-                      {isTestingObjectStorage ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Testando Object Storage...
-                        </>
-                      ) : (
-                        <>
-                          <Database className="w-4 h-4 mr-2" />
-                          Testar Object Storage
-                        </>
-                      )}
-                    </Button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Button 
+                        onClick={handleTestObjectStorage}
+                        disabled={isTestingObjectStorage}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        {isTestingObjectStorage ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Testando Object Storage...
+                          </>
+                        ) : (
+                          <>
+                            <Database className="w-4 h-4 mr-2" />
+                            Testar Object Storage
+                          </>
+                        )}
+                      </Button>
+
+                      <Button 
+                        onClick={handleTestObjectStorageAPI}
+                        disabled={isTestingObjectStorageAPI}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        {isTestingObjectStorageAPI ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Testando API...
+                          </>
+                        ) : (
+                          <>
+                            <TestTube className="w-4 h-4 mr-2" />
+                            Testar API Object Storage
+                          </>
+                        )}
+                      </Button>
+                    </div>
 
                     {objectStorageTestResult && (
                       <div className={`p-4 rounded-lg border ${
@@ -1765,7 +1839,7 @@ export default function Keyuser() {
                           ) : (
                             <XCircle className="w-4 h-4" />
                           )}
-                          Resultado do Teste
+                          Resultado do Teste Object Storage
                         </h4>
                         <p className="text-sm mb-2">{objectStorageTestResult.message}</p>
                         {objectStorageTestResult.data?.output && (
@@ -1775,6 +1849,48 @@ export default function Keyuser() {
                         )}
                         <p className="text-xs mt-2 opacity-75">
                           Executado em: {new Date(objectStorageTestResult.data?.timestamp || Date.now()).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    )}
+
+                    {objectStorageAPITestResult && (
+                      <div className={`p-4 rounded-lg border ${
+                        objectStorageAPITestResult.success 
+                          ? 'bg-green-50 border-green-200 text-green-800' 
+                          : 'bg-red-50 border-red-200 text-red-800'
+                      }`}>
+                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                          {objectStorageAPITestResult.success ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                          Resultado do Teste da API
+                        </h4>
+                        <p className="text-sm mb-2">{objectStorageAPITestResult.message}</p>
+                        
+                        {/* Mostrar estatísticas do teste */}
+                        {objectStorageAPITestResult.stats && (
+                          <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                            <div>Testes executados: {objectStorageAPITestResult.stats.testsExecuted}</div>
+                            <div>Tempo total: {objectStorageAPITestResult.stats.totalTime}ms</div>
+                            <div>Upload/Download: {objectStorageAPITestResult.stats.uploadDownloadTime}ms</div>
+                            <div>Objetos encontrados: {objectStorageAPITestResult.stats.totalObjects}</div>
+                          </div>
+                        )}
+
+                        {/* Mostrar log detalhado se disponível */}
+                        {objectStorageAPITestResult.log && (
+                          <details className="mt-3">
+                            <summary className="text-xs cursor-pointer">Ver log detalhado</summary>
+                            <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-auto max-h-40 border">
+                              {objectStorageAPITestResult.log}
+                            </pre>
+                          </details>
+                        )}
+
+                        <p className="text-xs mt-2 opacity-75">
+                          Executado em: {new Date(objectStorageAPITestResult.timestamp || Date.now()).toLocaleString('pt-BR')}
                         </p>
                       </div>
                     )}
