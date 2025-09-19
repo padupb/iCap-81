@@ -829,6 +829,74 @@ export function OrderDetailDrawer({
     }
   };
 
+  // Função para fazer download de documentos
+  const handleDownloadDocument = async (documentType: string) => {
+    if (!orderId) {
+      toast({
+        title: "Erro",
+        description: "ID do pedido não encontrado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log(`📥 Iniciando download de ${documentType} para pedido ${orderId}`);
+      
+      const response = await fetch(`/api/pedidos/${orderId}/documentos/${documentType}`);
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao baixar documento: ${response.statusText}`);
+      }
+
+      // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `${documentType}_${orderDetails?.orderId || orderId}`;
+      
+      if (contentDisposition) {
+        const matches = contentDisposition.match(/filename="(.+)"/);
+        if (matches && matches[1]) {
+          filename = matches[1];
+        }
+      } else {
+        // Definir extensão baseada no tipo de documento
+        if (documentType.includes('pdf')) {
+          filename += '.pdf';
+        } else if (documentType.includes('xml')) {
+          filename += '.xml';
+        }
+      }
+
+      // Converter resposta para blob
+      const blob = await response.blob();
+      
+      // Criar URL temporária e baixar
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpar
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download concluído",
+        description: `Arquivo ${filename} baixado com sucesso`,
+      });
+      
+    } catch (error) {
+      console.error(`Erro ao baixar ${documentType}:`, error);
+      toast({
+        title: "Erro no download",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Função para confirmar entrega
   const handleConfirmDelivery = async (action: "aprovado" | "rejeitado") => {
     if (!orderDetails || !canConfirmDelivery) return;
