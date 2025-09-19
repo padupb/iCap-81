@@ -285,6 +285,14 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         // Tentar primeiro downloadAsBytes que deve retornar um Result<Buffer, Error>
         const result = await objectStorage.downloadAsBytes(storageKey);
         console.log(`📥 Download executado - verificando resultado...`);
+        console.log(`🔍 Resultado bruto:`, {
+          type: typeof result,
+          isArray: Array.isArray(result),
+          hasOk: result && typeof result === 'object' && 'ok' in result,
+          hasValue: result && typeof result === 'object' && 'value' in result,
+          hasError: result && typeof result === 'object' && 'error' in result,
+          keys: result && typeof result === 'object' ? Object.keys(result) : []
+        });
 
         // O Object Storage do Replit retorna diretamente os bytes
         let rawData;
@@ -300,8 +308,19 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           if (typeof result === 'object' && result.ok !== undefined && result.value !== undefined) {
             console.log(`🔍 Result wrapper detectado - ok: ${result.ok}`);
             if (result.ok && result.value) {
-              rawData = result.value;
-              console.log(`✅ Dados extraídos do Result wrapper: ${rawData.length} bytes`);
+              // O value pode ser um Uint8Array ou Buffer
+              if (result.value instanceof Uint8Array || result.value instanceof Buffer) {
+                rawData = result.value;
+                console.log(`✅ Dados extraídos do Result wrapper: ${rawData.length} bytes`);
+              } else if (typeof result.value === 'object' && result.value.length !== undefined) {
+                // Se é um array-like object, converter para Uint8Array
+                rawData = new Uint8Array(Object.values(result.value));
+                console.log(`✅ Array-like convertido do Result wrapper: ${rawData.length} bytes`);
+              } else {
+                console.log(`⚠️ Tipo não reconhecido no Result wrapper:`, typeof result.value);
+                console.log(`🔍 Conteúdo do value:`, result.value);
+                rawData = null;
+              }
             } else {
               console.log(`❌ Result wrapper indica falha: ${result.error || 'erro desconhecido'}`);
               rawData = null;
@@ -318,10 +337,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             // Converter array para Uint8Array se necessário
             rawData = new Uint8Array(result);
             console.log(`✅ Array convertido para Uint8Array: ${rawData.length} bytes`);
-          } else if (typeof result === 'object' && result.length !== undefined) {
+          } else if (typeof result === 'object' && result !== null && result.length !== undefined) {
             // Tratar como array-like object
-            rawData = new Uint8Array(Object.values(result));
+            const values = Array.isArray(result) ? result : Object.values(result);
+            rawData = new Uint8Array(values);
             console.log(`✅ Object array-like convertido: ${rawData.length} bytes`);
+          } else if (typeof result === 'string') {
+            // Se retornou uma string, converter para bytes
+            rawData = new TextEncoder().encode(result);
+            console.log(`✅ String convertida para bytes: ${rawData.length} bytes`);
           } else {
             // Debug adicional antes do fallback
             console.log(`⚠️ Tipo não reconhecido, fazendo debug completo:`);
