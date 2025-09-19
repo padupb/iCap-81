@@ -204,38 +204,39 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       });
       console.log("🔄 Tentando Google Drive como fallback...");
     }
+  }
 
-    // PRIORIDADE 2: Tentar Google Drive
-    try {
-      const { googleDriveService } = await import('./googleDrive');
-      const publicLink = await googleDriveService.uploadBuffer(buffer, filename, orderId);
+  // PRIORIDADE 2: Tentar Google Drive
+  try {
+    const { googleDriveService } = await import('./googleDrive');
+    const publicLink = await googleDriveService.uploadBuffer(buffer, filename, orderId);
 
-      if (publicLink) {
-        console.log(`📁 🔗 Arquivo salvo no Google Drive: ${publicLink}`);
-        console.log(`✅ Link público gerado com sucesso`);
-        return `gdrive:${publicLink}`;
-      }
-    } catch (error) {
-      console.error("❌ Erro ao salvar no Google Drive:", error);
-      console.log("🔄 Fallback para sistema local...");
+    if (publicLink) {
+      console.log(`📁 🔗 Arquivo salvo no Google Drive: ${publicLink}`);
+      console.log(`✅ Link público gerado com sucesso`);
+      return `gdrive:${publicLink}`;
     }
+  } catch (error) {
+    console.error("❌ Erro ao salvar no Google Drive:", error);
+    console.log("🔄 Fallback para sistema local...");
+  }
 
-    // FALLBACK: Salvar no sistema local (temporário)
-    try {
-      const orderDir = path.join(process.cwd(), "uploads", orderId);
-      if (!fs.existsSync(orderDir)) {
-        fs.mkdirSync(orderDir, { recursive: true });
-      }
-      const filePath = path.join(orderDir, filename);
-      fs.writeFileSync(filePath, buffer);
-      console.log(`📁 💾 Arquivo salvo localmente (temporário): ${filePath}`);
-      console.log(`⚠️ Este arquivo será perdido no próximo deploy!`);
-      return filePath;
-    } catch (error) {
-      console.error("❌ Erro ao salvar localmente:", error);
-      throw new Error(`Falha ao salvar arquivo: ${error.message}`);
+  // FALLBACK: Salvar no sistema local (temporário)
+  try {
+    const orderDir = path.join(process.cwd(), "uploads", orderId);
+    if (!fs.existsSync(orderDir)) {
+      fs.mkdirSync(orderDir, { recursive: true });
     }
-  }</old_str>
+    const filePath = path.join(orderDir, filename);
+    fs.writeFileSync(filePath, buffer);
+    console.log(`📁 💾 Arquivo salvo localmente (temporário): ${filePath}`);
+    console.log(`⚠️ Este arquivo será perdido no próximo deploy!`);
+    return filePath;
+  } catch (error) {
+    console.error("❌ Erro ao salvar localmente:", error);
+    throw new Error(`Falha ao salvar arquivo: ${error.message}`);
+  }
+}</old_str>
 
     // PRIORIDADE 2: Tentar Google Drive
     try {
