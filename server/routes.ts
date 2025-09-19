@@ -226,28 +226,23 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   if (objectStorageAvailable && objectStorage) {
     const storageKeys = [];
 
-    // PRIORIDADE 1: Buscar diretamente na pasta do pedido (estrutura atual do Replit)
+    // PRIORIDADE 1: Usar a key EXATA armazenada no banco se disponível
+    if (key && key.trim() !== '' && key !== `${orderId}/${filename}`) {
+      storageKeys.push({ key: key.trim(), name: filename });
+      console.log(`🎯 PRIORIDADE 1 - Key exata do banco: ${key.trim()}`);
+    }
+
+    // PRIORIDADE 2: Tentar estrutura "orders/{orderId}/{filename}" 
+    const ordersPath = `orders/${orderId}/${filename}`;
+    storageKeys.push({ key: ordersPath, name: filename });
+    console.log(`📁 PRIORIDADE 2 - Estrutura orders: ${ordersPath}`);
+
+    // PRIORIDADE 3: Buscar diretamente na pasta do pedido (estrutura atual do Replit)
     storageKeys.push({ key: `${orderId}/${filename}`, name: filename });
-    console.log(`📁 Tentando padrão principal: ${orderId}/${filename}`);
-
-    // PRIORIDADE 2: Usar a key exata armazenada no banco se disponível
-    if (key && key !== `${orderId}/${filename}`) {
-      storageKeys.push({ key, name: filename });
-      console.log(`🔑 Tentando com a key do banco: ${key}`);
-    }
-
-    // PRIORIDADE 3: Tentar buscar usando o filename específico nos documentos
-    if (filename.includes('-')) {
-      // Para arquivos como nota_pdf-1757620958729.pdf
-      storageKeys.push({ key: `${orderId}/${filename}`, name: filename });
-      
-      // Também tentar sem o orderId como prefixo
-      storageKeys.push({ key: filename, name: filename });
-    }
+    console.log(`📁 PRIORIDADE 3 - Padrão principal: ${orderId}/${filename}`);
 
     // PRIORIDADE 4: Fallbacks para outras estruturas
     const fallbackPaths = [
-      `orders/${orderId}/${filename}`,
       `uploads/${orderId}/${filename}`,
       filename // Arquivo na raiz
     ];
@@ -280,17 +275,30 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       }
     }
 
-    // Debug adicional: listar todos os arquivos do Object Storage que começam com o orderId
+    // Debug adicional: listar todos os arquivos do Object Storage relacionados
     try {
-      console.log(`🔍 Listando todos os arquivos que começam com ${orderId}...`);
+      console.log(`🔍 LISTANDO TODOS os arquivos do Object Storage para debug...`);
       const allObjects = await objectStorage.list();
-      const matchingObjects = allObjects.filter(obj => 
+      
+      // Buscar arquivos relacionados ao pedido
+      const relatedObjects = allObjects.filter(obj => 
         obj.key.includes(orderId) || 
-        obj.key.includes(filename.split('-')[0]) // buscar por tipo de documento
+        obj.key.includes('CCM0809250026') ||
+        obj.key.includes('certificado_pdf-1757620958919') ||
+        obj.key.includes(filename.split('-')[0])
       );
       
-      console.log(`📋 Arquivos relacionados encontrados no Object Storage:`, 
-        matchingObjects.map(obj => obj.key));
+      console.log(`📋 Arquivos relacionados a ${orderId}:`, 
+        relatedObjects.map(obj => `${obj.key} (${obj.size || 'sem tamanho'} bytes)`));
+
+      // Buscar especificamente o arquivo que deveria existir
+      console.log(`🎯 Procurando especificamente por: orders/CCM0809250026/certificado_pdf-1757620958919.pdf`);
+      const specificObject = allObjects.find(obj => obj.key === 'orders/CCM0809250026/certificado_pdf-1757620958919.pdf');
+      if (specificObject) {
+        console.log(`🎉 ENCONTROU o arquivo específico: ${specificObject.key} (${specificObject.size} bytes)`);
+      } else {
+        console.log(`❌ Arquivo específico NÃO ENCONTRADO`);
+      }
       
     } catch (listError) {
       console.log(`❌ Erro ao listar arquivos do Object Storage: ${listError.message}`);
@@ -3756,19 +3764,71 @@ const uploadLogo = multer({
             name: documentInfo?.name,
             filename: documentInfo?.filename,
             size: documentInfo?.size,
-            storageKey: documentInfo?.storageKey
+            storageKey: documentInfo?.storageKey,
+            path: documentInfo?.path
           });
 
+          // VERIFICAÇÃO ESPECÍFICA PARA CCM0809250026
+          if (orderId === 'CCM0809250026') {
+            console.log(`🎯 CASO ESPECÍFICO CCM0809250026 - ANÁLISE DETALHADA:`);
+            console.log(`   • Tipo solicitado: ${tipo}`);
+            console.log(`   • StorageKey no banco: ${documentInfo?.storageKey}`);
+            console.log(`   • Filename no banco: ${documentInfo?.filename}`);
+            console.log(`   • Deveria estar em: orders/CCM0809250026/certificado_pdf-1757620958919.pdf`);
+            
+            if (documentInfo?.storageKey) {
+              console.log(`   • Key do banco corresponde? ${documentInfo.storageKey === 'orders/CCM0809250026/certificado_pdf-1757620958919.pdf'}`);
+            }
+          }
+
           try {
-            // PRIORIDADE 1: DOWNLOAD DIRETO DO OBJECT STORAGE
+            // Usar a função readFileFromStorage para buscar o arquivo
+            const fileResult = await readFileFromStorage(
+              documentInfo.storageKey || '',
+              orderId,
+              documentInfo.filename
+            );
+
+            if (fileResult) {
+              const { data: fileBuffer, originalName } = fileResult;
+
+              // Verificar se é um redirect para Google Drive
+              if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+                const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+                console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+                return res.redirect(302, driveLink);
+              }
+
+              console.log(`✅ Arquivo recuperado com sucesso (${fileBuffer.length} bytes) - Nome original: ${originalName}`);
+
+              // Content type baseado na extensão
+              const fileExtension = path.extname(originalName).toLowerCase();
+              let contentType = 'application/octet-stream';
+              if (fileExtension === '.pdf') {
+                contentType = 'application/pdf';
+              } else if (fileExtension === '.xml') {
+                contentType = 'application/xml';
+              }
+
+              console.log(`📤 ENVIANDO: ${originalName} | ${fileBuffer.length} bytes | ${contentType}`);
+
+              res.setHeader('Content-Type', contentType);
+              res.setHeader('Content-Length', fileBuffer.length);
+              res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+              res.setHeader('Cache-Control', 'no-cache');
+
+              return res.end(fileBuffer);
+            }
+
+            // Se readFileFromStorage falhou, tentar acesso direto ao Object Storage
             if (objectStorageAvailable && objectStorage && documentInfo.storageKey) {
-              console.log(`📥 Buscando arquivo no Object Storage: ${documentInfo.storageKey}`);
+              console.log(`🔄 Tentativa direta no Object Storage: ${documentInfo.storageKey}`);
 
               try {
                 const fileData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
 
                 if (fileData && fileData.length > 0) {
-                  console.log(`✅ SUCESSO Object Storage: ${fileData.length} bytes recuperados`);
+                  console.log(`✅ SUCESSO Object Storage direto: ${fileData.length} bytes recuperados`);
 
                   // Converter para Buffer se necessário
                   const buffer = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData);
@@ -3785,7 +3845,7 @@ const uploadLogo = multer({
                     contentType = 'application/xml';
                   }
 
-                  console.log(`📤 ENVIANDO: ${originalFilename} | ${buffer.length} bytes | ${contentType}`);
+                  console.log(`📤 ENVIANDO DIRETO: ${originalFilename} | ${buffer.length} bytes | ${contentType}`);
 
                   // Headers de resposta
                   res.setHeader('Content-Type', contentType);
@@ -3796,10 +3856,10 @@ const uploadLogo = multer({
                   // Enviar arquivo diretamente
                   return res.end(buffer);
                 } else {
-                  console.log(`⚠️ Arquivo vazio ou não encontrado no Object Storage`);
+                  console.log(`⚠️ Arquivo vazio ou não encontrado no Object Storage direto`);
                 }
               } catch (storageError) {
-                console.log(`❌ Erro no Object Storage: ${storageError.message}`);
+                console.log(`❌ Erro no Object Storage direto: ${storageError.message}`);
               }
             }
 
