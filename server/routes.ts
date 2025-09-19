@@ -293,32 +293,91 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         // CONVERSÃO MÍNIMA NECESSÁRIA APENAS
         let finalBuffer = null;
         
+        console.log(`🔍 Análise detalhada do resultado:`, {
+          isBuffer: directBytes instanceof Buffer,
+          isUint8Array: directBytes instanceof Uint8Array,
+          isArray: Array.isArray(directBytes),
+          hasValueProperty: directBytes && typeof directBytes === 'object' && 'value' in directBytes,
+          hasOkProperty: directBytes && typeof directBytes === 'object' && 'ok' in directBytes,
+          directLength: directBytes?.length,
+          valueLength: directBytes?.value?.length,
+          valueType: directBytes?.value ? typeof directBytes.value : 'undefined'
+        });
+        
         if (directBytes instanceof Buffer) {
           finalBuffer = directBytes;
           console.log(`✅ Buffer direto - ${finalBuffer.length} bytes`);
         } else if (directBytes instanceof Uint8Array) {
           finalBuffer = Buffer.from(directBytes);
           console.log(`✅ Uint8Array para Buffer - ${finalBuffer.length} bytes`);
-        } else if (directBytes && directBytes.value) {
-          // Result wrapper do Replit - extrair valor direto
-          if (directBytes.value instanceof Buffer) {
-            finalBuffer = directBytes.value;
+        } else if (directBytes && typeof directBytes === 'object' && directBytes.ok && directBytes.value) {
+          // Result wrapper do Replit com status ok
+          const valueData = directBytes.value;
+          console.log(`🎯 Result wrapper detectado - processando value:`, {
+            valueType: typeof valueData,
+            isBuffer: valueData instanceof Buffer,
+            isUint8Array: valueData instanceof Uint8Array,
+            isArray: Array.isArray(valueData),
+            length: valueData?.length
+          });
+          
+          if (valueData instanceof Buffer) {
+            finalBuffer = valueData;
             console.log(`✅ Buffer do Result wrapper - ${finalBuffer.length} bytes`);
-          } else if (directBytes.value instanceof Uint8Array) {
-            finalBuffer = Buffer.from(directBytes.value);
+          } else if (valueData instanceof Uint8Array) {
+            finalBuffer = Buffer.from(valueData);
             console.log(`✅ Uint8Array do Result wrapper para Buffer - ${finalBuffer.length} bytes`);
+          } else if (Array.isArray(valueData)) {
+            // Array de números (bytes)
+            finalBuffer = Buffer.from(valueData);
+            console.log(`✅ Array de bytes do Result wrapper convertido - ${finalBuffer.length} bytes`);
+          } else if (typeof valueData === 'object' && valueData !== null) {
+            // Object com propriedades numéricas (array-like)
+            try {
+              const byteArray = Object.values(valueData).filter(v => typeof v === 'number');
+              if (byteArray.length > 0) {
+                finalBuffer = Buffer.from(byteArray);
+                console.log(`✅ Object array-like convertido - ${finalBuffer.length} bytes`);
+              } else {
+                console.log(`❌ Object não contém dados válidos`);
+              }
+            } catch (error) {
+              console.log(`❌ Erro ao converter object: ${error.message}`);
+            }
           } else {
-            finalBuffer = Buffer.from(directBytes.value);
-            console.log(`✅ Dados do Result wrapper convertidos - ${finalBuffer.length} bytes`);
+            console.log(`❌ Tipo de value não reconhecido: ${typeof valueData}`);
           }
+        } else if (directBytes && typeof directBytes === 'object' && directBytes.value) {
+          // Result wrapper sem propriedade ok
+          const valueData = directBytes.value;
+          console.log(`⚠️ Result wrapper sem ok - processando value:`, typeof valueData);
+          
+          if (valueData instanceof Buffer) {
+            finalBuffer = valueData;
+            console.log(`✅ Buffer do Result wrapper (sem ok) - ${finalBuffer.length} bytes`);
+          } else if (valueData instanceof Uint8Array) {
+            finalBuffer = Buffer.from(valueData);
+            console.log(`✅ Uint8Array do Result wrapper (sem ok) para Buffer - ${finalBuffer.length} bytes`);
+          } else if (Array.isArray(valueData)) {
+            finalBuffer = Buffer.from(valueData);
+            console.log(`✅ Array do Result wrapper (sem ok) convertido - ${finalBuffer.length} bytes`);
+          }
+        } else if (Array.isArray(directBytes)) {
+          // Array direto de bytes
+          finalBuffer = Buffer.from(directBytes);
+          console.log(`✅ Array direto convertido - ${finalBuffer.length} bytes`);
         }
 
-        if (finalBuffer && finalBuffer.length > 0) {
+        if (finalBuffer && finalBuffer.length > 1) {
           console.log(`🎯 SUCESSO DIRETO: ${filename} entregue com ${finalBuffer.length} bytes`);
           return {
             data: finalBuffer,
             originalName: filename
           };
+        } else if (finalBuffer && finalBuffer.length === 1) {
+          console.log(`❌ ERRO: Arquivo de 1 byte detectado - possível corrupção na extração`);
+          console.log(`🔍 Dados do buffer de 1 byte:`, finalBuffer[0]);
+          // Não retornar arquivo corrompido de 1 byte
         } else {
           console.log(`⚠️ Buffer final vazio ou inválido`);
         }
@@ -1059,7 +1118,20 @@ Status: Teste em progresso...`;
           log.push(`🔍 Tipo de dados recebidos: ${typeof downloadedData}`);
           log.push(`🔍 É instância de Uint8Array: ${downloadedData instanceof Uint8Array}`);
           log.push(`🔍 É instância de Buffer: ${downloadedData instanceof Buffer}`);
+          log.push(`🔍 É Array: ${Array.isArray(downloadedData)}`);
           log.push(`🔍 Tem propriedade ok: ${downloadedData && typeof downloadedData === 'object' && 'ok' in downloadedData}`);
+          log.push(`🔍 Tem propriedade value: ${downloadedData && typeof downloadedData === 'object' && 'value' in downloadedData}`);
+          
+          if (downloadedData && typeof downloadedData === 'object') {
+            log.push(`🔍 Propriedades do objeto: ${Object.keys(downloadedData).join(', ')}`);
+            if (downloadedData.value) {
+              log.push(`🔍 Tipo do value: ${typeof downloadedData.value}`);
+              log.push(`🔍 Value é Buffer: ${downloadedData.value instanceof Buffer}`);
+              log.push(`🔍 Value é Uint8Array: ${downloadedData.value instanceof Uint8Array}`);
+              log.push(`🔍 Value é Array: ${Array.isArray(downloadedData.value)}`);
+              log.push(`🔍 Tamanho do value: ${downloadedData.value?.length || 'indefinido'}`);
+            }
+          }
 
           let downloadedContent;
           let rawData = null;
