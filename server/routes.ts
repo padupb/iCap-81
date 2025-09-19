@@ -210,7 +210,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
 
 // Função utilitária para ler arquivo PRESERVANDO nome original
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer | Uint8Array, originalName: string } | null> {
-  console.log(`🔍 Buscando: ${filename} | Key: ${key}`);
+  console.log(`🔍 Buscando: ${filename} | Key: ${key} | OrderId: ${orderId}`);
 
   // Google Drive redirect
   if (key.startsWith('gdrive:')) {
@@ -225,21 +225,26 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   if (objectStorageAvailable && objectStorage) {
     const storageKeys = [];
 
-    // Prioridades de busca mantendo nome original
-    if (key) {
+    // NOVA PRIORIDADE 1: Buscar diretamente na pasta do orderId (estrutura atual)
+    storageKeys.push({
+      key: `${orderId}/${filename}`,
+      name: filename
+    });
+
+    // PRIORIDADE 2: Buscar na estrutura orders/orderId/filename (estrutura antiga)
+    storageKeys.push({
+      key: `orders/${orderId}/${filename}`,
+      name: filename
+    });
+
+    // PRIORIDADE 3: Usar a key original se fornecida
+    if (key && key !== `orders/${orderId}/${filename}` && key !== `${orderId}/${filename}`) {
       storageKeys.push({ key, name: filename });
     }
 
-    if (!key.startsWith('OC/')) {
-      storageKeys.push({
-        key: `orders/${orderId}/${filename}`,
-        name: filename  // NOME ORIGINAL PRESERVADO
-      });
-    }
-
+    // PRIORIDADE 4: Para ordens de compra (pasta OC)
     if (key.startsWith('OC/') || orderId.includes('orden')) {
       const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
-      // IMPORTANTE: extrair nome real do arquivo no storage
       const realStorageName = ocKey.includes('/') ? ocKey.split('/').pop() : ocKey;
       storageKeys.unshift({
         key: ocKey,
@@ -247,12 +252,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       });
     }
 
+    console.log(`🔍 Tentativas de busca no Object Storage:`, storageKeys.map(s => s.key));
+
     for (const { key: storageKey, name: storageName } of storageKeys) {
       try {
+        console.log(`📥 Tentando: ${storageKey}`);
         const rawData = await objectStorage.downloadAsBytes(storageKey);
 
         if (rawData && rawData.length > 0) {
-          console.log(`✅ Storage: ${storageName} (${rawData.length} bytes)`);
+          console.log(`✅ Storage ENCONTRADO: ${storageName} (${rawData.length} bytes) - Chave: ${storageKey}`);
 
           return {
             data: rawData instanceof Uint8Array ? rawData : Buffer.from(rawData),
@@ -263,6 +271,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`⚠️ ${storageKey}: ${error.message}`);
       }
     }
+
+    console.log(`❌ Arquivo não encontrado no Object Storage após ${storageKeys.length} tentativas`);
   }
 
   // Sistema local com nome preservado
