@@ -270,8 +270,8 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     }
   }
 
-  // Função utilitária para ler arquivo DIRETAMENTE do Object Storage - ZERO PROCESSAMENTO
-  async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer, originalName: string } | null> {
+// Função utilitária para ler arquivo DIRETAMENTE do Object Storage - ZERO PROCESSAMENTO
+async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer, originalName: string } | null> {
     console.log(`🔍 DOWNLOAD DIRETO: ${filename} | Key: ${key}`);
 
     // Google Drive redirect
