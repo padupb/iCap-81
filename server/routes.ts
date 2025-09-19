@@ -283,28 +283,38 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`📥 Tentando baixar: ${storageKey}`);
         const result = await objectStorage.downloadAsBytes(storageKey);
 
-        // O Object Storage do Replit pode retornar diferentes formatos
+        // O Object Storage do Replit retorna diretamente os bytes
         let rawData;
         
-        // Tentar extrair dados do resultado
-        if (result && typeof result === 'object') {
-          if (result.ok && result.value) {
-            // Formato Result wrapper
-            rawData = result.value;
-            console.log(`✅ Dados extraídos do Result wrapper: ${rawData.length} bytes`);
-          } else if (result.length !== undefined) {
-            // Array/Buffer direto
+        console.log(`🔍 Tipo do resultado:`, typeof result);
+        console.log(`🔍 É Array:`, Array.isArray(result));
+        console.log(`🔍 É Uint8Array:`, result instanceof Uint8Array);
+        console.log(`🔍 É Buffer:`, result instanceof Buffer);
+        console.log(`🔍 Tem propriedade length:`, result && typeof result.length !== 'undefined');
+        
+        if (result) {
+          // Replit Object Storage retorna diretamente os bytes como Uint8Array
+          if (result instanceof Uint8Array) {
             rawData = result;
-            console.log(`✅ Buffer/Array direto: ${rawData.length} bytes`);
-          } else if (result instanceof Uint8Array || result instanceof Buffer) {
-            // Uint8Array ou Buffer direto
+            console.log(`✅ Uint8Array direto: ${rawData.length} bytes`);
+          } else if (result instanceof Buffer) {
             rawData = result;
-            console.log(`✅ Uint8Array/Buffer: ${rawData.length} bytes`);
+            console.log(`✅ Buffer direto: ${rawData.length} bytes`);
+          } else if (Array.isArray(result)) {
+            // Converter array para Uint8Array se necessário
+            rawData = new Uint8Array(result);
+            console.log(`✅ Array convertido para Uint8Array: ${rawData.length} bytes`);
+          } else if (typeof result === 'object' && result.length !== undefined) {
+            // Tratar como array-like object
+            rawData = new Uint8Array(Object.values(result));
+            console.log(`✅ Object array-like convertido: ${rawData.length} bytes`);
+          } else {
+            // Fallback: tentar converter para string e depois para bytes
+            console.log(`⚠️ Tipo não reconhecido, tentando fallback`);
+            const str = result.toString();
+            rawData = new TextEncoder().encode(str);
+            console.log(`✅ Fallback string->bytes: ${rawData.length} bytes`);
           }
-        } else if (result instanceof Uint8Array || result instanceof Buffer) {
-          // Resultado direto como buffer
-          rawData = result;
-          console.log(`✅ Buffer direto: ${rawData.length} bytes`);
         }
 
         if (rawData && rawData.length > 0) {
