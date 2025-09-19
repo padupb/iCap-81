@@ -260,16 +260,8 @@ export default function OrdensCompra() {
         const companyCategory = categories.find(cat => cat.id === userCompany.categoryId);
         console.log('📂 Categoria da empresa:', companyCategory);
 
-        // Modificação: permitir edição se a empresa pode receber ordens de compra 
-        // OU se tem a propriedade específica de edição habilitada
-        const canEditByCategory = companyCategory?.receivesPurchaseOrders === true || 
-                                 companyCategory?.canEditPurchaseOrders === true;
-        
-        console.log('✏️ Pode editar por categoria:', {
-          receivesPurchaseOrders: companyCategory?.receivesPurchaseOrders,
-          canEditPurchaseOrders: companyCategory?.canEditPurchaseOrders,
-          resultado: canEditByCategory
-        });
+        const canEditByCategory = companyCategory?.receivesPurchaseOrders === true;
+        console.log('✏️ Pode editar por categoria:', canEditByCategory);
 
         return canEditByCategory;
       }

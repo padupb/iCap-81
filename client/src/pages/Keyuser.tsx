@@ -955,28 +955,13 @@ export default function Keyuser() {
       // Verificar se temos informações de teste bem-sucedido
       let storageKey = null;
       
-      // Verificar primeiro no resultado do teste da API
       if (objectStorageAPITestResult?.success && objectStorageAPITestResult?.storageKey) {
         storageKey = objectStorageAPITestResult.storageKey;
-        console.log("📂 Usando storageKey do teste da API:", storageKey);
-      } 
-      // Verificar no resultado do teste básico
-      else if (objectStorageTestResult?.success) {
-        // Tentar diferentes caminhos onde a storageKey pode estar
-        if (objectStorageTestResult.data?.storageKey) {
-          storageKey = objectStorageTestResult.data.storageKey;
-          console.log("📂 Usando storageKey do teste básico (data):", storageKey);
-        } else if (objectStorageTestResult.storageKey) {
-          storageKey = objectStorageTestResult.storageKey;
-          console.log("📂 Usando storageKey do teste básico (root):", storageKey);
-        }
+      } else if (objectStorageTestResult?.success && objectStorageTestResult?.data?.storageKey) {
+        storageKey = objectStorageTestResult.data.storageKey;
       }
 
       if (!storageKey) {
-        console.log("❌ Nenhuma storageKey encontrada");
-        console.log("Debug objectStorageAPITestResult:", objectStorageAPITestResult);
-        console.log("Debug objectStorageTestResult:", objectStorageTestResult);
-        
         toast({
           title: "Nenhum Arquivo",
           description: "Execute um teste bem-sucedido primeiro para ter um arquivo disponível para download",
