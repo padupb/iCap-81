@@ -1447,7 +1447,10 @@ Status: Teste em progresso...`;
       try {
         const { storageKey } = req.body;
 
+        console.log(`📥 KeyUser download solicitado - storageKey recebida: ${storageKey}`);
+
         if (!storageKey) {
+          console.log("❌ Storage key não fornecida");
           return res.status(400).json({
             success: false,
             message: "Storage key é obrigatório"
@@ -1456,48 +1459,97 @@ Status: Teste em progresso...`;
 
         // Verificar se Object Storage está disponível
         if (!objectStorageAvailable || !objectStorage) {
+          console.log("❌ Object Storage não disponível");
           return res.status(500).json({
             success: false,
             message: "Object Storage não está disponível"
           });
         }
 
-        console.log(`📥 KeyUser download solicitado para: ${storageKey}`);
+        console.log(`📥 Tentando download de: ${storageKey}`);
 
-        // Fazer download do arquivo
-        const downloadedData = await objectStorage.downloadAsBytes(storageKey);
-        
+        // Fazer download do arquivo usando a mesma lógica robusta da função readFileFromStorage
         let fileBuffer = null;
+        let originalName = storageKey.split('/').pop() || 'keyuser-test.txt';
 
-        // Processar os dados retornados
-        if (downloadedData && typeof downloadedData === 'object' && downloadedData.ok && downloadedData.value) {
-          // Result wrapper do Replit
-          const rawData = downloadedData.value;
-          if (rawData instanceof Buffer) {
-            fileBuffer = rawData;
-          } else if (rawData instanceof Uint8Array) {
-            fileBuffer = Buffer.from(rawData);
-          } else if (Array.isArray(rawData)) {
-            fileBuffer = Buffer.from(rawData);
+        try {
+          const downloadedData = await objectStorage.downloadAsBytes(storageKey);
+          
+          console.log(`📊 Dados baixados:`, {
+            tipo: typeof downloadedData,
+            isBuffer: downloadedData instanceof Buffer,
+            isUint8Array: downloadedData instanceof Uint8Array,
+            hasValue: downloadedData && downloadedData.value !== undefined,
+            hasOk: downloadedData && downloadedData.ok !== undefined,
+            length: downloadedData?.length || downloadedData?.value?.length
+          });
+
+          // ESTRATÉGIA 1: Dados diretos como Buffer ou Uint8Array
+          if (downloadedData instanceof Buffer) {
+            fileBuffer = downloadedData;
+            console.log(`✅ Buffer direto - ${fileBuffer.length} bytes`);
+          } else if (downloadedData instanceof Uint8Array) {
+            fileBuffer = Buffer.from(downloadedData);
+            console.log(`✅ Uint8Array para Buffer - ${fileBuffer.length} bytes`);
+          } 
+          // ESTRATÉGIA 2: Result wrapper do Replit
+          else if (downloadedData && typeof downloadedData === 'object' && downloadedData.ok !== undefined) {
+            console.log(`🎯 Result wrapper detectado - Status: ${downloadedData.ok ? 'OK' : 'ERROR'}`);
+            
+            if (!downloadedData.ok || downloadedData.error) {
+              console.log(`❌ Result indica erro: ${downloadedData.error || 'status não OK'}`);
+              throw new Error(`Object Storage error: ${downloadedData.error || 'download failed'}`);
+            }
+            
+            const valueData = downloadedData.value;
+            if (valueData instanceof Buffer) {
+              fileBuffer = valueData;
+              console.log(`✅ Buffer do Result wrapper - ${fileBuffer.length} bytes`);
+            } else if (valueData instanceof Uint8Array) {
+              fileBuffer = Buffer.from(valueData);
+              console.log(`✅ Uint8Array do Result wrapper para Buffer - ${fileBuffer.length} bytes`);
+            } else if (Array.isArray(valueData) && valueData.length > 0) {
+              // Verificar se é array de bytes válido
+              const isValidByteArray = valueData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
+              if (isValidByteArray) {
+                fileBuffer = Buffer.from(valueData);
+                console.log(`✅ Array de bytes do Result wrapper convertido - ${fileBuffer.length} bytes`);
+              } else {
+                console.log(`❌ Array não contém bytes válidos`);
+              }
+            }
           }
-        } else if (downloadedData instanceof Uint8Array || downloadedData instanceof Buffer) {
-          fileBuffer = Buffer.from(downloadedData);
+          // ESTRATÉGIA 3: Array direto de bytes
+          else if (Array.isArray(downloadedData) && downloadedData.length > 0) {
+            const isValidByteArray = downloadedData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
+            if (isValidByteArray) {
+              fileBuffer = Buffer.from(downloadedData);
+              console.log(`✅ Array direto convertido - ${fileBuffer.length} bytes`);
+            } else {
+              console.log(`❌ Array direto não contém bytes válidos`);
+            }
+          }
+
+        } catch (downloadError) {
+          console.error("❌ Erro no download:", downloadError);
+          throw new Error(`Falha no download: ${downloadError.message}`);
         }
 
         if (!fileBuffer || fileBuffer.length === 0) {
+          console.log("❌ Nenhum buffer válido foi gerado ou arquivo está vazio");
           return res.status(404).json({
             success: false,
             message: "Arquivo não encontrado ou está vazio"
           });
         }
 
-        console.log(`✅ Arquivo encontrado: ${fileBuffer.length} bytes`);
+        console.log(`✅ Arquivo processado com sucesso: ${fileBuffer.length} bytes`);
 
         // Configurar headers para download
-        const filename = storageKey.split('/').pop() || 'keyuser-test.txt';
-        res.setHeader('Content-Type', 'text/plain');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
         res.setHeader('Content-Length', fileBuffer.length);
+        res.setHeader('Cache-Control', 'no-cache');
 
         // Enviar o arquivo
         res.end(fileBuffer);
@@ -1510,6 +1562,8 @@ Status: Teste em progresso...`;
           itemId: "object_storage_download",
           details: `Download do arquivo ${storageKey} (${fileBuffer.length} bytes)`
         });
+
+        console.log(`✅ Download concluído com sucesso para o KeyUser`);
 
       } catch (error) {
         console.error("Erro ao fazer download do arquivo de teste:", error);
