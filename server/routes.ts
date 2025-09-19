@@ -222,26 +222,32 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     };
   }
 
-  // Object Storage - usar SEMPRE a key exata do banco primeiro
+  // Object Storage - buscar na estrutura correta
   if (objectStorageAvailable && objectStorage) {
     const storageKeys = [];
 
-    // PRIORIDADE 1: Usar a key exata armazenada no banco (storageKey do documentosinfo)
-    if (key) {
+    // PRIORIDADE 1: Buscar diretamente na pasta do pedido (estrutura atual do Replit)
+    storageKeys.push({ key: `${orderId}/${filename}`, name: filename });
+    console.log(`📁 Tentando padrão principal: ${orderId}/${filename}`);
+
+    // PRIORIDADE 2: Usar a key exata armazenada no banco se disponível
+    if (key && key !== `${orderId}/${filename}`) {
       storageKeys.push({ key, name: filename });
-      console.log(`🔑 Tentando primeiro com a key exata do banco: ${key}`);
+      console.log(`🔑 Tentando com a key do banco: ${key}`);
     }
 
-    // PRIORIDADE 2: Se não tem key ou falhou, tentar padrão atual com orderId
-    if (!key || !key.includes('/')) {
+    // PRIORIDADE 3: Tentar buscar usando o filename específico nos documentos
+    if (filename.includes('-')) {
+      // Para arquivos como nota_pdf-1757620958729.pdf
       storageKeys.push({ key: `${orderId}/${filename}`, name: filename });
-      console.log(`📁 Tentando com padrão orderId: ${orderId}/${filename}`);
+      
+      // Também tentar sem o orderId como prefixo
+      storageKeys.push({ key: filename, name: filename });
     }
 
-    // PRIORIDADE 3: Tentar diferentes estruturas de pastas como fallback
+    // PRIORIDADE 4: Fallbacks para outras estruturas
     const fallbackPaths = [
       `orders/${orderId}/${filename}`,
-      `pedidos/${orderId}/${filename}`,
       `uploads/${orderId}/${filename}`,
       filename // Arquivo na raiz
     ];
@@ -266,10 +272,28 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             data: rawData instanceof Uint8Array ? rawData : Buffer.from(rawData),
             originalName: storageName
           };
+        } else {
+          console.log(`⚠️ Arquivo vazio ou nulo: ${storageKey}`);
         }
       } catch (error) {
         console.log(`⚠️ Falha em ${storageKey}: ${error.message}`);
       }
+    }
+
+    // Debug adicional: listar todos os arquivos do Object Storage que começam com o orderId
+    try {
+      console.log(`🔍 Listando todos os arquivos que começam com ${orderId}...`);
+      const allObjects = await objectStorage.list();
+      const matchingObjects = allObjects.filter(obj => 
+        obj.key.includes(orderId) || 
+        obj.key.includes(filename.split('-')[0]) // buscar por tipo de documento
+      );
+      
+      console.log(`📋 Arquivos relacionados encontrados no Object Storage:`, 
+        matchingObjects.map(obj => obj.key));
+      
+    } catch (listError) {
+      console.log(`❌ Erro ao listar arquivos do Object Storage: ${listError.message}`);
     }
 
     console.log(`❌ Arquivo não encontrado no Object Storage após ${storageKeys.length} tentativas`);
