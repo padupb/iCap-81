@@ -232,7 +232,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       console.log(`🎯 PRIORIDADE 1 - Key exata do banco: ${key.trim()}`);
     }
 
-    // PRIORIDADE 2: Tentar estrutura "orders/{orderId}/{filename}" 
+    // PRIORIDADE 2: Tentar estrutura "orders/{orderId}/{filename}"
     const ordersPath = `orders/${orderId}/${filename}`;
     storageKeys.push({ key: ordersPath, name: filename });
     console.log(`📁 PRIORIDADE 2 - Estrutura orders: ${ordersPath}`);
@@ -258,7 +258,20 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     for (const { key: storageKey, name: storageName } of storageKeys) {
       try {
         console.log(`📥 Tentando baixar: ${storageKey}`);
-        const rawData = await objectStorage.downloadAsBytes(storageKey);
+        const result = await objectStorage.downloadAsBytes(storageKey);
+
+        // O Object Storage do Replit retorna um Result object
+        let rawData;
+        if (result && typeof result === 'object' && result.ok && result.value) {
+          rawData = result.value;
+          console.log(`✅ Dados extraídos do Result wrapper: ${rawData.length} bytes`);
+        } else if (result && result.length !== undefined) {
+          // Fallback para caso seja retornado diretamente
+          rawData = result;
+        } else {
+          console.log(`⚠️ Resultado inválido do downloadAsBytes:`, typeof result, result);
+          continue;
+        }
 
         if (rawData && rawData.length > 0) {
           console.log(`✅ ARQUIVO ENCONTRADO: ${storageName} (${rawData.length} bytes) - Chave: ${storageKey}`);
@@ -279,48 +292,54 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     try {
       console.log(`🔍 LISTANDO TODOS os arquivos do Object Storage para debug...`);
       const listResult = await objectStorage.list();
-      
-      // Verificar se o resultado é válido
-      if (!listResult) {
-        console.log(`❌ Resultado da listagem é null/undefined`);
-      } else if (!Array.isArray(listResult)) {
-        console.log(`❌ Resultado da listagem não é um array:`, typeof listResult);
-        console.log(`🔍 Conteúdo do resultado:`, listResult);
+
+      // Extrair dados do Result wrapper se necessário
+      let objects;
+      if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
+        objects = listResult.value;
+        console.log(`✅ Dados extraídos do Result wrapper: ${objects.length} objetos`);
+      } else if (Array.isArray(listResult)) {
+        objects = listResult;
+        console.log(`✅ Lista direta: ${objects.length} objetos`);
       } else {
-        console.log(`✅ Resultado da listagem é um array com ${listResult.length} items`);
-        
+        console.log(`❌ Resultado da listagem inválido:`, typeof listResult);
+        console.log(`🔍 Conteúdo do resultado:`, listResult);
+        objects = [];
+      }
+
+      if (objects.length > 0) {
+        console.log(`✅ Processando ${objects.length} objetos`);
         // Buscar arquivos relacionados ao pedido
-        const relatedObjects = listResult.filter(obj => 
-          obj && obj.key && (
-            obj.key.includes(orderId) || 
-            obj.key.includes('CCM0809250026') ||
-            obj.key.includes('certificado_pdf-1757620958919') ||
-            obj.key.includes(filename.split('-')[0])
+        const relatedObjects = objects.filter(obj =>
+          obj && (obj.key || obj.name) && (
+            (obj.key || obj.name).includes(orderId) ||
+            (obj.key || obj.name).includes('CCM0809250026') ||
+            (obj.key || obj.name).includes('certificado_pdf-1757620958919') ||
+            (obj.key || obj.name).includes(filename.split('-')[0])
           )
         );
-        
-        console.log(`📋 Arquivos relacionados a ${orderId}:`, 
-          relatedObjects.map(obj => `${obj.key} (${obj.size || 'sem tamanho'} bytes)`));
+
+        console.log(`📋 Arquivos relacionados a ${orderId}:`,
+          relatedObjects.map(obj => `${obj.key || obj.name} (${obj.size || 'sem tamanho'} bytes)`));
 
         // Buscar especificamente o arquivo que deveria existir
         const searchKey = `orders/${orderId}/${filename}`;
         console.log(`🎯 Procurando especificamente por: ${searchKey}`);
-        const specificObject = listResult.find(obj => obj && obj.key === searchKey);
+        const specificObject = objects.find(obj => obj && (obj.key === searchKey || obj.name === searchKey));
         if (specificObject) {
-          console.log(`🎉 ENCONTROU o arquivo específico: ${specificObject.key} (${specificObject.size} bytes)`);
+          console.log(`🎉 ENCONTROU o arquivo específico: ${specificObject.key || specificObject.name} (${specificObject.size} bytes)`);
         } else {
           console.log(`❌ Arquivo específico NÃO ENCONTRADO`);
-          
+
           // Mostrar os primeiros 10 arquivos para debug
           console.log(`🔍 Primeiros 10 arquivos no Object Storage:`);
-          listResult.slice(0, 10).forEach((obj, index) => {
-            if (obj && obj.key) {
-              console.log(`   ${index + 1}. ${obj.key} (${obj.size || 'sem tamanho'} bytes)`);
+          objects.slice(0, 10).forEach((obj, index) => {
+            if (obj && (obj.key || obj.name)) {
+              console.log(`   ${index + 1}. ${obj.key || obj.name} (${obj.size || 'sem tamanho'} bytes)`);
             }
           });
         }
       }
-      
     } catch (listError) {
       console.log(`❌ Erro ao listar arquivos do Object Storage: ${listError.message}`);
       console.log(`❌ Stack trace:`, listError.stack);
@@ -3765,9 +3784,7 @@ const uploadLogo = multer({
           });
         }
 
-        const documentosInfo = typeof result.rows[0].documentosinfo === 'string'
-          ? JSON.parse(result.rows[0].documentosinfo)
-          : result.rows[0].documentosinfo;
+        const documentosInfo = result.rows[0].documentosinfo;
 
         const orderId = result.rows[0].order_id;
 
@@ -3797,7 +3814,7 @@ const uploadLogo = multer({
             console.log(`   • StorageKey no banco: ${documentInfo?.storageKey}`);
             console.log(`   • Filename no banco: ${documentInfo?.filename}`);
             console.log(`   • Deveria estar em: orders/CCM0809250026/certificado_pdf-1757620958919.pdf`);
-            
+
             if (documentInfo?.storageKey) {
               console.log(`   • Key do banco corresponde? ${documentInfo.storageKey === 'orders/CCM0809250026/certificado_pdf-1757620958919.pdf'}`);
             }
@@ -3855,7 +3872,7 @@ const uploadLogo = multer({
               for (const { name, method } of downloadMethods) {
                 try {
                   console.log(`🔄 Tentando método ${name}...`);
-                  
+
                   let fileData;
                   if (method === 'downloadAsBytes') {
                     fileData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
@@ -3901,7 +3918,7 @@ const uploadLogo = multer({
                   console.log(`❌ Erro no método ${name}: ${methodError.message}`);
                 }
               }
-              
+
               console.log(`❌ Todos os métodos de download falharam`);
             }
 
@@ -4545,9 +4562,8 @@ const uploadLogo = multer({
         }
       },
       filename: function (req, file, cb) {
-        const fileExt = path.extname(file.originalname);
-        const fileName = `nota_assinada-${Date.now()}${fileExt}`;
-        cb(null, fileName);
+        // Sempre salvar como icapmob.apk (sobrescrever)
+        cb(null, "icapmob.apk");
       }
     });
 
@@ -4891,7 +4907,7 @@ const uploadLogo = multer({
         console.error("Erro ao rejeitar reprogramação:", error);
         res.status(500).json({
           sucesso: false,
-          mensagem: "Erro ao rejeitar reprogramação"
+          mensagem: "Erro aorejeitar reprogramação"
         });
       }
     });
