@@ -256,9 +256,9 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   }
 }
 
-// Função utilitária para ler arquivo SEM conversões - entrega direta dos dados do Object Storage
+// Função utilitária para ler arquivo DIRETAMENTE do Object Storage - ZERO PROCESSAMENTO
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer, originalName: string } | null> {
-  console.log(`🔍 Buscando: ${filename} | Key: ${key} | OrderId: ${orderId}`);
+  console.log(`🔍 DOWNLOAD DIRETO: ${filename} | Key: ${key}`);
 
   // Google Drive redirect
   if (key.startsWith('gdrive:')) {
@@ -269,59 +269,69 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     };
   }
 
-  // Object Storage - busca DIRETA sem conversões
+  // Object Storage - ENTREGA DIRETA DOS BYTES
   if (objectStorageAvailable && objectStorage) {
-    console.log(`📦 Object Storage disponível - iniciando busca DIRETA`);
+    console.log(`📦 Object Storage - DOWNLOAD DIRETO SEM CONVERSÕES`);
 
     const storageKeys = [key.trim(), `orders/${orderId}/${filename}`, `${orderId}/${filename}`];
 
     for (const storageKey of storageKeys) {
       try {
-        console.log(`📥 Download direto de: ${storageKey}`);
+        console.log(`📥 Executando downloadAsBytes(${storageKey})`);
 
-        // Download SEM processamento - entrega exata do Object Storage
-        const rawResult = await objectStorage.downloadAsBytes(storageKey);
+        // CHAMADA DIRETA - sem nenhum processamento
+        const directBytes = await objectStorage.downloadAsBytes(storageKey);
         
-        // Se obteve resultado, converter diretamente para Buffer e retornar
-        if (rawResult) {
-          let directBuffer;
-          
-          // Verificar o tipo e converter da forma mais direta possível
-          if (rawResult instanceof Buffer) {
-            directBuffer = rawResult;
-          } else if (rawResult instanceof Uint8Array) {
-            directBuffer = Buffer.from(rawResult);
-          } else if (rawResult && typeof rawResult === 'object' && rawResult.ok && rawResult.value) {
-            // Se é Result wrapper, extrair o valor direto
-            if (rawResult.value instanceof Buffer) {
-              directBuffer = rawResult.value;
-            } else if (rawResult.value instanceof Uint8Array) {
-              directBuffer = Buffer.from(rawResult.value);
-            } else {
-              directBuffer = Buffer.from(rawResult.value);
-            }
-          } else {
-            // Último recurso: forçar conversão
-            directBuffer = Buffer.from(rawResult);
-          }
+        console.log(`📊 Resultado direto:`, {
+          tipo: typeof directBytes,
+          isBuffer: directBytes instanceof Buffer,
+          isUint8Array: directBytes instanceof Uint8Array,
+          hasValue: directBytes && directBytes.value !== undefined,
+          length: directBytes?.length || directBytes?.value?.length
+        });
 
-          if (directBuffer && directBuffer.length > 0) {
-            console.log(`✅ ARQUIVO ENCONTRADO DIRETO: ${filename} (${directBuffer.length} bytes) - Key: ${storageKey}`);
-            return {
-              data: directBuffer,
-              originalName: filename
-            };
+        // CONVERSÃO MÍNIMA NECESSÁRIA APENAS
+        let finalBuffer = null;
+        
+        if (directBytes instanceof Buffer) {
+          finalBuffer = directBytes;
+          console.log(`✅ Buffer direto - ${finalBuffer.length} bytes`);
+        } else if (directBytes instanceof Uint8Array) {
+          finalBuffer = Buffer.from(directBytes);
+          console.log(`✅ Uint8Array para Buffer - ${finalBuffer.length} bytes`);
+        } else if (directBytes && directBytes.value) {
+          // Result wrapper do Replit - extrair valor direto
+          if (directBytes.value instanceof Buffer) {
+            finalBuffer = directBytes.value;
+            console.log(`✅ Buffer do Result wrapper - ${finalBuffer.length} bytes`);
+          } else if (directBytes.value instanceof Uint8Array) {
+            finalBuffer = Buffer.from(directBytes.value);
+            console.log(`✅ Uint8Array do Result wrapper para Buffer - ${finalBuffer.length} bytes`);
+          } else {
+            finalBuffer = Buffer.from(directBytes.value);
+            console.log(`✅ Dados do Result wrapper convertidos - ${finalBuffer.length} bytes`);
           }
         }
+
+        if (finalBuffer && finalBuffer.length > 0) {
+          console.log(`🎯 SUCESSO DIRETO: ${filename} entregue com ${finalBuffer.length} bytes`);
+          return {
+            data: finalBuffer,
+            originalName: filename
+          };
+        } else {
+          console.log(`⚠️ Buffer final vazio ou inválido`);
+        }
+        
       } catch (error) {
-        console.log(`⚠️ Falha em ${storageKey}: ${error.message}`);
+        console.log(`❌ Erro direto em ${storageKey}: ${error.message}`);
       }
     }
 
-    console.log(`❌ Arquivo não encontrado no Object Storage`);
+    console.log(`❌ Arquivo não encontrado no Object Storage após tentativas diretas`);
   }
 
-  // Fallback para sistema local
+  // Fallback para sistema local - SOMENTE se Object Storage falhar
   const localPaths = [
     path.join(process.cwd(), "uploads", orderId, filename),
     path.join(process.cwd(), "uploads", filename)
@@ -332,7 +342,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       if (fs.existsSync(filePath)) {
         const buffer = fs.readFileSync(filePath);
         if (buffer.length > 0) {
-          console.log(`✅ Local: ${filename} (${buffer.length} bytes)`);
+          console.log(`✅ Fallback local: ${filename} (${buffer.length} bytes)`);
           return {
             data: buffer,
             originalName: filename
@@ -340,11 +350,11 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         }
       }
     } catch (error) {
-      console.log(`⚠️ ${filePath}: ${error.message}`);
+      console.log(`⚠️ Erro local ${filePath}: ${error.message}`);
     }
   }
 
-  console.log(`❌ Arquivo ${filename} não encontrado`);
+  console.log(`❌ Arquivo ${filename} não encontrado em lugar nenhum`);
   return null;
 }
 
@@ -4057,59 +4067,82 @@ Status: Teste em progresso...`;
       }
     });
 
-    // Rota para download de documentos
+    // Rota para download DIRETO de documentos
     app.get("/api/pedidos/:id/documentos/:tipo", authenticateToken, async (req, res) => {
       try {
         const { id, tipo } = req.params;
-        const { download } = req.query;
+        console.log(`🎯 DOWNLOAD DIRETO - Pedido: ${id}, Tipo: ${tipo}`);
 
-        console.log(`📋 Download solicitado - Pedido: ${id}, Tipo: ${tipo}, Download: ${download}`);
-
-        // Buscar o pedido
-        const orderResult = await pool.query("SELECT * FROM orders WHERE id = $1", [id]);
-        if (orderResult.rows.length === 0) {
-          console.log(`❌ Pedido ${id} não encontrado`);
-          return res.status(404).json({
-            sucesso: false,
-            mensagem: "Pedido não encontrado"
-          });
-        }
-
-        const order = orderResult.rows[0];
-        console.log(`📦 Pedido encontrado: ${order.order_id}`);
-
-        // Verificar se há documentos carregados
-        if (!order.documentoscarregados || !order.documentosinfo) {
-          console.log(`❌ Pedido ${order.order_id} não possui documentos carregados`);
-          return res.status(404).json({
-            sucesso: false,
-            mensagem: "Não há documentos carregados para este pedido"
-          });
-        }
-
-        // Buscar as informações dos documentos do banco de dados
+        // Buscar documentos do pedido
         const result = await pool.query(
-          "SELECT documentosinfo FROM orders WHERE id = $1",
+          "SELECT order_id, documentosinfo FROM orders WHERE id = $1 AND documentoscarregados = true",
           [id]
         );
 
-        if (result.rowCount === 0 || !result.rows[0].documentosinfo) {
-          return res.json({
-            sucesso: true,
-            temDocumentos: false,
-            mensagem: "Informações dos documentos não encontradas"
+        if (!result.rows.length) {
+          console.log(`❌ Pedido ${id} sem documentos`);
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: "Pedido não encontrado ou sem documentos"
           });
         }
 
-        const documentosInfo = result.rows[0].documentosinfo;
+        const { order_id: orderId, documentosinfo } = result.rows[0];
+        const docsInfo = typeof documentosinfo === 'string' ? JSON.parse(documentosinfo) : documentosinfo;
+        
+        if (!docsInfo[tipo]) {
+          console.log(`❌ Documento ${tipo} não encontrado`);
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: `Documento ${tipo} não encontrado`
+          });
+        }
 
-        return res.json({
-          sucesso: true,
-          temDocumentos: true,
-          documentos: documentosInfo
-        });
+        const docInfo = docsInfo[tipo];
+        console.log(`📄 Documento ${tipo}: ${docInfo.storageKey}`);
+
+        // DOWNLOAD DIRETO DO OBJECT STORAGE
+        const fileResult = await readFileFromStorage(docInfo.storageKey, orderId, docInfo.filename);
+        
+        if (!fileResult) {
+          console.log(`❌ Arquivo não encontrado no storage`);
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: "Arquivo não encontrado no storage"
+          });
+        }
+
+        const { data: fileBuffer, originalName } = fileResult;
+
+        // Google Drive redirect
+        if (fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+          const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+          console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+          return res.redirect(302, driveLink);
+        }
+
+        // ENTREGA DIRETA DO ARQUIVO
+        console.log(`🚀 ENVIANDO ARQUIVO DIRETO: ${originalName} (${fileBuffer.length} bytes)`);
+        
+        // Detectar tipo de conteúdo
+        let contentType = 'application/octet-stream';
+        if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
+          contentType = 'application/pdf';
+        } else if (tipo === 'nota_xml') {
+          contentType = 'application/xml';
+        }
+
+        // Headers para download direto
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', fileBuffer.length);
+        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+        res.setHeader('Cache-Control', 'no-cache');
+
+        // ENVIO DIRETO DOS BYTES
+        return res.end(fileBuffer);
+        
       } catch (error) {
-        console.error(`❌ Erro no download:`, error);
+        console.error(`❌ Erro no download direto:`, error);
         res.status(500).json({
           sucesso: false,
           mensagem: "Erro interno no servidor",
