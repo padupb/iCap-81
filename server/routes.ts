@@ -1384,14 +1384,9 @@ Status: Teste em progresso...`;
           }
         }
 
-        // TESTE 6: Limpeza do arquivo de teste
-        log.push('\n🧹 TESTE 6: Limpeza...');
-        try {
-          await objectStorage.delete(testKey);
-          log.push('✅ Arquivo de teste removido com sucesso');
-        } catch (cleanupError) {
-          log.push(`⚠️ Aviso: não foi possível remover arquivo de teste: ${cleanupError.message}`);
-        }
+        // TESTE 6: Limpeza do arquivo de teste - PULAR para permitir download
+        log.push('\n🧹 TESTE 6: Mantendo arquivo para download...');
+        log.push(`📂 Arquivo de teste mantido para download: ${testKey}`);
 
         const totalTime = Date.now() - startTime;
         log.push('\n🎉 TODOS OS TESTES CONCLUÍDOS COM SUCESSO!');
@@ -1411,6 +1406,7 @@ Status: Teste em progresso...`;
           success: true,
           message: `Teste da API concluído com sucesso! Todos os 6 testes passaram.`,
           testsExecuted: req.body.includePerformance ? 6 : 5,
+          storageKey: testKey, // Adicionar chave para download
           stats: {
             testsExecuted: req.body.includePerformance ? 6 : 5,
             totalTime,
@@ -1442,6 +1438,84 @@ Status: Teste em progresso...`;
           error: error.message,
           log: log.join('\n'),
           timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    // Rota para download do arquivo de teste do Object Storage
+    app.post("/api/keyuser/download-test-file", isAuthenticated, isKeyUser, async (req, res) => {
+      try {
+        const { storageKey } = req.body;
+
+        if (!storageKey) {
+          return res.status(400).json({
+            success: false,
+            message: "Storage key é obrigatório"
+          });
+        }
+
+        // Verificar se Object Storage está disponível
+        if (!objectStorageAvailable || !objectStorage) {
+          return res.status(500).json({
+            success: false,
+            message: "Object Storage não está disponível"
+          });
+        }
+
+        console.log(`📥 KeyUser download solicitado para: ${storageKey}`);
+
+        // Fazer download do arquivo
+        const downloadedData = await objectStorage.downloadAsBytes(storageKey);
+        
+        let fileBuffer = null;
+
+        // Processar os dados retornados
+        if (downloadedData && typeof downloadedData === 'object' && downloadedData.ok && downloadedData.value) {
+          // Result wrapper do Replit
+          const rawData = downloadedData.value;
+          if (rawData instanceof Buffer) {
+            fileBuffer = rawData;
+          } else if (rawData instanceof Uint8Array) {
+            fileBuffer = Buffer.from(rawData);
+          } else if (Array.isArray(rawData)) {
+            fileBuffer = Buffer.from(rawData);
+          }
+        } else if (downloadedData instanceof Uint8Array || downloadedData instanceof Buffer) {
+          fileBuffer = Buffer.from(downloadedData);
+        }
+
+        if (!fileBuffer || fileBuffer.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Arquivo não encontrado ou está vazio"
+          });
+        }
+
+        console.log(`✅ Arquivo encontrado: ${fileBuffer.length} bytes`);
+
+        // Configurar headers para download
+        const filename = storageKey.split('/').pop() || 'keyuser-test.txt';
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', fileBuffer.length);
+
+        // Enviar o arquivo
+        res.end(fileBuffer);
+
+        // Log da ação
+        await storage.createLog({
+          userId: req.user.id,
+          action: "Download de arquivo de teste",
+          itemType: "system",
+          itemId: "object_storage_download",
+          details: `Download do arquivo ${storageKey} (${fileBuffer.length} bytes)`
+        });
+
+      } catch (error) {
+        console.error("Erro ao fazer download do arquivo de teste:", error);
+        res.status(500).json({
+          success: false,
+          message: `Erro ao fazer download: ${error.message}`
         });
       }
     });

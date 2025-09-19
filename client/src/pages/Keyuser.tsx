@@ -950,6 +950,70 @@ export default function Keyuser() {
     }
   };
 
+  const handleDownloadTestFile = async () => {
+    try {
+      // Verificar se temos informações de teste bem-sucedido
+      let storageKey = null;
+      
+      if (objectStorageAPITestResult?.success && objectStorageAPITestResult?.storageKey) {
+        storageKey = objectStorageAPITestResult.storageKey;
+      } else if (objectStorageTestResult?.success && objectStorageTestResult?.data?.storageKey) {
+        storageKey = objectStorageTestResult.data.storageKey;
+      }
+
+      if (!storageKey) {
+        toast({
+          title: "Nenhum Arquivo",
+          description: "Execute um teste bem-sucedido primeiro para ter um arquivo disponível para download",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Fazer download do arquivo de teste
+      const response = await fetch("/api/keyuser/download-test-file", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          storageKey: storageKey
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao fazer download");
+      }
+
+      // Criar blob e fazer download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `keyuser-test-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Download Concluído",
+        description: "Arquivo de teste baixado com sucesso!",
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error("Erro ao fazer download do arquivo de teste:", error);
+      toast({
+        title: "Erro no Download",
+        description: error instanceof Error ? error.message : "Erro ao fazer download do arquivo",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -1787,7 +1851,7 @@ export default function Keyuser() {
                   <div className="space-y-4 pt-6 border-t border-border">
                     <h3 className="text-lg font-medium text-foreground">Testes do Sistema</h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <Button 
                         onClick={handleTestObjectStorage}
                         disabled={isTestingObjectStorage}
@@ -1824,6 +1888,16 @@ export default function Keyuser() {
                             Testar API Object Storage
                           </>
                         )}
+                      </Button>
+
+                      <Button 
+                        onClick={handleDownloadTestFile}
+                        disabled={!objectStorageTestResult?.success && !objectStorageAPITestResult?.success}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Arquivo de Teste
                       </Button>
                     </div>
 
