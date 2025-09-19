@@ -1200,27 +1200,81 @@ Status: Teste em progresso...`;
           const downloadedData = await objectStorage.downloadAsBytes(testKey);
           const downloadTime = Date.now() - downloadStartTime;
           
+          log.push(`🔍 Tipo de dados recebidos: ${typeof downloadedData}`);
+          log.push(`🔍 É instância de Uint8Array: ${downloadedData instanceof Uint8Array}`);
+          log.push(`🔍 É instância de Buffer: ${downloadedData instanceof Buffer}`);
+          log.push(`🔍 Tem propriedade ok: ${downloadedData && typeof downloadedData === 'object' && 'ok' in downloadedData}`);
+          
           let downloadedContent;
+          let rawData = null;
+          
+          // Extrair os dados brutos primeiro
           if (downloadedData && typeof downloadedData === 'object' && downloadedData.ok && downloadedData.value) {
-            // Result wrapper
-            downloadedContent = new TextDecoder().decode(downloadedData.value);
-          } else if (downloadedData instanceof Uint8Array) {
-            downloadedContent = new TextDecoder().decode(downloadedData);
+            // Result wrapper do Replit
+            rawData = downloadedData.value;
+            log.push(`✅ Dados extraídos do Result wrapper`);
+          } else if (downloadedData instanceof Uint8Array || downloadedData instanceof Buffer) {
+            // Dados diretos como Uint8Array ou Buffer
+            rawData = downloadedData;
+            log.push(`✅ Dados diretos como ${downloadedData instanceof Buffer ? 'Buffer' : 'Uint8Array'}`);
+          } else if (Array.isArray(downloadedData)) {
+            // Array de números
+            rawData = new Uint8Array(downloadedData);
+            log.push(`✅ Array convertido para Uint8Array`);
+          } else if (typeof downloadedData === 'object' && downloadedData !== null && downloadedData.length !== undefined) {
+            // Array-like object
+            try {
+              const values = Object.values(downloadedData);
+              rawData = new Uint8Array(values);
+              log.push(`✅ Object array-like convertido para Uint8Array`);
+            } catch (conversionError) {
+              log.push(`❌ Erro na conversão de object para Uint8Array: ${conversionError.message}`);
+              throw new Error(`Conversão de dados: ${conversionError.message}`);
+            }
           } else {
-            downloadedContent = new TextDecoder().decode(downloadedData);
+            log.push(`❌ Tipo de dados não reconhecido para conversão`);
+            throw new Error(`Tipo de dados não suportado: ${typeof downloadedData}`);
           }
           
+          // Verificar se temos dados válidos
+          if (!rawData || rawData.length === 0) {
+            log.push(`❌ Dados vazios ou nulos após extração`);
+            throw new Error(`Dados vazios após download`);
+          }
+          
+          log.push(`📊 Tamanho dos dados brutos: ${rawData.length} bytes`);
+          
+          // Converter para texto de forma segura
+          try {
+            if (rawData instanceof Uint8Array || rawData instanceof Buffer) {
+              downloadedContent = new TextDecoder('utf-8', { fatal: false }).decode(rawData);
+            } else {
+              // Fallback: converter para Buffer primeiro
+              const buffer = Buffer.from(rawData);
+              downloadedContent = buffer.toString('utf-8');
+            }
+            
+            log.push(`📊 Tamanho do conteúdo: ${downloadedContent.length} caracteres`);
+            
+          } catch (textError) {
+            log.push(`❌ Erro na conversão para texto: ${textError.message}`);
+            throw new Error(`Conversão para texto: ${textError.message}`);
+          }
+          
+          // Verificar integridade
           const isIntegrityOk = downloadedContent.includes(req.user.name) && downloadedContent.includes('iCAP 5.0');
           
           log.push(`✅ Download realizado em ${downloadTime}ms`);
-          log.push(`📊 Tamanho baixado: ${downloadedContent.length} caracteres`);
           log.push(`🔍 Integridade: ${isIntegrityOk ? 'OK' : 'FALHA'}`);
           
           if (!isIntegrityOk) {
             log.push(`⚠️ Conteúdo não confere com o esperado`);
+            log.push(`🔍 Primeiros 100 caracteres: "${downloadedContent.substring(0, 100)}"`);
           }
+          
         } catch (downloadError) {
           log.push(`❌ Falha no download: ${downloadError.message}`);
+          log.push(`🔍 Stack trace: ${downloadError.stack}`);
           throw new Error(`Download: ${downloadError.message}`);
         }
 
