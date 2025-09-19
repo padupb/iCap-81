@@ -256,7 +256,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   }
 }
 
-// Função utilitária para ler arquivo PRESERVANDO nome original (versão simplificada)
+// Função utilitária para ler arquivo SEM conversões - entrega direta dos dados do Object Storage
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer, originalName: string } | null> {
   console.log(`🔍 Buscando: ${filename} | Key: ${key} | OrderId: ${orderId}`);
 
@@ -269,124 +269,73 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     };
   }
 
-  // Object Storage - busca simplificada
+  // Object Storage - busca DIRETA sem conversões
   if (objectStorageAvailable && objectStorage) {
-    console.log(`📦 Object Storage disponível - iniciando busca`);
+    console.log(`📦 Object Storage disponível - iniciando busca DIRETA`);
 
-    const storageKeys = [];
+    const storageKeys = [key.trim(), `orders/${orderId}/${filename}`, `${orderId}/${filename}`];
 
-    // PRIORIDADE 1: Usar a key EXATA armazenada no banco se disponível
-    if (key && key.trim() !== '' && key !== `${orderId}/${filename}`) {
-      storageKeys.push({ key: key.trim(), name: filename });
-      console.log(`🎯 PRIORIDADE 1 - Key exata do banco: ${key.trim()}`);
-    }
-
-    // PRIORIDADE 2: Tentar estrutura "orders/{orderId}/{filename}"
-    const ordersPath = `orders/${orderId}/${filename}`;
-    storageKeys.push({ key: ordersPath, name: filename });
-    console.log(`📁 PRIORIDADE 2 - Estrutura orders: ${ordersPath}`);
-
-    // PRIORIDADE 3: Buscar diretamente na pasta do pedido
-    storageKeys.push({ key: `${orderId}/${filename}`, name: filename });
-    console.log(`📁 PRIORIDADE 3 - Padrão principal: ${orderId}/${filename}`);
-
-    console.log(`🔍 Total de ${storageKeys.length} tentativas de busca no Object Storage`);
-
-    for (const { key: storageKey, name: storageName } of storageKeys) {
+    for (const storageKey of storageKeys) {
       try {
-        console.log(`📥 Tentando baixar: ${storageKey}`);
+        console.log(`📥 Download direto de: ${storageKey}`);
 
-        // Download direto do Object Storage
-        const result = await objectStorage.downloadAsBytes(storageKey);
-        console.log(`📥 Download executado - tipo do resultado: ${typeof result}`);
-
-        // Processar resultado de forma mais direta
-        let finalBuffer = null;
-
-        // Se é um Result wrapper do Replit
-        if (result && typeof result === 'object' && 'ok' in result && result.ok && result.value) {
-          console.log(`🔍 Result wrapper detectado`);
-          const value = result.value;
+        // Download SEM processamento - entrega exata do Object Storage
+        const rawResult = await objectStorage.downloadAsBytes(storageKey);
+        
+        // Se obteve resultado, converter diretamente para Buffer e retornar
+        if (rawResult) {
+          let directBuffer;
           
-          if (value instanceof Buffer) {
-            finalBuffer = value;
-            console.log(`✅ Buffer extraído do wrapper: ${finalBuffer.length} bytes`);
-          } else if (value instanceof Uint8Array) {
-            finalBuffer = Buffer.from(value);
-            console.log(`✅ Uint8Array convertido para Buffer: ${finalBuffer.length} bytes`);
-          } else if (Array.isArray(value)) {
-            finalBuffer = Buffer.from(new Uint8Array(value));
-            console.log(`✅ Array convertido para Buffer: ${finalBuffer.length} bytes`);
-          }
-        }
-        // Se é Buffer direto
-        else if (result instanceof Buffer) {
-          finalBuffer = result;
-          console.log(`✅ Buffer direto: ${finalBuffer.length} bytes`);
-        }
-        // Se é Uint8Array direto
-        else if (result instanceof Uint8Array) {
-          finalBuffer = Buffer.from(result);
-          console.log(`✅ Uint8Array direto convertido: ${finalBuffer.length} bytes`);
-        }
-        // Se é Array direto
-        else if (Array.isArray(result)) {
-          finalBuffer = Buffer.from(new Uint8Array(result));
-          console.log(`✅ Array direto convertido: ${finalBuffer.length} bytes`);
-        }
-
-        // Validar e retornar se encontrou dados válidos
-        if (finalBuffer && finalBuffer.length > 0) {
-          console.log(`✅ ARQUIVO ENCONTRADO: ${storageName} (${finalBuffer.length} bytes) - Chave: ${storageKey}`);
-
-          // Log adicional para debug de PDFs
-          if (storageName.toLowerCase().includes('pdf')) {
-            const isValidPdf = finalBuffer.length >= 4 && 
-                             finalBuffer[0] === 0x25 && 
-                             finalBuffer[1] === 0x50 && 
-                             finalBuffer[2] === 0x44 && 
-                             finalBuffer[3] === 0x46; // %PDF
-            console.log(`🔍 Validação PDF: ${isValidPdf ? 'VÁLIDO' : 'INVÁLIDO'}`);
+          // Verificar o tipo e converter da forma mais direta possível
+          if (rawResult instanceof Buffer) {
+            directBuffer = rawResult;
+          } else if (rawResult instanceof Uint8Array) {
+            directBuffer = Buffer.from(rawResult);
+          } else if (rawResult && typeof rawResult === 'object' && rawResult.ok && rawResult.value) {
+            // Se é Result wrapper, extrair o valor direto
+            if (rawResult.value instanceof Buffer) {
+              directBuffer = rawResult.value;
+            } else if (rawResult.value instanceof Uint8Array) {
+              directBuffer = Buffer.from(rawResult.value);
+            } else {
+              directBuffer = Buffer.from(rawResult.value);
+            }
+          } else {
+            // Último recurso: forçar conversão
+            directBuffer = Buffer.from(rawResult);
           }
 
-          return {
-            data: finalBuffer,
-            originalName: storageName
-          };
-        } else {
-          console.log(`⚠️ Dados não válidos ou vazios`);
+          if (directBuffer && directBuffer.length > 0) {
+            console.log(`✅ ARQUIVO ENCONTRADO DIRETO: ${filename} (${directBuffer.length} bytes) - Key: ${storageKey}`);
+            return {
+              data: directBuffer,
+              originalName: filename
+            };
+          }
         }
       } catch (error) {
         console.log(`⚠️ Falha em ${storageKey}: ${error.message}`);
-        
-        if (error.message.includes('404') || error.message.includes('not found')) {
-          console.log(`📂 Arquivo não existe no Object Storage: ${storageKey}`);
-        } else if (error.message.includes('403') || error.message.includes('permission')) {
-          console.log(`🔒 Problema de permissões no Object Storage`);
-        }
       }
     }
 
-    console.log(`❌ Arquivo não encontrado no Object Storage após ${storageKeys.length} tentativas`);
-  } else {
-    console.log(`⚠️ Object Storage não inicializado ou não disponível`);
+    console.log(`❌ Arquivo não encontrado no Object Storage`);
   }
 
-  // Sistema local com nome preservado
+  // Fallback para sistema local
   const localPaths = [
-    { path: path.join(process.cwd(), "uploads", orderId, filename), name: filename },
-    { path: path.join(process.cwd(), "uploads", filename), name: filename }
+    path.join(process.cwd(), "uploads", orderId, filename),
+    path.join(process.cwd(), "uploads", filename)
   ];
 
-  for (const { path: filePath, name } of localPaths) {
+  for (const filePath of localPaths) {
     try {
       if (fs.existsSync(filePath)) {
         const buffer = fs.readFileSync(filePath);
         if (buffer.length > 0) {
-          console.log(`✅ Local: ${name} (${buffer.length} bytes)`);
+          console.log(`✅ Local: ${filename} (${buffer.length} bytes)`);
           return {
             data: buffer,
-            originalName: name
+            originalName: filename
           };
         }
       }
@@ -395,7 +344,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     }
   }
 
-  console.log(`❌ Arquivo ${filename} não encontrado em nenhum local`);
+  console.log(`❌ Arquivo ${filename} não encontrado`);
   return null;
 }
 
@@ -2898,6 +2847,76 @@ Status: Teste em progresso...`;
 
         if (!result.rows.length) {
           console.log(`❌ Ordem de compra ${id} não encontrada`);
+
+
+    // Rota de DEBUG para download direto do Object Storage (apenas keyuser)
+    app.get("/api/debug/direct-download/:storageKey", isAuthenticated, isKeyUser, async (req, res) => {
+      try {
+        const { storageKey } = req.params;
+        const decodedKey = decodeURIComponent(storageKey);
+        
+        console.log(`🔧 DEBUG: Download direto de: ${decodedKey}`);
+        
+        if (!objectStorageAvailable || !objectStorage) {
+          return res.status(500).json({
+            sucesso: false,
+            mensagem: "Object Storage não disponível"
+          });
+        }
+        
+        // Download DIRETO sem nenhum processamento
+        const rawData = await objectStorage.downloadAsBytes(decodedKey);
+        
+        console.log(`📥 Resultado bruto:`, {
+          tipo: typeof rawData,
+          isBuffer: rawData instanceof Buffer,
+          isUint8Array: rawData instanceof Uint8Array,
+          hasOkProperty: rawData && typeof rawData === 'object' && 'ok' in rawData,
+          length: rawData?.length || (rawData?.value?.length)
+        });
+        
+        // Retornar dados EXATAMENTE como vieram do Object Storage
+        let finalData;
+        
+        if (rawData instanceof Buffer) {
+          finalData = rawData;
+        } else if (rawData instanceof Uint8Array) {
+          finalData = Buffer.from(rawData);
+        } else if (rawData && typeof rawData === 'object' && rawData.ok && rawData.value) {
+          if (rawData.value instanceof Buffer) {
+            finalData = rawData.value;
+          } else if (rawData.value instanceof Uint8Array) {
+            finalData = Buffer.from(rawData.value);
+          } else {
+            finalData = Buffer.from(rawData.value);
+          }
+        } else {
+          finalData = Buffer.from(rawData);
+        }
+        
+        console.log(`📤 Enviando ${finalData.length} bytes diretamente`);
+        
+        // Detectar tipo de arquivo pela key
+        const isPDF = decodedKey.toLowerCase().includes('pdf');
+        const isXML = decodedKey.toLowerCase().includes('xml');
+        
+        const contentType = isPDF ? 'application/pdf' : (isXML ? 'application/xml' : 'application/octet-stream');
+        
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', finalData.length);
+        res.setHeader('Content-Disposition', `attachment; filename="${path.basename(decodedKey)}"`);
+        
+        res.end(finalData);
+        
+      } catch (error) {
+        console.error(`❌ Erro no debug download:`, error);
+        res.status(500).json({
+          sucesso: false,
+          mensagem: `Erro: ${error.message}`
+        });
+      }
+    });
+
           return res.status(404).json({
             sucesso: false,
             mensagem: "Ordem de compra não encontrada"
