@@ -109,7 +109,8 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   // PRIORIDADE 1: Tentar Object Storage se disponível
   if (objectStorageAvailable && objectStorage) {
     try {
-      const key = `orders/${orderId}/${filename}`;
+      // USAR PADRÃO SIMPLES: orderId/filename (sem prefixo "orders/")
+      const key = `${orderId}/${filename}`;
 
       console.log(`📤 Tentando upload para Object Storage: ${key}`);
       console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
@@ -162,7 +163,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     } catch (error) {
       console.error("❌ Erro detalhado ao salvar no Object Storage:", {
         message: error.message,
-        key: `orders/${orderId}/${filename}`,
+        key: `${orderId}/${filename}`,
         bufferSize: buffer.length,
         objectStorageAvailable,
         hasObjectStorage: !!objectStorage
@@ -221,63 +222,34 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     };
   }
 
-  // Object Storage com busca expandida
+  // Object Storage - usar SEMPRE a key exata do banco primeiro
   if (objectStorageAvailable && objectStorage) {
     const storageKeys = [];
 
-    // PRIORIDADE 1: Usar a key exata armazenada no banco
+    // PRIORIDADE 1: Usar a key exata armazenada no banco (storageKey do documentosinfo)
     if (key) {
       storageKeys.push({ key, name: filename });
+      console.log(`🔑 Tentando primeiro com a key exata do banco: ${key}`);
     }
 
-    // PRIORIDADE 2: Tentar diferentes estruturas de pastas
-    const possiblePaths = [
-      `${orderId}/${filename}`,
+    // PRIORIDADE 2: Se não tem key ou falhou, tentar padrão atual com orderId
+    if (!key || !key.includes('/')) {
+      storageKeys.push({ key: `${orderId}/${filename}`, name: filename });
+      console.log(`📁 Tentando com padrão orderId: ${orderId}/${filename}`);
+    }
+
+    // PRIORIDADE 3: Tentar diferentes estruturas de pastas como fallback
+    const fallbackPaths = [
       `orders/${orderId}/${filename}`,
       `pedidos/${orderId}/${filename}`,
       `uploads/${orderId}/${filename}`,
       filename // Arquivo na raiz
     ];
 
-    for (const path of possiblePaths) {
+    for (const path of fallbackPaths) {
       if (!storageKeys.some(sk => sk.key === path)) {
         storageKeys.push({ key: path, name: filename });
       }
-    }
-
-    // PRIORIDADE 3: Para ordens de compra (pasta OC)
-    if (key && key.startsWith('OC/')) {
-      const ocKey = key;
-      const realStorageName = ocKey.includes('/') ? ocKey.split('/').pop() : ocKey;
-      storageKeys.unshift({
-        key: ocKey,
-        name: realStorageName || filename
-      });
-    }
-
-    // PRIORIDADE 4: Listar todos os arquivos e procurar por padrão
-    try {
-      console.log(`📋 Listando arquivos no Object Storage para encontrar ${filename}...`);
-      const allObjects = await objectStorage.list();
-      
-      // Filtrar objetos que correspondem ao filename ou orderId
-      const matchingObjects = allObjects.filter(obj => 
-        obj.key.includes(filename) || 
-        obj.key.includes(orderId) ||
-        obj.key.endsWith(filename.split('-').pop() || filename) // Para arquivos com timestamp
-      );
-
-      console.log(`📁 Arquivos encontrados no storage:`, matchingObjects.map(obj => obj.key));
-
-      // Adicionar os arquivos encontrados às tentativas
-      for (const obj of matchingObjects) {
-        const objFilename = obj.key.includes('/') ? obj.key.split('/').pop() : obj.key;
-        if (!storageKeys.some(sk => sk.key === obj.key)) {
-          storageKeys.push({ key: obj.key, name: objFilename || filename });
-        }
-      }
-    } catch (listError) {
-      console.log(`⚠️ Erro ao listar arquivos do Object Storage: ${listError.message}`);
     }
 
     console.log(`🔍 Total de ${storageKeys.length} tentativas de busca no Object Storage`);
