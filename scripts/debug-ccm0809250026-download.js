@@ -126,3 +126,152 @@ async function debugPedidoCCM() {
 }
 
 debugPedidoCCM();
+const { Pool } = require('pg');
+
+async function debugCCM0809250026Download() {
+  let pool;
+  
+  try {
+    // Configurar conexão com banco
+    const connectionString = process.env.DATABASE_URL || process.env.PGDATABASE;
+    if (!connectionString) {
+      console.log('❌ Variável DATABASE_URL não encontrada');
+      return;
+    }
+
+    pool = new Pool({ connectionString });
+    console.log('✅ Conectado ao banco de dados');
+
+    // 1. Verificar dados no banco
+    console.log('\n1️⃣ Verificando dados do pedido CCM0809250026 no banco...');
+    const orderResult = await pool.query(
+      `SELECT id, order_id, status, documentoscarregados, documentosinfo 
+       FROM orders 
+       WHERE order_id = 'CCM0809250026'`
+    );
+
+    if (orderResult.rows.length === 0) {
+      console.log('❌ Pedido CCM0809250026 não encontrado');
+      return;
+    }
+
+    const order = orderResult.rows[0];
+    console.log('📋 Pedido encontrado:', {
+      id: order.id,
+      orderId: order.order_id,
+      status: order.status,
+      hasDocuments: order.documentoscarregados
+    });
+
+    if (order.documentosinfo) {
+      const docsInfo = typeof order.documentosinfo === 'string' 
+        ? JSON.parse(order.documentosinfo) 
+        : order.documentosinfo;
+      
+      console.log('\n📄 Documentos no banco:');
+      Object.keys(docsInfo).forEach(docType => {
+        const doc = docsInfo[docType];
+        console.log(`   ${docType}:`, {
+          filename: doc.filename,
+          storageKey: doc.storageKey,
+          size: doc.size
+        });
+      });
+    }
+
+    // 2. Testar Object Storage
+    console.log('\n2️⃣ Testando Object Storage...');
+    try {
+      const { Client } = require('@replit/object-storage');
+      const objectStorage = new Client();
+      
+      // Testar listagem
+      console.log('📋 Testando listagem de objetos...');
+      const objects = await objectStorage.list();
+      
+      if (!objects) {
+        console.log('❌ Listagem retornou null/undefined');
+      } else if (!Array.isArray(objects)) {
+        console.log('❌ Listagem não retornou array:', typeof objects);
+        console.log('🔍 Conteúdo:', objects);
+      } else {
+        console.log(`✅ Listagem retornou ${objects.length} objetos`);
+        
+        // Procurar arquivos do pedido CCM0809250026
+        const ccmFiles = objects.filter(obj => 
+          obj.key && obj.key.includes('CCM0809250026')
+        );
+        
+        console.log(`📁 Arquivos do CCM0809250026 encontrados: ${ccmFiles.length}`);
+        ccmFiles.forEach(file => {
+          console.log(`   • ${file.key} (${file.size} bytes)`);
+        });
+
+        // Testar download específico
+        if (order.documentosinfo) {
+          const docsInfo = typeof order.documentosinfo === 'string' 
+            ? JSON.parse(order.documentosinfo) 
+            : order.documentosinfo;
+          
+          for (const [docType, docInfo] of Object.entries(docsInfo)) {
+            console.log(`\n📥 Testando download de ${docType}...`);
+            console.log(`   StorageKey: ${docInfo.storageKey}`);
+            
+            try {
+              const data = await objectStorage.downloadAsBytes(docInfo.storageKey);
+              if (data && data.length > 0) {
+                console.log(`   ✅ Download OK: ${data.length} bytes`);
+              } else {
+                console.log(`   ❌ Download retornou dados vazios`);
+              }
+            } catch (downloadError) {
+              console.log(`   ❌ Erro no download: ${downloadError.message}`);
+            }
+          }
+        }
+      }
+      
+    } catch (storageError) {
+      console.log('❌ Erro ao conectar Object Storage:', storageError.message);
+    }
+
+    // 3. Verificar arquivos locais
+    console.log('\n3️⃣ Verificando arquivos locais...');
+    const fs = require('fs');
+    const path = require('path');
+    
+    const localDir = path.join(process.cwd(), 'uploads', 'CCM0809250026');
+    console.log(`📂 Diretório local: ${localDir}`);
+    
+    if (fs.existsSync(localDir)) {
+      const files = fs.readdirSync(localDir);
+      console.log(`📁 Arquivos encontrados: ${files.length}`);
+      files.forEach(file => {
+        const filePath = path.join(localDir, file);
+        const stats = fs.statSync(filePath);
+        console.log(`   • ${file} (${stats.size} bytes)`);
+      });
+    } else {
+      console.log('❌ Diretório local não existe');
+    }
+
+    console.log('\n🎯 CONCLUSÃO:');
+    console.log('- Verifique se os arquivos estão realmente no Object Storage');
+    console.log('- Se não estiverem, execute o script de migração');
+    console.log('- Se estiverem, o problema pode ser na API do Object Storage');
+
+  } catch (error) {
+    console.error('❌ Erro no debug:', error);
+  } finally {
+    if (pool) {
+      await pool.end();
+    }
+  }
+}
+
+// Executar se chamado diretamente
+if (require.main === module) {
+  debugCCM0809250026Download();
+}
+
+module.exports = { debugCCM0809250026Download };

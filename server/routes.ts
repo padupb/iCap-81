@@ -278,30 +278,52 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     // Debug adicional: listar todos os arquivos do Object Storage relacionados
     try {
       console.log(`🔍 LISTANDO TODOS os arquivos do Object Storage para debug...`);
-      const allObjects = await objectStorage.list();
+      const listResult = await objectStorage.list();
       
-      // Buscar arquivos relacionados ao pedido
-      const relatedObjects = allObjects.filter(obj => 
-        obj.key.includes(orderId) || 
-        obj.key.includes('CCM0809250026') ||
-        obj.key.includes('certificado_pdf-1757620958919') ||
-        obj.key.includes(filename.split('-')[0])
-      );
-      
-      console.log(`📋 Arquivos relacionados a ${orderId}:`, 
-        relatedObjects.map(obj => `${obj.key} (${obj.size || 'sem tamanho'} bytes)`));
-
-      // Buscar especificamente o arquivo que deveria existir
-      console.log(`🎯 Procurando especificamente por: orders/CCM0809250026/certificado_pdf-1757620958919.pdf`);
-      const specificObject = allObjects.find(obj => obj.key === 'orders/CCM0809250026/certificado_pdf-1757620958919.pdf');
-      if (specificObject) {
-        console.log(`🎉 ENCONTROU o arquivo específico: ${specificObject.key} (${specificObject.size} bytes)`);
+      // Verificar se o resultado é válido
+      if (!listResult) {
+        console.log(`❌ Resultado da listagem é null/undefined`);
+      } else if (!Array.isArray(listResult)) {
+        console.log(`❌ Resultado da listagem não é um array:`, typeof listResult);
+        console.log(`🔍 Conteúdo do resultado:`, listResult);
       } else {
-        console.log(`❌ Arquivo específico NÃO ENCONTRADO`);
+        console.log(`✅ Resultado da listagem é um array com ${listResult.length} items`);
+        
+        // Buscar arquivos relacionados ao pedido
+        const relatedObjects = listResult.filter(obj => 
+          obj && obj.key && (
+            obj.key.includes(orderId) || 
+            obj.key.includes('CCM0809250026') ||
+            obj.key.includes('certificado_pdf-1757620958919') ||
+            obj.key.includes(filename.split('-')[0])
+          )
+        );
+        
+        console.log(`📋 Arquivos relacionados a ${orderId}:`, 
+          relatedObjects.map(obj => `${obj.key} (${obj.size || 'sem tamanho'} bytes)`));
+
+        // Buscar especificamente o arquivo que deveria existir
+        const searchKey = `orders/${orderId}/${filename}`;
+        console.log(`🎯 Procurando especificamente por: ${searchKey}`);
+        const specificObject = listResult.find(obj => obj && obj.key === searchKey);
+        if (specificObject) {
+          console.log(`🎉 ENCONTROU o arquivo específico: ${specificObject.key} (${specificObject.size} bytes)`);
+        } else {
+          console.log(`❌ Arquivo específico NÃO ENCONTRADO`);
+          
+          // Mostrar os primeiros 10 arquivos para debug
+          console.log(`🔍 Primeiros 10 arquivos no Object Storage:`);
+          listResult.slice(0, 10).forEach((obj, index) => {
+            if (obj && obj.key) {
+              console.log(`   ${index + 1}. ${obj.key} (${obj.size || 'sem tamanho'} bytes)`);
+            }
+          });
+        }
       }
       
     } catch (listError) {
       console.log(`❌ Erro ao listar arquivos do Object Storage: ${listError.message}`);
+      console.log(`❌ Stack trace:`, listError.stack);
     }
 
     console.log(`❌ Arquivo não encontrado no Object Storage após ${storageKeys.length} tentativas`);
@@ -3824,43 +3846,63 @@ const uploadLogo = multer({
             if (objectStorageAvailable && objectStorage && documentInfo.storageKey) {
               console.log(`🔄 Tentativa direta no Object Storage: ${documentInfo.storageKey}`);
 
-              try {
-                const fileData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
+              // Tentar múltiplos métodos de download
+              const downloadMethods = [
+                { name: 'downloadAsBytes', method: 'downloadAsBytes' },
+                { name: 'downloadAsText', method: 'downloadAsText' },
+              ];
 
-                if (fileData && fileData.length > 0) {
-                  console.log(`✅ SUCESSO Object Storage direto: ${fileData.length} bytes recuperados`);
-
-                  // Converter para Buffer se necessário
-                  const buffer = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData);
-
-                  // Nome original do arquivo
-                  const originalFilename = documentInfo.filename;
-
-                  // Content type baseado na extensão
-                  const fileExtension = path.extname(originalFilename).toLowerCase();
-                  let contentType = 'application/octet-stream';
-                  if (fileExtension === '.pdf') {
-                    contentType = 'application/pdf';
-                  } else if (fileExtension === '.xml') {
-                    contentType = 'application/xml';
+              for (const { name, method } of downloadMethods) {
+                try {
+                  console.log(`🔄 Tentando método ${name}...`);
+                  
+                  let fileData;
+                  if (method === 'downloadAsBytes') {
+                    fileData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
+                  } else if (method === 'downloadAsText') {
+                    const textData = await objectStorage.downloadAsText(documentInfo.storageKey);
+                    if (textData) {
+                      fileData = Buffer.from(textData, 'utf8');
+                    }
                   }
 
-                  console.log(`📤 ENVIANDO DIRETO: ${originalFilename} | ${buffer.length} bytes | ${contentType}`);
+                  if (fileData && fileData.length > 0) {
+                    console.log(`✅ SUCESSO com ${name}: ${fileData.length} bytes recuperados`);
 
-                  // Headers de resposta
-                  res.setHeader('Content-Type', contentType);
-                  res.setHeader('Content-Length', buffer.length);
-                  res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
-                  res.setHeader('Cache-Control', 'no-cache');
+                    // Converter para Buffer se necessário
+                    const buffer = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData);
 
-                  // Enviar arquivo diretamente
-                  return res.end(buffer);
-                } else {
-                  console.log(`⚠️ Arquivo vazio ou não encontrado no Object Storage direto`);
+                    // Nome original do arquivo
+                    const originalFilename = documentInfo.filename;
+
+                    // Content type baseado na extensão
+                    const fileExtension = path.extname(originalFilename).toLowerCase();
+                    let contentType = 'application/octet-stream';
+                    if (fileExtension === '.pdf') {
+                      contentType = 'application/pdf';
+                    } else if (fileExtension === '.xml') {
+                      contentType = 'application/xml';
+                    }
+
+                    console.log(`📤 ENVIANDO com ${name}: ${originalFilename} | ${buffer.length} bytes | ${contentType}`);
+
+                    // Headers de resposta
+                    res.setHeader('Content-Type', contentType);
+                    res.setHeader('Content-Length', buffer.length);
+                    res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+                    res.setHeader('Cache-Control', 'no-cache');
+
+                    // Enviar arquivo diretamente
+                    return res.end(buffer);
+                  } else {
+                    console.log(`⚠️ Método ${name} retornou dados vazios`);
+                  }
+                } catch (methodError) {
+                  console.log(`❌ Erro no método ${name}: ${methodError.message}`);
                 }
-              } catch (storageError) {
-                console.log(`❌ Erro no Object Storage direto: ${storageError.message}`);
               }
+              
+              console.log(`❌ Todos os métodos de download falharam`);
             }
 
             // PRIORIDADE 2: FALLBACK SISTEMA LOCAL
