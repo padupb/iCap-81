@@ -290,7 +290,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           length: directBytes?.length || directBytes?.value?.length
         });
 
-        // CONVERSÃO MÍNIMA NECESSÁRIA APENAS
+        // PROCESSAMENTO ROBUSTO DOS DADOS DO OBJECT STORAGE
         let finalBuffer = null;
         
         console.log(`🔍 Análise detalhada do resultado:`, {
@@ -301,24 +301,28 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           hasOkProperty: directBytes && typeof directBytes === 'object' && 'ok' in directBytes,
           directLength: directBytes?.length,
           valueLength: directBytes?.value?.length,
-          valueType: directBytes?.value ? typeof directBytes.value : 'undefined'
+          valueType: directBytes?.value ? typeof directBytes.value : 'undefined',
+          constructor: directBytes?.constructor?.name
         });
         
+        // ESTRATÉGIA 1: Dados diretos como Buffer ou Uint8Array
         if (directBytes instanceof Buffer) {
           finalBuffer = directBytes;
           console.log(`✅ Buffer direto - ${finalBuffer.length} bytes`);
         } else if (directBytes instanceof Uint8Array) {
           finalBuffer = Buffer.from(directBytes);
           console.log(`✅ Uint8Array para Buffer - ${finalBuffer.length} bytes`);
-        } else if (directBytes && typeof directBytes === 'object' && directBytes.ok && directBytes.value) {
-          // Result wrapper do Replit com status ok
+        } 
+        // ESTRATÉGIA 2: Result wrapper do Replit
+        else if (directBytes && typeof directBytes === 'object' && directBytes.ok !== undefined && directBytes.value !== undefined) {
           const valueData = directBytes.value;
           console.log(`🎯 Result wrapper detectado - processando value:`, {
             valueType: typeof valueData,
             isBuffer: valueData instanceof Buffer,
             isUint8Array: valueData instanceof Uint8Array,
             isArray: Array.isArray(valueData),
-            length: valueData?.length
+            length: valueData?.length,
+            constructor: valueData?.constructor?.name
           });
           
           if (valueData instanceof Buffer) {
@@ -327,47 +331,81 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           } else if (valueData instanceof Uint8Array) {
             finalBuffer = Buffer.from(valueData);
             console.log(`✅ Uint8Array do Result wrapper para Buffer - ${finalBuffer.length} bytes`);
-          } else if (Array.isArray(valueData)) {
-            // Array de números (bytes)
-            finalBuffer = Buffer.from(valueData);
-            console.log(`✅ Array de bytes do Result wrapper convertido - ${finalBuffer.length} bytes`);
-          } else if (typeof valueData === 'object' && valueData !== null) {
-            // Object com propriedades numéricas (array-like)
+          } else if (Array.isArray(valueData) && valueData.length > 1) {
+            // CRÍTICO: Verificar se é realmente um array de bytes válido
+            const isValidByteArray = valueData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
+            if (isValidByteArray) {
+              finalBuffer = Buffer.from(valueData);
+              console.log(`✅ Array de bytes do Result wrapper convertido - ${finalBuffer.length} bytes`);
+            } else {
+              console.log(`❌ Array não contém bytes válidos`);
+            }
+          } else if (typeof valueData === 'object' && valueData !== null && !Array.isArray(valueData)) {
+            // Object com propriedades numéricas (array-like) - MAIS RIGOROSO
             try {
-              const byteArray = Object.values(valueData).filter(v => typeof v === 'number');
-              if (byteArray.length > 0) {
-                finalBuffer = Buffer.from(byteArray);
-                console.log(`✅ Object array-like convertido - ${finalBuffer.length} bytes`);
+              const keys = Object.keys(valueData);
+              // Verificar se são índices numéricos sequenciais
+              const isArrayLike = keys.every((key, index) => parseInt(key) === index);
+              
+              if (isArrayLike && keys.length > 1) {
+                const byteArray = Object.values(valueData).filter(v => typeof v === 'number' && v >= 0 && v <= 255);
+                if (byteArray.length === keys.length && byteArray.length > 1) {
+                  finalBuffer = Buffer.from(byteArray);
+                  console.log(`✅ Object array-like convertido - ${finalBuffer.length} bytes`);
+                } else {
+                  console.log(`❌ Object array-like inválido: ${byteArray.length}/${keys.length} bytes válidos`);
+                }
               } else {
-                console.log(`❌ Object não contém dados válidos`);
+                console.log(`❌ Object não é array-like válido`);
               }
             } catch (error) {
               console.log(`❌ Erro ao converter object: ${error.message}`);
             }
           } else {
-            console.log(`❌ Tipo de value não reconhecido: ${typeof valueData}`);
+            console.log(`❌ Tipo de value não suportado: ${typeof valueData}, length: ${valueData?.length}`);
           }
-        } else if (directBytes && typeof directBytes === 'object' && directBytes.value) {
-          // Result wrapper sem propriedade ok
-          const valueData = directBytes.value;
-          console.log(`⚠️ Result wrapper sem ok - processando value:`, typeof valueData);
+        } 
+        // ESTRATÉGIA 3: Array direto de bytes
+        else if (Array.isArray(directBytes) && directBytes.length > 1) {
+          const isValidByteArray = directBytes.every(v => typeof v === 'number' && v >= 0 && v <= 255);
+          if (isValidByteArray) {
+            finalBuffer = Buffer.from(directBytes);
+            console.log(`✅ Array direto convertido - ${finalBuffer.length} bytes`);
+          } else {
+            console.log(`❌ Array direto não contém bytes válidos`);
+          }
+        }
+        // ESTRATÉGIA 4: Tentar detectar outros formatos
+        else if (directBytes && typeof directBytes === 'object') {
+          console.log(`🔍 Tentando detectar formato personalizado...`);
+          console.log(`🔍 Propriedades disponíveis:`, Object.keys(directBytes).slice(0, 10));
           
-          if (valueData instanceof Buffer) {
-            finalBuffer = valueData;
-            console.log(`✅ Buffer do Result wrapper (sem ok) - ${finalBuffer.length} bytes`);
-          } else if (valueData instanceof Uint8Array) {
-            finalBuffer = Buffer.from(valueData);
-            console.log(`✅ Uint8Array do Result wrapper (sem ok) para Buffer - ${finalBuffer.length} bytes`);
-          } else if (Array.isArray(valueData)) {
-            finalBuffer = Buffer.from(valueData);
-            console.log(`✅ Array do Result wrapper (sem ok) convertido - ${finalBuffer.length} bytes`);
+          // Tentar buscar propriedades que possam conter dados
+          for (const prop of ['data', 'content', 'bytes', 'buffer']) {
+            if (directBytes[prop] && (directBytes[prop] instanceof Buffer || directBytes[prop] instanceof Uint8Array || Array.isArray(directBytes[prop]))) {
+              console.log(`🎯 Dados encontrados em propriedade '${prop}'`);
+              const propData = directBytes[prop];
+              
+              if (propData instanceof Buffer) {
+                finalBuffer = propData;
+              } else if (propData instanceof Uint8Array) {
+                finalBuffer = Buffer.from(propData);
+              } else if (Array.isArray(propData) && propData.length > 1) {
+                const isValidByteArray = propData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
+                if (isValidByteArray) {
+                  finalBuffer = Buffer.from(propData);
+                }
+              }
+              
+              if (finalBuffer) {
+                console.log(`✅ Dados extraídos da propriedade '${prop}' - ${finalBuffer.length} bytes`);
+                break;
+              }
+            }
           }
-        } else if (Array.isArray(directBytes)) {
-          // Array direto de bytes
-          finalBuffer = Buffer.from(directBytes);
-          console.log(`✅ Array direto convertido - ${finalBuffer.length} bytes`);
         }
 
+        // VALIDAÇÃO FINAL DO BUFFER
         if (finalBuffer && finalBuffer.length > 1) {
           console.log(`🎯 SUCESSO DIRETO: ${filename} entregue com ${finalBuffer.length} bytes`);
           return {
@@ -375,11 +413,13 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             originalName: filename
           };
         } else if (finalBuffer && finalBuffer.length === 1) {
-          console.log(`❌ ERRO: Arquivo de 1 byte detectado - possível corrupção na extração`);
-          console.log(`🔍 Dados do buffer de 1 byte:`, finalBuffer[0]);
-          // Não retornar arquivo corrompido de 1 byte
+          console.log(`❌ ERRO: Arquivo de 1 byte detectado - REJEITANDO`);
+          console.log(`🔍 Conteúdo do byte único:`, finalBuffer[0]);
+          console.log(`🔍 Isso indica corrupção no processo de extração dos dados`);
+          // Não retornar arquivo corrompido
+          finalBuffer = null;
         } else {
-          console.log(`⚠️ Buffer final vazio ou inválido`);
+          console.log(`⚠️ Nenhum buffer válido foi gerado`);
         }
         
       } catch (error) {
