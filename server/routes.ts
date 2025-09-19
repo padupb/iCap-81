@@ -932,7 +932,8 @@ const uploadLogo = multer({
           roleId: user.roleId,
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
-          canCreatePurchaseOrder: user.canCreatePurchaseOrder, // Adicionado
+          canCreatePurchaseOrder: user.canCreatePurchaseOrder,
+          canEditPurchaseOrders: user.canEditPurchaseOrders,
           // Adicionar propriedades de keyuser apenas se ID = 1
           isKeyUser: isKeyUser,
           isDeveloper: isKeyUser,
@@ -974,7 +975,8 @@ const uploadLogo = multer({
             roleId: req.user.roleId,
             canConfirmDelivery: req.user.canConfirmDelivery,
             canCreateOrder: req.user.canCreateOrder,
-            canCreatePurchaseOrder: req.user.canCreatePurchaseOrder, // Adicionado
+            canCreatePurchaseOrder: req.user.canCreatePurchaseOrder,
+            canEditPurchaseOrders: req.user.canEditPurchaseOrders,
             isKeyUser: req.user.isKeyUser,
             isDeveloper: req.user.isDeveloper,
             // Incluir informações da função
@@ -1672,7 +1674,7 @@ Status: Teste em progresso...`;
           });
         }
 
-        const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder } = req.body; // Adicionado canCreatePurchaseOrder
+        const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders } = req.body;
 
         // Verificar se o email já existe antes de tentar criar
         const existingUser = await storage.getUserByEmail(email);
@@ -1685,7 +1687,7 @@ Status: Teste em progresso...`;
 
         // Validar dados com Zod (incluindo o novo campo)
         const userData = insertUserSchema.parse({
-          name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder
+          name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders
         });
 
         const newUser = await storage.createUser(userData);
@@ -1750,11 +1752,11 @@ Status: Teste em progresso...`;
           return res.status(404).json({ message: "Usuário não encontrado" });
         }
 
-        const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder } = req.body; // Adicionado canCreatePurchaseOrder
+        const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders } = req.body;
 
         // Validar dados com Zod (incluindo o novo campo)
         const userData = insertUserSchema.parse({
-          name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder
+          name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders
         });
 
         console.log("Updating user:", { id, user: userData });
@@ -2915,6 +2917,7 @@ Status: Teste em progresso...`;
           isKeyUser: req.user.isKeyUser,
           isDeveloper: req.user.isDeveloper,
           companyId: req.user.companyId,
+          canEditPurchaseOrders: req.user.canEditPurchaseOrders,
           permissions: req.user.permissions
         });
 
@@ -2923,6 +2926,9 @@ Status: Teste em progresso...`;
             (req.user.permissions && req.user.permissions.includes("*"))) {
           hasEditPermission = true;
           console.log(`✅ Permissão concedida - KeyUser detectado`);
+        } else if (req.user.canEditPurchaseOrders === true) {
+          hasEditPermission = true;
+          console.log(`✅ Permissão concedida - Usuário habilitado para editar ordens de compra`);
         } else if (req.user.companyId) {
           // Verificar se a empresa do usuário tem categoria que permite editar ordens
           const userCompany = await storage.getCompany(req.user.companyId);

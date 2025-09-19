@@ -211,19 +211,19 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
       return false;
     }
 
-    // APENAS o usuário keyuser (ID = 1) tem acesso total
+    // SEMPRE permitir ao usuário keyuser (ID = 1)
     if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
       console.log(`🔑 [AuthorizationContext] KeyUser detectado - liberando edição de ordens de compra`);
       return true;
     }
 
-    // Para usuários normais, verificar se a categoria da empresa permite editar ordens
-    // Isso requer uma consulta às empresas e categorias
-    console.log(`🔍 [AuthorizationContext] Verificando categoria da empresa para edição de ordens de compra`);
-    
-    // Por enquanto, retornar false para usuários normais
-    // A lógica específica será implementada no componente
-    console.log(`❌ [AuthorizationContext] Edição de ordens de compra restrita ao KeyUser por enquanto`);
+    // Verificar se o usuário tem permissão específica para editar ordens de compra
+    if (user.canEditPurchaseOrders === true) {
+      console.log(`✅ [AuthorizationContext] Usuário habilitado para editar ordens de compra`);
+      return true;
+    }
+
+    console.log(`❌ [AuthorizationContext] Usuário sem permissão para editar ordens de compra`);
     return false;
   }, [user]);
 

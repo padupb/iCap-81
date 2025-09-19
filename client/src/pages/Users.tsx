@@ -141,6 +141,7 @@ export default function Users() {
       canConfirmDelivery: false,
       canCreateOrder: false,
       canCreatePurchaseOrder: false,
+      canEditPurchaseOrders: false,
     },
   });
 
@@ -174,6 +175,7 @@ export default function Users() {
       canConfirmDelivery: user.canConfirmDelivery || false,
       canCreateOrder: user.canCreateOrder || false,
       canCreatePurchaseOrder: user.canCreatePurchaseOrder || false,
+      canEditPurchaseOrders: user.canEditPurchaseOrders || false,
     });
     setIsEditDialogOpen(true);
   };
@@ -433,6 +435,30 @@ export default function Users() {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="canEditPurchaseOrders"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mt-3">
+                      <FormControl>
+                        <input
+                          type="checkbox" 
+                          checked={field.value === true}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          id="edit-purchase-orders"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Permissão para Edição de Ordens de Compra</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Permite que o usuário edite ordens de compra existentes no sistema.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
                 <div className="flex justify-end space-x-4 pt-4 border-t border-border">
                   <Button
                     type="button"
@@ -648,6 +674,30 @@ export default function Users() {
                         <FormLabel>Permissão para Criação de Ordem de Compra</FormLabel>
                         <p className="text-sm text-muted-foreground">
                           Permite que o usuário crie novas ordens de compra no sistema.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="canEditPurchaseOrders"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mt-3">
+                      <FormControl>
+                        <input
+                          type="checkbox" 
+                          checked={field.value === true}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          id="edit-edit-purchase-orders"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Permissão para Edição de Ordens de Compra</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Permite que o usuário edite ordens de compra existentes no sistema.
                         </p>
                       </div>
                     </FormItem>

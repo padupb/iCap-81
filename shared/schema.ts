@@ -23,6 +23,7 @@ export const users = pgTable("users", {
   canConfirmDelivery: boolean("can_confirm_delivery").default(false),
   canCreateOrder: boolean("can_create_order").default(false),
   canCreatePurchaseOrder: boolean("can_create_purchase_order").default(false),
+  canEditPurchaseOrders: boolean("can_edit_purchase_orders").default(false),
   primeiroLogin: boolean("primeiro_login").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
