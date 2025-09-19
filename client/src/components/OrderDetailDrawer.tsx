@@ -1814,8 +1814,14 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
+                                    const downloadUrl = `/api/pedidos/${orderId}/documentos/nota_pdf?download=true`;
+                                    console.log(`🔗 Frontend: Tentando baixar nota PDF do pedido ${orderId}`);
+                                    console.log(`📋 URL construída: ${downloadUrl}`);
+                                    
                                     // DOWNLOAD DIRETO COM QUERY PARAMETER
-                                    window.open(`/api/pedidos/${orderId}/documentos/nota_pdf?download=true`, '_blank');
+                                    window.open(downloadUrl, '_blank');
+                                  } else {
+                                    console.error('❌ OrderId não definido para download');
                                   }
                                 }}
                                 title="Clique para baixar a Nota Fiscal (PDF)"
@@ -1835,8 +1841,14 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
+                                    const downloadUrl = `/api/pedidos/${orderId}/documentos/nota_xml?download=true`;
+                                    console.log(`🔗 Frontend: Tentando baixar nota XML do pedido ${orderId}`);
+                                    console.log(`📋 URL construída: ${downloadUrl}`);
+                                    
                                     // DOWNLOAD DIRETO COM QUERY PARAMETER
-                                    window.open(`/api/pedidos/${orderId}/documentos/nota_xml?download=true`, '_blank');
+                                    window.open(downloadUrl, '_blank');
+                                  } else {
+                                    console.error('❌ OrderId não definido para download');
                                   }
                                 }}
                                 title="Clique para baixar a Nota Fiscal (XML)"
@@ -1856,8 +1868,14 @@ export function OrderDetailDrawer({
                                 className="w-16 h-16 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
                                   if (orderId) {
+                                    const downloadUrl = `/api/pedidos/${orderId}/documentos/certificado_pdf?download=true`;
+                                    console.log(`🔗 Frontend: Tentando baixar certificado PDF do pedido ${orderId}`);
+                                    console.log(`📋 URL construída: ${downloadUrl}`);
+                                    
                                     // DOWNLOAD DIRETO COM QUERY PARAMETER
-                                    window.open(`/api/pedidos/${orderId}/documentos/certificado_pdf?download=true`, '_blank');
+                                    window.open(downloadUrl, '_blank');
+                                  } else {
+                                    console.error('❌ OrderId não definido para download');
                                   }
                                 }}
                                 title="Clique para baixar o Certificado (PDF)"
