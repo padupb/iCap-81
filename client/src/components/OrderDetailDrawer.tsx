@@ -510,7 +510,7 @@ export function OrderDetailDrawer({
     return false;
   };
 
-  // Verificar se o usuário pode reprogramar entrega
+  // Verificar se o usuário pode solicitar reprogramação
   const canRequestReschedule = () => {
     if (!user || !orderDetails) return false;
 
@@ -1752,7 +1752,7 @@ export function OrderDetailDrawer({
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
 
-                        // Se é urgente e ainda está "Registrado", mostrar aviso de bloqueio
+                        // Se é urgente e não aprovado, mostrar aviso de bloqueio
                         if (isUrgent && orderDetails.status === "Registrado") {
                           return (
                             <div className="flex flex-col items-center justify-center p-8 border border-yellow-200 rounded-lg bg-yellow-50">
@@ -1813,16 +1813,7 @@ export function OrderDetailDrawer({
                               <button
                                 className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
-                                  if (orderId) {
-                                    const downloadUrl = `/api/pedidos/${orderId}/documentos/nota_pdf?download=true`;
-                                    console.log(`🔗 Frontend: Tentando baixar nota PDF do pedido ${orderId}`);
-                                    console.log(`📋 URL construída: ${downloadUrl}`);
-                                    
-                                    // DOWNLOAD DIRETO COM QUERY PARAMETER
-                                    window.open(downloadUrl, '_blank');
-                                  } else {
-                                    console.error('❌ OrderId não definido para download');
-                                  }
+                                  handleDownloadDocument('nota_pdf');
                                 }}
                                 title="Clique para baixar a Nota Fiscal (PDF)"
                               >
@@ -1840,16 +1831,7 @@ export function OrderDetailDrawer({
                               <button
                                 className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
-                                  if (orderId) {
-                                    const downloadUrl = `/api/pedidos/${orderId}/documentos/nota_xml?download=true`;
-                                    console.log(`🔗 Frontend: Tentando baixar nota XML do pedido ${orderId}`);
-                                    console.log(`📋 URL construída: ${downloadUrl}`);
-                                    
-                                    // DOWNLOAD DIRETO COM QUERY PARAMETER
-                                    window.open(downloadUrl, '_blank');
-                                  } else {
-                                    console.error('❌ OrderId não definido para download');
-                                  }
+                                  handleDownloadDocument('nota_xml');
                                 }}
                                 title="Clique para baixar a Nota Fiscal (XML)"
                               >
@@ -1867,16 +1849,7 @@ export function OrderDetailDrawer({
                               <button
                                 className="w-16 h-16 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
                                 onClick={() => {
-                                  if (orderId) {
-                                    const downloadUrl = `/api/pedidos/${orderId}/documentos/certificado_pdf?download=true`;
-                                    console.log(`🔗 Frontend: Tentando baixar certificado PDF do pedido ${orderId}`);
-                                    console.log(`📋 URL construída: ${downloadUrl}`);
-                                    
-                                    // DOWNLOAD DIRETO COM QUERY PARAMETER
-                                    window.open(downloadUrl, '_blank');
-                                  } else {
-                                    console.error('❌ OrderId não definido para download');
-                                  }
+                                  handleDownloadDocument('certificado_pdf');
                                 }}
                                 title="Clique para baixar o Certificado (PDF)"
                               >

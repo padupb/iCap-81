@@ -3726,260 +3726,126 @@ const uploadLogo = multer({
     });
 
     // Rota para download de documentos
-    app.get("/api/pedidos/:id/documentos/:tipo", async (req, res) => {
+    app.get("/api/pedidos/:id/documentos/:tipo", authenticateToken, async (req, res) => {
       try {
-        const id = parseInt(req.params.id);
-        const tipo = req.params.tipo;
+        const { id, tipo } = req.params;
+        const { download } = req.query;
 
-        if (isNaN(id)) {
-          return res.status(400).json({
-            sucesso: false,
-            mensagem: "ID de pedido inválido"
-          });
-        }
+        console.log(`📋 Download solicitado - Pedido: ${id}, Tipo: ${tipo}, Download: ${download}`);
 
-        // Verificar se o tipo é válido
-        if (!["nota_pdf", "nota_xml", "certificado_pdf"].includes(tipo)) {
-          return res.status(400).json({
-            sucesso: false,
-            mensagem: "Tipo de documento inválido"
-          });
-        }
-
-        // Buscar o pedido para verificar se tem documentos
-        const order = await storage.getOrder(id);
-        if (!order) {
+        // Buscar o pedido
+        const orderResult = await pool.query("SELECT * FROM orders WHERE id = $1", [id]);
+        if (orderResult.rows.length === 0) {
+          console.log(`❌ Pedido ${id} não encontrado`);
           return res.status(404).json({
             sucesso: false,
             mensagem: "Pedido não encontrado"
           });
         }
 
-        // Verificar se o pedido tem documentos carregados
-        // Aceitar pedidos com status "Carregado", "Em Rota" ou "Entregue" mesmo se a flag não estiver definida
-        const hasDocuments = order.documentosCarregados ||
-                            order.status === 'Carregado' ||
-                            order.status === 'Em Rota' ||
-                            order.status === 'Entregue';
+        const order = orderResult.rows[0];
+        console.log(`📦 Pedido encontrado: ${order.order_id}`);
 
-        if (!hasDocuments) {
-          return res.json({
-            sucesso: true,
-            temDocumentos: false,
-            mensagem: "Este pedido não possui documentos carregados"
+        // Verificar se há documentos carregados
+        if (!order.documentoscarregados || !order.documentosinfo) {
+          console.log(`❌ Pedido ${order.order_id} não possui documentos carregados`);
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: "Não há documentos carregados para este pedido"
           });
         }
 
-        // Buscar as informações dos documentos do banco de dados
-        const result = await pool.query(
-          "SELECT documentosinfo, order_id FROM orders WHERE id = $1",
-          [id]
-        );
-
-        if (result.rowCount === 0 || !result.rows[0].documentosinfo) {
-          return res.json({
-            sucesso: true,
-            temDocumentos: false,
-            mensagem: "Informações dos documentos não encontradas"
+        let documentosInfo;
+        try {
+          documentosInfo = typeof order.documentosinfo === 'string'
+            ? JSON.parse(order.documentosinfo)
+            : order.documentosinfo;
+        } catch (parseError) {
+          console.log(`❌ Erro ao analisar documentosinfo:`, parseError);
+          return res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao processar informações dos documentos"
           });
         }
 
-        const documentosInfo = result.rows[0].documentosinfo;
+        console.log(`📋 Informações dos documentos:`, documentosInfo);
 
-        const orderId = result.rows[0].order_id;
+        // Mapear tipo para chave no documentosinfo
+        const tipoMap = {
+          'nota_pdf': 'notaPdf',
+          'nota_xml': 'notaXml',
+          'certificado_pdf': 'certificadoPdf'
+        };
 
-        // Se o query parameter 'download' estiver presente, fazer download do arquivo
-        if (req.query.download === 'true') {
-          const documentInfo = documentosInfo[tipo];
-          if (!documentInfo) {
-            return res.status(404).json({
-              sucesso: false,
-              mensagem: `Documento ${tipo} não encontrado`
-            });
-          }
-
-          console.log(`\n=== DOWNLOAD ${tipo.toUpperCase()} - PEDIDO ${orderId} ===`);
-          console.log(`🔍 Documento encontrado no banco:`, {
-            name: documentInfo?.name,
-            filename: documentInfo?.filename,
-            size: documentInfo?.size,
-            storageKey: documentInfo?.storageKey,
-            path: documentInfo?.path
+        const chaveDocumento = tipoMap[tipo];
+        if (!chaveDocumento || !documentosInfo[chaveDocumento]) {
+          console.log(`❌ Documento tipo ${tipo} não encontrado`);
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: `Documento do tipo ${tipo} não encontrado`
           });
-
-          // VERIFICAÇÃO ESPECÍFICA PARA CCM0809250026
-          if (orderId === 'CCM0809250026') {
-            console.log(`🎯 CASO ESPECÍFICO CCM0809250026 - ANÁLISE DETALHADA:`);
-            console.log(`   • Tipo solicitado: ${tipo}`);
-            console.log(`   • StorageKey no banco: ${documentInfo?.storageKey}`);
-            console.log(`   • Filename no banco: ${documentInfo?.filename}`);
-            console.log(`   • Deveria estar em: orders/CCM0809250026/certificado_pdf-1757620958919.pdf`);
-
-            if (documentInfo?.storageKey) {
-              console.log(`   • Key do banco corresponde? ${documentInfo.storageKey === 'orders/CCM0809250026/certificado_pdf-1757620958919.pdf'}`);
-            }
-          }
-
-          try {
-            // Usar a função readFileFromStorage para buscar o arquivo
-            const fileResult = await readFileFromStorage(
-              documentInfo.storageKey || '',
-              orderId,
-              documentInfo.filename
-            );
-
-            if (fileResult) {
-              const { data: fileBuffer, originalName } = fileResult;
-
-              // Verificar se é um redirect para Google Drive
-              if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
-                const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-                console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-                return res.redirect(302, driveLink);
-              }
-
-              console.log(`✅ Arquivo recuperado com sucesso (${fileBuffer.length} bytes) - Nome original: ${originalName}`);
-
-              // Content type baseado na extensão
-              const fileExtension = path.extname(originalName).toLowerCase();
-              let contentType = 'application/octet-stream';
-              if (fileExtension === '.pdf') {
-                contentType = 'application/pdf';
-              } else if (fileExtension === '.xml') {
-                contentType = 'application/xml';
-              }
-
-              console.log(`📤 ENVIANDO: ${originalName} | ${fileBuffer.length} bytes | ${contentType}`);
-
-              res.setHeader('Content-Type', contentType);
-              res.setHeader('Content-Length', fileBuffer.length);
-              res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-              res.setHeader('Cache-Control', 'no-cache');
-
-              return res.end(fileBuffer);
-            }
-
-            // Se readFileFromStorage falhou, tentar acesso direto ao Object Storage
-            if (objectStorageAvailable && objectStorage && documentInfo.storageKey) {
-              console.log(`🔄 Tentativa direta no Object Storage: ${documentInfo.storageKey}`);
-
-              // Tentar múltiplos métodos de download
-              const downloadMethods = [
-                { name: 'downloadAsBytes', method: 'downloadAsBytes' },
-                { name: 'downloadAsText', method: 'downloadAsText' },
-              ];
-
-              for (const { name, method } of downloadMethods) {
-                try {
-                  console.log(`🔄 Tentando método ${name}...`);
-
-                  let fileData;
-                  if (method === 'downloadAsBytes') {
-                    fileData = await objectStorage.downloadAsBytes(documentInfo.storageKey);
-                  } else if (method === 'downloadAsText') {
-                    const textData = await objectStorage.downloadAsText(documentInfo.storageKey);
-                    if (textData) {
-                      fileData = Buffer.from(textData, 'utf8');
-                    }
-                  }
-
-                  if (fileData && fileData.length > 0) {
-                    console.log(`✅ SUCESSO com ${name}: ${fileData.length} bytes recuperados`);
-
-                    // Converter para Buffer se necessário
-                    const buffer = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData);
-
-                    // Nome original do arquivo
-                    const originalFilename = documentInfo.filename;
-
-                    // Content type baseado na extensão
-                    const fileExtension = path.extname(originalFilename).toLowerCase();
-                    let contentType = 'application/octet-stream';
-                    if (fileExtension === '.pdf') {
-                      contentType = 'application/pdf';
-                    } else if (fileExtension === '.xml') {
-                      contentType = 'application/xml';
-                    }
-
-                    console.log(`📤 ENVIANDO com ${name}: ${originalFilename} | ${buffer.length} bytes | ${contentType}`);
-
-                    // Headers de resposta
-                    res.setHeader('Content-Type', contentType);
-                    res.setHeader('Content-Length', buffer.length);
-                    res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
-                    res.setHeader('Cache-Control', 'no-cache');
-
-                    // Enviar arquivo diretamente
-                    return res.end(buffer);
-                  } else {
-                    console.log(`⚠️ Método ${name} retornou dados vazios`);
-                  }
-                } catch (methodError) {
-                  console.log(`❌ Erro no método ${name}: ${methodError.message}`);
-                }
-              }
-
-              console.log(`❌ Todos os métodos de download falharam`);
-            }
-
-            // PRIORIDADE 2: FALLBACK SISTEMA LOCAL
-            const localFilePath = path.join(process.cwd(), "uploads", orderId, documentInfo.filename);
-            console.log(`📁 Tentando arquivo local: ${localFilePath}`);
-
-            if (fs.existsSync(localFilePath)) {
-              const fileBuffer = fs.readFileSync(localFilePath);
-              console.log(`✅ SUCESSO Local: ${fileBuffer.length} bytes recuperados`);
-
-              const originalName = documentInfo.filename;
-              const fileExt = path.extname(originalName).toLowerCase();
-
-              let contentType = 'application/octet-stream';
-              if (fileExt === '.pdf') {
-                contentType = 'application/pdf';
-              } else if (fileExt === '.xml') {
-                contentType = 'application/xml';
-              }
-
-              console.log(`📤 ENVIANDO LOCAL: ${originalName} | ${fileBuffer.length} bytes`);
-
-              res.setHeader('Content-Type', contentType);
-              res.setHeader('Content-Length', fileBuffer.length);
-              res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-              res.setHeader('Cache-Control', 'no-cache');
-
-              return res.end(fileBuffer);
-            }
-
-            console.log(`❌ Arquivo não encontrado em nenhum local`);
-            return res.status(404).json({
-              sucesso: false,
-              mensagem: "Arquivo não encontrado no servidor"
-            });
-
-          } catch (downloadError) {
-            console.error(`❌ Erro crítico no download:`, downloadError);
-            return res.status(500).json({
-              sucesso: false,
-              mensagem: "Erro interno no processo de download"
-            });
-          }
         }
 
-        // Se não é download, retornar informações dos documentos
-        return res.json({
-          sucesso: true,
-          temDocumentos: true,
-          documentos: Object.keys(documentosInfo),
-          info: documentosInfo
-        });
+        const documentoInfo = documentosInfo[chaveDocumento];
+        console.log(`📄 Info do documento ${tipo}:`, documentoInfo);
+
+        // Extrair informações do documento
+        const storageKey = documentoInfo.storageKey || documentoInfo.key || '';
+        const filename = documentoInfo.filename || documentoInfo.originalname || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`;
+
+        console.log(`🔍 Buscando arquivo: key="${storageKey}", filename="${filename}", orderId="${order.order_id}"`);
+
+        // Buscar arquivo usando a função readFileFromStorage
+        const fileResult = await readFileFromStorage(storageKey, order.order_id, filename);
+
+        if (!fileResult) {
+          console.log(`❌ Arquivo ${tipo} não encontrado no storage`);
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: `Arquivo ${tipo} não encontrado no sistema de armazenamento`
+          });
+        }
+
+        console.log(`✅ Arquivo encontrado: ${fileResult.originalName} (${fileResult.data.length} bytes)`);
+
+        // Verificar se é redirect do Google Drive
+        if (fileResult.data.toString().startsWith('REDIRECT:')) {
+          const redirectUrl = fileResult.data.toString().replace('REDIRECT:', '');
+          console.log(`🔗 Redirecionando para Google Drive: ${redirectUrl}`);
+          return res.redirect(redirectUrl);
+        }
+
+        // Configurar headers para download
+        const extension = tipo.includes('xml') ? 'xml' : 'pdf';
+        const mimeType = extension === 'xml' ? 'application/xml' : 'application/pdf';
+        const fileName = `${order.order_id}_${tipo}.${extension}`;
+
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Length', fileResult.data.length);
+
+        if (download === 'true') {
+          res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        } else {
+          res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+        }
+
+        // Enviar arquivo como Buffer
+        if (fileResult.data instanceof Uint8Array) {
+          res.send(Buffer.from(fileResult.data));
+        } else {
+          res.send(fileResult.data);
+        }
+
+        console.log(`✅ Download de ${tipo} concluído para pedido ${order.order_id}`);
+
       } catch (error) {
-        console.error(`❌ Erro geral na rota de documentos:`, error);
+        console.error(`❌ Erro no download:`, error);
         res.status(500).json({
           sucesso: false,
-          mensagem: "Erro interno do servidor"
+          mensagem: "Erro interno no servidor",
+          erro: error.message
         });
       }
-      console.log(`=== FIM DOWNLOAD ${tipo.toUpperCase()} ===\n`);
     });
 
     // Rota para obter informações sobre os documentos de um pedido
@@ -4912,7 +4778,7 @@ const uploadLogo = multer({
       }
     });
 
-    // Rota para confirmar entrega de pedidocom foto da nota assinada
+    // Rota para confirmar entrega de pedido com foto da nota assinada
     app.post("/api/pedidos/:id/confirmar", uploadConfirmDelivery.single("fotoNotaAssinada"), async (req, res) => {
       try {
         const id = parseInt(req.params.id);
