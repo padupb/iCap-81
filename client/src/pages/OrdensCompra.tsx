@@ -240,6 +240,7 @@ export default function OrdensCompra() {
       userId: user?.id,
       userIsKeyUser: user?.isKeyUser,
       userIsDeveloper: user?.isDeveloper,
+      userCanEditPurchaseOrders: user?.canEditPurchaseOrders,
       companyId: user?.companyId,
       companiesLoaded: companies.length,
       categoriesLoaded: categories.length
@@ -248,6 +249,12 @@ export default function OrdensCompra() {
     // KeyUser sempre pode editar - verificação mais robusta
     if (user?.id === 1 || user?.isKeyUser === true || user?.isDeveloper === true || isKeyUser) {
       console.log('✅ KeyUser - permissão concedida para editar ordens de compra');
+      return true;
+    }
+
+    // Verificar permissão específica do usuário
+    if (user?.canEditPurchaseOrders === true) {
+      console.log('✅ Usuário tem permissão específica para editar ordens de compra');
       return true;
     }
 
@@ -1580,16 +1587,22 @@ export default function OrdensCompra() {
                         {(() => {
                           // Verificação mais robusta para keyuser
                           const userIsKeyUser = user?.id === 1 || user?.isKeyUser === true || user?.isDeveloper === true || isKeyUser;
-                          const canEdit = userIsKeyUser || canEditPurchaseOrders();
+                          
+                          // Verificar permissão específica do usuário para editar ordens de compra
+                          const hasEditPermission = user?.canEditPurchaseOrders === true;
+                          
+                          // Verificar contexto de autorização
+                          const contextCanEdit = contextCanEditPurchaseOrders;
+                          
+                          const canEdit = userIsKeyUser || hasEditPermission || contextCanEdit;
 
                           console.log(`🔧 Botão de edição para ordem ${ordem.numero_ordem}:`, {
                             userIsKeyUser,
-                            isKeyUser,
-                            userId: user?.id,
-                            userIsKeyUserFlag: user?.isKeyUser,
-                            userIsDeveloper: user?.isDeveloper,
-                            canEditPurchaseOrders: canEditPurchaseOrders(),
+                            hasEditPermission,
+                            contextCanEdit,
                             canEdit,
+                            userId: user?.id,
+                            userCanEditPurchaseOrders: user?.canEditPurchaseOrders,
                             companyId: user?.companyId
                           });
 

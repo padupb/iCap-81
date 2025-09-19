@@ -933,7 +933,7 @@ const uploadLogo = multer({
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
           canCreatePurchaseOrder: user.canCreatePurchaseOrder,
-          canEditPurchaseOrders: user.canEditPurchaseOrders,
+          canEditPurchaseOrders: user.canEditPurchaseOrders || isKeyUser,
           // Adicionar propriedades de keyuser apenas se ID = 1
           isKeyUser: isKeyUser,
           isDeveloper: isKeyUser,
@@ -976,7 +976,7 @@ const uploadLogo = multer({
             canConfirmDelivery: req.user.canConfirmDelivery,
             canCreateOrder: req.user.canCreateOrder,
             canCreatePurchaseOrder: req.user.canCreatePurchaseOrder,
-            canEditPurchaseOrders: req.user.canEditPurchaseOrders,
+            canEditPurchaseOrders: req.user.canEditPurchaseOrders || req.user.isKeyUser,
             isKeyUser: req.user.isKeyUser,
             isDeveloper: req.user.isDeveloper,
             // Incluir informações da função
