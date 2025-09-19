@@ -221,30 +221,33 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     };
   }
 
-  // Object Storage com nome PRESERVADO
+  // Object Storage com busca expandida
   if (objectStorageAvailable && objectStorage) {
     const storageKeys = [];
 
-    // NOVA PRIORIDADE 1: Buscar diretamente na pasta do orderId (estrutura atual)
-    storageKeys.push({
-      key: `${orderId}/${filename}`,
-      name: filename
-    });
-
-    // PRIORIDADE 2: Buscar na estrutura orders/orderId/filename (estrutura antiga)
-    storageKeys.push({
-      key: `orders/${orderId}/${filename}`,
-      name: filename
-    });
-
-    // PRIORIDADE 3: Usar a key original se fornecida
-    if (key && key !== `orders/${orderId}/${filename}` && key !== `${orderId}/${filename}`) {
+    // PRIORIDADE 1: Usar a key exata armazenada no banco
+    if (key) {
       storageKeys.push({ key, name: filename });
     }
 
-    // PRIORIDADE 4: Para ordens de compra (pasta OC)
-    if (key.startsWith('OC/') || orderId.includes('orden')) {
-      const ocKey = key.startsWith('OC/') ? key : `OC/${filename}`;
+    // PRIORIDADE 2: Tentar diferentes estruturas de pastas
+    const possiblePaths = [
+      `${orderId}/${filename}`,
+      `orders/${orderId}/${filename}`,
+      `pedidos/${orderId}/${filename}`,
+      `uploads/${orderId}/${filename}`,
+      filename // Arquivo na raiz
+    ];
+
+    for (const path of possiblePaths) {
+      if (!storageKeys.some(sk => sk.key === path)) {
+        storageKeys.push({ key: path, name: filename });
+      }
+    }
+
+    // PRIORIDADE 3: Para ordens de compra (pasta OC)
+    if (key && key.startsWith('OC/')) {
+      const ocKey = key;
       const realStorageName = ocKey.includes('/') ? ocKey.split('/').pop() : ocKey;
       storageKeys.unshift({
         key: ocKey,
@@ -252,23 +255,48 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       });
     }
 
-    console.log(`🔍 Tentativas de busca no Object Storage:`, storageKeys.map(s => s.key));
+    // PRIORIDADE 4: Listar todos os arquivos e procurar por padrão
+    try {
+      console.log(`📋 Listando arquivos no Object Storage para encontrar ${filename}...`);
+      const allObjects = await objectStorage.list();
+      
+      // Filtrar objetos que correspondem ao filename ou orderId
+      const matchingObjects = allObjects.filter(obj => 
+        obj.key.includes(filename) || 
+        obj.key.includes(orderId) ||
+        obj.key.endsWith(filename.split('-').pop() || filename) // Para arquivos com timestamp
+      );
+
+      console.log(`📁 Arquivos encontrados no storage:`, matchingObjects.map(obj => obj.key));
+
+      // Adicionar os arquivos encontrados às tentativas
+      for (const obj of matchingObjects) {
+        const objFilename = obj.key.includes('/') ? obj.key.split('/').pop() : obj.key;
+        if (!storageKeys.some(sk => sk.key === obj.key)) {
+          storageKeys.push({ key: obj.key, name: objFilename || filename });
+        }
+      }
+    } catch (listError) {
+      console.log(`⚠️ Erro ao listar arquivos do Object Storage: ${listError.message}`);
+    }
+
+    console.log(`🔍 Total de ${storageKeys.length} tentativas de busca no Object Storage`);
 
     for (const { key: storageKey, name: storageName } of storageKeys) {
       try {
-        console.log(`📥 Tentando: ${storageKey}`);
+        console.log(`📥 Tentando baixar: ${storageKey}`);
         const rawData = await objectStorage.downloadAsBytes(storageKey);
 
         if (rawData && rawData.length > 0) {
-          console.log(`✅ Storage ENCONTRADO: ${storageName} (${rawData.length} bytes) - Chave: ${storageKey}`);
+          console.log(`✅ ARQUIVO ENCONTRADO: ${storageName} (${rawData.length} bytes) - Chave: ${storageKey}`);
 
           return {
             data: rawData instanceof Uint8Array ? rawData : Buffer.from(rawData),
-            originalName: storageName  // NOME EXATO DO STORAGE
+            originalName: storageName
           };
         }
       } catch (error) {
-        console.log(`⚠️ ${storageKey}: ${error.message}`);
+        console.log(`⚠️ Falha em ${storageKey}: ${error.message}`);
       }
     }
 
@@ -289,7 +317,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           console.log(`✅ Local: ${name} (${buffer.length} bytes)`);
           return {
             data: buffer,
-            originalName: name  // NOME ORIGINAL PRESERVADO
+            originalName: name
           };
         }
       }
@@ -298,7 +326,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     }
   }
 
-  console.log(`❌ Arquivo ${filename} não encontrado`);
+  console.log(`❌ Arquivo ${filename} não encontrado em nenhum local`);
   return null;
 }
 
