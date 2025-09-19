@@ -222,8 +222,31 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     };
   }
 
-  // Object Storage - buscar na estrutura correta
+  // Object Storage - verificar se está realmente disponível e funcionando
   if (objectStorageAvailable && objectStorage) {
+    console.log(`📦 Object Storage disponível - iniciando busca`);
+    
+    // Teste rápido de conectividade antes de buscar arquivos
+    try {
+      await objectStorage.list();
+      console.log(`✅ Object Storage respondendo - prosseguindo com busca`);
+    } catch (testError) {
+      console.log(`❌ Object Storage não está respondendo: ${testError.message}`);
+      console.log(`🔄 Tentando reinicializar Object Storage...`);
+      
+      // Tentar reinicializar o cliente
+      try {
+        const { Client } = await import('@replit/object-storage');
+        objectStorage = new Client();
+        objectStorageAvailable = true;
+        console.log(`✅ Object Storage reinicializado com sucesso`);
+      } catch (reinitError) {
+        console.log(`❌ Falha na reinicialização: ${reinitError.message}`);
+        objectStorageAvailable = false;
+      }
+    }
+    
+    if (objectStorageAvailable && objectStorage) {
     const storageKeys = [];
 
     // PRIORIDADE 1: Usar a key EXATA armazenada no banco se disponível
@@ -260,31 +283,56 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`📥 Tentando baixar: ${storageKey}`);
         const result = await objectStorage.downloadAsBytes(storageKey);
 
-        // O Object Storage do Replit retorna um Result object
+        // O Object Storage do Replit pode retornar diferentes formatos
         let rawData;
-        if (result && typeof result === 'object' && result.ok && result.value) {
-          rawData = result.value;
-          console.log(`✅ Dados extraídos do Result wrapper: ${rawData.length} bytes`);
-        } else if (result && result.length !== undefined) {
-          // Fallback para caso seja retornado diretamente
+        
+        // Tentar extrair dados do resultado
+        if (result && typeof result === 'object') {
+          if (result.ok && result.value) {
+            // Formato Result wrapper
+            rawData = result.value;
+            console.log(`✅ Dados extraídos do Result wrapper: ${rawData.length} bytes`);
+          } else if (result.length !== undefined) {
+            // Array/Buffer direto
+            rawData = result;
+            console.log(`✅ Buffer/Array direto: ${rawData.length} bytes`);
+          } else if (result instanceof Uint8Array || result instanceof Buffer) {
+            // Uint8Array ou Buffer direto
+            rawData = result;
+            console.log(`✅ Uint8Array/Buffer: ${rawData.length} bytes`);
+          }
+        } else if (result instanceof Uint8Array || result instanceof Buffer) {
+          // Resultado direto como buffer
           rawData = result;
-        } else {
-          console.log(`⚠️ Resultado inválido do downloadAsBytes:`, typeof result, result);
-          continue;
+          console.log(`✅ Buffer direto: ${rawData.length} bytes`);
         }
 
         if (rawData && rawData.length > 0) {
           console.log(`✅ ARQUIVO ENCONTRADO: ${storageName} (${rawData.length} bytes) - Chave: ${storageKey}`);
 
+          // Garantir que retornamos um Buffer válido
+          const buffer = rawData instanceof Buffer ? rawData : 
+                        rawData instanceof Uint8Array ? Buffer.from(rawData) :
+                        Buffer.from(rawData);
+
           return {
-            data: rawData instanceof Uint8Array ? rawData : Buffer.from(rawData),
+            data: buffer,
             originalName: storageName
           };
         } else {
           console.log(`⚠️ Arquivo vazio ou nulo: ${storageKey}`);
+          console.log(`🔍 Tipo do resultado:`, typeof result);
+          console.log(`🔍 Resultado:`, result);
         }
       } catch (error) {
         console.log(`⚠️ Falha em ${storageKey}: ${error.message}`);
+        
+        // Log adicional para debug específico
+        if (error.message.includes('404') || error.message.includes('not found')) {
+          console.log(`📂 Arquivo não existe no Object Storage: ${storageKey}`);
+        } else if (error.message.includes('403') || error.message.includes('permission')) {
+          console.log(`🔒 Problema de permissões no Object Storage`);
+        }
       }
     }
 
@@ -346,6 +394,11 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     }
 
     console.log(`❌ Arquivo não encontrado no Object Storage após ${storageKeys.length} tentativas`);
+    } else {
+      console.log(`❌ Object Storage não está disponível para busca`);
+    }
+  } else {
+    console.log(`⚠️ Object Storage não inicializado ou não disponível`);
   }
 
   // Sistema local com nome preservado
@@ -3772,14 +3825,16 @@ const uploadLogo = multer({
 
         // Mapear tipo para chave no documentosinfo
         const tipoMap = {
-          'nota_pdf': 'notaPdf',
-          'nota_xml': 'notaXml',
-          'certificado_pdf': 'certificadoPdf'
+          'nota_pdf': 'nota_pdf',
+          'nota_xml': 'nota_xml', 
+          'certificado_pdf': 'certificado_pdf'
         };
 
         const chaveDocumento = tipoMap[tipo];
         if (!chaveDocumento || !documentosInfo[chaveDocumento]) {
           console.log(`❌ Documento tipo ${tipo} não encontrado`);
+          console.log(`🔍 Chaves disponíveis:`, Object.keys(documentosInfo));
+          console.log(`🔍 Tipo solicitado: ${tipo}, Chave mapeada: ${chaveDocumento}`);
           return res.status(404).json({
             sucesso: false,
             mensagem: `Documento do tipo ${tipo} não encontrado`
