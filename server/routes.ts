@@ -117,47 +117,94 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
 
       // Usar o método correto do Replit Object Storage
       try {
-        // O método correto é uploadFromText para texto ou uploadFromBytes para buffer
-        if (buffer instanceof Buffer) {
-          // Converter buffer para Uint8Array que é o formato esperado
-          const uint8Array = new Uint8Array(buffer);
-          await objectStorage.uploadFromBytes(key, uint8Array);
-        } else {
-          // Fallback para texto se não for buffer
-          await objectStorage.uploadFromText(key, buffer.toString());
+        console.log(`📤 Iniciando upload - Tamanho original: ${buffer.length} bytes`);
+        
+        // Validar buffer antes do upload
+        if (!buffer || buffer.length === 0) {
+          throw new Error("Buffer vazio ou inválido para upload");
         }
 
-        console.log("✅ Upload realizado com método uploadFromBytes/uploadFromText");
+        // O método correto é uploadFromBytes para arquivos binários
+        if (buffer instanceof Buffer) {
+          // Converter buffer para Uint8Array que é o formato esperado pelo Replit Object Storage
+          const uint8Array = new Uint8Array(buffer);
+          console.log(`📤 Convertido para Uint8Array: ${uint8Array.length} bytes`);
+          
+          // Upload usando bytes
+          await objectStorage.uploadFromBytes(key, uint8Array);
+          console.log("✅ Upload realizado com uploadFromBytes");
+        } else {
+          // Se não for Buffer, tentar converter primeiro
+          console.log(`⚠️ Dados não são Buffer, tentando conversão. Tipo: ${typeof buffer}`);
+          const bufferData = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+          const uint8Array = new Uint8Array(bufferData);
+          await objectStorage.uploadFromBytes(key, uint8Array);
+          console.log("✅ Upload realizado após conversão para Buffer");
+        }
 
-        // Verificar se o arquivo foi realmente salvo tentando fazer download
+        // VERIFICAÇÃO CRÍTICA: Testar integridade do arquivo após upload
+        console.log(`🔍 Verificando integridade do arquivo após upload...`);
         try {
           const downloadTest = await objectStorage.downloadAsBytes(key);
-          if (downloadTest && downloadTest.length > 0) {
-            console.log(`📁 ☁️ Arquivo verificado no Object Storage: ${key} (${downloadTest.length} bytes)`);
-            console.log(`✅ Arquivo estará disponível após redeploys`);
-            return key;
+          
+          // Extrair dados do resultado (pode estar em wrapper)
+          let testData = null;
+          if (downloadTest && typeof downloadTest === 'object' && downloadTest.ok && downloadTest.value) {
+            testData = downloadTest.value;
+          } else if (downloadTest instanceof Uint8Array || downloadTest instanceof Buffer) {
+            testData = downloadTest;
           } else {
-            throw new Error("Arquivo não encontrado após upload");
+            testData = downloadTest;
+          }
+
+          if (testData && testData.length > 0) {
+            const downloadedSize = testData.length;
+            const originalSize = buffer.length;
+            
+            console.log(`📊 Verificação de integridade:`);
+            console.log(`   • Tamanho original: ${originalSize} bytes`);
+            console.log(`   • Tamanho baixado: ${downloadedSize} bytes`);
+            console.log(`   • Integridade: ${downloadedSize === originalSize ? 'OK' : 'FALHA'}`);
+            
+            if (downloadedSize === originalSize) {
+              console.log(`✅ Arquivo verificado no Object Storage: ${key}`);
+              console.log(`✅ Arquivo estará disponível após redeploys`);
+              return key;
+            } else {
+              console.error(`❌ Tamanhos não coincidem! Original: ${originalSize}, Baixado: ${downloadedSize}`);
+              throw new Error(`Corrupção detectada: tamanhos diferentes (${originalSize} → ${downloadedSize})`);
+            }
+          } else {
+            console.error(`❌ Download de verificação retornou dados vazios ou nulos`);
+            throw new Error("Verificação falhou: dados vazios no download");
           }
         } catch (verifyError) {
-          console.warn("⚠️ Upload realizado mas verificação falhou:", verifyError.message);
-          return key; // Retornar mesmo assim, pois o upload pode ter funcionado
+          console.error("❌ Falha na verificação de integridade:", verifyError.message);
+          // Não retornar a key se a verificação falhou completamente
+          throw new Error(`Upload falhou na verificação: ${verifyError.message}`);
         }
 
       } catch (uploadError) {
         console.error("❌ Erro específico no upload:", uploadError.message);
+        console.error("❌ Stack trace:", uploadError.stack);
 
         // Tentar métodos alternativos se o principal falhar
         console.log("🔄 Tentando métodos alternativos...");
 
-        if (typeof objectStorage.upload === 'function') {
-          console.log("🔧 Tentando método upload genérico");
-          await objectStorage.upload(key, buffer);
-          console.log("✅ Upload realizado com método genérico");
-          return key;
+        try {
+          // Tentar método upload genérico se existir
+          if (typeof objectStorage.upload === 'function') {
+            console.log("🔧 Tentando método upload genérico");
+            await objectStorage.upload(key, buffer);
+            console.log("✅ Upload realizado com método genérico");
+            return key;
+          } else {
+            throw new Error("Nenhum método alternativo disponível");
+          }
+        } catch (altError) {
+          console.error("❌ Métodos alternativos também falharam:", altError.message);
+          throw uploadError; // Lançar o erro original
         }
-
-        throw uploadError;
       }
 
     } catch (error) {
@@ -294,102 +341,185 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           keys: result && typeof result === 'object' ? Object.keys(result) : []
         });
 
-        // O Object Storage do Replit retorna diretamente os bytes
-        let rawData;
+        // O Object Storage do Replit pode retornar diferentes formatos
+        let rawData = null;
         
-        console.log(`🔍 Tipo do resultado:`, typeof result);
-        console.log(`🔍 É Array:`, Array.isArray(result));
-        console.log(`🔍 É Uint8Array:`, result instanceof Uint8Array);
-        console.log(`🔍 É Buffer:`, result instanceof Buffer);
-        console.log(`🔍 Tem propriedade length:`, result && typeof result.length !== 'undefined');
+        console.log(`🔍 Processando resultado do Object Storage...`);
+        console.log(`🔍 Tipo: ${typeof result}`);
+        console.log(`🔍 Constructor: ${result?.constructor?.name}`);
         
-        if (result) {
-          // Verificar se é um Result wrapper do Replit Object Storage
-          if (typeof result === 'object' && result.ok !== undefined && result.value !== undefined) {
-            console.log(`🔍 Result wrapper detectado - ok: ${result.ok}`);
-            if (result.ok && result.value) {
-              // O value pode ser um Uint8Array ou Buffer
-              if (result.value instanceof Uint8Array || result.value instanceof Buffer) {
-                rawData = result.value;
-                console.log(`✅ Dados extraídos do Result wrapper: ${rawData.length} bytes`);
-              } else if (typeof result.value === 'object' && result.value.length !== undefined) {
-                // Se é um array-like object, converter para Uint8Array
-                rawData = new Uint8Array(Object.values(result.value));
-                console.log(`✅ Array-like convertido do Result wrapper: ${rawData.length} bytes`);
-              } else {
-                console.log(`⚠️ Tipo não reconhecido no Result wrapper:`, typeof result.value);
-                console.log(`🔍 Conteúdo do value:`, result.value);
+        if (!result) {
+          console.log(`❌ Resultado é null/undefined`);
+          rawData = null;
+        }
+        // Verificar se é um Result wrapper do Replit Object Storage
+        else if (typeof result === 'object' && 'ok' in result && 'value' in result) {
+          console.log(`🔍 Result wrapper detectado - ok: ${result.ok}`);
+          
+          if (result.ok && result.value !== undefined && result.value !== null) {
+            const value = result.value;
+            console.log(`🔍 Tipo do value: ${typeof value}`);
+            console.log(`🔍 Constructor do value: ${value?.constructor?.name}`);
+            console.log(`🔍 É Buffer: ${value instanceof Buffer}`);
+            console.log(`🔍 É Uint8Array: ${value instanceof Uint8Array}`);
+            console.log(`🔍 É Array: ${Array.isArray(value)}`);
+            console.log(`🔍 Tem length: ${value && typeof value.length !== 'undefined' ? value.length : 'não'}`);
+            
+            if (value instanceof Buffer) {
+              rawData = value;
+              console.log(`✅ Buffer extraído do Result wrapper: ${rawData.length} bytes`);
+            } else if (value instanceof Uint8Array) {
+              rawData = value;
+              console.log(`✅ Uint8Array extraído do Result wrapper: ${rawData.length} bytes`);
+            } else if (Array.isArray(value)) {
+              // Array de números - converter para Uint8Array
+              try {
+                rawData = new Uint8Array(value);
+                console.log(`✅ Array numérico convertido: ${rawData.length} bytes`);
+              } catch (convError) {
+                console.log(`❌ Erro ao converter array: ${convError.message}`);
+                rawData = null;
+              }
+            } else if (typeof value === 'object' && value !== null && typeof value.length === 'number') {
+              // Object com propriedades numéricas (array-like)
+              try {
+                const arrayValues = [];
+                for (let i = 0; i < value.length; i++) {
+                  if (typeof value[i] === 'number') {
+                    arrayValues.push(value[i]);
+                  }
+                }
+                if (arrayValues.length > 0) {
+                  rawData = new Uint8Array(arrayValues);
+                  console.log(`✅ Object array-like convertido: ${rawData.length} bytes`);
+                } else {
+                  console.log(`❌ Object array-like não contém números válidos`);
+                  rawData = null;
+                }
+              } catch (convError) {
+                console.log(`❌ Erro ao converter object array-like: ${convError.message}`);
+                rawData = null;
+              }
+            } else if (typeof value === 'string') {
+              // String - converter para bytes UTF-8
+              try {
+                rawData = new TextEncoder().encode(value);
+                console.log(`✅ String convertida para bytes: ${rawData.length} bytes`);
+              } catch (encError) {
+                console.log(`❌ Erro ao converter string: ${encError.message}`);
                 rawData = null;
               }
             } else {
-              console.log(`❌ Result wrapper indica falha: ${result.error || 'erro desconhecido'}`);
+              console.log(`❌ Tipo do value não suportado: ${typeof value}`);
+              console.log(`🔍 Value:`, value);
               rawData = null;
             }
-          }
-          // Replit Object Storage retorna diretamente os bytes como Uint8Array
-          else if (result instanceof Uint8Array) {
-            rawData = result;
-            console.log(`✅ Uint8Array direto: ${rawData.length} bytes`);
-          } else if (result instanceof Buffer) {
-            rawData = result;
-            console.log(`✅ Buffer direto: ${rawData.length} bytes`);
-          } else if (Array.isArray(result)) {
-            // Converter array para Uint8Array se necessário
-            rawData = new Uint8Array(result);
-            console.log(`✅ Array convertido para Uint8Array: ${rawData.length} bytes`);
-          } else if (typeof result === 'object' && result !== null && result.length !== undefined) {
-            // Tratar como array-like object
-            const values = Array.isArray(result) ? result : Object.values(result);
-            rawData = new Uint8Array(values);
-            console.log(`✅ Object array-like convertido: ${rawData.length} bytes`);
-          } else if (typeof result === 'string') {
-            // Se retornou uma string, converter para bytes
-            rawData = new TextEncoder().encode(result);
-            console.log(`✅ String convertida para bytes: ${rawData.length} bytes`);
           } else {
-            // Debug adicional antes do fallback
-            console.log(`⚠️ Tipo não reconhecido, fazendo debug completo:`);
-            console.log(`   - Tipo: ${typeof result}`);
-            console.log(`   - Constructor: ${result.constructor?.name}`);
-            console.log(`   - Keys: ${Object.keys(result)}`);
-            console.log(`   - Prototype: ${Object.getPrototypeOf(result)?.constructor?.name}`);
-            
-            // Tentar diferentes abordagens de extração
-            if (result.data) {
-              rawData = result.data;
-              console.log(`✅ Dados extraídos da propriedade 'data': ${rawData.length} bytes`);
-            } else if (result.buffer) {
-              rawData = result.buffer;
-              console.log(`✅ Dados extraídos da propriedade 'buffer': ${rawData.length} bytes`);
-            } else if (result.content) {
-              rawData = result.content;
-              console.log(`✅ Dados extraídos da propriedade 'content': ${rawData.length} bytes`);
-            } else {
-              // Último fallback: tentar converter para string e depois para bytes
-              console.log(`⚠️ Usando fallback de última instância`);
-              const str = result.toString();
-              rawData = new TextEncoder().encode(str);
-              console.log(`⚠️ Fallback string->bytes: ${rawData.length} bytes`);
+            console.log(`❌ Result wrapper indica falha ou value vazio`);
+            if (result.error) {
+              console.log(`🔍 Erro do wrapper: ${result.error}`);
             }
+            rawData = null;
           }
         }
+        // Dados diretos do Object Storage
+        else if (result instanceof Buffer) {
+          rawData = result;
+          console.log(`✅ Buffer direto: ${rawData.length} bytes`);
+        } else if (result instanceof Uint8Array) {
+          rawData = result;
+          console.log(`✅ Uint8Array direto: ${rawData.length} bytes`);
+        } else if (Array.isArray(result)) {
+          // Array direto - converter para Uint8Array
+          try {
+            rawData = new Uint8Array(result);
+            console.log(`✅ Array direto convertido: ${rawData.length} bytes`);
+          } catch (convError) {
+            console.log(`❌ Erro ao converter array direto: ${convError.message}`);
+            rawData = null;
+          }
+        } else if (typeof result === 'string') {
+          // String direta - converter para bytes
+          try {
+            rawData = new TextEncoder().encode(result);
+            console.log(`✅ String direta convertida: ${rawData.length} bytes`);
+          } catch (encError) {
+            console.log(`❌ Erro ao converter string direta: ${encError.message}`);
+            rawData = null;
+          }
+        } else {
+          console.log(`❌ Formato de resultado não reconhecido`);
+          console.log(`🔍 Tentando extrair propriedades conhecidas...`);
+          
+          // Tentar propriedades conhecidas
+          if (result && typeof result === 'object') {
+            if (result.data) {
+              console.log(`🔍 Tentando propriedade 'data'`);
+              return await this.processObjectStorageResult(result.data);
+            } else if (result.buffer) {
+              console.log(`🔍 Tentando propriedade 'buffer'`);
+              return await this.processObjectStorageResult(result.buffer);
+            } else if (result.content) {
+              console.log(`🔍 Tentando propriedade 'content'`);
+              return await this.processObjectStorageResult(result.content);
+            }
+          }
+          
+          console.log(`❌ Nenhuma propriedade conhecida encontrada`);
+          rawData = null;
+        }
 
+        // Validar dados extraídos
         if (rawData && rawData.length > 0) {
           console.log(`✅ ARQUIVO ENCONTRADO: ${storageName} (${rawData.length} bytes) - Chave: ${storageKey}`);
 
           // Garantir que retornamos um Buffer válido
-          const buffer = rawData instanceof Buffer ? rawData : 
-                        rawData instanceof Uint8Array ? Buffer.from(rawData) :
-                        Buffer.from(rawData);
+          let finalBuffer;
+          try {
+            if (rawData instanceof Buffer) {
+              finalBuffer = rawData;
+            } else if (rawData instanceof Uint8Array) {
+              finalBuffer = Buffer.from(rawData);
+            } else if (Array.isArray(rawData)) {
+              finalBuffer = Buffer.from(new Uint8Array(rawData));
+            } else {
+              console.log(`⚠️ Tipo inesperado de rawData: ${typeof rawData}`);
+              finalBuffer = Buffer.from(rawData);
+            }
 
-          return {
-            data: buffer,
-            originalName: storageName
-          };
+            // Validação final do buffer
+            if (finalBuffer && finalBuffer.length > 0) {
+              console.log(`✅ Buffer final validado: ${finalBuffer.length} bytes`);
+              
+              // Log adicional para debug de PDFs
+              if (storageName.toLowerCase().includes('pdf')) {
+                const isValidPdf = finalBuffer.length >= 4 && 
+                                 finalBuffer[0] === 0x25 && 
+                                 finalBuffer[1] === 0x50 && 
+                                 finalBuffer[2] === 0x44 && 
+                                 finalBuffer[3] === 0x46; // %PDF
+                console.log(`🔍 Validação PDF: ${isValidPdf ? 'VÁLIDO' : 'INVÁLIDO'}`);
+                if (!isValidPdf) {
+                  console.log(`🔍 Primeiros 10 bytes: ${Array.from(finalBuffer.slice(0, 10)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ')}`);
+                }
+              }
+
+              return {
+                data: finalBuffer,
+                originalName: storageName
+              };
+            } else {
+              console.log(`❌ Buffer final é vazio após conversão`);
+            }
+          } catch (bufferError) {
+            console.log(`❌ Erro ao criar buffer final: ${bufferError.message}`);
+          }
         } else {
-          console.log(`⚠️ Arquivo vazio ou nulo: ${storageKey}`);
-          console.log(`🔍 Tipo do resultado:`, typeof result);
-          console.log(`🔍 Resultado:`, result);
+          console.log(`⚠️ Dados não válidos extraídos do Object Storage`);
+          console.log(`🔍 rawData tipo: ${typeof rawData}`);
+          console.log(`🔍 rawData length: ${rawData ? rawData.length : 'null/undefined'}`);
+          console.log(`🔍 rawData é nulo: ${rawData === null}`);
+          console.log(`🔍 rawData é undefined: ${rawData === undefined}`);
         }
       } catch (error) {
         console.log(`⚠️ Falha em ${storageKey}: ${error.message}`);
