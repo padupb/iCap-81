@@ -281,7 +281,10 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     for (const { key: storageKey, name: storageName } of storageKeys) {
       try {
         console.log(`📥 Tentando baixar: ${storageKey}`);
+        
+        // Tentar primeiro downloadAsBytes que deve retornar um Result<Buffer, Error>
         const result = await objectStorage.downloadAsBytes(storageKey);
+        console.log(`📥 Download executado - verificando resultado...`);
 
         // O Object Storage do Replit retorna diretamente os bytes
         let rawData;
@@ -293,8 +296,19 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`🔍 Tem propriedade length:`, result && typeof result.length !== 'undefined');
         
         if (result) {
+          // Verificar se é um Result wrapper do Replit Object Storage
+          if (typeof result === 'object' && result.ok !== undefined && result.value !== undefined) {
+            console.log(`🔍 Result wrapper detectado - ok: ${result.ok}`);
+            if (result.ok && result.value) {
+              rawData = result.value;
+              console.log(`✅ Dados extraídos do Result wrapper: ${rawData.length} bytes`);
+            } else {
+              console.log(`❌ Result wrapper indica falha: ${result.error || 'erro desconhecido'}`);
+              rawData = null;
+            }
+          }
           // Replit Object Storage retorna diretamente os bytes como Uint8Array
-          if (result instanceof Uint8Array) {
+          else if (result instanceof Uint8Array) {
             rawData = result;
             console.log(`✅ Uint8Array direto: ${rawData.length} bytes`);
           } else if (result instanceof Buffer) {
@@ -309,11 +323,30 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             rawData = new Uint8Array(Object.values(result));
             console.log(`✅ Object array-like convertido: ${rawData.length} bytes`);
           } else {
-            // Fallback: tentar converter para string e depois para bytes
-            console.log(`⚠️ Tipo não reconhecido, tentando fallback`);
-            const str = result.toString();
-            rawData = new TextEncoder().encode(str);
-            console.log(`✅ Fallback string->bytes: ${rawData.length} bytes`);
+            // Debug adicional antes do fallback
+            console.log(`⚠️ Tipo não reconhecido, fazendo debug completo:`);
+            console.log(`   - Tipo: ${typeof result}`);
+            console.log(`   - Constructor: ${result.constructor?.name}`);
+            console.log(`   - Keys: ${Object.keys(result)}`);
+            console.log(`   - Prototype: ${Object.getPrototypeOf(result)?.constructor?.name}`);
+            
+            // Tentar diferentes abordagens de extração
+            if (result.data) {
+              rawData = result.data;
+              console.log(`✅ Dados extraídos da propriedade 'data': ${rawData.length} bytes`);
+            } else if (result.buffer) {
+              rawData = result.buffer;
+              console.log(`✅ Dados extraídos da propriedade 'buffer': ${rawData.length} bytes`);
+            } else if (result.content) {
+              rawData = result.content;
+              console.log(`✅ Dados extraídos da propriedade 'content': ${rawData.length} bytes`);
+            } else {
+              // Último fallback: tentar converter para string e depois para bytes
+              console.log(`⚠️ Usando fallback de última instância`);
+              const str = result.toString();
+              rawData = new TextEncoder().encode(str);
+              console.log(`⚠️ Fallback string->bytes: ${rawData.length} bytes`);
+            }
           }
         }
 
@@ -336,12 +369,19 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         }
       } catch (error) {
         console.log(`⚠️ Falha em ${storageKey}: ${error.message}`);
+        console.log(`🔍 Tipo do erro:`, typeof error);
+        console.log(`🔍 Stack do erro:`, error.stack);
         
         // Log adicional para debug específico
         if (error.message.includes('404') || error.message.includes('not found')) {
           console.log(`📂 Arquivo não existe no Object Storage: ${storageKey}`);
         } else if (error.message.includes('403') || error.message.includes('permission')) {
           console.log(`🔒 Problema de permissões no Object Storage`);
+        } else {
+          console.log(`🔍 Erro desconhecido - properties:`, Object.keys(error));
+          if (error.cause) {
+            console.log(`🔍 Causa do erro:`, error.cause);
+          }
         }
       }
     }
