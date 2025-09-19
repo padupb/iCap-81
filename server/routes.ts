@@ -256,8 +256,8 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   }
 }
 
-// Função utilitária para ler arquivo PRESERVANDO nome original
-async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer | Uint8Array, originalName: string } | null> {
+// Função utilitária para ler arquivo PRESERVANDO nome original (versão simplificada)
+async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer, originalName: string } | null> {
   console.log(`🔍 Buscando: ${filename} | Key: ${key} | OrderId: ${orderId}`);
 
   // Google Drive redirect
@@ -269,31 +269,10 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     };
   }
 
-  // Object Storage - verificar se está realmente disponível e funcionando
+  // Object Storage - busca simplificada
   if (objectStorageAvailable && objectStorage) {
     console.log(`📦 Object Storage disponível - iniciando busca`);
 
-    // Teste rápido de conectividade antes de buscar arquivos
-    try {
-      await objectStorage.list();
-      console.log(`✅ Object Storage respondendo - prosseguindo com busca`);
-    } catch (testError) {
-      console.log(`❌ Object Storage não está respondendo: ${testError.message}`);
-      console.log(`🔄 Tentando reinicializar Object Storage...`);
-
-      // Tentar reinicializar o cliente
-      try {
-        const { Client } = await import('@replit/object-storage');
-        objectStorage = new Client();
-        objectStorageAvailable = true;
-        console.log(`✅ Object Storage reinicializado com sucesso`);
-      } catch (reinitError) {
-        console.log(`❌ Falha na reinicialização: ${reinitError.message}`);
-        objectStorageAvailable = false;
-      }
-    }
-
-    if (objectStorageAvailable && objectStorage) {
     const storageKeys = [];
 
     // PRIORIDADE 1: Usar a key EXATA armazenada no banco se disponível
@@ -307,21 +286,9 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     storageKeys.push({ key: ordersPath, name: filename });
     console.log(`📁 PRIORIDADE 2 - Estrutura orders: ${ordersPath}`);
 
-    // PRIORIDADE 3: Buscar diretamente na pasta do pedido (estrutura atual do Replit)
+    // PRIORIDADE 3: Buscar diretamente na pasta do pedido
     storageKeys.push({ key: `${orderId}/${filename}`, name: filename });
     console.log(`📁 PRIORIDADE 3 - Padrão principal: ${orderId}/${filename}`);
-
-    // PRIORIDADE 4: Fallbacks para outras estruturas
-    const fallbackPaths = [
-      `uploads/${orderId}/${filename}`,
-      filename // Arquivo na raiz
-    ];
-
-    for (const path of fallbackPaths) {
-      if (!storageKeys.some(sk => sk.key === path)) {
-        storageKeys.push({ key: path, name: filename });
-      }
-    }
 
     console.log(`🔍 Total de ${storageKeys.length} tentativas de busca no Object Storage`);
 
@@ -329,319 +296,78 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       try {
         console.log(`📥 Tentando baixar: ${storageKey}`);
 
-        // Tentar primeiro downloadAsBytes que deve retornar um Result<Buffer, Error>
+        // Download direto do Object Storage
         const result = await objectStorage.downloadAsBytes(storageKey);
-        console.log(`📥 Download executado - verificando resultado...`);
-        console.log(`🔍 Resultado bruto:`, {
-          type: typeof result,
-          isArray: Array.isArray(result),
-          hasOk: result && typeof result === 'object' && 'ok' in result,
-          hasValue: result && typeof result === 'object' && 'value' in result,
-          hasError: result && typeof result === 'object' && 'error' in result,
-          keys: result && typeof result === 'object' ? Object.keys(result) : []
-        });
+        console.log(`📥 Download executado - tipo do resultado: ${typeof result}`);
 
-        // O Object Storage do Replit pode retornar diferentes formatos
-        let rawData = null;
+        // Processar resultado de forma mais direta
+        let finalBuffer = null;
 
-        console.log(`🔍 Processando resultado do Object Storage...`);
-        console.log(`🔍 Tipo: ${typeof result}`);
-        console.log(`🔍 Constructor: ${result?.constructor?.name}`);
-
-        // Log adicional para debug
-        if (result && typeof result === 'object') {
-          console.log(`🔍 Chaves do objeto:`, Object.keys(result));
-          if (result.value !== undefined) {
-            console.log(`🔍 Tipo do value:`, typeof result.value);
-            console.log(`🔍 Value é array:`, Array.isArray(result.value));
-            if (Array.isArray(result.value)) {
-              console.log(`🔍 Tamanho do array value:`, result.value.length);
-              console.log(`🔍 Primeiros 10 elementos:`, result.value.slice(0, 10));
-            }
+        // Se é um Result wrapper do Replit
+        if (result && typeof result === 'object' && 'ok' in result && result.ok && result.value) {
+          console.log(`🔍 Result wrapper detectado`);
+          const value = result.value;
+          
+          if (value instanceof Buffer) {
+            finalBuffer = value;
+            console.log(`✅ Buffer extraído do wrapper: ${finalBuffer.length} bytes`);
+          } else if (value instanceof Uint8Array) {
+            finalBuffer = Buffer.from(value);
+            console.log(`✅ Uint8Array convertido para Buffer: ${finalBuffer.length} bytes`);
+          } else if (Array.isArray(value)) {
+            finalBuffer = Buffer.from(new Uint8Array(value));
+            console.log(`✅ Array convertido para Buffer: ${finalBuffer.length} bytes`);
           }
         }
-
-
-        if (!result) {
-          console.log(`❌ Resultado é null/undefined`);
-          rawData = null;
-        }
-        // Verificar se é um Result wrapper do Replit Object Storage
-        else if (typeof result === 'object' && 'ok' in result && 'value' in result) {
-          console.log(`🔍 Result wrapper detectado - ok: ${result.ok}`);
-
-          if (result.ok && result.value !== undefined && result.value !== null) {
-            const value = result.value;
-            console.log(`🔍 Tipo do value: ${typeof value}`);
-            console.log(`🔍 Constructor do value: ${value?.constructor?.name}`);
-            console.log(`🔍 É Buffer: ${value instanceof Buffer}`);
-            console.log(`🔍 É Uint8Array: ${value instanceof Uint8Array}`);
-            console.log(`🔍 É Array: ${Array.isArray(value)}`);
-            console.log(`🔍 Tem length: ${value && typeof value.length !== 'undefined' ? value.length : 'não'}`);
-
-            if (value instanceof Buffer) {
-              rawData = value;
-              console.log(`✅ Buffer extraído do Result wrapper: ${rawData.length} bytes`);
-            } else if (value instanceof Uint8Array) {
-              rawData = value;
-              console.log(`✅ Uint8Array extraído do Result wrapper: ${rawData.length} bytes`);
-            } else if (Array.isArray(value)) {
-              // Array de números - converter para Uint8Array
-              try {
-                console.log(`🔍 Array detectado com ${value.length} elementos`);
-                console.log(`🔍 Primeiros 5 elementos:`, value.slice(0, 5));
-
-                // Verificar se é um array de números válidos (0-255)
-                const isValidByteArray = value.every(item => 
-                  typeof item === 'number' && item >= 0 && item <= 255
-                );
-
-                if (isValidByteArray && value.length > 1) {
-                  rawData = new Uint8Array(value);
-                  console.log(`✅ Array numérico válido convertido: ${rawData.length} bytes`);
-                } else {
-                  console.log(`❌ Array não é válido para conversão (length: ${value.length}, valid: ${isValidByteArray})`);
-                  rawData = null;
-                }
-              } catch (convError) {
-                console.log(`❌ Erro ao converter array: ${convError.message}`);
-                rawData = null;
-              }
-            } else if (typeof value === 'object' && value !== null && typeof value.length === 'number') {
-              // Object com propriedades numéricas (array-like)
-              try {
-                console.log(`🔍 Object array-like detectado com length: ${value.length}`);
-                const arrayValues = [];
-                for (let i = 0; i < value.length; i++) {
-                  if (typeof value[i] === 'number' && value[i] >= 0 && value[i] <= 255) {
-                    arrayValues.push(value[i]);
-                  }
-                }
-                if (arrayValues.length > 1 && arrayValues.length === value.length) {
-                  rawData = new Uint8Array(arrayValues);
-                  console.log(`✅ Object array-like convertido: ${rawData.length} bytes`);
-                } else {
-                  console.log(`❌ Object array-like não contém dados válidos (${arrayValues.length}/${value.length})`);
-                  rawData = null;
-                }
-              } catch (convError) {
-                console.log(`❌ Erro ao converter object array-like: ${convError.message}`);
-                rawData = null;
-              }
-            } else if (typeof value === 'string') {
-              // String - converter para bytes UTF-8
-              try {
-                rawData = new TextEncoder().encode(value);
-                console.log(`✅ String convertida para bytes: ${rawData.length} bytes`);
-              } catch (encError) {
-                console.log(`❌ Erro ao converter string: ${encError.message}`);
-                rawData = null;
-              }
-            } else {
-              console.log(`❌ Tipo do value não suportado: ${typeof value}`);
-              console.log(`🔍 Value:`, value);
-              rawData = null;
-            }
-          } else {
-            console.log(`❌ Result wrapper indica falha ou value vazio`);
-            if (result.error) {
-              console.log(`🔍 Erro do wrapper: ${result.error}`);
-            }
-            rawData = null;
-          }
-        }
-        // Dados diretos do Object Storage
+        // Se é Buffer direto
         else if (result instanceof Buffer) {
-          rawData = result;
-          console.log(`✅ Buffer direto: ${rawData.length} bytes`);
-        } else if (result instanceof Uint8Array) {
-          rawData = result;
-          console.log(`✅ Uint8Array direto: ${rawData.length} bytes`);
-        } else if (Array.isArray(result)) {
-          // Array direto - converter para Uint8Array
-          try {
-            console.log(`🔍 Array detectado com ${result.length} elementos`);
-            console.log(`🔍 Primeiros 5 elementos:`, result.slice(0, 5));
-
-            // Verificar se é um array de números válidos (0-255)
-            const isValidByteArray = result.every(item => 
-              typeof item === 'number' && item >= 0 && item <= 255
-            );
-
-            if (isValidByteArray && result.length > 1) {
-              rawData = new Uint8Array(result);
-              console.log(`✅ Array numérico válido convertido: ${rawData.length} bytes`);
-            } else {
-              console.log(`❌ Array não é válido para conversão (length: ${result.length}, valid: ${isValidByteArray})`);
-              rawData = null;
-            }
-          } catch (convError) {
-            console.log(`❌ Erro ao converter array direto: ${convError.message}`);
-            rawData = null;
-          }
-        } else if (typeof result === 'string') {
-          // String direta - converter para bytes
-          try {
-            rawData = new TextEncoder().encode(result);
-            console.log(`✅ String direta convertida: ${rawData.length} bytes`);
-          } catch (encError) {
-            console.log(`❌ Erro ao converter string direta: ${encError.message}`);
-            rawData = null;
-          }
-        } else {
-          console.log(`❌ Formato de resultado não reconhecido`);
-          console.log(`🔍 Tentando extrair propriedades conhecidas...`);
-
-          // Tentar propriedades conhecidas
-          if (result && typeof result === 'object') {
-            if (result.data) {
-              console.log(`🔍 Tentando propriedade 'data'`);
-              return await this.processObjectStorageResult(result.data);
-            } else if (result.buffer) {
-              console.log(`🔍 Tentando propriedade 'buffer'`);
-              return await this.processObjectStorageResult(result.buffer);
-            } else if (result.content) {
-              console.log(`🔍 Tentando propriedade 'content'`);
-              return await this.processObjectStorageResult(result.content);
-            }
-          }
-
-          console.log(`❌ Nenhuma propriedade conhecida encontrada`);
-          rawData = null;
+          finalBuffer = result;
+          console.log(`✅ Buffer direto: ${finalBuffer.length} bytes`);
+        }
+        // Se é Uint8Array direto
+        else if (result instanceof Uint8Array) {
+          finalBuffer = Buffer.from(result);
+          console.log(`✅ Uint8Array direto convertido: ${finalBuffer.length} bytes`);
+        }
+        // Se é Array direto
+        else if (Array.isArray(result)) {
+          finalBuffer = Buffer.from(new Uint8Array(result));
+          console.log(`✅ Array direto convertido: ${finalBuffer.length} bytes`);
         }
 
-        // Validar dados extraídos
-        if (rawData && rawData.length > 0) {
-          console.log(`✅ ARQUIVO ENCONTRADO: ${storageName} (${rawData.length} bytes) - Chave: ${storageKey}`);
+        // Validar e retornar se encontrou dados válidos
+        if (finalBuffer && finalBuffer.length > 0) {
+          console.log(`✅ ARQUIVO ENCONTRADO: ${storageName} (${finalBuffer.length} bytes) - Chave: ${storageKey}`);
 
-          // Garantir que retornamos um Buffer válido
-          let finalBuffer;
-          try {
-            if (rawData instanceof Buffer) {
-              finalBuffer = rawData;
-            } else if (rawData instanceof Uint8Array) {
-              finalBuffer = Buffer.from(rawData);
-            } else if (Array.isArray(rawData)) {
-              finalBuffer = Buffer.from(new Uint8Array(rawData));
-            } else {
-              console.log(`⚠️ Tipo inesperado de rawData: ${typeof rawData}`);
-              finalBuffer = Buffer.from(rawData);
-            }
-
-            // Validação final do buffer
-            if (finalBuffer && finalBuffer.length > 0) {
-              console.log(`✅ Buffer final validado: ${finalBuffer.length} bytes`);
-
-              // Log adicional para debug de PDFs
-              if (storageName.toLowerCase().includes('pdf')) {
-                const isValidPdf = finalBuffer.length >= 4 && 
-                                 finalBuffer[0] === 0x25 && 
-                                 finalBuffer[1] === 0x50 && 
-                                 finalBuffer[2] === 0x44 && 
-                                 finalBuffer[3] === 0x46; // %PDF
-                console.log(`🔍 Validação PDF: ${isValidPdf ? 'VÁLIDO' : 'INVÁLIDO'}`);
-                if (!isValidPdf) {
-                  console.log(`🔍 Primeiros 10 bytes: ${Array.from(finalBuffer.slice(0, 10)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ')}`);
-                }
-              }
-
-              return {
-                data: finalBuffer,
-                originalName: storageName
-              };
-            } else {
-              console.log(`❌ Buffer final é vazio após conversão`);
-            }
-          } catch (bufferError) {
-            console.log(`❌ Erro ao criar buffer final: ${bufferError.message}`);
+          // Log adicional para debug de PDFs
+          if (storageName.toLowerCase().includes('pdf')) {
+            const isValidPdf = finalBuffer.length >= 4 && 
+                             finalBuffer[0] === 0x25 && 
+                             finalBuffer[1] === 0x50 && 
+                             finalBuffer[2] === 0x44 && 
+                             finalBuffer[3] === 0x46; // %PDF
+            console.log(`🔍 Validação PDF: ${isValidPdf ? 'VÁLIDO' : 'INVÁLIDO'}`);
           }
+
+          return {
+            data: finalBuffer,
+            originalName: storageName
+          };
         } else {
-          console.log(`⚠️ Dados não válidos extraídos do Object Storage`);
-          console.log(`🔍 rawData tipo: ${typeof rawData}`);
-          console.log(`🔍 rawData length: ${rawData ? rawData.length : 'null/undefined'}`);
-          console.log(`🔍 rawData é nulo: ${rawData === null}`);
-          console.log(`🔍 rawData é undefined: ${rawData === undefined}`);
+          console.log(`⚠️ Dados não válidos ou vazios`);
         }
       } catch (error) {
         console.log(`⚠️ Falha em ${storageKey}: ${error.message}`);
-        console.log(`🔍 Tipo do erro:`, typeof error);
-        console.log(`🔍 Stack do erro:`, error.stack);
-
-        // Log adicional para debug específico
+        
         if (error.message.includes('404') || error.message.includes('not found')) {
           console.log(`📂 Arquivo não existe no Object Storage: ${storageKey}`);
         } else if (error.message.includes('403') || error.message.includes('permission')) {
           console.log(`🔒 Problema de permissões no Object Storage`);
-        } else {
-          console.log(`🔍 Erro desconhecido - properties:`, Object.keys(error));
-          if (error.cause) {
-            console.log(`🔍 Causa do erro:`, error.cause);
-          }
         }
       }
-    }
-
-    // Debug adicional: listar todos os arquivos do Object Storage relacionados
-    try {
-      console.log(`🔍 LISTANDO TODOS os arquivos do Object Storage para debug...`);
-      const listResult = await objectStorage.list();
-
-      // Extrair dados do Result wrapper se necessário
-      let objects;
-      if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
-        objects = listResult.value;
-        console.log(`✅ Dados extraídos do Result wrapper: ${objects.length} objetos`);
-      } else if (Array.isArray(listResult)) {
-        objects = listResult;
-        console.log(`✅ Lista direta: ${objects.length} objetos`);
-      } else {
-        console.log(`❌ Resultado da listagem inválido:`, typeof listResult);
-        console.log(`🔍 Conteúdo do resultado:`, listResult);
-        objects = [];
-      }
-
-      if (objects.length > 0) {
-        console.log(`✅ Processando ${objects.length} objetos`);
-        // Buscar arquivos relacionados ao pedido
-        const relatedObjects = objects.filter(obj =>
-          obj && (obj.key || obj.name) && (
-            (obj.key || obj.name).includes(orderId) ||
-            (obj.key || obj.name).includes('CCM0809250026') ||
-            (obj.key || obj.name).includes('certificado_pdf-1757620958919') ||
-            (obj.key || obj.name).includes(filename.split('-')[0])
-          )
-        );
-
-        console.log(`📋 Arquivos relacionados a ${orderId}:`,
-          relatedObjects.map(obj => `${obj.key || obj.name} (${obj.size || 'sem tamanho'} bytes)`));
-
-        // Buscar especificamente o arquivo que deveria existir
-        const searchKey = `orders/${orderId}/${filename}`;
-        console.log(`🎯 Procurando especificamente por: ${searchKey}`);
-        const specificObject = objects.find(obj => obj && (obj.key === searchKey || obj.name === searchKey));
-        if (specificObject) {
-          console.log(`🎉 ENCONTROU o arquivo específico: ${specificObject.key || specificObject.name} (${specificObject.size} bytes)`);
-        } else {
-          console.log(`❌ Arquivo específico NÃO ENCONTRADO`);
-
-          // Mostrar os primeiros 10 arquivos para debug
-          console.log(`🔍 Primeiros 10 arquivos no Object Storage:`);
-          objects.slice(0, 10).forEach((obj, index) => {
-            if (obj && (obj.key || obj.name)) {
-              console.log(`   ${index + 1}. ${obj.key || obj.name} (${obj.size || 'sem tamanho'} bytes)`);
-            }
-          });
-        }
-      }
-    } catch (listError) {
-      console.log(`❌ Erro ao listar arquivos do Object Storage: ${listError.message}`);
-      console.log(`❌ Stack trace:`, listError.stack);
     }
 
     console.log(`❌ Arquivo não encontrado no Object Storage após ${storageKeys.length} tentativas`);
-    } else {
-      console.log(`❌ Object Storage não está disponível para busca`);
-    }
   } else {
     console.log(`⚠️ Object Storage não inicializado ou não disponível`);
   }
