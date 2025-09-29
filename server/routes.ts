@@ -339,9 +339,6 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           errorValue: directBytes?.error
         });
 
-        // PROCESSAMENTO ROBUSTO DOS DADOS - VERSÃO CORRIGIDA
-        let finalBuffer = null;
-
         console.log(`🔍 Análise detalhada do resultado:`, {
           isBuffer: directBytes instanceof Buffer,
           isUint8Array: directBytes instanceof Uint8Array,
