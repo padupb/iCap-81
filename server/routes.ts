@@ -273,9 +273,21 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   if (objectStorageAvailable && objectStorage) {
     console.log(`📦 Object Storage - DOWNLOAD DIRETO SEM CONVERSÕES`);
 
-    const storageKeys = [key.trim(), `orders/${orderId}/${filename}`, `${orderId}/${filename}`];
+    // Expandir lista de possíveis chaves, incluindo variações sem prefixos
+    const storageKeys = [
+      key.trim(), 
+      `orders/${orderId}/${filename}`, 
+      `${orderId}/${filename}`,
+      filename, // Tentar só o nome do arquivo
+      key.replace('orders/', ''), // Remover prefixo orders/ se existir
+      key.replace(`orders/${orderId}/`, ''), // Remover prefixo completo se existir
+      `${orderId}/${key.split('/').pop()}` // Usar último segmento da key original
+    ];
 
-    for (const storageKey of storageKeys) {
+    // Remover duplicatas
+    const uniqueStorageKeys = [...new Set(storageKeys)];
+
+    for (const storageKey of uniqueStorageKeys) {
       try {
         console.log(`📥 Executando downloadAsBytes(${storageKey})`);
 
@@ -332,7 +344,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           // Se há erro, não processar
           if (!directBytes.ok || directBytes.error) {
             console.log(`❌ Result indica erro: ${directBytes.error || 'status não OK'}`);
-            throw new Error(`Object Storage error: ${directBytes.error || 'download failed'}`);
+            // Em vez de lançar erro, continuar para próxima chave
+            continue;
           }
 
           const valueData = directBytes.value;
@@ -354,13 +367,14 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             finalBuffer = Buffer.from(valueData);
             console.log(`✅ Uint8Array do Result wrapper para Buffer - ${finalBuffer.length} bytes`);
           } else if (Array.isArray(valueData) && valueData.length > 0) {
-            // Verificar se é array de bytes válido
-            const isValidByteArray = valueData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
+            // Verificar se é array de bytes válido - mais tolerante
+            const isValidByteArray = valueData.length > 10 && 
+              valueData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
             if (isValidByteArray) {
               finalBuffer = Buffer.from(valueData);
               console.log(`✅ Array de bytes do Result wrapper convertido - ${finalBuffer.length} bytes`);
             } else {
-              console.log(`❌ Array de bytes do Result wrapper não contém bytes válidos ou é muito pequeno`);
+              console.log(`❌ Array de bytes inválido: length=${valueData.length}, sample=${valueData.slice(0, 5)}`);
             }
           } else if (typeof valueData === 'object' && valueData !== null && !Array.isArray(valueData)) {
             // Object com propriedades numéricas (array-like) - VERSÃO MELHORADA
@@ -471,6 +485,26 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       } catch (error) {
         console.log(`❌ Erro direto em ${storageKey}: ${error.message}`);
       }
+    }
+
+    // Debug: listar arquivos disponíveis no Object Storage para este pedido
+    try {
+      console.log(`🔍 DEBUG: Listando arquivos disponíveis no Object Storage...`);
+      const allObjects = await objectStorage.list();
+      const pedidoObjects = allObjects.value ? allObjects.value.filter((obj: any) => 
+        obj.key && (obj.key.includes(orderId) || obj.key.includes(filename))
+      ) : [];
+      
+      if (pedidoObjects.length > 0) {
+        console.log(`📋 Arquivos encontrados para ${orderId}:`, pedidoObjects.map((obj: any) => obj.key));
+      } else {
+        console.log(`📋 Nenhum arquivo encontrado para ${orderId} ou ${filename}`);
+        // Mostrar alguns arquivos para debug
+        const sampleObjects = allObjects.value ? allObjects.value.slice(0, 10) : [];
+        console.log(`📋 Primeiros 10 arquivos no storage:`, sampleObjects.map((obj: any) => obj.key));
+      }
+    } catch (listError) {
+      console.log(`⚠️ Erro ao listar arquivos: ${listError.message}`);
     }
 
     console.log(`❌ Arquivo não encontrado no Object Storage após tentativas diretas`);
