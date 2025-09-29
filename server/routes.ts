@@ -3353,12 +3353,6 @@ Status: Teste em progresso...`;
           }
         });
 
-              return res.status(404).json({
-                sucesso: false,
-                mensagem: "Ordem de compra não encontrada"
-              });
-            }
-
             const ordem = result.rows[0];
             console.log(`✅ Ordem encontrada: ${ordem.numero_ordem}`, ordem);
 
