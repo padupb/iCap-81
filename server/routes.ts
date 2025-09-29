@@ -275,8 +275,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
     // Expandir lista de possíveis chaves com padrões mais robustos
     const storageKeys = [
-      key.trim(), 
-      `orders/${orderId}/${filename}`, 
+      key.trim(),
+      `orders/${orderId}/${filename}`,
       `${orderId}/${filename}`,
       filename, // Tentar só o nome do arquivo
       key.replace('orders/', ''), // Remover prefixo orders/ se existir
@@ -319,24 +319,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           isBuffer: directBytes instanceof Buffer,
           isUint8Array: directBytes instanceof Uint8Array,
           hasValue: directBytes && directBytes.value !== undefined,
+          hasOk: directBytes && directBytes.ok !== undefined,
           length: directBytes?.length || directBytes?.value?.length
-        });
-
-        // PROCESSAMENTO ROBUSTO DOS DADOS DO OBJECT STORAGE
-        let finalBuffer = null;
-
-        console.log(`🔍 Análise detalhada do resultado:`, {
-          isBuffer: directBytes instanceof Buffer,
-          isUint8Array: directBytes instanceof Uint8Array,
-          isArray: Array.isArray(directBytes),
-          hasValueProperty: directBytes && typeof directBytes === 'object' && 'value' in directBytes,
-          hasOkProperty: directBytes && typeof directBytes === 'object' && 'ok' in directBytes,
-          directLength: directBytes?.length,
-          valueLength: directBytes?.value?.length,
-          valueType: directBytes?.value ? typeof directBytes.value : 'undefined',
-          constructor: directBytes?.constructor?.name,
-          okValue: directBytes?.ok,
-          errorValue: directBytes?.error
         });
 
         console.log(`🔍 Análise detalhada do resultado:`, {
@@ -439,7 +423,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         // ESTRATÉGIA 4: Verificar propriedades específicas
         else if (directBytes && typeof directBytes === 'object') {
           console.log(`🔍 Tentando extrair dados de propriedades específicas...`);
-          
+
           // Tentar buscar dados em propriedades conhecidas
           const dataProps = ['data', 'content', 'bytes', 'buffer', 'body', '_bodyArrayBuffer'];
           for (const prop of dataProps) {
@@ -474,16 +458,16 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         }
 
         // VALIDAÇÃO FINAL RIGOROSA DO BUFFER
-        if (finalBuffer && finalBuffer.length > 100) {
+        if (finalBuffer && finalBuffer.length > 1) { // Arquivos de 1 byte não são válidos
           console.log(`🎯 SUCESSO: ${filename} entregue com ${finalBuffer.length} bytes`);
           return {
             data: finalBuffer,
             originalName: filename
           };
-        } else if (finalBuffer && finalBuffer.length <= 100) {
-          console.log(`❌ REJEITADO: Arquivo muito pequeno (${finalBuffer.length} bytes) - provavelmente corrompido`);
+        } else if (finalBuffer && finalBuffer.length <= 1) {
+          console.log(`❌ REJEITADO: Arquivo muito pequeno (${finalBuffer.length} byte) - provavelmente corrompido`);
           console.log(`🔍 Primeiros bytes:`, Array.from(finalBuffer.slice(0, Math.min(10, finalBuffer.length))));
-          finalBuffer = null;
+          finalBuffer = null; // Resetar para garantir que não seja retornado
         } else {
           console.log(`⚠️ Nenhum buffer válido foi gerado para ${storageKey}`);
         }
@@ -498,7 +482,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       console.log(`🔍 DEBUG: Listando arquivos disponíveis no Object Storage...`);
       const allObjects = await objectStorage.list();
       let objectList = [];
-      
+
       // Processar diferentes formatos de resposta do Object Storage
       if (allObjects && typeof allObjects === 'object') {
         if (allObjects.value && Array.isArray(allObjects.value)) {
@@ -516,13 +500,13 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       const pedidoObjects = objectList.filter((obj: any) => {
         const objKey = obj.key || obj.name || String(obj);
         return objKey && (
-          objKey.includes(orderId) || 
+          objKey.includes(orderId) ||
           objKey.includes(filename) ||
           objKey.includes(filename.split('-')[0]) || // Buscar pelo tipo do arquivo
           (orderId && objKey.toLowerCase().includes(orderId.toLowerCase()))
         );
       });
-      
+
       if (pedidoObjects.length > 0) {
         console.log(`📋 Arquivos encontrados para ${orderId}:`);
         pedidoObjects.forEach((obj: any) => {
@@ -541,17 +525,22 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         if (matchingFile) {
           const matchingKey = matchingFile.key || matchingFile.name || String(matchingFile);
           console.log(`🎯 Arquivo correspondente encontrado: ${matchingKey}`);
-          
+
           // Tentar download do arquivo encontrado
           try {
             const matchedDownload = await objectStorage.downloadAsBytes(matchingKey);
             if (matchedDownload && matchedDownload.ok && matchedDownload.value) {
               console.log(`✅ Download bem-sucedido usando busca inteligente!`);
               const buffer = Buffer.from(matchedDownload.value);
-              return {
-                data: buffer,
-                originalName: filename
-              };
+              // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+              if (buffer.length > 1) {
+                return {
+                  data: buffer,
+                  originalName: filename
+                };
+              } else {
+                console.log(`❌ Arquivo encontrado é muito pequeno (${buffer.length} byte) - ignorado`);
+              }
             }
           } catch (matchError) {
             console.log(`❌ Erro no download do arquivo encontrado: ${matchError.message}`);
@@ -587,10 +576,10 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     try {
       const orderFiles = fs.readdirSync(path.join(process.cwd(), "uploads", orderId));
       const fileType = filename.split('-')[0]; // nota_pdf, nota_xml, certificado_pdf
-      const matchingFile = orderFiles.find(file => 
+      const matchingFile = orderFiles.find(file =>
         file.startsWith(fileType) && file.includes(filename.split('.').pop() || '')
       );
-      
+
       if (matchingFile) {
         const matchingPath = path.join(process.cwd(), "uploads", orderId, matchingFile);
         localPaths.unshift(matchingPath); // Adicionar no início da lista
@@ -607,12 +596,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         const stats = fs.statSync(filePath);
         if (stats.isFile()) {
           const buffer = fs.readFileSync(filePath);
-          if (buffer.length > 0) {
+          // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+          if (buffer.length > 1) {
             console.log(`✅ Fallback local: ${path.basename(filePath)} (${buffer.length} bytes)`);
             return {
               data: buffer,
               originalName: filename
             };
+          } else {
+            console.log(`⚠️ Arquivo local muito pequeno (${buffer.length} byte) - ignorado`);
           }
         }
       }
@@ -1642,11 +1634,12 @@ Status: Teste em progresso...`;
           throw new Error(`Falha no download: ${downloadError.message}`);
         }
 
-        if (!fileBuffer || fileBuffer.length === 0) {
-          console.log("❌ Nenhum buffer válido foi gerado ou arquivo está vazio");
+        // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+        if (!fileBuffer || fileBuffer.length <= 1) {
+          console.log("❌ Nenhum buffer válido foi gerado ou arquivo está vazio/corrompido");
           return res.status(404).json({
             success: false,
-            message: "Arquivo não encontrado ou está vazio"
+            message: "Arquivo não encontrado ou está corrompido (tamanho inválido)"
           });
         }
 
@@ -2739,7 +2732,7 @@ Status: Teste em progresso...`;
 
           try {
             const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
-            if (downloadedBytes && downloadedBytes.length > 0) {
+            if (downloadedBytes && downloadedBytes.length > 1) { // Verificar se o arquivo não está vazio ou corrompido
               const buffer = Buffer.from(downloadedBytes);
               console.log(`✅ PDF recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
 
@@ -2752,6 +2745,8 @@ Status: Teste em progresso...`;
               res.setHeader("Cache-Control", "no-cache");
 
               return res.end(buffer);
+            } else {
+              console.log(`⚠️ PDF na pasta OC é muito pequeno (${downloadedBytes?.length || 0} bytes) - possível corrupção.`);
             }
           } catch (ocError) {
             console.log(`🔄 PDF não encontrado na pasta OC: ${ocError.message}`);
@@ -2791,6 +2786,15 @@ Status: Teste em progresso...`;
                   return res.redirect(302, driveLink);
                 }
 
+                // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+                if (fileBuffer.length <= 1) {
+                  console.log(`⚠️ PDF encontrado via pdf_info é muito pequeno (${fileBuffer.length} byte) - possível corrupção`);
+                  return res.status(404).json({
+                    sucesso: false,
+                    mensagem: `Arquivo encontrado mas parece estar corrompido (${fileBuffer.length} byte).`
+                  });
+                }
+
                 console.log(`✅ PDF recuperado usando pdf_info (${fileBuffer.length} bytes) - Nome original: ${originalName}`);
 
                 res.setHeader("Content-Type", "application/pdf");
@@ -2811,10 +2815,17 @@ Status: Teste em progresso...`;
         console.log(`📁 Tentando PDF em uploads: ${uploadsPath}`);
 
         if (fs.existsSync(uploadsPath)) {
-          console.log(`✅ PDF encontrado em uploads: ${uploadsPath}`);
-          res.setHeader("Content-Type", "application/pdf");
-          res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
-          return res.sendFile(uploadsPath);
+          const buffer = fs.readFileSync(uploadsPath);
+          // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+          if (buffer.length > 1) {
+            console.log(`✅ PDF encontrado em uploads: ${uploadsPath} (${buffer.length} bytes)`);
+            res.setHeader("Content-Type", "application/pdf");
+            res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
+            res.setHeader("Content-Length", buffer.length);
+            return res.end(buffer);
+          } else {
+            console.log(`⚠️ PDF local em uploads é muito pequeno (${buffer.length} byte) - ignorado`);
+          }
         }
 
         // Debug: Listar arquivos disponíveis para troubleshooting
@@ -2908,15 +2919,26 @@ Status: Teste em progresso...`;
               // Verificar se o upload foi bem-sucedido
               try {
                 const verification = await objectStorage.downloadAsBytes(storageKey);
-                if (verification && verification.length === buffer.length) {
+                if (verification && verification.length > 1 && verification.length === buffer.length) { // Verifica se o arquivo não está corrompido e tem o tamanho correto
                   console.log(`✅ PDF salvo e verificado na pasta OC: ${storageKey} (${verification.length} bytes)`);
                   pdfKey = storageKey;
                 } else {
-                  throw new Error("Verificação de upload falhou - tamanhos diferentes");
+                  console.log(`⚠️ Upload realizado mas verificação falhou (tamanho ${verification?.length || 0} vs ${buffer.length})`);
+                  // Não lança erro, mas informa que a verificação falhou
                 }
               } catch (verifyError) {
                 console.log(`⚠️ Upload realizado mas verificação falhou: ${verifyError.message}`);
-                pdfKey = storageKey; // Usar mesmo assim
+                // Não lança erro, mas informa que a verificação falhou
+              }
+
+              // Se a chave não foi definida (por falha na verificação), usar o fallback
+              if (!pdfKey) {
+                console.log(`🔄 Usando fallback para saveFileToStorage, pois a verificação no Object Storage falhou.`);
+                pdfKey = await saveFileToStorage(
+                  buffer,
+                  req.file.filename,
+                  `ordens_compra_${numeroOrdem}`
+                );
               }
 
             } else {
@@ -3496,7 +3518,7 @@ Status: Teste em progresso...`;
       }
     });
 
-    // Função auxiliar para obter a unidade de um produto
+    // Função auxiliar de validação de unidade
     async function getUnidadeProduto(produtoId: number): Promise<string> {
       try {
         const result = await pool.query(`
@@ -4535,6 +4557,15 @@ Status: Teste em progresso...`;
           return res.redirect(302, driveLink);
         }
 
+        // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+        if (fileBuffer.length <= 1) {
+          console.log(`❌ Arquivo encontrado mas está corrompido (${fileBuffer.length} byte)`);
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: `Arquivo encontrado mas parece estar corrompido (${fileBuffer.length} byte).`
+          });
+        }
+
         // ENTREGA DIRETA DO ARQUIVO
         console.log(`🚀 ENVIANDO ARQUIVO DIRETO: ${originalName} (${fileBuffer.length} bytes)`);
 
@@ -4798,7 +4829,7 @@ Status: Teste em progresso...`;
 
         // Verificar se o pedido existe e se o usuário tem permissão
         const orderCheck = await pool.query(
-          "SELECT id, order_id FROM orders WHERE id = $1",
+          "SELECT id, order_id, user_id FROM orders WHERE id = $1", // Adicionado user_id
           [orderId]
         );
 
@@ -4811,7 +4842,8 @@ Status: Teste em progresso...`;
 
         // Verificar permissão do usuário
         const order = orderCheck.rows[0];
-        if (req.user.role !== 'admin' && req.user.id !== order.user_id) {
+        // Permitir se for admin, keyuser, ou o próprio usuário do pedido
+        if (!req.user.isKeyUser && req.user.id !== order.user_id) {
           return res.status(403).json({
             sucesso: false,
             mensagem: "Sem permissão para adicionar pontos a este pedido"
@@ -5490,7 +5522,7 @@ Status: Teste em progresso...`;
         console.error("Erro ao rejeitar reprogramação:", error);
         res.status(500).json({
           sucesso: false,
-          mensagem: "Erro aorejeitar reprogramação"
+          mensagem: "Erro ao rejeitar reprogramação"
         });
       }
     });
