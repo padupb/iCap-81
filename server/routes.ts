@@ -3353,9 +3353,6 @@ Status: Teste em progresso...`;
           }
         });
 
-        return createServer(app);
-      }
-
         // Verificar se a ordem de compra existe
         if (result.rows.length === 0) {
           return res.status(404).json({
@@ -3378,6 +3375,9 @@ Status: Teste em progresso...`;
         });
       }
     });
+
+        return createServer(app);
+      }
 
         // Obter itens de uma ordem de compra
         app.get("/api/ordem-compra/:id/itens", async (req, res) => {
