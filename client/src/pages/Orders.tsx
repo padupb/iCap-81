@@ -673,7 +673,7 @@ export default function Orders() {
   const handleExportNotes = async () => {
     setIsExporting(true);
     try {
-      // Criar um arquivo ZIP com todas as notas dos pedidos filtrados
+      // Filtrar pedidos com documentos
       const ordersWithDocs = filteredAndSortedOrders.filter(order => 
         order.status !== 'Registrado' && order.status !== 'Cancelado'
       );
@@ -687,21 +687,8 @@ export default function Orders() {
         return;
       }
 
-      // Fazer download de cada documento e criar ZIP
-      let JSZip;
-      try {
-        JSZip = (await import('jszip')).default;
-      } catch (importError) {
-        console.error('Erro ao importar JSZip:', importError);
-        toast({
-          title: "Erro na importação",
-          description: "Falha ao carregar biblioteca de compactação",
-          variant: "destructive",
-        });
-        return;
-      }
-      const zip = new JSZip();
-      let addedFiles = 0;
+      // Fazer download individual de cada documento
+      let downloadedFiles = 0;
 
       for (const order of ordersWithDocs) {
         try {
@@ -710,8 +697,14 @@ export default function Orders() {
             const pdfResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_pdf`);
             if (pdfResponse.ok) {
               const pdfBlob = await pdfResponse.blob();
-              zip.file(`${order.orderId}_nota.pdf`, pdfBlob);
-              addedFiles++;
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(pdfBlob);
+              link.download = `${order.orderId}_nota.pdf`;
+              link.click();
+              downloadedFiles++;
+              
+              // Pequeno delay entre downloads para evitar bloqueio do navegador
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
           } catch (error) {
             console.log(`Nota PDF não encontrada para ${order.orderId}`);
@@ -722,8 +715,13 @@ export default function Orders() {
             const xmlResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_xml`);
             if (xmlResponse.ok) {
               const xmlBlob = await xmlResponse.blob();
-              zip.file(`${order.orderId}_nota.xml`, xmlBlob);
-              addedFiles++;
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(xmlBlob);
+              link.download = `${order.orderId}_nota.xml`;
+              link.click();
+              downloadedFiles++;
+              
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
           } catch (error) {
             console.log(`Nota XML não encontrada para ${order.orderId}`);
@@ -734,8 +732,13 @@ export default function Orders() {
             const certResponse = await fetch(`/api/pedidos/${order.id}/documentos/certificado_pdf`);
             if (certResponse.ok) {
               const certBlob = await certResponse.blob();
-              zip.file(`${order.orderId}_certificado.pdf`, certBlob);
-              addedFiles++;
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(certBlob);
+              link.download = `${order.orderId}_certificado.pdf`;
+              link.click();
+              downloadedFiles++;
+              
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
           } catch (error) {
             console.log(`Certificado não encontrado para ${order.orderId}`);
@@ -745,7 +748,7 @@ export default function Orders() {
         }
       }
 
-      if (addedFiles === 0) {
+      if (downloadedFiles === 0) {
         toast({
           title: "Nenhum documento encontrado",
           description: "Não foi possível encontrar documentos para os pedidos filtrados",
@@ -754,22 +757,15 @@ export default function Orders() {
         return;
       }
 
-      // Gerar e baixar o ZIP
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(zipBlob);
-      link.download = `notas_fiscais_${new Date().toISOString().split('T')[0]}.zip`;
-      link.click();
-
       toast({
         title: "Exportação concluída",
-        description: `${addedFiles} documentos exportados com sucesso`,
+        description: `${downloadedFiles} documentos baixados individualmente`,
       });
     } catch (error) {
       console.error('Erro ao exportar notas:', error);
       toast({
         title: "Erro na exportação",
-        description: "Falha ao gerar arquivo ZIP com as notas fiscais",
+        description: "Falha ao baixar documentos",
         variant: "destructive",
       });
     } finally {
@@ -1072,7 +1068,7 @@ export default function Orders() {
                   <div className="space-y-2">
                     <h4 className="font-medium">Exportar Notas Fiscais</h4>
                     <p className="text-sm text-muted-foreground">
-                      Baixar todas as notas fiscais dos pedidos em um arquivo ZIP
+                      Baixar todas as notas fiscais dos pedidos individualmente
                     </p>
                     <Button
                       onClick={handleExportNotes}
@@ -1080,7 +1076,7 @@ export default function Orders() {
                       className="w-full"
                       variant="outline"
                     >
-                      {isExporting ? "Exportando..." : "Baixar ZIP com Notas"}
+                      {isExporting ? "Exportando..." : "Baixar Documentos"}
                     </Button>
                   </div>
                 </div>
