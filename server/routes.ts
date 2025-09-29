@@ -273,7 +273,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   if (objectStorageAvailable && objectStorage) {
     console.log(`📦 Object Storage - DOWNLOAD DIRETO SEM CONVERSÕES`);
 
-    // Expandir lista de possíveis chaves, incluindo variações sem prefixos
+    // Expandir lista de possíveis chaves com padrões mais robustos
     const storageKeys = [
       key.trim(), 
       `orders/${orderId}/${filename}`, 
@@ -281,11 +281,21 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       filename, // Tentar só o nome do arquivo
       key.replace('orders/', ''), // Remover prefixo orders/ se existir
       key.replace(`orders/${orderId}/`, ''), // Remover prefixo completo se existir
-      `${orderId}/${key.split('/').pop()}` // Usar último segmento da key original
+      `${orderId}/${key.split('/').pop()}`, // Usar último segmento da key original
+      // Novos padrões baseados nos logs
+      `${orderId}/nota_pdf-${filename.split('-').pop()}`,
+      `${orderId}/nota_xml-${filename.split('-').pop()}`,
+      `${orderId}/certificado_pdf-${filename.split('-').pop()}`,
+      // Buscar sem o prefixo do bucket
+      key.replace(/^[^\/]+\//, ''), // Remove primeiro segmento (bucket)
+      // Buscar com diferentes formatos de timestamp
+      filename.replace(/nota_pdf-(\d+)\.pdf/, `nota_pdf-$1.pdf`),
+      filename.replace(/nota_xml-(\d+)\.xml/, `nota_xml-$1.xml`),
+      filename.replace(/certificado_pdf-(\d+)\.pdf/, `certificado_pdf-$1.pdf`)
     ];
 
-    // Remover duplicatas
-    const uniqueStorageKeys = [...new Set(storageKeys)];
+    // Remover duplicatas e valores vazios
+    const uniqueStorageKeys = [...new Set(storageKeys.filter(k => k && k.length > 0))];
 
     for (const storageKey of uniqueStorageKeys) {
       try {
@@ -487,21 +497,80 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       }
     }
 
-    // Debug: listar arquivos disponíveis no Object Storage para este pedido
+    // Debug avançado: busca inteligente de arquivos
     try {
       console.log(`🔍 DEBUG: Listando arquivos disponíveis no Object Storage...`);
       const allObjects = await objectStorage.list();
-      const pedidoObjects = allObjects.value ? allObjects.value.filter((obj: any) => 
-        obj.key && (obj.key.includes(orderId) || obj.key.includes(filename))
-      ) : [];
+      let objectList = [];
+      
+      // Processar diferentes formatos de resposta do Object Storage
+      if (allObjects && typeof allObjects === 'object') {
+        if (allObjects.value && Array.isArray(allObjects.value)) {
+          objectList = allObjects.value;
+        } else if (allObjects.ok && allObjects.value) {
+          objectList = Array.isArray(allObjects.value) ? allObjects.value : [];
+        } else if (Array.isArray(allObjects)) {
+          objectList = allObjects;
+        }
+      }
+
+      console.log(`📊 Total de objetos no storage: ${objectList.length}`);
+
+      // Buscar arquivos relacionados ao pedido
+      const pedidoObjects = objectList.filter((obj: any) => {
+        const objKey = obj.key || obj.name || String(obj);
+        return objKey && (
+          objKey.includes(orderId) || 
+          objKey.includes(filename) ||
+          objKey.includes(filename.split('-')[0]) || // Buscar pelo tipo do arquivo
+          (orderId && objKey.toLowerCase().includes(orderId.toLowerCase()))
+        );
+      });
       
       if (pedidoObjects.length > 0) {
-        console.log(`📋 Arquivos encontrados para ${orderId}:`, pedidoObjects.map((obj: any) => obj.key));
+        console.log(`📋 Arquivos encontrados para ${orderId}:`);
+        pedidoObjects.forEach((obj: any) => {
+          const objKey = obj.key || obj.name || String(obj);
+          const objSize = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
+          console.log(`   • ${objKey} ${objSize}`);
+        });
+
+        // Tentar busca inteligente baseada nos arquivos encontrados
+        const matchingFile = pedidoObjects.find((obj: any) => {
+          const objKey = obj.key || obj.name || String(obj);
+          const filenameBase = filename.split('-')[0]; // nota_pdf, nota_xml, certificado_pdf
+          return objKey.includes(filenameBase) && objKey.includes(orderId);
+        });
+
+        if (matchingFile) {
+          const matchingKey = matchingFile.key || matchingFile.name || String(matchingFile);
+          console.log(`🎯 Arquivo correspondente encontrado: ${matchingKey}`);
+          
+          // Tentar download do arquivo encontrado
+          try {
+            const matchedDownload = await objectStorage.downloadAsBytes(matchingKey);
+            if (matchedDownload && matchedDownload.ok && matchedDownload.value) {
+              console.log(`✅ Download bem-sucedido usando busca inteligente!`);
+              const buffer = Buffer.from(matchedDownload.value);
+              return {
+                data: buffer,
+                originalName: filename
+              };
+            }
+          } catch (matchError) {
+            console.log(`❌ Erro no download do arquivo encontrado: ${matchError.message}`);
+          }
+        }
       } else {
         console.log(`📋 Nenhum arquivo encontrado para ${orderId} ou ${filename}`);
-        // Mostrar alguns arquivos para debug
-        const sampleObjects = allObjects.value ? allObjects.value.slice(0, 10) : [];
-        console.log(`📋 Primeiros 10 arquivos no storage:`, sampleObjects.map((obj: any) => obj.key));
+        // Mostrar alguns arquivos para debug com mais detalhes
+        const sampleObjects = objectList.slice(0, 15);
+        console.log(`📋 Primeiros ${sampleObjects.length} arquivos no storage:`);
+        sampleObjects.forEach((obj: any) => {
+          const objKey = obj.key || obj.name || String(obj);
+          const objSize = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
+          console.log(`   • ${objKey} ${objSize}`);
+        });
       }
     } catch (listError) {
       console.log(`⚠️ Erro ao listar arquivos: ${listError.message}`);
@@ -510,22 +579,45 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     console.log(`❌ Arquivo não encontrado no Object Storage após tentativas diretas`);
   }
 
-  // Fallback para sistema local - SOMENTE se Object Storage falhar
+  // Fallback avançado para sistema local
   const localPaths = [
     path.join(process.cwd(), "uploads", orderId, filename),
-    path.join(process.cwd(), "uploads", filename)
+    path.join(process.cwd(), "uploads", filename),
+    path.join(process.cwd(), "uploads", orderId) // Buscar na pasta do pedido
   ];
+
+  // Se temos o orderId, tentar buscar arquivos similares na pasta
+  if (orderId && fs.existsSync(path.join(process.cwd(), "uploads", orderId))) {
+    try {
+      const orderFiles = fs.readdirSync(path.join(process.cwd(), "uploads", orderId));
+      const fileType = filename.split('-')[0]; // nota_pdf, nota_xml, certificado_pdf
+      const matchingFile = orderFiles.find(file => 
+        file.startsWith(fileType) && file.includes(filename.split('.').pop() || '')
+      );
+      
+      if (matchingFile) {
+        const matchingPath = path.join(process.cwd(), "uploads", orderId, matchingFile);
+        localPaths.unshift(matchingPath); // Adicionar no início da lista
+        console.log(`🔍 Arquivo similar encontrado localmente: ${matchingFile}`);
+      }
+    } catch (dirError) {
+      console.log(`⚠️ Erro ao listar diretório local: ${dirError.message}`);
+    }
+  }
 
   for (const filePath of localPaths) {
     try {
       if (fs.existsSync(filePath)) {
-        const buffer = fs.readFileSync(filePath);
-        if (buffer.length > 0) {
-          console.log(`✅ Fallback local: ${filename} (${buffer.length} bytes)`);
-          return {
-            data: buffer,
-            originalName: filename
-          };
+        const stats = fs.statSync(filePath);
+        if (stats.isFile()) {
+          const buffer = fs.readFileSync(filePath);
+          if (buffer.length > 0) {
+            console.log(`✅ Fallback local: ${path.basename(filePath)} (${buffer.length} bytes)`);
+            return {
+              data: buffer,
+              originalName: filename
+            };
+          }
         }
       }
     } catch (error) {
