@@ -688,7 +688,18 @@ export default function Orders() {
       }
 
       // Fazer download de cada documento e criar ZIP
-      const JSZip = (await import('jszip')).default;
+      let JSZip;
+      try {
+        JSZip = (await import('jszip')).default;
+      } catch (importError) {
+        console.error('Erro ao importar JSZip:', importError);
+        toast({
+          title: "Erro na importação",
+          description: "Falha ao carregar biblioteca de compactação",
+          variant: "destructive",
+        });
+        return;
+      }
       const zip = new JSZip();
       let addedFiles = 0;
 
