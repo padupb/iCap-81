@@ -74,7 +74,6 @@ import {
   type PurchaseOrder,
 } from "@shared/schema";
 import { z } from "zod";
-import JSZip from "jszip";
 import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
 
 // Tipo para as ordens de compra que retornam do backend (API)
@@ -670,7 +669,7 @@ export default function Orders() {
     }
   };
 
-  // Função para exportar notas fiscais
+  // Função para exportar notas fiscais (download individual)
   const handleExportNotes = async () => {
     setIsExporting(true);
     try {
@@ -688,12 +687,9 @@ export default function Orders() {
         return;
       }
 
-      // Usar JSZip já importado estaticamente
+      let downloadedFiles = 0;
 
-      const zip = new JSZip();
-      let addedFiles = 0;
-
-      // Processar cada pedido
+      // Processar cada pedido e fazer download individual
       for (const order of ordersWithDocs) {
         try {
           // Tentar baixar nota PDF
@@ -701,10 +697,15 @@ export default function Orders() {
             const pdfResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_pdf`);
             if (pdfResponse.ok) {
               const pdfBlob = await pdfResponse.blob();
-              const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-              zip.file(`${order.orderId}_nota.pdf`, pdfArrayBuffer);
-              addedFiles++;
-              console.log(`✅ Adicionado ao ZIP: ${order.orderId}_nota.pdf`);
+              const url = window.URL.createObjectURL(pdfBlob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `${order.orderId}_nota.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+              downloadedFiles++;
             }
           } catch (error) {
             console.log(`Nota PDF não encontrada para ${order.orderId}`);
@@ -715,10 +716,15 @@ export default function Orders() {
             const xmlResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_xml`);
             if (xmlResponse.ok) {
               const xmlBlob = await xmlResponse.blob();
-              const xmlArrayBuffer = await xmlBlob.arrayBuffer();
-              zip.file(`${order.orderId}_nota.xml`, xmlArrayBuffer);
-              addedFiles++;
-              console.log(`✅ Adicionado ao ZIP: ${order.orderId}_nota.xml`);
+              const url = window.URL.createObjectURL(xmlBlob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `${order.orderId}_nota.xml`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+              downloadedFiles++;
             }
           } catch (error) {
             console.log(`Nota XML não encontrada para ${order.orderId}`);
@@ -729,23 +735,28 @@ export default function Orders() {
             const certResponse = await fetch(`/api/pedidos/${order.id}/documentos/certificado_pdf`);
             if (certResponse.ok) {
               const certBlob = await certResponse.blob();
-              const certArrayBuffer = await certBlob.arrayBuffer();
-              zip.file(`${order.orderId}_certificado.pdf`, certArrayBuffer);
-              addedFiles++;
-              console.log(`✅ Adicionado ao ZIP: ${order.orderId}_certificado.pdf`);
+              const url = window.URL.createObjectURL(certBlob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `${order.orderId}_certificado.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+              downloadedFiles++;
             }
           } catch (error) {
             console.log(`Certificado não encontrado para ${order.orderId}`);
           }
 
           // Pequeno delay para não sobrecarregar o servidor
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
           console.log(`Erro ao processar documentos do pedido ${order.orderId}:`, error);
         }
       }
 
-      if (addedFiles === 0) {
+      if (downloadedFiles === 0) {
         toast({
           title: "Nenhum documento encontrado",
           description: "Não foi possível encontrar documentos para os pedidos filtrados",
@@ -754,29 +765,15 @@ export default function Orders() {
         return;
       }
 
-      // Gerar o arquivo ZIP
-      console.log(`📦 Gerando ZIP com ${addedFiles} arquivos...`);
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-
-      // Fazer download do ZIP
-      const url = window.URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `notas_fiscais_${new Date().toISOString().split('T')[0]}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
       toast({
         title: "Exportação concluída",
-        description: `ZIP criado com ${addedFiles} documentos`,
+        description: `${downloadedFiles} documentos baixados individualmente`,
       });
     } catch (error) {
       console.error('Erro ao exportar notas:', error);
       toast({
         title: "Erro na exportação",
-        description: "Falha ao gerar arquivo ZIP",
+        description: "Falha ao baixar documentos",
         variant: "destructive",
       });
     } finally {
@@ -1079,7 +1076,7 @@ export default function Orders() {
                   <div className="space-y-2">
                     <h4 className="font-medium">Exportar Notas Fiscais</h4>
                     <p className="text-sm text-muted-foreground">
-                      Baixar todas as notas fiscais dos pedidos individualmente
+                      Baixar notas fiscais e certificados individualmente
                     </p>
                     <Button
                       onClick={handleExportNotes}
@@ -1087,7 +1084,7 @@ export default function Orders() {
                       className="w-full"
                       variant="outline"
                     >
-                      {isExporting ? "Exportando..." : "Baixar Documentos"}
+                      {isExporting ? "Baixando..." : "Baixar Documentos"}
                     </Button>
                   </div>
                 </div>
