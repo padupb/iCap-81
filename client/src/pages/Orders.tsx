@@ -687,9 +687,25 @@ export default function Orders() {
         return;
       }
 
-      // Fazer download individual de cada documento
-      let downloadedFiles = 0;
+      // Importar JSZip dinamicamente
+      let JSZip;
+      try {
+        const jsZipModule = await import('jszip');
+        JSZip = jsZipModule.default;
+      } catch (importError) {
+        console.error('Erro ao importar JSZip:', importError);
+        toast({
+          title: "Erro na importação",
+          description: "Falha ao carregar biblioteca de compactação",
+          variant: "destructive",
+        });
+        return;
+      }
 
+      const zip = new JSZip();
+      let addedFiles = 0;
+
+      // Processar cada pedido
       for (const order of ordersWithDocs) {
         try {
           // Tentar baixar nota PDF
@@ -697,14 +713,10 @@ export default function Orders() {
             const pdfResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_pdf`);
             if (pdfResponse.ok) {
               const pdfBlob = await pdfResponse.blob();
-              const link = document.createElement('a');
-              link.href = URL.createObjectURL(pdfBlob);
-              link.download = `${order.orderId}_nota.pdf`;
-              link.click();
-              downloadedFiles++;
-              
-              // Pequeno delay entre downloads para evitar bloqueio do navegador
-              await new Promise(resolve => setTimeout(resolve, 500));
+              const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+              zip.file(`${order.orderId}_nota.pdf`, pdfArrayBuffer);
+              addedFiles++;
+              console.log(`✅ Adicionado ao ZIP: ${order.orderId}_nota.pdf`);
             }
           } catch (error) {
             console.log(`Nota PDF não encontrada para ${order.orderId}`);
@@ -715,13 +727,10 @@ export default function Orders() {
             const xmlResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_xml`);
             if (xmlResponse.ok) {
               const xmlBlob = await xmlResponse.blob();
-              const link = document.createElement('a');
-              link.href = URL.createObjectURL(xmlBlob);
-              link.download = `${order.orderId}_nota.xml`;
-              link.click();
-              downloadedFiles++;
-              
-              await new Promise(resolve => setTimeout(resolve, 500));
+              const xmlArrayBuffer = await xmlBlob.arrayBuffer();
+              zip.file(`${order.orderId}_nota.xml`, xmlArrayBuffer);
+              addedFiles++;
+              console.log(`✅ Adicionado ao ZIP: ${order.orderId}_nota.xml`);
             }
           } catch (error) {
             console.log(`Nota XML não encontrada para ${order.orderId}`);
@@ -732,23 +741,23 @@ export default function Orders() {
             const certResponse = await fetch(`/api/pedidos/${order.id}/documentos/certificado_pdf`);
             if (certResponse.ok) {
               const certBlob = await certResponse.blob();
-              const link = document.createElement('a');
-              link.href = URL.createObjectURL(certBlob);
-              link.download = `${order.orderId}_certificado.pdf`;
-              link.click();
-              downloadedFiles++;
-              
-              await new Promise(resolve => setTimeout(resolve, 500));
+              const certArrayBuffer = await certBlob.arrayBuffer();
+              zip.file(`${order.orderId}_certificado.pdf`, certArrayBuffer);
+              addedFiles++;
+              console.log(`✅ Adicionado ao ZIP: ${order.orderId}_certificado.pdf`);
             }
           } catch (error) {
             console.log(`Certificado não encontrado para ${order.orderId}`);
           }
+
+          // Pequeno delay para não sobrecarregar o servidor
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (error) {
           console.log(`Erro ao processar documentos do pedido ${order.orderId}:`, error);
         }
       }
 
-      if (downloadedFiles === 0) {
+      if (addedFiles === 0) {
         toast({
           title: "Nenhum documento encontrado",
           description: "Não foi possível encontrar documentos para os pedidos filtrados",
@@ -757,15 +766,29 @@ export default function Orders() {
         return;
       }
 
+      // Gerar o arquivo ZIP
+      console.log(`📦 Gerando ZIP com ${addedFiles} arquivos...`);
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+
+      // Fazer download do ZIP
+      const url = window.URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `notas_fiscais_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       toast({
         title: "Exportação concluída",
-        description: `${downloadedFiles} documentos baixados individualmente`,
+        description: `ZIP criado com ${addedFiles} documentos`,
       });
     } catch (error) {
       console.error('Erro ao exportar notas:', error);
       toast({
         title: "Erro na exportação",
-        description: "Falha ao baixar documentos",
+        description: "Falha ao gerar arquivo ZIP",
         variant: "destructive",
       });
     } finally {
