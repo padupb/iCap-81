@@ -74,6 +74,7 @@ import {
   type PurchaseOrder,
 } from "@shared/schema";
 import { z } from "zod";
+import JSZip from "jszip";
 import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
 
 // Tipo para as ordens de compra que retornam do backend (API)
@@ -687,20 +688,7 @@ export default function Orders() {
         return;
       }
 
-      // Importar JSZip dinamicamente
-      let JSZip;
-      try {
-        const jsZipModule = await import('jszip');
-        JSZip = jsZipModule.default;
-      } catch (importError) {
-        console.error('Erro ao importar JSZip:', importError);
-        toast({
-          title: "Erro na importação",
-          description: "Falha ao carregar biblioteca de compactação",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Usar JSZip já importado estaticamente
 
       const zip = new JSZip();
       let addedFiles = 0;
