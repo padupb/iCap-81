@@ -178,6 +178,10 @@ export default function Orders() {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+  // Filtros de período
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
 
   // Buscar pedidos
   const { data: orders = [], isLoading } = useQuery<Order[]>({
@@ -501,7 +505,25 @@ export default function Orders() {
     // Filtrar por status
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
 
-    return searchMatch && statusMatch;
+    // Filtrar por período
+    let dateMatch = true;
+    if (startDate || endDate) {
+      const orderDate = new Date(order.deliveryDate);
+      
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        dateMatch = orderDate >= start && orderDate <= end;
+      } else if (startDate) {
+        const start = new Date(startDate);
+        dateMatch = orderDate >= start;
+      } else if (endDate) {
+        const end = new Date(endDate);
+        dateMatch = orderDate <= end;
+      }
+    }
+
+    return searchMatch && statusMatch && dateMatch;
   });
 
   // Function to handle sorting
@@ -516,25 +538,57 @@ export default function Orders() {
 
   // Function to sort the orders
   const sortedOrders = [...filteredOrders].sort((a, b) => {
-    if (sortColumn === 'id') {
-      const orderIdA = a.orderId;
-      const orderIdB = b.orderId;
+    let aValue: any;
+    let bValue: any;
 
-      if (sortDirection === 'asc') {
-        return orderIdA.localeCompare(orderIdB);
-      } else {
-        return orderIdB.localeCompare(orderIdA);
-      }
-    } else if (sortColumn === 'deliveryDate') {
-      const dateA = new Date(a.deliveryDate);
-      const dateB = new Date(b.deliveryDate);
-
-      if (sortDirection === 'asc') {
-        return dateA.getTime() - dateB.getTime();
-      } else {
-        return dateB.getTime() - dateA.getTime();
-      }
+    switch (sortColumn) {
+      case 'id':
+        aValue = a.orderId;
+        bValue = b.orderId;
+        break;
+      case 'product':
+        const productA = products.find(p => p.id === a.productId);
+        const productB = products.find(p => p.id === b.productId);
+        aValue = productA?.name || "";
+        bValue = productB?.name || "";
+        break;
+      case 'quantity':
+        aValue = parseFloat(a.quantity);
+        bValue = parseFloat(b.quantity);
+        break;
+      case 'supplier':
+        const companyA = companies.find(c => c.id === a.supplierId);
+        const companyB = companies.find(c => c.id === b.supplierId);
+        aValue = companyA?.name || "";
+        bValue = companyB?.name || "";
+        break;
+      case 'deliveryDate':
+        aValue = new Date(a.deliveryDate);
+        bValue = new Date(b.deliveryDate);
+        break;
+      case 'status':
+        aValue = a.status;
+        bValue = b.status;
+        break;
+      default:
+        return 0;
     }
+
+    // Handle different types of comparison
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc' 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    } else if (aValue instanceof Date && bValue instanceof Date) {
+      return sortDirection === 'asc'
+        ? aValue.getTime() - bValue.getTime()
+        : bValue.getTime() - aValue.getTime();
+    } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc'
+        ? aValue - bValue
+        : bValue - aValue;
+    }
+
     return 0;
   });
 
@@ -796,31 +850,72 @@ export default function Orders() {
           </Dialog>
         )}
 
-        {/* Campo de busca centralizado */}
-        <div className="relative flex-1 max-w-md mx-4">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar pedidos..."
-            className="pl-8 bg-input border-border"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+        {/* Filtros */}
+        <div className="flex-1 flex gap-4 items-center">
+          {/* Campo de busca */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar pedidos..."
+              className="pl-8 bg-input border-border"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
-        {/* Filtro de status */}
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px] bg-input border-border">
-            <SelectValue placeholder="Todos os status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {statusOptions.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {/* Filtro de período */}
+          <div className="flex gap-2 items-center">
+            <Label className="text-sm text-muted-foreground">Período:</Label>
+            <Input
+              type="date"
+              placeholder="Data inicial"
+              className="w-[140px] bg-input border-border"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <span className="text-muted-foreground">até</span>
+            <Input
+              type="date"
+              placeholder="Data final"
+              className="w-[140px] bg-input border-border"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+
+          {/* Filtro de status */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px] bg-input border-border">
+              <SelectValue placeholder="Todos os status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              {statusOptions.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Botão para limpar filtros */}
+          {(searchTerm || statusFilter !== "all" || startDate || endDate) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("all");
+                setStartDate("");
+                setEndDate("");
+              }}
+              className="border-border"
+            >
+              <Filter className="w-4 h-4 mr-1" />
+              Limpar
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Orders List */}
@@ -859,9 +954,48 @@ export default function Orders() {
                         )}
                       </Button>
                     </TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Quantidade</TableHead>
-                    <TableHead>Fornecedor</TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('product')}
+                      >
+                        Produto
+                        {sortColumn === 'product' && (
+                          sortDirection === 'asc' ? 
+                          <ChevronUp className="ml-1 h-4 w-4" /> : 
+                          <ChevronDown className="ml-1 h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('quantity')}
+                      >
+                        Quantidade
+                        {sortColumn === 'quantity' && (
+                          sortDirection === 'asc' ? 
+                          <ChevronUp className="ml-1 h-4 w-4" /> : 
+                          <ChevronDown className="ml-1 h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('supplier')}
+                      >
+                        Fornecedor
+                        {sortColumn === 'supplier' && (
+                          sortDirection === 'asc' ? 
+                          <ChevronUp className="ml-1 h-4 w-4" /> : 
+                          <ChevronDown className="ml-1 h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableHead>
                     <TableHead>
                       <Button
                         variant="ghost"
@@ -876,7 +1010,20 @@ export default function Orders() {
                         )}
                       </Button>
                     </TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('status')}
+                      >
+                        Status
+                        {sortColumn === 'status' && (
+                          sortDirection === 'asc' ? 
+                          <ChevronUp className="ml-1 h-4 w-4" /> : 
+                          <ChevronDown className="ml-1 h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableHead>
                     {isKeyUser && <TableHead className="text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>

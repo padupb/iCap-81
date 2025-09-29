@@ -247,7 +247,7 @@ export default function Login() {
 
         <CardFooter className="flex justify-center border-t border-border pt-4">
           <p className="text-sm text-muted-foreground">
-            Sistema de Gestão Logística {settings.appName}
+            Sistema de Gestão Logística {settings.appName} v8.1
           </p>
         </CardFooter>
       </Card>
