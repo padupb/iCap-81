@@ -291,7 +291,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           }
           throw downloadError;
         }
-        
+
         console.log(`📊 Resultado direto:`, {
           tipo: typeof directBytes,
           isBuffer: directBytes instanceof Buffer,
@@ -302,7 +302,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
         // PROCESSAMENTO ROBUSTO DOS DADOS DO OBJECT STORAGE
         let finalBuffer = null;
-        
+
         console.log(`🔍 Análise detalhada do resultado:`, {
           isBuffer: directBytes instanceof Buffer,
           isUint8Array: directBytes instanceof Uint8Array,
@@ -316,7 +316,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           okValue: directBytes?.ok,
           errorValue: directBytes?.error
         });
-        
+
         // ESTRATÉGIA 1: Dados diretos como Buffer ou Uint8Array
         if (directBytes instanceof Buffer) {
           finalBuffer = directBytes;
@@ -324,17 +324,17 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         } else if (directBytes instanceof Uint8Array) {
           finalBuffer = Buffer.from(directBytes);
           console.log(`✅ Uint8Array para Buffer - ${finalBuffer.length} bytes`);
-        } 
+        }
         // ESTRATÉGIA 2: Result wrapper do Replit - VERSÃO APRIMORADA
         else if (directBytes && typeof directBytes === 'object' && directBytes.ok !== undefined) {
           console.log(`🎯 Result wrapper detectado - Status: ${directBytes.ok ? 'OK' : 'ERROR'}`);
-          
+
           // Se há erro, não processar
           if (!directBytes.ok || directBytes.error) {
             console.log(`❌ Result indica erro: ${directBytes.error || 'status não OK'}`);
             throw new Error(`Object Storage error: ${directBytes.error || 'download failed'}`);
           }
-          
+
           const valueData = directBytes.value;
           console.log(`🔍 Processando value do Result wrapper:`, {
             valueType: typeof valueData,
@@ -346,52 +346,35 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             isNull: valueData === null,
             isUndefined: valueData === undefined
           });
-          
+
           if (valueData instanceof Buffer) {
             finalBuffer = valueData;
             console.log(`✅ Buffer do Result wrapper - ${finalBuffer.length} bytes`);
           } else if (valueData instanceof Uint8Array) {
             finalBuffer = Buffer.from(valueData);
             console.log(`✅ Uint8Array do Result wrapper para Buffer - ${finalBuffer.length} bytes`);
-          } else if (Array.isArray(valueData)) {
-            console.log(`📋 Array detectado com ${valueData.length} elementos`);
-            
-            if (valueData.length === 0) {
-              console.log(`❌ Array vazio - arquivo não encontrado`);
-              throw new Error("Arquivo não encontrado - array vazio retornado");
-            }
-            
+          } else if (Array.isArray(valueData) && valueData.length > 0) {
             // Verificar se é array de bytes válido
-            const firstElements = valueData.slice(0, 10);
-            console.log(`🔍 Primeiros elementos do array:`, firstElements);
-            
-            const isValidByteArray = valueData.every((v, index) => {
-              const isValidByte = typeof v === 'number' && v >= 0 && v <= 255;
-              if (!isValidByteArray && index < 5) {
-                console.log(`❌ Elemento inválido no índice ${index}: ${v} (tipo: ${typeof v})`);
-              }
-              return isValidByte;
-            });
-            
-            if (isValidByteArray && valueData.length > 10) {
+            const isValidByteArray = valueData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
+            if (isValidByteArray) {
               finalBuffer = Buffer.from(valueData);
               console.log(`✅ Array de bytes do Result wrapper convertido - ${finalBuffer.length} bytes`);
             } else {
-              console.log(`❌ Array não contém bytes válidos ou é muito pequeno (${valueData.length} elementos)`);
+              console.log(`❌ Array de bytes do Result wrapper não contém bytes válidos ou é muito pequeno`);
             }
           } else if (typeof valueData === 'object' && valueData !== null && !Array.isArray(valueData)) {
             // Object com propriedades numéricas (array-like) - VERSÃO MELHORADA
             try {
               const keys = Object.keys(valueData);
               console.log(`🔍 Object com ${keys.length} propriedades`);
-              
+
               // Verificar se são índices numéricos sequenciais
               const numericKeys = keys.filter(key => /^\d+$/.test(key)).map(Number).sort((a, b) => a - b);
-              const isArrayLike = numericKeys.length === keys.length && 
+              const isArrayLike = numericKeys.length === keys.length &&
                                numericKeys.length > 0 &&
-                               numericKeys[0] === 0 && 
+                               numericKeys[0] === 0 &&
                                numericKeys[numericKeys.length - 1] === numericKeys.length - 1;
-              
+
               console.log(`🔍 Análise array-like:`, {
                 totalKeys: keys.length,
                 numericKeys: numericKeys.length,
@@ -399,11 +382,11 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
                 firstKey: keys[0],
                 lastKey: keys[keys.length - 1]
               });
-              
+
               if (isArrayLike && numericKeys.length > 10) {
                 const byteValues = numericKeys.map(index => valueData[index]);
                 const isValidByteArray = byteValues.every(v => typeof v === 'number' && v >= 0 && v <= 255);
-                
+
                 if (isValidByteArray) {
                   finalBuffer = Buffer.from(byteValues);
                   console.log(`✅ Object array-like convertido - ${finalBuffer.length} bytes`);
@@ -419,7 +402,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           } else {
             console.log(`❌ Tipo de value não suportado: ${typeof valueData}, length: ${valueData?.length}`);
           }
-        } 
+        }
         // ESTRATÉGIA 3: Array direto de bytes
         else if (Array.isArray(directBytes) && directBytes.length > 10) {
           const isValidByteArray = directBytes.every(v => typeof v === 'number' && v >= 0 && v <= 255);
@@ -435,7 +418,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           console.log(`🔍 Tentando detectar formato personalizado...`);
           const props = Object.keys(directBytes);
           console.log(`🔍 Propriedades disponíveis (${props.length}):`, props.slice(0, 10));
-          
+
           // Tentar buscar propriedades que possam conter dados
           for (const prop of ['data', 'content', 'bytes', 'buffer', 'body']) {
             if (directBytes[prop]) {
@@ -447,7 +430,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
                 isArray: Array.isArray(propData),
                 length: propData?.length
               });
-              
+
               if (propData instanceof Buffer) {
                 finalBuffer = propData;
                 console.log(`✅ Dados extraídos da propriedade '${prop}' como Buffer - ${finalBuffer.length} bytes`);
@@ -484,7 +467,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         } else {
           console.log(`⚠️ Nenhum buffer válido foi gerado`);
         }
-        
+
       } catch (error) {
         console.log(`❌ Erro direto em ${storageKey}: ${error.message}`);
       }
@@ -1144,7 +1127,7 @@ const uploadLogo = multer({
       }
     });
 
-    // Rota para teste completo da API do Object Storage
+    // Rota de teste completo da API do Object Storage
     app.post("/api/keyuser/test-object-storage-api", isAuthenticated, isKeyUser, async (req, res) => {
       const startTime = Date.now();
       let log = [];
@@ -1226,7 +1209,7 @@ Status: Teste em progresso...`;
           log.push(`🔍 É Array: ${Array.isArray(downloadedData)}`);
           log.push(`🔍 Tem propriedade ok: ${downloadedData && typeof downloadedData === 'object' && 'ok' in downloadedData}`);
           log.push(`🔍 Tem propriedade value: ${downloadedData && typeof downloadedData === 'object' && 'value' in downloadedData}`);
-          
+
           if (downloadedData && typeof downloadedData === 'object') {
             log.push(`🔍 Propriedades do objeto: ${Object.keys(downloadedData).join(', ')}`);
             if (downloadedData.value) {
@@ -1476,7 +1459,7 @@ Status: Teste em progresso...`;
 
         try {
           const downloadedData = await objectStorage.downloadAsBytes(storageKey);
-          
+
           console.log(`📊 Dados baixados:`, {
             tipo: typeof downloadedData,
             isBuffer: downloadedData instanceof Buffer,
@@ -1493,16 +1476,16 @@ Status: Teste em progresso...`;
           } else if (downloadedData instanceof Uint8Array) {
             fileBuffer = Buffer.from(downloadedData);
             console.log(`✅ Uint8Array para Buffer - ${fileBuffer.length} bytes`);
-          } 
+          }
           // ESTRATÉGIA 2: Result wrapper do Replit
           else if (downloadedData && typeof downloadedData === 'object' && downloadedData.ok !== undefined) {
             console.log(`🎯 Result wrapper detectado - Status: ${downloadedData.ok ? 'OK' : 'ERROR'}`);
-            
+
             if (!downloadedData.ok || downloadedData.error) {
               console.log(`❌ Result indica erro: ${downloadedData.error || 'status não OK'}`);
               throw new Error(`Object Storage error: ${downloadedData.error || 'download failed'}`);
             }
-            
+
             const valueData = downloadedData.value;
             if (valueData instanceof Buffer) {
               fileBuffer = valueData;
@@ -1517,7 +1500,7 @@ Status: Teste em progresso...`;
                 fileBuffer = Buffer.from(valueData);
                 console.log(`✅ Array de bytes do Result wrapper convertido - ${fileBuffer.length} bytes`);
               } else {
-                console.log(`❌ Array não contém bytes válidos`);
+                console.log(`❌ Array de bytes do Result wrapper não contém bytes válidos`);
               }
             }
           }
@@ -3173,19 +3156,19 @@ Status: Teste em progresso...`;
       try {
         const { storageKey } = req.params;
         const decodedKey = decodeURIComponent(storageKey);
-        
+
         console.log(`🔧 DEBUG: Download direto de: ${decodedKey}`);
-        
+
         if (!objectStorageAvailable || !objectStorage) {
           return res.status(500).json({
             sucesso: false,
             mensagem: "Object Storage não disponível"
           });
         }
-        
+
         // Download DIRETO sem nenhum processamento
         const rawData = await objectStorage.downloadAsBytes(decodedKey);
-        
+
         console.log(`📥 Resultado bruto:`, {
           tipo: typeof rawData,
           isBuffer: rawData instanceof Buffer,
@@ -3193,10 +3176,10 @@ Status: Teste em progresso...`;
           hasOkProperty: rawData && typeof rawData === 'object' && 'ok' in rawData,
           length: rawData?.length || (rawData?.value?.length)
         });
-        
+
         // Retornar dados EXATAMENTE como vieram do Object Storage
         let finalData;
-        
+
         if (rawData instanceof Buffer) {
           finalData = rawData;
         } else if (rawData instanceof Uint8Array) {
@@ -3212,21 +3195,21 @@ Status: Teste em progresso...`;
         } else {
           finalData = Buffer.from(rawData);
         }
-        
+
         console.log(`📤 Enviando ${finalData.length} bytes diretamente`);
-        
+
         // Detectar tipo de arquivo pela key
         const isPDF = decodedKey.toLowerCase().includes('pdf');
         const isXML = decodedKey.toLowerCase().includes('xml');
-        
+
         const contentType = isPDF ? 'application/pdf' : (isXML ? 'application/xml' : 'application/octet-stream');
-        
+
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Length', finalData.length);
         res.setHeader('Content-Disposition', `attachment; filename="${path.basename(decodedKey)}"`);
-        
+
         res.end(finalData);
-        
+
       } catch (error) {
         console.error(`❌ Erro no debug download:`, error);
         res.status(500).json({
@@ -4398,7 +4381,7 @@ Status: Teste em progresso...`;
 
         const { order_id: orderId, documentosinfo } = result.rows[0];
         const docsInfo = typeof documentosinfo === 'string' ? JSON.parse(documentosinfo) : documentosinfo;
-        
+
         if (!docsInfo[tipo]) {
           console.log(`❌ Documento ${tipo} não encontrado`);
           return res.status(404).json({
@@ -4412,7 +4395,7 @@ Status: Teste em progresso...`;
 
         // DOWNLOAD DIRETO DO OBJECT STORAGE
         const fileResult = await readFileFromStorage(docInfo.storageKey, orderId, docInfo.filename);
-        
+
         if (!fileResult) {
           console.log(`❌ Arquivo não encontrado no storage`);
           return res.status(404).json({
@@ -4432,7 +4415,7 @@ Status: Teste em progresso...`;
 
         // ENTREGA DIRETA DO ARQUIVO
         console.log(`🚀 ENVIANDO ARQUIVO DIRETO: ${originalName} (${fileBuffer.length} bytes)`);
-        
+
         // Detectar tipo de conteúdo
         let contentType = 'application/octet-stream';
         if (tipo === 'nota_pdf' || tipo === 'certificado_pdf') {
@@ -4449,7 +4432,7 @@ Status: Teste em progresso...`;
 
         // ENVIO DIRETO DOS BYTES
         return res.end(fileBuffer);
-        
+
       } catch (error) {
         console.error(`❌ Erro no download direto:`, error);
         res.status(500).json({
@@ -4693,7 +4676,7 @@ Status: Teste em progresso...`;
 
         // Verificar se o pedido existe e se o usuário tem permissão
         const orderCheck = await pool.query(
-          "SELECT id, order_id, user_id FROM orders WHERE id = $1",
+          "SELECT id, order_id FROM orders WHERE id = $1",
           [orderId]
         );
 
