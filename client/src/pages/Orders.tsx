@@ -51,7 +51,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Filter, AlertTriangle, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Search, Filter, AlertTriangle, Trash2, ChevronUp, ChevronDown, Download } from "lucide-react";
 import { getStatusColor, formatDate } from "@/lib/utils";
 
 // Função para formatar números com vírgula (formato brasileiro)
@@ -181,6 +181,10 @@ export default function Orders() {
   // Filtros de período
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  // Estados para exportação
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
 
   // Buscar pedidos
@@ -601,6 +605,168 @@ export default function Orders() {
     setDrawerOpen(true);
   };
 
+  // Função para exportar CSV/XLSX
+  const handleExportData = async (format: 'csv' | 'xlsx') => {
+    setIsExporting(true);
+    try {
+      const dataToExport = filteredAndSortedOrders.map(order => {
+        const product = products.find(p => p.id === order.productId);
+        const company = companies.find(c => c.id === order.supplierId);
+        const unit = units.find(u => u.id === product?.unitId);
+
+        return {
+          'ID': order.orderId,
+          'Produto': product?.name || 'N/A',
+          'Quantidade': formatNumber(order.quantity),
+          'Unidade': unit?.abbreviation || '',
+          'Fornecedor': company?.name || 'N/A',
+          'Data de Entrega': formatDate(order.deliveryDate),
+          'Status': order.status,
+          'Local de Trabalho': order.workLocation,
+          'Urgente': order.isUrgent ? 'Sim' : 'Não',
+          'Data de Criação': formatDate(order.createdAt)
+        };
+      });
+
+      if (format === 'csv') {
+        const csvContent = [
+          Object.keys(dataToExport[0]).join(','),
+          ...dataToExport.map(row => Object.values(row).map(val => `"${val}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `pedidos_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+      } else {
+        // Para XLSX, usar uma biblioteca simples ou converter para TSV
+        const tsvContent = [
+          Object.keys(dataToExport[0]).join('\t'),
+          ...dataToExport.map(row => Object.values(row).join('\t'))
+        ].join('\n');
+
+        const blob = new Blob([tsvContent], { type: 'application/vnd.ms-excel' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `pedidos_${new Date().toISOString().split('T')[0]}.xlsx`;
+        link.click();
+      }
+
+      toast({
+        title: "Exportação concluída",
+        description: `Arquivo ${format.toUpperCase()} baixado com sucesso`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro na exportação",
+        description: "Falha ao gerar arquivo de exportação",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+      setIsExportDialogOpen(false);
+    }
+  };
+
+  // Função para exportar notas fiscais
+  const handleExportNotes = async () => {
+    setIsExporting(true);
+    try {
+      // Criar um arquivo ZIP com todas as notas dos pedidos filtrados
+      const ordersWithDocs = filteredAndSortedOrders.filter(order => 
+        order.status !== 'Registrado' && order.status !== 'Cancelado'
+      );
+
+      if (ordersWithDocs.length === 0) {
+        toast({
+          title: "Nenhuma nota encontrada",
+          description: "Não há pedidos com documentos para exportar",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Fazer download de cada documento e criar ZIP
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      let addedFiles = 0;
+
+      for (const order of ordersWithDocs) {
+        try {
+          // Tentar baixar nota PDF
+          try {
+            const pdfResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_pdf`);
+            if (pdfResponse.ok) {
+              const pdfBlob = await pdfResponse.blob();
+              zip.file(`${order.orderId}_nota.pdf`, pdfBlob);
+              addedFiles++;
+            }
+          } catch (error) {
+            console.log(`Nota PDF não encontrada para ${order.orderId}`);
+          }
+
+          // Tentar baixar nota XML
+          try {
+            const xmlResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_xml`);
+            if (xmlResponse.ok) {
+              const xmlBlob = await xmlResponse.blob();
+              zip.file(`${order.orderId}_nota.xml`, xmlBlob);
+              addedFiles++;
+            }
+          } catch (error) {
+            console.log(`Nota XML não encontrada para ${order.orderId}`);
+          }
+
+          // Tentar baixar certificado PDF
+          try {
+            const certResponse = await fetch(`/api/pedidos/${order.id}/documentos/certificado_pdf`);
+            if (certResponse.ok) {
+              const certBlob = await certResponse.blob();
+              zip.file(`${order.orderId}_certificado.pdf`, certBlob);
+              addedFiles++;
+            }
+          } catch (error) {
+            console.log(`Certificado não encontrado para ${order.orderId}`);
+          }
+        } catch (error) {
+          console.log(`Erro ao processar documentos do pedido ${order.orderId}:`, error);
+        }
+      }
+
+      if (addedFiles === 0) {
+        toast({
+          title: "Nenhum documento encontrado",
+          description: "Não foi possível encontrar documentos para os pedidos filtrados",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Gerar e baixar o ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `notas_fiscais_${new Date().toISOString().split('T')[0]}.zip`;
+      link.click();
+
+      toast({
+        title: "Exportação concluída",
+        description: `${addedFiles} documentos exportados com sucesso`,
+      });
+    } catch (error) {
+      console.error('Erro ao exportar notas:', error);
+      toast({
+        title: "Erro na exportação",
+        description: "Falha ao gerar arquivo ZIP com as notas fiscais",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+      setIsExportDialogOpen(false);
+    }
+  };
+
   const onSubmit = (data: OrderFormData) => {
     // Validação adicional de saldo disponível
     if (quantityError) {
@@ -650,8 +816,9 @@ export default function Orders() {
 
       {/* Header com ações */}
       <div className="flex justify-between items-center mb-6">
-        {(currentUser?.canCreateOrder || currentUser?.isKeyUser) && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <div className="flex gap-2">
+          {(currentUser?.canCreateOrder || currentUser?.isKeyUser) && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 text-white">
                 <Plus className="w-4 h-4 mr-2" />
@@ -848,7 +1015,74 @@ export default function Orders() {
               </Form>
             </DialogContent>
           </Dialog>
-        )}
+          )}
+
+          {/* Botão de Exportação */}
+          <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-border">
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[400px]">
+              <DialogHeader>
+                <DialogTitle>Exportar Dados</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Escolha o tipo de exportação desejada:
+                </div>
+                
+                <div className="grid gap-3">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Exportar Planilha</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Baixar dados dos pedidos em formato de planilha
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleExportData('csv')}
+                        disabled={isExporting || filteredAndSortedOrders.length === 0}
+                        className="flex-1"
+                      >
+                        {isExporting ? "Exportando..." : "CSV"}
+                      </Button>
+                      <Button
+                        onClick={() => handleExportData('xlsx')}
+                        disabled={isExporting || filteredAndSortedOrders.length === 0}
+                        className="flex-1"
+                      >
+                        {isExporting ? "Exportando..." : "XLSX"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Exportar Notas Fiscais</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Baixar todas as notas fiscais dos pedidos em um arquivo ZIP
+                    </p>
+                    <Button
+                      onClick={handleExportNotes}
+                      disabled={isExporting || filteredAndSortedOrders.length === 0}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      {isExporting ? "Exportando..." : "Baixar ZIP com Notas"}
+                    </Button>
+                  </div>
+                </div>
+
+                {filteredAndSortedOrders.length === 0 && (
+                  <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-md">
+                    Nenhum pedido encontrado para exportar
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
 
         {/* Filtros */}
         <div className="flex-1 flex gap-4 items-center">

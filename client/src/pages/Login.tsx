@@ -245,9 +245,12 @@ export default function Login() {
           </Form>
         </CardContent>
 
-        <CardFooter className="flex justify-center border-t border-border pt-4">
+        <CardFooter className="flex flex-col items-center border-t border-border pt-4 space-y-2">
           <p className="text-sm text-muted-foreground">
-            Sistema de Gestão Logística {settings.appName} v8.1
+            Sistema de Gestão Logística iCAP v8.1
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Desenvolvido por Paulo Eduardo P. Baptista
           </p>
         </CardFooter>
       </Card>
