@@ -3353,20 +3353,31 @@ Status: Teste em progresso...`;
           }
         });
 
-            const ordem = result.rows[0];
-            console.log(`✅ Ordem encontrada: ${ordem.numero_ordem}`, ordem);
+        return createServer(app);
+      }
 
-            res.json(ordem);
+        // Verificar se a ordem de compra existe
+        if (result.rows.length === 0) {
+          return res.status(404).json({
+            sucesso: false,
+            mensagem: "Ordem de compra não encontrada"
+          });
+        }
 
-          } catch (error) {
-            console.error("❌ Erro ao buscar detalhes da ordem de compra:", error);
-            res.status(500).json({
-              sucesso: false,
-              mensagem: "Erro ao buscar detalhes da ordem de compra",
-              erro: error instanceof Error ? error.message : "Erro desconhecido"
-            });
-          }
+        const ordem = result.rows[0];
+        console.log(`✅ Ordem encontrada: ${ordem.numero_ordem}`, ordem);
+
+        res.json(ordem);
+
+      } catch (error) {
+        console.error("❌ Erro ao buscar detalhes da ordem de compra:", error);
+        res.status(500).json({
+          sucesso: false,
+          mensagem: "Erro ao buscar detalhes da ordem de compra",
+          erro: error instanceof Error ? error.message : "Erro desconhecido"
         });
+      }
+    });
 
         // Obter itens de uma ordem de compra
         app.get("/api/ordem-compra/:id/itens", async (req, res) => {
