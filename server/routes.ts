@@ -426,6 +426,158 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
   return null;
 }
 
+// Função utilitária para salvar arquivo no Object Storage, Google Drive ou sistema local
+async function saveFileToStorage(buffer: Buffer, filename: string, orderId: string): Promise<string> {
+  // PRIORIDADE 1: Tentar Object Storage se disponível
+  if (objectStorageAvailable && objectStorage) {
+    try {
+      // USAR PADRÃO SIMPLES: orderId/filename (sem prefixo "orders/")
+      const key = `${orderId}/${filename}`;
+
+      console.log(`📤 Tentando upload para Object Storage: ${key}`);
+      console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
+
+      // Usar o método correto do Replit Object Storage
+      try {
+        console.log(`📤 Iniciando upload - Tamanho original: ${buffer.length} bytes`);
+
+        // Validar buffer antes do upload
+        if (!buffer || buffer.length === 0) {
+          throw new Error("Buffer vazio ou inválido para upload");
+        }
+
+        // O método correto é uploadFromBytes para arquivos binários
+        if (buffer instanceof Buffer) {
+          // Converter buffer para Uint8Array que é o formato esperado pelo Replit Object Storage
+          const uint8Array = new Uint8Array(buffer);
+          console.log(`📤 Convertido para Uint8Array: ${uint8Array.length} bytes`);
+
+          // Upload usando bytes
+          await objectStorage.uploadFromBytes(key, uint8Array);
+          console.log("✅ Upload realizado com uploadFromBytes");
+        } else {
+          // Se não for Buffer, tentar converter primeiro
+          console.log(`⚠️ Dados não são Buffer, tentando conversão. Tipo: ${typeof buffer}`);
+          const bufferData = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+          const uint8Array = new Uint8Array(bufferData);
+          await objectStorage.uploadFromBytes(key, uint8Array);
+          console.log("✅ Upload realizado após conversão para Buffer");
+        }
+
+        // VERIFICAÇÃO CRÍTICA: Testar integridade do arquivo após upload
+        console.log(`🔍 Verificando integridade do arquivo após upload...`);
+        try {
+          const downloadTest = await objectStorage.downloadAsBytes(key);
+
+          // Extrair dados do resultado (pode estar em wrapper)
+          let testData = null;
+          if (downloadTest && typeof downloadTest === 'object' && downloadTest.ok && downloadTest.value) {
+            testData = downloadTest.value;
+          } else if (downloadTest instanceof Uint8Array || downloadTest instanceof Buffer) {
+            testData = downloadTest;
+          } else {
+            testData = downloadTest;
+          }
+
+          if (testData && testData.length > 0) {
+            const downloadedSize = testData.length;
+            const originalSize = buffer.length;
+
+            console.log(`📊 Verificação de integridade:`);
+            console.log(`   • Tamanho original: ${originalSize} bytes`);
+            console.log(`   • Tamanho baixado: ${downloadedSize} bytes`);
+            console.log(`   • Integridade: ${downloadedSize === originalSize ? 'OK' : 'FALHA'}`);
+
+            if (downloadedSize === originalSize) {
+              console.log(`✅ Arquivo verificado no Object Storage: ${key}`);
+              console.log(`✅ Arquivo estará disponível após redeploys`);
+              return key;
+            } else {
+              console.error(`❌ Tamanhos não coincidem! Original: ${originalSize}, Baixado: ${downloadedSize}`);
+              throw new Error(`Corrupção detectada: tamanhos diferentes (${originalSize} → ${downloadedSize})`);
+            }
+          } else {
+            console.error(`❌ Download de verificação retornou dados vazios ou nulos`);
+            throw new Error("Verificação falhou: dados vazios no download");
+          }
+        } catch (verifyError) {
+          console.error("❌ Falha na verificação de integridade:", verifyError.message);
+          // Não retornar a key se a verificação falhou completamente
+          throw new Error(`Upload falhou na verificação: ${verifyError.message}`);
+        }
+
+      } catch (error) {
+        console.error("❌ Erro específico no upload:", error.message);
+        console.error("❌ Stack trace:", error.stack);
+
+        // Tentar métodos alternativos se o principal falhar
+        console.log("🔄 Tentando métodos alternativos...");
+
+        try {
+          // Tentar método upload genérico se existir
+          if (typeof objectStorage.upload === 'function') {
+            console.log("🔧 Tentando método upload genérico");
+            await objectStorage.upload(key, buffer);
+            console.log("✅ Upload realizado com método genérico");
+            return key;
+          } else {
+            throw new Error("Nenhum método alternativo disponível");
+          }
+        } catch (altError) {
+          console.error("❌ Métodos alternativos também falharam:", altError.message);
+          throw uploadError; // Lançar o erro original
+        }
+      }
+
+    } catch (error) {
+      console.error("❌ Erro detalhado ao salvar no Object Storage:", {
+        message: error.message,
+        key: `${orderId}/${filename}`,
+        bufferSize: buffer.length,
+        objectStorageAvailable,
+        hasObjectStorage: !!objectStorage
+      });
+      console.log("🔄 Tentando Google Drive como fallback...");
+    }
+  } else {
+    console.log("⚠️ Object Storage não disponível:", {
+      objectStorageAvailable,
+      hasObjectStorage: !!objectStorage
+    });
+  }
+
+  // PRIORIDADE 2: Tentar Google Drive
+  try {
+    const { googleDriveService } = await import('./googleDrive');
+    const publicLink = await googleDriveService.uploadBuffer(buffer, filename, orderId);
+
+    if (publicLink) {
+      console.log(`📁 🔗 Arquivo salvo no Google Drive: ${publicLink}`);
+      console.log(`✅ Link público gerado com sucesso`);
+      return `gdrive:${publicLink}`;
+    }
+  } catch (error) {
+    console.error("❌ Erro ao salvar no Google Drive:", error);
+    console.log("🔄 Fallback para sistema local...");
+  }
+
+  // FALLBACK: Salvar no sistema local (temporário)
+  try {
+    const orderDir = path.join(process.cwd(), "uploads", orderId);
+    if (!fs.existsSync(orderDir)) {
+      fs.mkdirSync(orderDir, { recursive: true });
+    }
+    const filePath = path.join(orderDir, filename);
+    fs.writeFileSync(filePath, buffer);
+    console.log(`📁 💾 Arquivo salvo localmente (temporário): ${filePath}`);
+    console.log(`⚠️ Este arquivo será perdido no próximo deploy!`);
+    return filePath;
+  } catch (error) {
+    console.error("❌ Erro ao salvar localmente:", error);
+    throw new Error(`Falha ao salvar arquivo: ${error.message}`);
+  }
+}
+
 // Rota para download de documentos dos pedidos dentro da função registerRoutes
     try {
       const pedidoId = parseInt(req.params.id);
@@ -1427,7 +1579,7 @@ Status: Teste em progresso...`;
               if (keyuserObjects.length > 0) {
                 log.push('📋 Últimos 3 objetos do keyuser:');
                 keyuserObjects.slice(-3).forEach((obj, index) => {
-                  const key = obj.key || obj.name || obj;
+                  const key = obj.key || obj.name || String(obj);
                   const size = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
                   log.push(`   ${index + 1}. ${key} ${size}`);
                 });
@@ -3281,9 +3433,28 @@ Status: Teste em progresso...`;
               WHERE oc.id = $1
             `, [id]);
 
-            if (!result.rows.length) {
+            if (result.rows.length === 0) {
               console.log(`❌ Ordem de compra ${id} não encontrada`);
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: "Ordem de compra não encontrada"
+              });
+            }
 
+            const ordem = result.rows[0];
+            console.log(`✅ Ordem encontrada: ${ordem.numero_ordem}`, ordem);
+
+            res.json(ordem);
+
+          } catch (error) {
+            console.error("❌ Erro ao buscar detalhes da ordem de compra:", error);
+            res.status(500).json({
+              sucesso: false,
+              mensagem: "Erro ao buscar detalhes da ordem de compra",
+              erro: error instanceof Error ? error.message : "Erro desconhecido"
+            });
+          }
+        });
 
         // Rota de DEBUG para download direto do Object Storage (apenas keyuser)
         app.get("/api/debug/direct-download/:storageKey", isAuthenticated, isKeyUser, async (req, res) => {
@@ -3352,32 +3523,6 @@ Status: Teste em progresso...`;
             });
           }
         });
-
-        // Verificar se a ordem de compra existe
-        if (result.rows.length === 0) {
-          return res.status(404).json({
-            sucesso: false,
-            mensagem: "Ordem de compra não encontrada"
-          });
-        }
-
-        const ordem = result.rows[0];
-        console.log(`✅ Ordem encontrada: ${ordem.numero_ordem}`, ordem);
-
-        res.json(ordem);
-
-      } catch (error) {
-        console.error("❌ Erro ao buscar detalhes da ordem de compra:", error);
-        res.status(500).json({
-          sucesso: false,
-          mensagem: "Erro ao buscar detalhes da ordem de compra",
-          erro: error instanceof Error ? error.message : "Erro desconhecido"
-        });
-      }
-    });
-
-        return createServer(app);
-      }
 
         // Obter itens de uma ordem de compra
         app.get("/api/ordem-compra/:id/itens", async (req, res) => {
@@ -4106,7 +4251,7 @@ Status: Teste em progresso...`;
                   description = "Servidor SMTP para envio de e-mails";
                   break;
                 case 'smtp_port':
-                  description = "Porta do servidor SMTP";
+                  description = "Porta do servidor SMTP                  description = "Porta do servidor SMTP";
                   break;
                 case 'smtp_user':
                   description = "Usuário para autenticação SMTP";
@@ -5410,7 +5555,7 @@ Status: Teste em progresso...`;
             // Verificar se o pedido existe
             const order = await storage.getOrder(id);
             if (!order) {
-              returnres.status(404).json({
+              return res.status(404).json({
                 sucesso: false,
                 mensagem: "Pedido não encontrado"
               });
@@ -6161,6 +6306,1718 @@ Status: Teste em progresso...`;
             cb(null, "icapmob.apk");
           }
         });
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
+
+        const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+          if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
+            cb(null, true);
+          } else {
+            cb(new Error("O arquivo deve ser um APK"));
+          }
+        };
 
         const icapMobFileFilter = function(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
           if (file.mimetype === "application/vnd.android.package-archive" || file.originalname.endsWith('.apk')) {
