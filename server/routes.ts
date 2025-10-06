@@ -5448,15 +5448,27 @@ Status: Teste em progresso...`;
               });
             }
 
-            // Verificar se a nova data está dentro do limite de 7 dias
-            const novaData = new Date(novaDataEntrega);
-            const hoje = new Date();
-            const limite = new Date(hoje.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 dias a partir de hoje
+            // Buscar a data de validade da ordem de compra
+            const ordemCompraValidade = await pool.query(
+              "SELECT valido_ate FROM ordens_compra WHERE id = $1",
+              [order.purchaseOrderId]
+            );
 
-            if (novaData > limite) {
+            if (!ordemCompraValidade.rows.length) {
               return res.status(400).json({
                 sucesso: false,
-                mensagem: "A nova data de entrega deve ser no máximo 7 dias a partir de hoje"
+                mensagem: "Ordem de compra não encontrada"
+              });
+            }
+
+            const validoAte = new Date(ordemCompraValidade.rows[0].valido_ate);
+            const novaData = new Date(novaDataEntrega);
+            const hoje = new Date();
+
+            if (novaData > validoAte) {
+              return res.status(400).json({
+                sucesso: false,
+                mensagem: `A nova data de entrega não pode ultrapassar a validade da ordem de compra (${validoAte.toLocaleDateString('pt-BR')})`
               });
             }
 

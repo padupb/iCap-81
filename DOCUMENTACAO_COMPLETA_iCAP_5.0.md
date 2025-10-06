@@ -1,4 +1,3 @@
-
 # 📋 Documentação Completa do Sistema i-CAP 5.0
 
 ## 🎯 Visão Geral do Sistema
@@ -492,6 +491,12 @@ data_reprogramacao TIMESTAMP
 
 Badge no menu lateral mostra quantidade de reprogramações aguardando aprovação.
 
+### 3. **Limite de Prazo**
+- A nova data de entrega deve estar **dentro da validade da ordem de compra**
+- A nova data não pode ser no passado (deve ser futura)
+- A nova data não pode ultrapassar a data de validade da ordem de compra
+- Exemplo: Se a ordem é válida até dia 30/01, a nova data pode ser até 30/01
+
 ## 📱 Sistema de QR Code e Rastreamento
 
 ### Geração de QR Code
@@ -745,7 +750,7 @@ sequenceDiagram
 
     U->>S: Define quantidade e data
     S->>S: Calcula urgência (≤ 3 dias?)
-    
+
     alt Pedido Normal
         S->>DB: Cria pedido com status 'approved'
         S-->>U: "Pedido criado e aprovado"
@@ -833,10 +838,10 @@ sequenceDiagram
     S->>GPS: Solicita localização atual
     GPS-->>S: Lat/Long atual
     S->>DB: Registra ponto de rastreamento
-    
+
     S-->>D: Página de confirmação de entrega
     D->>S: Confirma: "Entregue" ou "Recusado"
-    
+
     opt Tirar Foto
         D->>S: Upload da foto de confirmação
         S->>FS: Salva foto
