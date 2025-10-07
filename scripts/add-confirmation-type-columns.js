@@ -1,5 +1,5 @@
 
-const { Pool } = require("@neondatabase/serverless");
+import { Pool } from "@neondatabase/serverless";
 
 async function addConfirmationTypeColumns() {
   const pool = new Pool({
