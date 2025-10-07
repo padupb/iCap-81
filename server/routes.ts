@@ -4252,7 +4252,7 @@ Status: Teste em progresso...`;
                   description = "Servidor SMTP para envio de e-mails";
                   break;
                 case 'smtp_port':
-                  description = "Porta do servidor SMTP                  description = "Porta do servidor SMTP";
+                  description = "Porta do servidor SMTP";
                   break;
                 case 'smtp_user':
                   description = "Usuário para autenticação SMTP";
