@@ -517,6 +517,12 @@ export function OrderDetailDrawer({
     // Só pode reprogramar se o pedido não estiver entregue, cancelado ou suspenso
     if (["Entregue", "Cancelado", "Suspenso"].includes(orderDetails.status)) return false;
 
+    // KeyUser sempre pode reprogramar
+    if (user.id === 1 || user.isKeyUser) {
+      console.log(`🔑 KeyUser detectado - permitindo reprogramação do pedido ${orderDetails.orderId}`);
+      return true;
+    }
+
     // Verificar se o usuário pertence à empresa de destino
     if (!user.companyId) return false;
 
