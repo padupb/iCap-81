@@ -80,7 +80,7 @@ export const orders = pgTable("orders", {
   orderId: text("order_id").notNull().unique(),
   productId: integer("product_id").notNull(),
   quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
-  
+
   supplierId: integer("supplier_id").notNull(),
   workLocation: text("work_location").notNull(),
   deliveryDate: timestamp("delivery_date").notNull(),

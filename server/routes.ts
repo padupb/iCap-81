@@ -1809,6 +1809,154 @@ Status: Teste em progresso...`;
           }
         });
 
+        app.post("/api/products", isAuthenticated, hasPermission("create_products"), async (req, res) => {
+          try {
+            const productData = insertProductSchema.parse(req.body);
+            const newProduct = await storage.createProduct(productData);
+
+            // Registrar log de criação
+            if (req.session.userId) {
+              await storage.createLog({
+                userId: req.session.userId,
+                action: "Criou produto",
+                itemType: "product",
+                itemId: newProduct.id.toString(),
+                details: `Produto ${newProduct.name} criado`
+              });
+            }
+
+            res.json(newProduct);
+          } catch (error) {
+            console.error("Erro ao criar produto:", error);
+            if (error instanceof z.ZodError) {
+              return res.status(400).json({
+                success: false,
+                message: "Erro de validação",
+                errors: error.errors
+              });
+            }
+            res.status(500).json({ message: "Erro ao criar produto" });
+          }
+        });
+
+        app.put("/api/products/:id", isAuthenticated, hasPermission("edit_products"), async (req, res) => {
+          try {
+            const id = parseInt(req.params.id);
+            if (isNaN(id)) {
+              return res.status(400).json({ message: "ID inválido" });
+            }
+
+            // Verificar se o produto existe
+            const existingProduct = await storage.getProduct(id);
+            if (!existingProduct) {
+              return res.status(404).json({ message: "Produto não encontrado" });
+            }
+
+            const { name, unitId, confirmationType } = req.body;
+
+            console.log("Dados recebidos para atualização:", { name, unitId, confirmationType });
+
+            // Construir objeto de atualização
+            const productData: any = { name, unitId };
+
+            // Adicionar confirmationType se fornecido
+            if (confirmationType) {
+              productData.confirmationType = confirmationType;
+            }
+
+            console.log("Updating product:", { id, product: productData });
+
+            // Atualizar diretamente no banco de dados usando pool
+            await pool.query(
+              `UPDATE products 
+               SET name = $1, unit_id = $2, confirmation_type = $3
+               WHERE id = $4`,
+              [productData.name, productData.unitId, productData.confirmationType || 'nota_fiscal', id]
+            );
+
+            // Buscar produto atualizado
+            const updatedProductResult = await pool.query(
+              `SELECT * FROM products WHERE id = $1`,
+              [id]
+            );
+
+            const updatedProduct = updatedProductResult.rows[0];
+
+            // Registrar log de atualização
+            if (req.session.userId && updatedProduct) {
+              await storage.createLog({
+                userId: req.session.userId,
+                action: "Atualizou produto",
+                itemType: "product",
+                itemId: id.toString(),
+                details: `Produto ${updatedProduct.name} atualizado - Tipo de confirmação: ${productData.confirmationType || 'nota_fiscal'}`
+              });
+            }
+
+            res.json(updatedProduct);
+          } catch (error) {
+            console.error("Erro ao atualizar produto:", error);
+            res.status(500).json({ message: "Erro ao atualizar produto" });
+          }
+        });
+
+        app.delete("/api/products/:id", isAuthenticated, hasPermission("delete_products"), async (req, res) => {
+          try {
+            const id = parseInt(req.params.id);
+            if (isNaN(id)) {
+              return res.status(400).json({ message: "ID inválido" });
+            }
+
+            // Verificar se o produto existe
+            const existingProduct = await storage.getProduct(id);
+            if (!existingProduct) {
+              return res.status(404).json({ message: "Produto não encontrado" });
+            }
+
+            // Verificar se existem itens em ordens de compra vinculados a este produto
+            const itemsResult = await pool.query(
+              "SELECT COUNT(*) as count FROM itens_ordem_compra WHERE produto_id = $1",
+              [id]
+            );
+
+            if (itemsResult.rows[0].count > 0) {
+              return res.status(400).json({
+                message: "Não é possível excluir este produto pois ele está vinculado a itens de ordens de compra"
+              });
+            }
+
+            // Verificar se existem pedidos vinculados a este produto
+            const ordersResult = await pool.query(
+              "SELECT COUNT(*) as count FROM orders WHERE product_id = $1",
+              [id]
+            );
+
+            if (ordersResult.rows[0].count > 0) {
+              return res.status(400).json({
+                message: "Não é possível excluir este produto pois ele está vinculado a pedidos"
+              });
+            }
+
+            const deleted = await storage.deleteProduct(id);
+
+            // Registrar log de exclusão
+            if (req.session.userId) {
+              await storage.createLog({
+                userId: req.session.userId,
+                action: "Excluiu produto",
+                itemType: "product",
+                itemId: id.toString(),
+                details: `Produto ${existingProduct.name} excluído`
+              });
+            }
+
+            res.json({ success: deleted });
+          } catch (error) {
+            console.error("Erro ao excluir produto:", error);
+            res.status(500).json({ message: "Erro ao excluir produto" });
+          }
+        });
+
         // Orders routes (Pedidos)
         app.get("/api/orders", isAuthenticated, async (req, res) => {
           try {
@@ -4944,7 +5092,7 @@ Status: Teste em progresso...`;
             if (!hasApprovalPermission) {
               return res.status(403).json({
                 success: false,
-                message: "Sempermissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresas podem aprovar pedidos urgentes."
+                message: "Sem permissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresas podem aprovar pedidos urgentes."
               });
             }
 
