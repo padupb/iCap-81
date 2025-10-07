@@ -157,6 +157,7 @@ export default function Orders() {
   const isKeyUser = currentUser?.isKeyUser || currentUser?.isDeveloper;
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [productFilter, setProductFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPurchaseOrder, setSelectedPurchaseOrder] =
     useState<PurchaseOrderResponse | null>(null);
@@ -509,6 +510,9 @@ export default function Orders() {
     // Filtrar por status
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
 
+    // Filtrar por produto
+    const productMatch = productFilter === "all" || order.productId === parseInt(productFilter);
+
     // Filtrar por período
     let dateMatch = true;
     if (startDate || endDate) {
@@ -527,7 +531,7 @@ export default function Orders() {
       }
     }
 
-    return searchMatch && statusMatch && dateMatch;
+    return searchMatch && statusMatch && productMatch && dateMatch;
   });
 
   // Function to handle sorting
@@ -1132,6 +1136,21 @@ export default function Orders() {
             />
           </div>
 
+          {/* Filtro de produto */}
+          <Select value={productFilter} onValueChange={setProductFilter}>
+            <SelectTrigger className="w-[180px] bg-input border-border">
+              <SelectValue placeholder="Todos os produtos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              {products.map((product) => (
+                <SelectItem key={product.id} value={product.id.toString()}>
+                  {product.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {/* Filtro de status */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px] bg-input border-border">
@@ -1148,13 +1167,14 @@ export default function Orders() {
           </Select>
 
           {/* Botão para limpar filtros */}
-          {(searchTerm || statusFilter !== "all" || startDate || endDate) && (
+          {(searchTerm || statusFilter !== "all" || productFilter !== "all" || startDate || endDate) && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchTerm("");
                 setStatusFilter("all");
+                setProductFilter("all");
                 setStartDate("");
                 setEndDate("");
               }}
