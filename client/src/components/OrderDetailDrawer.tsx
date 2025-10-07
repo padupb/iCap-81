@@ -441,10 +441,10 @@ export function OrderDetailDrawer({
       purchaseOrderCompany,
       unit,
       workDestination, // Adicionar a obra de destino aos dados retornados
-    } as OrderDetails & { 
-      purchaseOrderCompany?: Company; 
-      unit?: Unit; 
-      workDestination?: Company; 
+    } as OrderDetails & {
+      purchaseOrderCompany?: Company;
+      unit?: Unit;
+      workDestination?: Company;
     };
   }, [orderId, orders, products, companies, purchaseOrders, ordensCompra, units]);
 
@@ -1396,10 +1396,10 @@ export function OrderDetailDrawer({
                       }
 
                       // 3. Verificar se o usuário não é fornecedor e não há documentos carregados
-                      if (!canUploadDocuments() && !documentsLoaded && 
-                          orderDetails.status !== "Carregado" && 
-                          orderDetails.status !== "Em Rota" && 
-                          orderDetails.status !== "Em transporte" && 
+                      if (!canUploadDocuments() && !documentsLoaded &&
+                          orderDetails.status !== "Carregado" &&
+                          orderDetails.status !== "Em Rota" &&
+                          orderDetails.status !== "Em transporte" &&
                           orderDetails.status !== "Entregue") {
                         return true;
                       }
@@ -1610,7 +1610,7 @@ export function OrderDetailDrawer({
 
                         // Para pedidos normais ou já aprovados, mostrar QR Code
                         return (
-                          <QRCodeComponent 
+                          <QRCodeComponent
                             value={orderDetails.orderId}
                             size={150}
                             className="mt-4"
@@ -2351,7 +2351,7 @@ export function OrderDetailDrawer({
                         {orderDetails.status === "Entregue" ? "Entrega Confirmada" : "Confirmar Entrega"}
                       </CardTitle>
                       <CardDescription>
-                        {orderDetails.status === "Entregue" 
+                        {orderDetails.status === "Entregue"
                           ? "A entrega deste pedido já foi confirmada"
                           : "Confirme a entrega do pedido informando a quantidade recebida"
                         }
@@ -2522,9 +2522,9 @@ export function OrderDetailDrawer({
                             });
 
                             // 2. Se há documentos carregados
-                            if (orderDetails.status === "Carregado" || 
-                                orderDetails.status === "Em Rota" || 
-                                orderDetails.status === "Em transporte" || 
+                            if (orderDetails.status === "Carregado" ||
+                                orderDetails.status === "Em Rota" ||
+                                orderDetails.status === "Em transporte" ||
                                 orderDetails.status === "Entregue") {
                               history.push({
                                 etapa: "Documentos Carregados",
@@ -2536,8 +2536,8 @@ export function OrderDetailDrawer({
                             }
 
                             // 3. Se está em rota
-                            if (orderDetails.status === "Em Rota" || 
-                                orderDetails.status === "Em transporte" || 
+                            if (orderDetails.status === "Em Rota" ||
+                                orderDetails.status === "Em transporte" ||
                                 orderDetails.status === "Entregue") {
                               history.push({
                                 etapa: "Em Rota",
@@ -2687,7 +2687,7 @@ export function OrderDetailDrawer({
                       today.setHours(0, 0, 0, 0);
 
                       // Usar a data de validade da ordem de compra como limite máximo
-                      const maxDate = orderDetails?.purchaseOrder?.validUntil 
+                      const maxDate = orderDetails?.purchaseOrder?.validUntil
                         ? new Date(orderDetails.purchaseOrder.validUntil)
                         : new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000)); // fallback para 7 dias
 
@@ -2738,4 +2738,3 @@ export function OrderDetailDrawer({
     </Drawer>
   );
 }
-</replit_final_file>
