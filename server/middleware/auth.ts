@@ -10,9 +10,9 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
         session: req.session,
         cookies: req.headers.cookie
       });
-      return res.status(401).json({ 
-        success: false, 
-        message: "Não autenticado" 
+      return res.status(401).json({
+        success: false,
+        message: "Não autenticado"
       });
     }
 
@@ -28,14 +28,14 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
         }
       });
       console.log(`❌ Usuário ${req.session.userId} não encontrado no banco`);
-      return res.status(401).json({ 
-        success: false, 
-        message: "Usuário não encontrado" 
+      return res.status(401).json({
+        success: false,
+        message: "Usuário não encontrado"
       });
     }
 
-    // NOVA REGRA: Se o usuário tem ID = 1, dar permissões de keyuser
-    const isKeyUser = user.id === 1;
+    // NOVA REGRA: Se o usuário tem ID entre 1 e 5, dar permissões de keyuser
+    const isKeyUser = user.id >= 1 && user.id <= 5;
     let permissions: string[] = [];
     let role = null;
 
@@ -46,7 +46,7 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       }
     } else if (isKeyUser) {
       // Para o keyuser real, criar função virtual
-      console.log("🔑 USUÁRIO ID 1 DETECTADO - CONCEDENDO PERMISSÕES DE KEYUSER");
+      console.log("🔑 USUÁRIO KEYUSER DETECTADO - CONCEDENDO PERMISSÕES DE KEYUSER");
       role = { id: 9999, name: "Super Administrador", permissions: ["*"] };
       permissions = ["*"];
     }
@@ -64,9 +64,9 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     next();
   } catch (error) {
     console.error("❌ Erro na verificação de autenticação:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Erro ao verificar autenticação" 
+    res.status(500).json({
+      success: false,
+      message: "Erro ao verificar autenticação"
     });
   }
 };
@@ -75,22 +75,22 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
 export const hasPermission = (permission: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Não autenticado" 
+      return res.status(401).json({
+        success: false,
+        message: "Não autenticado"
       });
     }
 
-    // KeyUser (ID = 1) sempre tem acesso total
-    if (req.user.id === 1 || req.user.isKeyUser === true) {
+    // KeyUsers (IDs 1-5) sempre têm acesso total
+    if ((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser === true) {
       return next();
     }
 
     // Verificar se o usuário tem a permissão específica
     if (!req.user.permissions || !Array.isArray(req.user.permissions)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "Sem permissões definidas" 
+      return res.status(403).json({
+        success: false,
+        message: "Sem permissões definidas"
       });
     }
 
@@ -99,9 +99,9 @@ export const hasPermission = (permission: string) => {
       return next();
     }
 
-    return res.status(403).json({ 
-      success: false, 
-      message: `Permissão '${permission}' necessária` 
+    return res.status(403).json({
+      success: false,
+      message: `Permissão '${permission}' necessária`
     });
   };
 };
@@ -109,20 +109,20 @@ export const hasPermission = (permission: string) => {
 // Middleware especial para verificar se é o keyuser
 export const isKeyUser = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
-    return res.status(401).json({ 
-      success: false, 
-      message: "Não autenticado" 
+    return res.status(401).json({
+      success: false,
+      message: "Não autenticado"
     });
   }
 
   // Verificar se é o keyuser
-  if (req.user.isKeyUser === true || req.user.id === 1) {
+  if ((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser === true) {
     return next();
   }
 
-  return res.status(403).json({ 
-    success: false, 
-    message: "Acesso restrito ao administrador" 
+  return res.status(403).json({
+    success: false,
+    message: "Acesso restrito ao administrador"
   });
 };
 
@@ -130,27 +130,27 @@ export const isKeyUser = (req: Request, res: Response, next: NextFunction) => {
 export const hasAnyPermission = (permissions: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Não autenticado" 
+      return res.status(401).json({
+        success: false,
+        message: "Não autenticado"
       });
     }
 
-    // KeyUser (ID = 1) sempre tem acesso total
-    if (req.user.id === 1 || req.user.isKeyUser === true) {
+    // KeyUsers (IDs 1-5) sempre têm acesso total
+    if ((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser === true) {
       return next();
     }
 
     // Verificar se o usuário tem pelo menos uma das permissões
     if (!req.user.permissions || !Array.isArray(req.user.permissions)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "Sem permissões definidas" 
+      return res.status(403).json({
+        success: false,
+        message: "Sem permissões definidas"
       });
     }
 
     // Verificar se tem pelo menos uma das permissões especificadas
-    const hasPermission = permissions.some(permission => 
+    const hasPermission = permissions.some(permission =>
       req.user.permissions.includes(permission)
     );
 
@@ -158,9 +158,9 @@ export const hasAnyPermission = (permissions: string[]) => {
       return next();
     }
 
-    return res.status(403).json({ 
-      success: false, 
-      message: `Permissão necessária: ${permissions.join(' ou ')}` 
+    return res.status(403).json({
+      success: false,
+      message: `Permissão necessária: ${permissions.join(' ou ')}`
     });
   };
 };

@@ -738,11 +738,11 @@ const storage_upload = multer.diskStorage({
               });
             }
 
-            // NOVA REGRA: Se o usuário tem ID = 1, dar permissões de keyuser
-            const isKeyUser = user.id === 1;
+            // NOVA REGRA: Se o usuário tem ID de 1 a 5, dar permissões de keyuser
+            const isKeyUser = user.id >= 1 && user.id <= 5;
 
             if (isKeyUser) {
-              console.log("🔑 USUÁRIO ID 1 DETECTADO - CONCEDENDO PERMISSÕES DE KEYUSER");
+              console.log(`🔑 KEYUSER DETECTADO (ID ${user.id}) - CONCEDENDO PERMISSÕES TOTAIS`);
             }
 
             // Salvar o ID do usuário na sessão e garantir que seja persistida
@@ -821,10 +821,10 @@ const storage_upload = multer.diskStorage({
         app.get("/api/auth/me", isAuthenticated, async (req, res) => {
           try {
             // O middleware isAuthenticated já definiu corretamente as permissões
-            const isKeyUser = req.user.id === 1;
+            const isKeyUser = req.user.id >= 1 && req.user.id <= 5;
 
             if (isKeyUser) {
-              console.log("🔑 Usuário ID 1 acessando /api/auth/me - Permissões de KeyUser concedidas");
+              console.log(`🔑 KeyUser (ID ${req.user.id}) acessando /api/auth/me - Permissões totais concedidas`);
             }
 
             return res.json({
@@ -1528,7 +1528,7 @@ Status: Teste em progresso...`;
           try {
             // Verificar se o usuário tem permissão para criar usuários OU é keyuser
             const hasCreatePermission = req.user.permissions?.includes("create_users") || req.user.permissions?.includes("*");
-            const isKeyUserCheck = req.user.id === 1 || req.user.isKeyUser;
+            const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
 
             if (!hasCreatePermission && !isKeyUserCheck) {
               return res.status(403).json({
@@ -1595,7 +1595,7 @@ Status: Teste em progresso...`;
           try {
             // Verificar se o usuário tem permissão para editar usuários OU é keyuser
             const hasEditPermission = req.user.permissions?.includes("edit_users") || req.user.permissions?.includes("*");
-            const isKeyUserCheck = req.user.id === 1 || req.user.isKeyUser;
+            const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
 
             if (!hasEditPermission && !isKeyUserCheck) {
               return res.status(403).json({
@@ -1928,9 +1928,9 @@ Status: Teste em progresso...`;
             // CONTROLE DE ACESSO PARA PEDIDOS URGENTES
             // Apenas usuários com perfil específico podem visualizar pedidos urgentes
 
-            // 1. Verificar se é o usuário KeyUser (ID = 1)
-            if (req.user.id === 1 || req.user.isKeyUser === true) {
-              console.log(`🔑 Acesso liberado para pedidos urgentes - KeyUser: ${req.user.name}`);
+            // 1. Verificar se é KeyUser (IDs 1-5)
+            if ((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser === true) {
+              console.log(`🔑 Acesso liberado para pedidos urgentes - KeyUser (ID ${req.user.id}): ${req.user.name}`);
 
               // KeyUser vê todos os pedidos urgentes
               const urgentOrders = await storage.getUrgentOrders();
@@ -2813,11 +2813,11 @@ Status: Teste em progresso...`;
               permissions: req.user.permissions
             });
 
-            // KeyUser sempre tem permissão - verificação mais robusta
-            if (req.user.id === 1 || req.user.isKeyUser === true || req.user.isDeveloper === true ||
+            // KeyUsers (IDs 1-5) sempre têm permissão
+            if ((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser === true || req.user.isDeveloper === true ||
                 (req.user.permissions && req.user.permissions.includes("*"))) {
               hasEditPermission = true;
-              console.log(`✅ Permissão concedida - KeyUser detectado`);
+              console.log(`✅ Permissão concedida - KeyUser (ID ${req.user.id}) detectado`);
             } else if (req.user.canEditPurchaseOrders === true) {
               hasEditPermission = true;
               console.log(`✅ Permissão concedida - Usuário habilitado para editar ordens de compra`);

@@ -66,8 +66,8 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
       return false;
     }
 
-    // APENAS o usuário keyuser (ID = 1) tem acesso total
-    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+    // KeyUsers (IDs 1-5) têm acesso total
+    if ((user.id >= 1 && user.id <= 5) || (user.isKeyUser === true && user.isDeveloper === true)) {
       console.log(`🔑 [AuthorizationContext] KeyUser detectado - liberando acesso total a ${area}`);
       return true;
     }
@@ -105,8 +105,8 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     // Se não há usuário autenticado, nega acesso
     if (!user) return false;
 
-    // APENAS o usuário keyuser (ID = 1) tem acesso total
-    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+    // KeyUsers (IDs 1-5) têm acesso total
+    if ((user.id >= 1 && user.id <= 5) || (user.isKeyUser === true && user.isDeveloper === true)) {
       return true;
     }
 
@@ -125,8 +125,8 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
       return false;
     }
 
-    // APENAS o usuário keyuser (ID = 1) tem acesso total
-    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+    // KeyUsers (IDs 1-5) têm acesso total
+    if ((user.id >= 1 && user.id <= 5) || (user.isKeyUser === true && user.isDeveloper === true)) {
       console.log(`🔑 [AuthorizationContext] KeyUser detectado - liberando criação de ${area}`);
       return true;
     }
@@ -156,7 +156,7 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     if (!isAuthenticated) {
       return false;
     }
-    
+
     // Verificar se a chave da API do Google Maps está configurada no sistema
     // Esta verificação será feita nos componentes que usam o Maps
     return true;
@@ -167,8 +167,8 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     // Se não há usuário autenticado, nega acesso
     if (!user) return false;
 
-    // APENAS o usuário keyuser (ID = 1) tem acesso total
-    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+    // KeyUsers (IDs 1-5) têm acesso total
+    if ((user.id >= 1 && user.id <= 5) || (user.isKeyUser === true && user.isDeveloper === true)) {
       return true;
     }
 
@@ -185,8 +185,8 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
       return false;
     }
 
-    // APENAS o usuário keyuser (ID = 1) tem acesso total
-    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+    // KeyUsers (IDs 1-5) têm acesso total
+    if ((user.id >= 1 && user.id <= 5) || (user.isKeyUser === true && user.isDeveloper === true)) {
       console.log(`🔑 [AuthorizationContext] KeyUser detectado - liberando criação de ordens de compra`);
       return true;
     }
@@ -212,7 +212,7 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
     }
 
     // SEMPRE permitir ao usuário keyuser (ID = 1)
-    if (user.id === 1 || (user.isKeyUser === true && user.isDeveloper === true)) {
+    if ((user.id >= 1 && user.id <= 5) || (user.isKeyUser === true && user.isDeveloper === true)) {
       console.log(`🔑 [AuthorizationContext] KeyUser detectado - liberando edição de ordens de compra`);
       return true;
     }
@@ -249,18 +249,18 @@ export const AuthorizationProvider: React.FC<AuthorizationProviderProps> = ({ ch
 
 export const canEditPurchaseOrders = (): boolean => {
   const { user } = useAuth();
-  
+
   // KeyUser sempre pode editar
-  if (user?.isKeyUser || user?.isDeveloper) {
+  if ((user?.id >= 1 && user?.id <= 5) || user?.isDeveloper) {
     return true;
   }
-  
+
   // Verificar categoria da empresa do usuário
   if (user?.companyId) {
     // Esta verificação seria feita com base na categoria da empresa
     // Por enquanto, retornar false para usuários normais
     return false;
   }
-  
+
   return false;
 };
