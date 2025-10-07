@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Drawer,
@@ -829,7 +829,7 @@ export function OrderDetailDrawer({
     }
   };
 
-  
+
 
   // Função para confirmar entrega
   const handleConfirmDelivery = async (action: "aprovado" | "rejeitado") => {
@@ -1817,9 +1817,9 @@ export function OrderDetailDrawer({
                                 onClick={async () => {
                                   try {
                                     console.log(`📥 Iniciando download de nota_pdf para pedido ${orderId}`);
-                                    
+
                                     const response = await fetch(`/api/pedidos/${orderId}/documentos/nota_pdf`);
-                                    
+
                                     if (!response.ok) {
                                       throw new Error(`Erro ao baixar documento: ${response.statusText}`);
                                     }
@@ -1827,7 +1827,7 @@ export function OrderDetailDrawer({
                                     // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
                                     const contentDisposition = response.headers.get('Content-Disposition');
                                     let filename = `nota_pdf_${orderDetails?.orderId || orderId}.pdf`;
-                                    
+
                                     if (contentDisposition) {
                                       const matches = contentDisposition.match(/filename="(.+)"/);
                                       if (matches && matches[1]) {
@@ -1837,7 +1837,7 @@ export function OrderDetailDrawer({
 
                                     // Converter resposta para blob
                                     const blob = await response.blob();
-                                    
+
                                     // Criar URL temporária e baixar
                                     const url = window.URL.createObjectURL(blob);
                                     const link = document.createElement('a');
@@ -1845,7 +1845,7 @@ export function OrderDetailDrawer({
                                     link.download = filename;
                                     document.body.appendChild(link);
                                     link.click();
-                                    
+
                                     // Limpar
                                     document.body.removeChild(link);
                                     window.URL.revokeObjectURL(url);
@@ -1854,7 +1854,7 @@ export function OrderDetailDrawer({
                                       title: "Download concluído",
                                       description: `Arquivo ${filename} baixado com sucesso`,
                                     });
-                                    
+
                                   } catch (error) {
                                     console.error(`Erro ao baixar nota_pdf:`, error);
                                     toast({
@@ -1882,9 +1882,9 @@ export function OrderDetailDrawer({
                                 onClick={async () => {
                                   try {
                                     console.log(`📥 Iniciando download de nota_xml para pedido ${orderId}`);
-                                    
+
                                     const response = await fetch(`/api/pedidos/${orderId}/documentos/nota_xml`);
-                                    
+
                                     if (!response.ok) {
                                       throw new Error(`Erro ao baixar documento: ${response.statusText}`);
                                     }
@@ -1892,7 +1892,7 @@ export function OrderDetailDrawer({
                                     // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
                                     const contentDisposition = response.headers.get('Content-Disposition');
                                     let filename = `nota_xml_${orderDetails?.orderId || orderId}.xml`;
-                                    
+
                                     if (contentDisposition) {
                                       const matches = contentDisposition.match(/filename="(.+)"/);
                                       if (matches && matches[1]) {
@@ -1902,7 +1902,7 @@ export function OrderDetailDrawer({
 
                                     // Converter resposta para blob
                                     const blob = await response.blob();
-                                    
+
                                     // Criar URL temporária e baixar
                                     const url = window.URL.createObjectURL(blob);
                                     const link = document.createElement('a');
@@ -1910,7 +1910,7 @@ export function OrderDetailDrawer({
                                     link.download = filename;
                                     document.body.appendChild(link);
                                     link.click();
-                                    
+
                                     // Limpar
                                     document.body.removeChild(link);
                                     window.URL.revokeObjectURL(url);
@@ -1919,7 +1919,7 @@ export function OrderDetailDrawer({
                                       title: "Download concluído",
                                       description: `Arquivo ${filename} baixado com sucesso`,
                                     });
-                                    
+
                                   } catch (error) {
                                     console.error(`Erro ao baixar nota_xml:`, error);
                                     toast({
@@ -1947,9 +1947,9 @@ export function OrderDetailDrawer({
                                 onClick={async () => {
                                   try {
                                     console.log(`📥 Iniciando download de certificado_pdf para pedido ${orderId}`);
-                                    
+
                                     const response = await fetch(`/api/pedidos/${orderId}/documentos/certificado_pdf`);
-                                    
+
                                     if (!response.ok) {
                                       throw new Error(`Erro ao baixar documento: ${response.statusText}`);
                                     }
@@ -1957,7 +1957,7 @@ export function OrderDetailDrawer({
                                     // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
                                     const contentDisposition = response.headers.get('Content-Disposition');
                                     let filename = `certificado_pdf_${orderDetails?.orderId || orderId}.pdf`;
-                                    
+
                                     if (contentDisposition) {
                                       const matches = contentDisposition.match(/filename="(.+)"/);
                                       if (matches && matches[1]) {
@@ -1967,7 +1967,7 @@ export function OrderDetailDrawer({
 
                                     // Converter resposta para blob
                                     const blob = await response.blob();
-                                    
+
                                     // Criar URL temporária e baixar
                                     const url = window.URL.createObjectURL(blob);
                                     const link = document.createElement('a');
@@ -1975,7 +1975,7 @@ export function OrderDetailDrawer({
                                     link.download = filename;
                                     document.body.appendChild(link);
                                     link.click();
-                                    
+
                                     // Limpar
                                     document.body.removeChild(link);
                                     window.URL.revokeObjectURL(url);
@@ -1984,7 +1984,7 @@ export function OrderDetailDrawer({
                                       title: "Download concluído",
                                       description: `Arquivo ${filename} baixado com sucesso`,
                                     });
-                                    
+
                                   } catch (error) {
                                     console.error(`Erro ao baixar certificado_pdf:`, error);
                                     toast({
