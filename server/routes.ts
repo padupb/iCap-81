@@ -3194,7 +3194,7 @@ Status: Teste em progresso...`;
             // Formatar os dados para o frontend
             const itens = result.rows.map((item: any) => ({
               id: item.id,
-              ordem_compra_id: item.item.ordem_compra_id,
+              ordem_compra_id: item.ordem_compra_id,
               produto_id: item.produto_id,
               produto_nome: item.produto_nome || "Produto não encontrado",
               unidade: item.unidade || item.unidade_nome || 'un',
