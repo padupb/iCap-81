@@ -1104,7 +1104,7 @@ export default function Orders() {
         </div>
 
         {/* Filtros */}
-        <div className="flex-1 flex gap-4 items-center">
+        <div className="flex-1 flex gap-3 items-center">
           {/* Campo de busca */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -1118,7 +1118,7 @@ export default function Orders() {
 
           {/* Filtro de período */}
           <div className="flex gap-2 items-center">
-            <Label className="text-sm text-muted-foreground">Período:</Label>
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Período:</Label>
             <Input
               type="date"
               placeholder="Data inicial"
