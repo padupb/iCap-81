@@ -910,14 +910,20 @@ export default function Orders() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {purchaseOrderItems.map((item) => (
-                              <SelectItem
-                                key={item.id}
-                                value={item.produto_id.toString()}
-                              >
-                                {item.produto_nome}
+                            {Array.isArray(purchaseOrderItems) && purchaseOrderItems.length > 0 ? (
+                              purchaseOrderItems.map((item) => (
+                                <SelectItem
+                                  key={item.id}
+                                  value={item.produto_id.toString()}
+                                >
+                                  {item.produto_nome}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="0" disabled>
+                                {isLoadingItems ? "Carregando produtos..." : "Nenhum produto disponível"}
                               </SelectItem>
-                            ))}
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
