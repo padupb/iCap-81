@@ -1,3 +1,7 @@
+// Corrected the column name in the query for checking available balance.
+// The error was caused by using 'product_id' instead of the correct column name 'produto_id'
+// in the 'itens_ordem_compra' table.
+
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -2026,7 +2030,7 @@ Status: Teste em progresso...`;
               // Se temos banco de dados, usar queries SQL
               const saldoResult = await pool.query(
                 `SELECT quantidade FROM itens_ordem_compra
-                 WHERE ordem_compra_id = $1 AND product_id = $2`,
+                 WHERE ordem_compra_id = $1 AND produto_id = $2`,
                 [orderData.purchaseOrderId, orderData.productId]
               );
 
