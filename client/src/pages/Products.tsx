@@ -19,11 +19,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  Plus, 
-  Search, 
-  Eye, 
-  Edit, 
+import {
+  Plus,
+  Search,
+  Eye,
+  Edit,
   Trash2,
   Package
 } from "lucide-react";
@@ -32,7 +32,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { insertProductSchema, type Product, type Unit } from "@shared/schema";
 import { z } from "zod";
 
-const productFormSchema = insertProductSchema;
+// Define a new schema for the product form, including the new field
+const productFormSchema = insertProductSchema.extend({
+  confirmationType: z.enum(["nota_fiscal", "numero_pedido"]).default("nota_fiscal"),
+});
 
 type ProductFormData = z.infer<typeof productFormSchema>;
 
@@ -123,6 +126,7 @@ export default function Products() {
     defaultValues: {
       name: "",
       unitId: 0,
+      confirmationType: "nota_fiscal", // Default value for the new field
     },
   });
 
@@ -145,6 +149,7 @@ export default function Products() {
     editForm.reset({
       name: product.name,
       unitId: product.unitId,
+      confirmationType: product.confirmationType || "nota_fiscal", // Set default if not present
     });
     setIsEditDialogOpen(true);
   };
@@ -156,7 +161,7 @@ export default function Products() {
   };
 
   // Filter products
-  const filteredProducts = products.filter(product => 
+  const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -175,7 +180,7 @@ export default function Products() {
             <DialogHeader>
               <DialogTitle>Cadastrar Novo Produto</DialogTitle>
             </DialogHeader>
-            
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
@@ -222,6 +227,27 @@ export default function Products() {
                     )}
                   />
 
+                  <FormField
+                    control={form.control}
+                    name="confirmationType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Confirmação de Carregamento</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || "nota_fiscal"}>
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione o tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="nota_fiscal">Nota Fiscal (PDF + XML)</SelectItem>
+                            <SelectItem value="numero_pedido">Número do Pedido</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                 </div>
 
@@ -252,7 +278,7 @@ export default function Products() {
             <DialogHeader>
               <DialogTitle>Editar Produto</DialogTitle>
             </DialogHeader>
-            
+
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
                 <FormField
@@ -280,8 +306,8 @@ export default function Products() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Unidade de Medida</FormLabel>
-                        <Select 
-                          value={field.value?.toString()} 
+                        <Select
+                          value={field.value?.toString()}
                           onValueChange={(value) => field.onChange(parseInt(value))}
                         >
                           <FormControl>
@@ -302,6 +328,30 @@ export default function Products() {
                     )}
                   />
 
+                  <FormField
+                    control={editForm.control}
+                    name="confirmationType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Confirmação de Carregamento</FormLabel>
+                        <Select
+                          value={field.value || "nota_fiscal"}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione o tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="nota_fiscal">Nota Fiscal (PDF + XML)</SelectItem>
+                            <SelectItem value="numero_pedido">Número do Pedido</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                 </div>
 
@@ -353,13 +403,14 @@ export default function Products() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Unidade</TableHead>
+                  <TableHead>Tipo de Confirmação</TableHead> {/* New Header */}
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.map((product) => {
                   const unit = units.find(u => u.id === product.unitId);
-                  
+
                   return (
                     <TableRow key={product.id} className="hover:bg-muted/50">
                       <TableCell>
@@ -377,19 +428,27 @@ export default function Products() {
                           <span className="text-muted-foreground text-sm">Unidade não encontrada</span>
                         )}
                       </TableCell>
+                      <TableCell> {/* New Cell for confirmation type */}
+                        {product.confirmationType === "nota_fiscal" && (
+                          <Badge variant="outline">Nota Fiscal</Badge>
+                        )}
+                        {product.confirmationType === "numero_pedido" && (
+                          <Badge variant="outline">Número do Pedido</Badge>
+                        )}
+                      </TableCell>
 
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(product)}
                           >
                             <Edit size={16} />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-destructive hover:text-destructive"
                             onClick={() => handleDelete(product.id)}
                           >
@@ -403,11 +462,11 @@ export default function Products() {
               </TableBody>
             </Table>
           </div>
-          
+
           {filteredProducts.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              {searchTerm 
-                ? "Nenhum produto encontrado com os filtros aplicados" 
+              {searchTerm
+                ? "Nenhum produto encontrado com os filtros aplicados"
                 : "Nenhum produto cadastrado"}
             </div>
           )}

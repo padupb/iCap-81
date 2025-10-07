@@ -270,6 +270,9 @@ export function OrderDetailDrawer({
   const [justificativa, setJustificativa] = useState("");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
+  // Estado para número do pedido
+  const [numeroPedido, setNumeroPedido] = useState("");
+
   // Refs para os inputs de arquivo
   const notaPdfRef = useRef<HTMLInputElement>(null);
   const notaXmlRef = useRef<HTMLInputElement>(null);
@@ -768,6 +771,67 @@ export function OrderDetailDrawer({
       });
     } else {
       console.log("Nenhum arquivo selecionado");
+    }
+  };
+
+  // Função para confirmar número do pedido
+  const handleConfirmNumeroPedido = async () => {
+    if (!orderDetails || !numeroPedido.trim()) {
+      toast({
+        title: "Erro",
+        description: "Informe o número do pedido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (numeroPedido.length > 20) {
+      toast({
+        title: "Erro",
+        description: "O número do pedido deve ter no máximo 20 caracteres",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/pedidos/${orderDetails.id}/confirmar-numero-pedido`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          numeroPedido: numeroPedido.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.sucesso) {
+        toast({
+          title: "Sucesso",
+          description: "Número do pedido confirmado com sucesso",
+        });
+
+        // Atualizar a lista de pedidos
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+
+        // Limpar o campo
+        setNumeroPedido("");
+      } else {
+        toast({
+          title: "Erro",
+          description: result.mensagem,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao confirmar número do pedido:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao confirmar número do pedido",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1794,7 +1858,66 @@ export function OrderDetailDrawer({
                           return null;
                         }
 
-                        // Lógica normal para documentos
+                        // Verificar o tipo de confirmação do produto
+                        const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
+
+                        // Se o tipo é número_pedido e já foi confirmado
+                        if (confirmationType === "numero_pedido" && (
+                            orderDetails.numeroPedido ||
+                            orderDetails.status === "Em Rota" ||
+                            orderDetails.status === "Em transporte" ||
+                            orderDetails.status === "Entregue"
+                        )) {
+                          return (
+                            <div className="space-y-4">
+                              <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
+                                <FileCheck size={48} className="text-green-500 mb-2" />
+                                <h3 className="text-lg font-medium text-green-700">
+                                  Número do Pedido Confirmado
+                                </h3>
+                                <p className="text-sm text-green-600 text-center mt-2">
+                                  Número do pedido: {orderDetails.numeroPedido}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Se o tipo é número_pedido e ainda não foi confirmado
+                        if (confirmationType === "numero_pedido" && canUploadDocuments()) {
+                          return (
+                            <div className="space-y-6">
+                              <div className="space-y-4">
+                                <Label htmlFor="numeroPedido" className="text-sm font-medium">
+                                  Número do Pedido (máx. 20 caracteres)
+                                </Label>
+                                <Input
+                                  id="numeroPedido"
+                                  type="text"
+                                  placeholder="Digite o número do pedido"
+                                  value={numeroPedido}
+                                  onChange={(e) => setNumeroPedido(e.target.value)}
+                                  maxLength={20}
+                                  className="bg-input border-border"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  {numeroPedido.length}/20 caracteres
+                                </p>
+                              </div>
+
+                              <Button
+                                onClick={handleConfirmNumeroPedido}
+                                disabled={!numeroPedido.trim() || numeroPedido.length > 20}
+                                className="w-full"
+                              >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Confirmar Número do Pedido
+                              </Button>
+                            </div>
+                          );
+                        }
+
+                        // Lógica normal para nota fiscal
                         if (documentsLoaded ||
                             orderDetails.status === "Carregado" ||
                             orderDetails.status === "Em Rota" ||

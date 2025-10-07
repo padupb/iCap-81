@@ -4944,7 +4944,7 @@ Status: Teste em progresso...`;
             if (!hasApprovalPermission) {
               return res.status(403).json({
                 success: false,
-                message: "Sem permissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresas podem aprovar pedidos urgentes."
+                message: "Sempermissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresas podem aprovar pedidos urgentes."
               });
             }
 
@@ -5206,7 +5206,7 @@ Status: Teste em progresso...`;
               if (ordemCompraResult.rows.length) {
                 const validoAte = new Date(ordemCompraResult.rows[0].valido_ate);
                 const novaData = new Date(novaDataEntrega);
-                
+
                 if (novaData > validoAte) {
                   return res.status(400).json({
                     sucesso: false,

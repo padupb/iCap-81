@@ -63,6 +63,7 @@ export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   unitId: integer("unit_id").notNull(),
+  confirmationType: text("confirmation_type").notNull().default("nota_fiscal"), // 'nota_fiscal' ou 'numero_pedido'
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -90,6 +91,7 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at").defaultNow(),
   documentosCarregados: boolean("documentos_carregados").default(false),
   documentosInfo: text("documentos_info"), // JSON com informações dos documentos
+  numeroPedido: text("numero_pedido"), // Número do pedido quando confirmationType = 'numero_pedido'
 });
 
 // Purchase orders table
@@ -240,10 +242,14 @@ export const insertCompanyCategorySchema = createInsertSchema(companyCategories)
 export const insertUserRoleSchema = createInsertSchema(userRoles).omit({
   id: true,
 });
-export const insertProductSchema = createInsertSchema(products).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertProductSchema = createInsertSchema(products)
+  .omit({
+    id: true,
+    createdAt: true,
+  })
+  .extend({
+    confirmationType: z.enum(["nota_fiscal", "numero_pedido"]).default("nota_fiscal"),
+  });
 export const insertUnitSchema = createInsertSchema(units).omit({ id: true });
 export const insertOrderSchema = createInsertSchema(orders)
   .omit({ id: true, orderId: true, createdAt: true, isUrgent: true })
