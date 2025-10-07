@@ -104,158 +104,6 @@ async function initializeObjectStorage() {
 // Inicializar Object Storage
 initializeObjectStorage();
 
-// Função utilitária para salvar arquivo no Object Storage, Google Drive ou sistema local
-async function saveFileToStorage(buffer: Buffer, filename: string, orderId: string): Promise<string> {
-  // PRIORIDADE 1: Tentar Object Storage se disponível
-  if (objectStorageAvailable && objectStorage) {
-    try {
-      // USAR PADRÃO SIMPLES: orderId/filename (sem prefixo "orders/")
-      const key = `${orderId}/${filename}`;
-
-      console.log(`📤 Tentando upload para Object Storage: ${key}`);
-      console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
-
-      // Usar o método correto do Replit Object Storage
-      try {
-        console.log(`📤 Iniciando upload - Tamanho original: ${buffer.length} bytes`);
-
-        // Validar buffer antes do upload
-        if (!buffer || buffer.length === 0) {
-          throw new Error("Buffer vazio ou inválido para upload");
-        }
-
-        // O método correto é uploadFromBytes para arquivos binários
-        if (buffer instanceof Buffer) {
-          // Converter buffer para Uint8Array que é o formato esperado pelo Replit Object Storage
-          const uint8Array = new Uint8Array(buffer);
-          console.log(`📤 Convertido para Uint8Array: ${uint8Array.length} bytes`);
-
-          // Upload usando bytes
-          await objectStorage.uploadFromBytes(key, uint8Array);
-          console.log("✅ Upload realizado com uploadFromBytes");
-        } else {
-          // Se não for Buffer, tentar converter primeiro
-          console.log(`⚠️ Dados não são Buffer, tentando conversão. Tipo: ${typeof buffer}`);
-          const bufferData = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-          const uint8Array = new Uint8Array(bufferData);
-          await objectStorage.uploadFromBytes(key, uint8Array);
-          console.log("✅ Upload realizado após conversão para Buffer");
-        }
-
-        // VERIFICAÇÃO CRÍTICA: Testar integridade do arquivo após upload
-        console.log(`🔍 Verificando integridade do arquivo após upload...`);
-        try {
-          const downloadTest = await objectStorage.downloadAsBytes(key);
-
-          // Extrair dados do resultado (pode estar em wrapper)
-          let testData = null;
-          if (downloadTest && typeof downloadTest === 'object' && downloadTest.ok && downloadTest.value) {
-            testData = downloadTest.value;
-          } else if (downloadTest instanceof Uint8Array || downloadTest instanceof Buffer) {
-            testData = downloadTest;
-          } else {
-            testData = downloadTest;
-          }
-
-          if (testData && testData.length > 0) {
-            const downloadedSize = testData.length;
-            const originalSize = buffer.length;
-
-            console.log(`📊 Verificação de integridade:`);
-            console.log(`   • Tamanho original: ${originalSize} bytes`);
-            console.log(`   • Tamanho baixado: ${downloadedSize} bytes`);
-            console.log(`   • Integridade: ${downloadedSize === originalSize ? 'OK' : 'FALHA'}`);
-
-            if (downloadedSize === originalSize) {
-              console.log(`✅ Arquivo verificado no Object Storage: ${key}`);
-              console.log(`✅ Arquivo estará disponível após redeploys`);
-              return key;
-            } else {
-              console.error(`❌ Tamanhos não coincidem! Original: ${originalSize}, Baixado: ${downloadedSize}`);
-              throw new Error(`Corrupção detectada: tamanhos diferentes (${originalSize} → ${downloadedSize})`);
-            }
-          } else {
-            console.error(`❌ Download de verificação retornou dados vazios ou nulos`);
-            throw new Error("Verificação falhou: dados vazios no download");
-          }
-        } catch (verifyError) {
-          console.error("❌ Falha na verificação de integridade:", verifyError.message);
-          // Não retornar a key se a verificação falhou completamente
-          throw new Error(`Upload falhou na verificação: ${verifyError.message}`);
-        }
-
-      } catch (error) {
-        console.error("❌ Erro específico no upload:", error.message);
-        console.error("❌ Stack trace:", error.stack);
-
-        // Tentar métodos alternativos se o principal falhar
-        console.log("🔄 Tentando métodos alternativos...");
-
-        try {
-          // Tentar método upload genérico se existir
-          if (typeof objectStorage.upload === 'function') {
-            console.log("🔧 Tentando método upload genérico");
-            await objectStorage.upload(key, buffer);
-            console.log("✅ Upload realizado com método genérico");
-            return key;
-          } else {
-            throw new Error("Nenhum método alternativo disponível");
-          }
-        } catch (altError) {
-          console.error("❌ Métodos alternativos também falharam:", altError.message);
-          throw uploadError; // Lançar o erro original
-        }
-      }
-
-    } catch (error) {
-      console.error("❌ Erro detalhado ao salvar no Object Storage:", {
-        message: error.message,
-        key: `${orderId}/${filename}`,
-        bufferSize: buffer.length,
-        objectStorageAvailable,
-        hasObjectStorage: !!objectStorage
-      });
-      console.log("🔄 Tentando Google Drive como fallback...");
-    }
-  } else {
-    console.log("⚠️ Object Storage não disponível:", {
-      objectStorageAvailable,
-      hasObjectStorage: !!objectStorage
-    });
-  }
-
-  // PRIORIDADE 2: Tentar Google Drive
-  try {
-    const { googleDriveService } = await import('./googleDrive');
-    const publicLink = await googleDriveService.uploadBuffer(buffer, filename, orderId);
-
-    if (publicLink) {
-      console.log(`📁 🔗 Arquivo salvo no Google Drive: ${publicLink}`);
-      console.log(`✅ Link público gerado com sucesso`);
-      return `gdrive:${publicLink}`;
-    }
-  } catch (error) {
-    console.error("❌ Erro ao salvar no Google Drive:", error);
-    console.log("🔄 Fallback para sistema local...");
-  }
-
-  // FALLBACK: Salvar no sistema local (temporário)
-  try {
-    const orderDir = path.join(process.cwd(), "uploads", orderId);
-    if (!fs.existsSync(orderDir)) {
-      fs.mkdirSync(orderDir, { recursive: true });
-    }
-    const filePath = path.join(orderDir, filename);
-    fs.writeFileSync(filePath, buffer);
-    console.log(`📁 💾 Arquivo salvo localmente (temporário): ${filePath}`);
-    console.log(`⚠️ Este arquivo será perdido no próximo deploy!`);
-    return filePath;
-  } catch (error) {
-    console.error("❌ Erro ao salvar localmente:", error);
-    throw new Error(`Falha ao salvar arquivo: ${error.message}`);
-  }
-}
-
 // Função utilitária simplificada para ler arquivo do Object Storage
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer, originalName: string } | null> {
   console.log(`🔍 DOWNLOAD SIMPLES: ${filename} | Key: ${key} | OrderId: ${orderId}`);
@@ -525,7 +373,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
           }
         } catch (altError) {
           console.error("❌ Métodos alternativos também falharam:", altError.message);
-          throw uploadError; // Lançar o erro original
+          throw error; // Lançar o erro original capturado no catch anterior
         }
       }
 
@@ -3576,7 +3424,7 @@ Status: Teste em progresso...`;
             // Formatar os dados para o frontend
             const itens = result.rows.map((item: any) => ({
               id: item.id,
-              ordem_compra_id: item.ordem_compra_id,
+              ordem_compra_id: item.item.ordem_compra_id,
               produto_id: item.produto_id,
               produto_nome: item.produto_nome || "Produto não encontrado",
               unidade: item.unidade || item.unidade_nome || 'un',
