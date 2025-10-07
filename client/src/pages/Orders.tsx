@@ -1039,7 +1039,7 @@ export default function Orders() {
           {/* Botão de Exportação */}
           <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="border-border">
+              <Button variant="outline" className="border-border mr-3">
                 <Download className="w-4 h-4 mr-2" />
                 Exportar
               </Button>
