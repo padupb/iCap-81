@@ -426,237 +426,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   }
 }
 
-// Rota para download de documentos dos pedidos
-    app.get("/api/pedidos/:id/documentos/:tipo", isAuthenticated, async (req, res) => {
-      try {
-        const pedidoId = parseInt(req.params.id);
-        const tipoDoc = req.params.tipo;
-
-        console.log(`📥 Download solicitado - Pedido: ${pedidoId}, Tipo: ${tipoDoc}`);
-
-        if (isNaN(pedidoId)) {
-          return res.status(400).json({
-            success: false,
-            message: "ID do pedido inválido"
-          });
-        }
-
-        // Buscar o pedido no banco
-        const pedido = await pool.query(`
-          SELECT
-            id,
-            order_id,
-            documentos_info
-          FROM orders
-          WHERE id = $1
-        `, [pedidoId]);
-
-        if (pedido.rows.length === 0) {
-          return res.status(404).json({
-            success: false,
-            message: "Pedido não encontrado"
-          });
-        }
-
-        const pedidoData = pedido.rows[0];
-        const orderId = pedidoData.order_id;
-
-        console.log(`📋 Pedido encontrado: ${orderId}`);
-
-        // Estratégia 1: Verificar documentos_info
-        let storageKey = null;
-        let filename = null;
-
-        if (pedidoData.documentos_info) {
-          try {
-            const documentosInfo = typeof pedidoData.documentos_info === 'string'
-              ? JSON.parse(pedidoData.documentos_info)
-              : pedidoData.documentos_info;
-
-            if (documentosInfo[tipoDoc]) {
-              storageKey = documentosInfo[tipoDoc].storageKey;
-              filename = documentosInfo[tipoDoc].filename || documentosInfo[tipoDoc].originalName;
-              console.log(`📂 Info do documento encontrada: ${storageKey}`);
-            }
-          } catch (parseError) {
-            console.log(`⚠️ Erro ao parsear documentos_info: ${parseError.message}`);
-          }
-        }
-
-        // Estratégia 2: Buscar arquivos no Object Storage pelo padrão
-        if (!storageKey) {
-          console.log(`🔍 Buscando arquivos no Object Storage para ${orderId}...`);
-
-          if (objectStorageAvailable && objectStorage) {
-            try {
-              const listResult = await objectStorage.list();
-              let objects = [];
-
-              if (listResult && listResult.ok && listResult.value) {
-                objects = listResult.value;
-              } else if (Array.isArray(listResult)) {
-                objects = listResult;
-              }
-
-              // Buscar arquivo que corresponda ao tipo e pedido
-              const matchingFile = objects.find(obj => {
-                const objKey = obj.key || obj.name || String(obj);
-                return objKey.includes(orderId) && objKey.includes(tipoDoc.split('_')[0]);
-              });
-
-              if (matchingFile) {
-                storageKey = matchingFile.key || matchingFile.name || String(matchingFile);
-                filename = storageKey.split('/').pop() || `${tipoDoc}.pdf`;
-                console.log(`🎯 Arquivo encontrado no Object Storage: ${storageKey}`);
-              }
-            } catch (listError) {
-              console.log(`⚠️ Erro ao listar Object Storage: ${listError.message}`);
-            }
-          }
-        }
-
-        // Estratégia 3: Buscar no sistema local
-        if (!storageKey) {
-          console.log(`🔍 Buscando no sistema local...`);
-
-          const uploadDir = path.join(process.cwd(), "uploads", orderId);
-          if (fs.existsSync(uploadDir)) {
-            try {
-              const files = fs.readdirSync(uploadDir);
-              const matchingFile = files.find(file => file.includes(tipoDoc.split('_')[0]));
-
-              if (matchingFile) {
-                storageKey = path.join(uploadDir, matchingFile);
-                filename = matchingFile;
-                console.log(`📁 Arquivo encontrado localmente: ${storageKey}`);
-              }
-            } catch (dirError) {
-              console.log(`⚠️ Erro ao listar diretório local: ${dirError.message}`);
-            }
-          }
-        }
-
-        // Se não encontramos o arquivo em lugar nenhum
-        if (!storageKey) {
-          console.log(`❌ Arquivo ${tipoDoc} não encontrado para pedido ${orderId}`);
-          return res.status(404).json({
-            success: false,
-            message: `Documento ${tipoDoc} não encontrado para este pedido`
-          });
-        }
-
-        console.log(`📥 Fazendo download: ${filename}`);
-
-        // Fazer download do arquivo
-        const fileResult = await readFileFromStorage(storageKey, orderId, filename);
-
-        if (!fileResult) {
-          console.log(`❌ Falha no download do arquivo: ${filename}`);
-          return res.status(404).json({
-            success: false,
-            message: `Não foi possível baixar o documento ${tipoDoc}`
-          });
-        }
-
-        // Verificar se é redirect do Google Drive
-        if (fileResult.data.toString().startsWith('REDIRECT:')) {
-          const driveLink = fileResult.data.toString().replace('REDIRECT:', '');
-          console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-          return res.redirect(driveLink);
-        }
-
-        // Validar se o arquivo não está vazio
-        if (fileResult.data.length <= 1) {
-          console.log(`❌ Arquivo muito pequeno ou corrompido: ${fileResult.data.length} bytes`);
-          return res.status(404).json({
-            success: false,
-            message: `Documento ${tipoDoc} está corrompido ou vazio`
-          });
-        }
-
-        // Definir Content-Type baseado no tipo de documento
-        let contentType = 'application/octet-stream';
-        let extension = 'bin';
-
-        if (tipoDoc.includes('pdf')) {
-          contentType = 'application/pdf';
-          extension = 'pdf';
-        } else if (tipoDoc.includes('xml')) {
-          contentType = 'application/xml';
-          extension = 'xml';
-        }
-
-        // Configurar headers para download
-        const downloadFilename = `${orderId}_${tipoDoc}.${extension}`;
-
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
-        res.setHeader('Content-Length', fileResult.data.length);
-        res.setHeader('Cache-Control', 'no-cache');
-
-        console.log(`✅ Enviando arquivo: ${downloadFilename} (${fileResult.data.length} bytes)`);
-
-        // Enviar o arquivo
-        res.end(fileResult.data);
-
-      } catch (error) {
-        console.error("Erro no download de documento:", error);
-        res.status(500).json({
-          success: false,
-          message: "Erro interno do servidor ao baixar documento"
-        });
-      }
-    });
-
-    // Função utilitária para converter data preservando o dia selecionado no calendário
-function convertToLocalDate(dateString: string): Date {
-      console.log(`🔍 convertToLocalDate - entrada: ${dateString}`);
-
-      // Para datas com timezone (como as do frontend), manter a data original
-      if (dateString.includes('Z') || dateString.includes('+') || dateString.includes('-', 10)) {
-        const originalDate = new Date(dateString);
-
-        // Extrair os componentes da data original (UTC)
-        const year = originalDate.getUTCFullYear();
-        const month = originalDate.getUTCMonth();
-        const day = originalDate.getUTCDate();
-
-        // Criar uma nova data preservando exatamente o dia selecionado no calendário
-        // Usando 12:00 UTC para evitar problemas de fuso horário
-        const preservedDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-
-        console.log(`📅 Data recebida: ${originalDate.toISOString()}`);
-        console.log(`📅 Dia extraído (UTC): ${day}/${month + 1}/${year}`);
-        console.log(`📅 Data preservada: ${preservedDate.toISOString()}`);
-        console.log(`📅 Data em formato brasileiro: ${preservedDate.toLocaleDateString('pt-BR')}`);
-
-        return preservedDate;
-      }
-
-      // Para datas sem timezone (formato YYYY-MM-DD)
-      const dateParts = dateString.split('T')[0].split('-');
-      if (dateParts.length === 3) {
-        const year = parseInt(dateParts[0]);
-        const month = parseInt(dateParts[1]) - 1; // Mês é 0-indexed no JavaScript
-        const day = parseInt(dateParts[2]);
-
-        // Criar a data exatamente como selecionada (sem ajustes)
-        const exactDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-
-        console.log(`📅 Data parseada: ${day}/${month + 1}/${year}`);
-        console.log(`📅 Data UTC exata: ${exactDate.toISOString()}`);
-        console.log(`📅 Data em formato brasileiro: ${exactDate.toLocaleDateString('pt-BR')}`);
-
-        return exactDate;
-      }
-
-      // Fallback para outros formatos
-      const fallbackDate = new Date(dateString);
-      console.log(`📅 Fallback date: ${fallbackDate.toISOString()}`);
-      return fallbackDate;
-    }
-
-    // Configuração avançada do multer para upload de arquivos
+// Configuração avançada do multer para upload de arquivos
 const storage_upload = multer.diskStorage({
       destination: async function (req, file, cb) {
         try {
@@ -4163,9 +3933,9 @@ Status: Teste em progresso...`;
           }
         });
 
-        // Configuração do upload com multer (usando storage_upload que cria pastas por order_id)
-        const upload = multer({
-          storage: storage_upload,
+        // Configuração do multer para upload de documentos
+        const uploadDocuments = multer({
+          storage: storage_upload, // Usa o storage_upload que cria pastas por order_id
           fileFilter: fileFilter,
           limits: {
             fileSize: 10 * 1024 * 1024 // Limite de 10MB por arquivo
@@ -4176,7 +3946,7 @@ Status: Teste em progresso...`;
         app.post(
           "/api/pedidos/:id/documentos",
           isAuthenticated,
-          upload.fields([
+          uploadDocuments.fields([
             { name: 'nota_pdf', maxCount: 1 },
             { name: 'nota_xml', maxCount: 1 },
             { name: 'certificado_pdf', maxCount: 1 }
@@ -4944,7 +4714,7 @@ Status: Teste em progresso...`;
 
             console.log(`📍 Encontrados pontos para ${result.rows.length} pedidos`);
 
-            const summary = result.rows.reduce((acc: any, row: any) => {
+            const summary = result.reduce((acc: any, row: any) => {
               const latitude = parseFloat(row.latitude);
               const longitude = parseFloat(row.longitude);
 
