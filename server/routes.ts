@@ -5181,6 +5181,41 @@ Status: Teste em progresso...`;
               });
             }
 
+            // Buscar o pedido para obter a ordem de compra
+            const pedidoResult = await pool.query(
+              "SELECT purchase_order_id FROM orders WHERE id = $1",
+              [id]
+            );
+
+            if (!pedidoResult.rows.length) {
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: "Pedido não encontrado"
+              });
+            }
+
+            const purchaseOrderId = pedidoResult.rows[0].purchase_order_id;
+
+            // Validar contra a validade da ordem de compra
+            if (purchaseOrderId) {
+              const ordemCompraResult = await pool.query(
+                "SELECT valido_ate FROM ordens_compra WHERE id = $1",
+                [purchaseOrderId]
+              );
+
+              if (ordemCompraResult.rows.length) {
+                const validoAte = new Date(ordemCompraResult.rows[0].valido_ate);
+                const novaData = new Date(novaDataEntrega);
+                
+                if (novaData > validoAte) {
+                  return res.status(400).json({
+                    sucesso: false,
+                    mensagem: `A data de reprogramação não pode ser posterior à validade da ordem de compra (${validoAte.toLocaleDateString('pt-BR')})`
+                  });
+                }
+              }
+            }
+
             // Verificar se o pedido existe
             const order = await storage.getOrder(id);
             if (!order) {

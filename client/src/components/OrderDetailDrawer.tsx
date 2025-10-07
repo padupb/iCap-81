@@ -2519,7 +2519,14 @@ export function OrderDetailDrawer({
           <DialogHeader>
             <DialogTitle>Reprogramar Entrega</DialogTitle>
             <DialogDescription>
-              Selecione a nova data de entrega (até 7 dias a partir de hoje) e informe a justificativa.
+              {(() => {
+                const validUntil = orderDetails?.purchaseOrder?.validUntil;
+                if (validUntil) {
+                  const maxDate = new Date(validUntil);
+                  return `Selecione a nova data de entrega (até ${formatDate(maxDate.toString())}, conforme validade da ordem de compra) e informe a justificativa.`;
+                }
+                return "Selecione a nova data de entrega e informe a justificativa.";
+              })()}
             </DialogDescription>
           </DialogHeader>
 
@@ -2546,7 +2553,15 @@ export function OrderDetailDrawer({
                     }}
                     disabled={(date) => {
                       const today = new Date();
-                      const maxDate = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
+                      today.setHours(0, 0, 0, 0);
+                      
+                      // Usar a data de validade da ordem de compra como limite máximo
+                      const maxDate = orderDetails?.purchaseOrder?.validUntil 
+                        ? new Date(orderDetails.purchaseOrder.validUntil)
+                        : new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000)); // fallback para 7 dias
+                      
+                      maxDate.setHours(23, 59, 59, 999);
+                      
                       return date <= today || date > maxDate;
                     }}
                     initialFocus
