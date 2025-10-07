@@ -1,3 +1,4 @@
+replit_final_file>
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,12 +18,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
@@ -2409,7 +2408,7 @@ export function OrderDetailDrawer({
                               <div className="flex flex-col items-center gap-4">
                                 <div className="flex flex-col items-center gap-2">
                                   <button
-                                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${fotoNotaAssinada ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${fotoNotaAssinada ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
                                     onClick={() => {
                                       if (fotoNotaAssinadaRef.current) {
                                         fotoNotaAssinadaRef.current.value = "";
@@ -2677,14 +2676,14 @@ export function OrderDetailDrawer({
                     disabled={(date) => {
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
-                      
+
                       // Usar a data de validade da ordem de compra como limite máximo
                       const maxDate = orderDetails?.purchaseOrder?.validUntil 
                         ? new Date(orderDetails.purchaseOrder.validUntil)
                         : new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000)); // fallback para 7 dias
-                      
+
                       maxDate.setHours(23, 59, 59, 999);
-                      
+
                       return date <= today || date > maxDate;
                     }}
                     initialFocus
@@ -2730,3 +2729,4 @@ export function OrderDetailDrawer({
     </Drawer>
   );
 }
+</replit_final_file>
