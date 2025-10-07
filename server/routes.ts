@@ -426,7 +426,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   }
 }
 
-// Rota para download de documentos dos pedidos dentro da função registerRoutes
+// Rota para download de documentos dos pedidos
     app.get("/api/pedidos/:id/documentos/:tipo", isAuthenticated, async (req, res) => {
       try {
         const pedidoId = parseInt(req.params.id);
@@ -609,7 +609,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     });
 
     // Função utilitária para converter data preservando o dia selecionado no calendário
-    function convertToLocalDate(dateString: string): Date {
+function convertToLocalDate(dateString: string): Date {
       console.log(`🔍 convertToLocalDate - entrada: ${dateString}`);
 
       // Para datas com timezone (como as do frontend), manter a data original
@@ -657,7 +657,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     }
 
     // Configuração avançada do multer para upload de arquivos
-    const storage_upload = multer.diskStorage({
+const storage_upload = multer.diskStorage({
       destination: async function (req, file, cb) {
         try {
           // Buscar o order_id do pedido pelo ID
