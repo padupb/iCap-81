@@ -4753,6 +4753,15 @@ Status: Teste em progresso...`;
           return !isNaN(lng) && lng >= -180 && lng <= 180;
         }
 
+        // Função para converter data para timezone local brasileiro
+        function convertToLocalDate(dateString: string | Date): Date {
+          const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+          // Ajustar para timezone brasileiro (GMT-3)
+          const offsetMinutes = date.getTimezoneOffset();
+          const localDate = new Date(date.getTime() - (offsetMinutes * 60000));
+          return localDate;
+        }
+
         // Rota para adicionar ponto de rastreamento (usado pelo app mobile)
         app.post("/api/tracking-points", authenticateUser, async (req, res) => {
           try {
