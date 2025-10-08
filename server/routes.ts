@@ -2824,8 +2824,8 @@ Status: Teste em progresso...`;
                   const buffer = fs.readFileSync(req.file.path);
                   const storageKey = `OC/${numeroOrdem}.pdf`;
 
-                  console.log(`📤 Salvando PDF na pasta OC: ${storageKey}`);
-                  console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
+                  console.log(` পাঠানোর Saving PDF to OC folder: ${storageKey}`);
+                  console.log(`📊 Buffer size: ${buffer.length} bytes`);
 
                   // Usar o método correto do Replit Object Storage
                   const uint8Array = new Uint8Array(buffer);
@@ -2835,20 +2835,20 @@ Status: Teste em progresso...`;
                   try {
                     const verification = await objectStorage.downloadAsBytes(storageKey);
                     if (verification && verification.length > 1 && verification.length === buffer.length) { // Verifica se o arquivo não está corrompido e tem o tamanho correto
-                      console.log(`✅ PDF salvo e verificado na pasta OC: ${storageKey} (${verification.length} bytes)`);
+                      console.log(`✅ PDF saved and verified in OC folder: ${storageKey} (${verification.length} bytes)`);
                       pdfKey = storageKey;
                     } else {
-                      console.log(`⚠️ Upload realizado mas verificação falhou (tamanho ${verification?.length || 0} vs ${buffer.length})`);
+                      console.log(`⚠️ Upload completed but verification failed (size ${verification?.length || 0} vs ${buffer.length})`);
                       // Não lança erro, mas informa que a verificação falhou
                     }
                   } catch (verifyError) {
-                    console.log(`⚠️ Upload realizado mas verificação falhou: ${verifyError.message}`);
+                    console.log(`⚠️ Upload completed but verification failed: ${verifyError.message}`);
                     // Não lança erro, mas informa que a verificação falhou
                   }
 
                   // Se a chave não foi definida (por falha na verificação), usar o fallback
                   if (!pdfKey) {
-                    console.log(`🔄 Usando fallback para saveFileToStorage, pois a verificação no Object Storage falhou.`);
+                    console.log(`🔄 Falling back to saveFileToStorage as Object Storage verification failed.`);
                     pdfKey = await saveFileToStorage(
                       buffer,
                       req.file.filename,
@@ -2857,7 +2857,7 @@ Status: Teste em progresso...`;
                   }
 
                 } else {
-                  console.log(`⚠️ Object Storage não disponível - usando fallback`);
+                  console.log(`⚠️ Object Storage not available - falling back.`);
                   // Fallback para função existente se Object Storage não disponível
                   pdfKey = await saveFileToStorage(
                     fs.readFileSync(req.file.path),
@@ -2866,8 +2866,8 @@ Status: Teste em progresso...`;
                   );
                 }
               } catch (error) {
-                console.error(`❌ Erro ao salvar PDF na pasta OC:`, error);
-                console.log(`🔄 Tentando fallback para função saveFileToStorage`);
+                console.error(`❌ Error saving PDF to OC folder:`, error);
+                console.log(`🔄 Attempting fallback to saveFileToStorage function.`);
 
                 // Fallback para função existente
                 try {
@@ -2876,14 +2876,14 @@ Status: Teste em progresso...`;
                     req.file.filename,
                     `ordens_compra_${numeroOrdem}`
                   );
-                  console.log(`✅ PDF salvo usando fallback: ${pdfKey}`);
+                  console.log(`✅ PDF saved via fallback: ${pdfKey}`);
                 } catch (fallbackError) {
-                  console.error(`❌ Erro no fallback também:`, fallbackError);
-                  throw new Error(`Falha ao salvar PDF: ${fallbackError.message}`);
+                  console.error(`❌ Fallback also failed:`, fallbackError);
+                  throw new Error(`Failed to save PDF: ${fallbackError.message}`);
                 }
               }
 
-              console.log(`✅ PDF salvo no Object Storage com chave: ${pdfKey}`);
+              console.log(`✅ PDF saved to Object Storage with key: ${pdfKey}`);
 
               // Construir informações do PDF para armazenar no banco
               const pdfInfo = {
@@ -2901,7 +2901,7 @@ Status: Teste em progresso...`;
                 [JSON.stringify(pdfInfo), id]
               );
 
-              console.log(`📊 Informações do PDF salvas no banco para ordem ${numeroOrdem}`);
+              console.log(`📊 PDF info saved to database for order ${numeroOrdem}`);
 
               // Registrar log de upload
               if (req.session.userId) {
