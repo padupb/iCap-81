@@ -145,11 +145,12 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           isBuffer: result instanceof Buffer,
           isUint8Array: result instanceof Uint8Array,
           hasOk: result && typeof result === 'object' && 'ok' in result,
-          hasValue: result && typeof result === 'object' && 'value' in result
+          hasValue: result && typeof result === 'object' && 'value' in result,
+          keys: result && typeof result === 'object' ? Object.keys(result) : []
         });
 
         // Processar resultado do Replit Object Storage
-        if (result && typeof result === 'object' && 'ok' in result && 'value' in result) {
+        if (result && typeof result === 'object' && 'ok' in result) {
           // Result wrapper do Replit
           console.log(`🎯 Result wrapper detectado - Status: ${result.ok}`);
 
@@ -158,7 +159,13 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             continue; // Tentar próxima chave
           }
 
+          // O value pode estar diretamente ou pode estar vazio se ok=true mas sem dados
           const valueData = result.value;
+
+          if (!valueData) {
+            console.log(`⚠️ Result.ok=true mas value está vazio/undefined`);
+            continue;
+          }
 
           if (valueData instanceof Uint8Array) {
             buffer = Buffer.from(valueData);
@@ -169,6 +176,17 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           } else if (Array.isArray(valueData)) {
             buffer = Buffer.from(valueData);
             console.log(`✅ Array convertido para Buffer: ${buffer.length} bytes`);
+          } else if (typeof valueData === 'object') {
+            // Pode ser um objeto array-like {0: byte1, 1: byte2, ...}
+            try {
+              const bytes = Object.values(valueData);
+              if (bytes.every(b => typeof b === 'number')) {
+                buffer = Buffer.from(bytes);
+                console.log(`✅ Object array-like convertido para Buffer: ${buffer.length} bytes`);
+              }
+            } catch (e) {
+              console.log(`⚠️ Erro ao converter object para buffer:`, e.message);
+            }
           } else {
             console.log(`⚠️ Tipo de value não reconhecido:`, typeof valueData);
           }
@@ -180,19 +198,23 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           // Dados diretos como Buffer
           buffer = result;
           console.log(`✅ Buffer direto: ${buffer.length} bytes`);
+        } else if (Array.isArray(result)) {
+          // Array direto de bytes
+          buffer = Buffer.from(result);
+          console.log(`✅ Array direto convertido: ${buffer.length} bytes`);
         } else {
           console.log(`❌ Tipo de resultado não suportado:`, typeof result);
         }
 
-        // Verificar se o buffer é válido
-        if (buffer && buffer.length > 1) {
+        // Verificar se o buffer é válido (mais de 100 bytes para arquivos reais)
+        if (buffer && buffer.length > 100) {
           console.log(`✅ Arquivo encontrado e validado: ${storageKey} (${buffer.length} bytes)`);
           return {
             data: buffer,
             originalName: filename
           };
         } else {
-          console.log(`⚠️ Buffer inválido ou muito pequeno: ${buffer ? buffer.length : 0} bytes`);
+          console.log(`⚠️ Buffer muito pequeno (provável erro): ${buffer ? buffer.length : 0} bytes`);
         }
 
       } catch (error) {
