@@ -1,5 +1,5 @@
 replit_final_file>
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, ChangeEvent, Dispatch, SetStateAction } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Drawer,
@@ -372,7 +372,7 @@ export function OrderDetailDrawer({
     });
 
   // Montar os detalhes do pedido a partir dos dados obtidos
-  const orderDetails = React.useMemo(() => {
+  const orderDetails = useMemo(() => {
     if (!orderId) return null;
 
     const order = orders.find((o) => o.id === orderId);
@@ -575,7 +575,7 @@ export function OrderDetailDrawer({
   });
 
   // Efeito para processar os dados dos documentos quando eles são carregados
-  React.useEffect(() => {
+  useEffect(() => {
     if (documentosData?.temDocumentos) {
       setDocumentsLoaded(true);
       console.log(
@@ -756,8 +756,8 @@ export function OrderDetailDrawer({
 
   // Função para lidar com a seleção de arquivos
   const handleFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setFile: React.Dispatch<React.SetStateAction<File | null>>,
+    e: ChangeEvent<HTMLInputElement>,
+    setFile: Dispatch<SetStateAction<File | null>>,
   ) => {
     console.log("handleFileChange chamado", e.target.files);
     if (e.target.files && e.target.files[0]) {
@@ -774,8 +774,8 @@ export function OrderDetailDrawer({
   };
 
   const handleFotoChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setFile: React.Dispatch<React.SetStateAction<File | null>>,
+    e: ChangeEvent<HTMLInputElement>,
+    setFile: Dispatch<SetStateAction<File | null>>,
   ) => {
     console.log("handleFotoChange chamado", e.target.files);
     if (e.target.files && e.target.files[0]) {
