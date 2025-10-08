@@ -327,6 +327,8 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
             testData = downloadTest.value;
           } else if (downloadTest instanceof Uint8Array || downloadTest instanceof Buffer) {
             testData = downloadTest;
+          } else if (Array.isArray(downloadTest)) {
+            testData = downloadTest;
           } else {
             testData = downloadTest;
           }
@@ -1868,7 +1870,7 @@ Status: Teste em progresso...`;
 
             // Atualizar diretamente no banco de dados usando pool
             await pool.query(
-              `UPDATE products 
+              `UPDATE products
                SET name = $1, unit_id = $2, confirmation_type = $3
                WHERE id = $4`,
               [productData.name, productData.unitId, productData.confirmationType || 'nota_fiscal', id]
@@ -5092,7 +5094,7 @@ Status: Teste em progresso...`;
             if (!hasApprovalPermission) {
               return res.status(403).json({
                 success: false,
-                message: "Sem permissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresas podem aprovar pedidos urgentes."
+                message: "Sem permissão para aprovar pedidos. Apenas KeyUsers e aprovadores de empresaspodem aprovar pedidos urgentes."
               });
             }
 
