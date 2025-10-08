@@ -376,11 +376,12 @@ export function OrderDetailDrawer({
     const order = orders.find((o) => o.id === orderId);
     if (!order) return null;
 
-    console.log('📋 Debug orderDetails:', {
+    console.log('📋 Debug orderDetails completo:', {
       orderId: order.id,
       numeroPedido: order.numeroPedido,
       numero_pedido: order.numero_pedido,
-      status: order.status
+      status: order.status,
+      todasAsPropriedades: Object.keys(order)
     });
 
     const product = products.find((p) => p.id === order.productId);
