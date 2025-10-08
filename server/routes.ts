@@ -1363,7 +1363,7 @@ Status: Teste em progresso...`;
                 console.log(`🎯 Result wrapper detectado - Status: ${downloadedData.ok ? 'OK' : 'ERROR'}`);
 
                 if (!downloadedData.ok || downloadedData.error) {
-                  console.log(`❌ Result indica erro: ${downloadedData.error || 'status não OK'}`);
+                  console.log(`❌ Result indica erro: ${downloadedData.error || 'download failed'}`);
                   throw new Error(`Object Storage error: ${downloadedData.error || 'download failed'}`);
                 }
 
@@ -4812,6 +4812,76 @@ Status: Teste em progresso...`;
           } catch (error) {
             console.error("Erro ao buscar menus do sistema:", error);
             res.status(500).json({ message: "Erro ao buscar menus do sistema" });
+          }
+        });
+
+        // Rota para confirmar número do pedido
+        app.post("/api/pedidos/:id/confirmar-numero-pedido", async (req, res) => {
+          try {
+            const pedidoId = parseInt(req.params.id);
+            const { numeroPedido } = req.body;
+
+            console.log(`📋 Confirmação de número do pedido ${pedidoId}:`, numeroPedido);
+
+            if (!numeroPedido || numeroPedido.trim() === "") {
+              return res.status(400).json({
+                sucesso: false,
+                mensagem: "Número do pedido é obrigatório"
+              });
+            }
+
+            if (numeroPedido.length > 20) {
+              return res.status(400).json({
+                sucesso: false,
+                mensagem: "Número do pedido deve ter no máximo 20 caracteres"
+              });
+            }
+
+            // Atualizar o pedido com o número confirmado
+            const updateResult = await pool.query(
+              `UPDATE orders 
+               SET numero_pedido = $1, 
+                   status = CASE 
+                     WHEN status = 'Registrado' THEN 'Aprovado'
+                     ELSE status 
+                   END
+               WHERE id = $2
+               RETURNING *`,
+              [numeroPedido.trim(), pedidoId]
+            );
+
+            if (updateResult.rows.length === 0) {
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: "Pedido não encontrado"
+              });
+            }
+
+            console.log(`✅ Número do pedido confirmado: ${numeroPedido}`);
+
+            // Registrar log
+            if (req.session.userId) {
+              await storage.createLog({
+                userId: req.session.userId,
+                action: "Confirmou número do pedido",
+                itemType: "order",
+                itemId: pedidoId.toString(),
+                details: `Número do pedido confirmado: ${numeroPedido}`
+              });
+            }
+
+            return res.json({
+              sucesso: true,
+              mensagem: "Número do pedido confirmado com sucesso",
+              numeroPedido: numeroPedido.trim()
+            });
+
+          } catch (error) {
+            console.error("❌ Erro ao confirmar número do pedido:", error);
+            return res.status(500).json({
+              sucesso: false,
+              mensagem: "Erro ao confirmar número do pedido"
+            });
           }
         });
 
