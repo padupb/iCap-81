@@ -215,6 +215,32 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           };
         } else {
           console.log(`⚠️ Buffer muito pequeno (provável erro): ${buffer ? buffer.length : 0} bytes`);
+          console.log(`🔄 Tentando método alternativo de download...`);
+          
+          // Método alternativo: tentar download direto sem conversão
+          try {
+            const rawResult = await objectStorage.downloadAsBytes(storageKey);
+            console.log(`📊 Resultado bruto do método alternativo:`, {
+              tipo: typeof rawResult,
+              tamanho: rawResult?.length || 'indefinido',
+              temOk: rawResult?.ok !== undefined,
+              temValue: rawResult?.value !== undefined
+            });
+            
+            // Se o resultado bruto for maior, usar ele
+            if (rawResult && rawResult.length > buffer?.length) {
+              const altBuffer = Buffer.from(rawResult);
+              if (altBuffer.length > 100) {
+                console.log(`✅ Método alternativo funcionou: ${altBuffer.length} bytes`);
+                return {
+                  data: altBuffer,
+                  originalName: filename
+                };
+              }
+            }
+          } catch (altError) {
+            console.log(`❌ Método alternativo também falhou: ${altError.message}`);
+          }
         }
 
       } catch (error) {
@@ -1352,6 +1378,58 @@ Status: Teste em progresso...`;
               error: error.message,
               log: log.join('\n'),
               timestamp: new Date().toISOString()
+            });
+          }
+        });
+
+        // Rota para re-upload de arquivo corrompido (KeyUser only)
+        app.post("/api/keyuser/fix-corrupted-file", isAuthenticated, isKeyUser, async (req, res) => {
+          try {
+            const { orderId, localPath, storageKey } = req.body;
+            
+            console.log(`🔧 Tentando corrigir arquivo corrompido...`);
+            console.log(`   Pedido: ${orderId}`);
+            console.log(`   Caminho local: ${localPath}`);
+            console.log(`   Storage Key: ${storageKey}`);
+            
+            // Tentar ler do sistema local
+            const fs = await import('fs');
+            const path = await import('path');
+            
+            if (fs.existsSync(localPath)) {
+              const localBuffer = fs.readFileSync(localPath);
+              console.log(`✅ Arquivo local encontrado: ${localBuffer.length} bytes`);
+              
+              // Re-upload para Object Storage
+              if (objectStorageAvailable && objectStorage) {
+                const uint8Array = new Uint8Array(localBuffer);
+                await objectStorage.uploadFromBytes(storageKey, uint8Array);
+                console.log(`✅ Arquivo re-carregado no Object Storage: ${storageKey}`);
+                
+                // Verificar
+                const verification = await objectStorage.downloadAsBytes(storageKey);
+                console.log(`🔍 Verificação: ${verification?.length || verification?.value?.length || 0} bytes`);
+                
+                return res.json({
+                  success: true,
+                  message: `Arquivo corrigido com sucesso`,
+                  originalSize: localBuffer.length,
+                  verificationSize: verification?.length || verification?.value?.length || 0
+                });
+              }
+            } else {
+              console.log(`❌ Arquivo local não encontrado: ${localPath}`);
+              return res.status(404).json({
+                success: false,
+                message: `Arquivo local não encontrado`
+              });
+            }
+            
+          } catch (error) {
+            console.error("Erro ao corrigir arquivo:", error);
+            res.status(500).json({
+              success: false,
+              message: `Erro: ${error.message}`
             });
           }
         });
