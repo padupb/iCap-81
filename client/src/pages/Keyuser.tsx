@@ -185,6 +185,8 @@ export default function Keyuser() {
   const [objectStorageTestResult, setObjectStorageTestResult] = useState<any>(null);
   const [isTestingObjectStorageAPI, setIsTestingObjectStorageAPI] = useState(false);
   const [objectStorageAPITestResult, setObjectStorageAPITestResult] = useState<any>(null);
+  const [numeroPedidoDownload, setNumeroPedidoDownload] = useState("");
+  const [isDownloadingNotaFiscal, setIsDownloadingNotaFiscal] = useState(false);
 
 
   const queryClient = useQueryClient();
@@ -947,6 +949,79 @@ export default function Keyuser() {
       });
     } finally {
       setIsTestingObjectStorageAPI(false);
+    }
+  };
+
+  const handleDownloadNotaFiscal = async () => {
+    if (!numeroPedidoDownload.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, digite o número do pedido",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsDownloadingNotaFiscal(true);
+
+    try {
+      // Buscar o pedido pelo número
+      const response = await fetch(`/api/orders?orderId=${numeroPedidoDownload}`);
+      
+      if (!response.ok) {
+        throw new Error("Erro ao buscar pedido");
+      }
+
+      const orders = await response.json();
+      const order = orders.find((o: any) => o.orderId === numeroPedidoDownload || o.numeroPedido === numeroPedidoDownload);
+
+      if (!order) {
+        toast({
+          title: "Pedido não encontrado",
+          description: `Nenhum pedido encontrado com o número ${numeroPedidoDownload}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Fazer download da nota fiscal PDF
+      console.log(`📥 Iniciando download de nota fiscal para pedido ${order.id}`);
+
+      const pdfResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_pdf`);
+
+      if (!pdfResponse.ok) {
+        throw new Error("Nota fiscal não encontrada para este pedido");
+      }
+
+      const blob = await pdfResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `NotaFiscal_${numeroPedidoDownload}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Download Concluído",
+        description: `Nota fiscal do pedido ${numeroPedidoDownload} baixada com sucesso`,
+        variant: "default"
+      });
+
+      // Limpar o campo
+      setNumeroPedidoDownload("");
+
+    } catch (error) {
+      console.error("Erro ao baixar nota fiscal:", error);
+      toast({
+        title: "Erro no Download",
+        description: error instanceof Error ? error.message : "Erro ao fazer download da nota fiscal",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloadingNotaFiscal(false);
     }
   };
 
@@ -1859,6 +1934,48 @@ export default function Keyuser() {
                           </FormItem>
                         )}
                       />
+                    </div>
+                  </div>
+
+                  {/* Seção de Download de Nota Fiscal */}
+                  <div className="space-y-4 pt-6 border-t border-border">
+                    <h3 className="text-lg font-medium text-foreground">Download de Nota Fiscal</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                      <div className="md:col-span-2">
+                        <Label htmlFor="numero-pedido-download">Número do Pedido</Label>
+                        <Input
+                          id="numero-pedido-download"
+                          type="text"
+                          placeholder="Digite o número do pedido (ex: CCM0809250026)"
+                          value={numeroPedidoDownload}
+                          onChange={(e) => setNumeroPedidoDownload(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleDownloadNotaFiscal();
+                            }
+                          }}
+                          className="bg-input border-border"
+                        />
+                      </div>
+
+                      <Button 
+                        onClick={handleDownloadNotaFiscal}
+                        disabled={isDownloadingNotaFiscal || !numeroPedidoDownload.trim()}
+                        className="w-full"
+                      >
+                        {isDownloadingNotaFiscal ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Baixando...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4 mr-2" />
+                            Baixar Nota Fiscal
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
 
