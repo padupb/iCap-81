@@ -769,9 +769,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllOrders(): Promise<Order[]> {
-    if (!db) return [];
+    if (!pool) return [];
     try {
-      const result = await db.query(`
+      const result = await pool.query(`
         SELECT 
           id,
           order_id,
