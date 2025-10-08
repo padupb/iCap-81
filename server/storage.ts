@@ -474,7 +474,7 @@ export class MemStorage implements IStorage {
 
   // System Logs
   async getAllLogs(): Promise<SystemLog[]> {
-    return Array.from(this.systemLogs.values()).sort((a, b) =>
+    return Array.from(this.systemLogs.values()).sort((a, b) => 
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
   }
@@ -769,50 +769,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllOrders(): Promise<Order[]> {
-    if (!pool) return [];
-    try {
-      const result = await pool.query(`
-        SELECT 
-          id,
-          order_id,
-          product_id,
-          quantity,
-          supplier_id,
-          work_location,
-          delivery_date,
-          status,
-          is_urgent,
-          user_id,
-          purchase_order_id,
-          created_at,
-          documentos_carregados,
-          documentos_info,
-          numero_pedido
-        FROM orders
-        ORDER BY created_at DESC
-      `);
+    const result = await db
+      .select({
+        id: orders.id,
+        orderId: orders.orderId,
+        purchaseOrderId: orders.purchaseOrderId,
+        productId: orders.productId,
+        productName: products.name,
+        quantity: orders.quantity,
+        supplierId: orders.supplierId,
+        workLocation: orders.workLocation,
+        deliveryDate: orders.deliveryDate,
+        status: orders.status,
+        isUrgent: orders.isUrgent,
+        userId: orders.userId,
+        createdAt: orders.createdAt,
+      })
+      .from(orders)
+      .leftJoin(products, eq(orders.productId, products.id));
 
-      return result.rows.map((row: any) => ({
-        id: row.id,
-        orderId: row.order_id,
-        productId: row.product_id,
-        quantity: row.quantity,
-        supplierId: row.supplier_id,
-        workLocation: row.work_location,
-        deliveryDate: new Date(row.delivery_date),
-        status: row.status,
-        isUrgent: row.is_urgent || false,
-        userId: row.user_id,
-        purchaseOrderId: row.purchase_order_id,
-        createdAt: row.created_at ? new Date(row.created_at) : new Date(),
-        documentosCarregados: row.documentos_carregados || false,
-        documentosInfo: row.documentos_info,
-        numeroPedido: row.numero_pedido,
-      }));
-    } catch (error) {
-      console.error('Erro ao buscar ordens:', error);
-      return [];
-    }
+    return result.map(row => ({
+      id: row.id,
+      orderId: row.orderId,
+      purchaseOrderId: row.purchaseOrderId,
+      productId: row.productId,
+      productName: row.productName,
+      quantity: row.quantity,
+      supplierId: row.supplierId,
+      workLocation: row.workLocation,
+      deliveryDate: row.deliveryDate,
+      status: row.status,
+      isUrgent: row.isUrgent,
+      userId: row.userId,
+      createdAt: row.createdAt,
+    })) as Order[];
   }
 
   async getOrdersByStatus(status: string): Promise<Order[]> {
@@ -1001,7 +991,7 @@ export class DatabaseStorage implements IStorage {
     console.log(`📅 Storage - Data recebida: ${insertOrder.deliveryDate}`);
     console.log(`📅 Storage - Data processada: ${deliveryDate.toISOString()}`);
     console.log(`📅 Storage - Data em formato brasileiro: ${deliveryDate.toLocaleDateString('pt-BR')}`);
-
+    
     console.log(`📅 Verificação de urgência para pedido ${orderId}:`, {
       deliveryDate: deliveryDate.toISOString(),
       deliveryDateBR: deliveryDate.toLocaleDateString('pt-BR'),
@@ -1033,22 +1023,18 @@ export class DatabaseStorage implements IStorage {
     const day = now.getDate().toString().padStart(2, '0');
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const year = now.getFullYear().toString().slice(-2);
-
+    
     // Buscar próximo número sequencial
     const sequentialNumber = await this.getNextSequentialNumber();
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
-
-    // Buscar configuração de uso de sigla da empresa
-    const useCompanyAcronymSetting = await this.getSetting("use_company_acronym");
-    const useCompanyAcronym = useCompanyAcronymSetting?.value === "true";
 
     let prefix = "CAP"; // Padrão caso não consiga determinar
 
     try {
       // Buscar a empresa criadora da obra através da ordem de compra
-      if (insertOrder.purchaseOrderId && useCompanyAcronym) {
+      if (insertOrder.purchaseOrderId) {
         const { pool } = await import("./db");
-
+        
         // Buscar a ordem de compra para pegar o CNPJ da obra de destino
         const purchaseOrderResult = await pool.query(`
           SELECT oc.cnpj 
@@ -1058,7 +1044,7 @@ export class DatabaseStorage implements IStorage {
 
         if (purchaseOrderResult.rows.length > 0) {
           const cnpjObra = purchaseOrderResult.rows[0].cnpj;
-
+          
           // Buscar a empresa dona da obra pelo CNPJ
           const companyResult = await pool.query(`
             SELECT name 
@@ -1068,7 +1054,7 @@ export class DatabaseStorage implements IStorage {
 
           if (companyResult.rows.length > 0) {
             const companyName = companyResult.rows[0].name;
-
+            
             // Buscar se há uma sigla personalizada configurada para esta empresa
             const companyId = await this.getCompanyIdByName(companyName);
             if (companyId) {
@@ -1153,7 +1139,7 @@ export class DatabaseStorage implements IStorage {
   private generateCompanyAcronym(companyName: string): string {
     // Remover palavras comuns e conectores
     const commonWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre'];
-
+    
     // Dividir o nome em palavras e filtrar palavras vazias e conectores
     const words = companyName
       .toLowerCase()
@@ -1162,7 +1148,7 @@ export class DatabaseStorage implements IStorage {
       .filter(word => word.length > 0 && !commonWords.includes(word));
 
     let acronym = '';
-
+    
     if (words.length === 1) {
       // Se só tem uma palavra, pegar as primeiras 3 letras
       acronym = words[0].substring(0, 3).toUpperCase();
@@ -1188,7 +1174,7 @@ export class DatabaseStorage implements IStorage {
   private async generateOrderId(): Promise<string> {
     // Buscar configuração de padrão personalizado se existir
     const patternSetting = await this.getSetting("order_id_pattern");
-
+    
     if (patternSetting?.value && patternSetting.value !== "CAP{DD}{MM}{YY}{NNNN}") {
       // Se há um padrão personalizado configurado, usar ele
       return await this.generateOrderIdWithPattern(patternSetting.value);
@@ -1199,7 +1185,7 @@ export class DatabaseStorage implements IStorage {
     const day = now.getDate().toString().padStart(2, '0');
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const year = now.getFullYear().toString().slice(-2);
-
+    
     // Buscar próximo número sequencial
     const sequentialNumber = await this.getNextSequentialNumber();
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
@@ -1245,11 +1231,11 @@ export class DatabaseStorage implements IStorage {
     const day = now.getDate().toString().padStart(2, '0');
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const year = now.getFullYear().toString().slice(-2);
-
+    
     // Buscar próximo número sequencial
     const sequentialNumber = await this.getNextSequentialNumber();
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
-
+    
     // Substituir placeholders
     return pattern
       .replace('{DD}', day)
@@ -1264,7 +1250,7 @@ export class DatabaseStorage implements IStorage {
       const result = await pool.query(`
         SELECT id FROM companies WHERE name = $1 LIMIT 1
       `, [companyName]);
-
+      
       if (result.rows.length > 0) {
         return result.rows[0].id;
       }
@@ -1277,11 +1263,11 @@ export class DatabaseStorage implements IStorage {
 
   private async getNextSequentialNumber(): Promise<number> {
     const { pool } = await import("./db");
-
+    
     // Buscar o maior número sequencial usado hoje
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
-
+    
     const result = await pool.query(`
       SELECT order_id FROM orders 
       WHERE DATE(created_at) = $1 
@@ -1296,11 +1282,11 @@ export class DatabaseStorage implements IStorage {
     // Extrair o número sequencial do último pedido
     const lastOrderId = result.rows[0].order_id;
     const numberMatch = lastOrderId.match(/(\d{4})$/);
-
+    
     if (numberMatch) {
       return parseInt(numberMatch[1]) + 1;
     }
-
+    
     return 1;
   }
 

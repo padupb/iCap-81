@@ -1962,7 +1962,6 @@ Status: Teste em progresso...`;
         // Orders routes (Pedidos)
         app.get("/api/orders", isAuthenticated, async (req, res) => {
           try {
-            console.log(`🔍 Buscando pedidos - verificando se numero_pedido está sendo retornado`);
             let orders = await storage.getAllOrders();
 
             // NOVA REGRA: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
