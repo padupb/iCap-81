@@ -4992,26 +4992,43 @@ Status: Teste em progresso...`;
 
                   console.log(`📊 Total de objetos no Object Storage: ${objects.length}`);
 
-                  // Filtrar objetos relacionados ao pedido
+                  // Filtrar objetos relacionados ao pedido e tipo de documento
                   const relatedObjects = objects.filter(obj => {
                     const key = obj.key || obj.name || String(obj);
-                    return key.includes(orderId) || key.includes(tipo);
+                    if (typeof key !== 'string') return false;
+                    
+                    // Verificar se contém o orderId E o tipo de documento
+                    const hasOrderId = key.includes(orderId);
+                    const hasDocType = key.includes(tipo);
+                    
+                    return hasOrderId && hasDocType;
                   });
 
-                  console.log(`🔍 Objetos relacionados ao pedido ${orderId}:`, relatedObjects.length);
+                  console.log(`🔍 Objetos relacionados ao pedido ${orderId} tipo ${tipo}:`, relatedObjects.length);
 
                   if (relatedObjects.length > 0) {
+                    // Ordenar por data (mais recente primeiro) se possível
+                    relatedObjects.sort((a, b) => {
+                      const keyA = a.key || a.name || String(a);
+                      const keyB = b.key || b.name || String(b);
+                      return keyB.localeCompare(keyA);
+                    });
+
                     const firstMatch = relatedObjects[0];
                     const matchKey = firstMatch.key || firstMatch.name || String(firstMatch);
                     console.log(`✅ Tentando usar objeto encontrado: ${matchKey}`);
                     
                     try {
-                      const fileResult = await readFileFromStorage(matchKey, orderId, filename);
+                      // Extrair nome do arquivo da key
+                      const filenameParts = matchKey.split('/');
+                      const extractedFilename = filenameParts[filenameParts.length - 1] || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`;
+                      
+                      const fileResult = await readFileFromStorage(matchKey, orderId, extractedFilename);
                       if (fileResult) {
                         const { data: fileBuffer, originalName } = fileResult;
                         
                         if (fileBuffer.length > 1) {
-                          console.log(`✅ Arquivo encontrado via busca direta: ${matchKey}`);
+                          console.log(`✅ Arquivo encontrado via busca direta: ${matchKey} (${fileBuffer.length} bytes)`);
                           
                           res.setHeader("Content-Type", tipo.includes('xml') ? "application/xml" : "application/pdf");
                           res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
