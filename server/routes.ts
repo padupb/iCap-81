@@ -1441,7 +1441,7 @@ Status: Teste em progresso...`;
           }
         });
 
-        // Rota para redefinir senha do usuário
+        // Redefinir senha do usuário
         app.post("/api/auth/reset-password", isAuthenticated, async (req, res) => {
           try {
             const { userId } = req.body;
@@ -4816,12 +4816,16 @@ Status: Teste em progresso...`;
         });
 
         // Rota para confirmar número do pedido
-        app.post("/api/pedidos/:id/confirmar-numero-pedido", async (req, res) => {
+        app.post("/api/pedidos/:id/confirmar-numero-pedido", isAuthenticated, async (req, res) => {
           try {
             const pedidoId = parseInt(req.params.id);
             const { numeroPedido } = req.body;
 
-            console.log(`📋 Confirmação de número do pedido ${pedidoId}:`, numeroPedido);
+            console.log(`📤 Recebida confirmação de número do pedido:`, {
+              pedidoId,
+              numeroPedido,
+              userId: req.user.id
+            });
 
             if (!numeroPedido || numeroPedido.trim() === "") {
               return res.status(400).json({
@@ -4837,48 +4841,51 @@ Status: Teste em progresso...`;
               });
             }
 
-            // Atualizar o pedido com o número confirmado
+            // Atualizar o pedido com o número do pedido E mudar status para "Em Rota"
             const updateResult = await pool.query(
-              `UPDATE orders 
-               SET numero_pedido = $1, 
-                   status = CASE 
-                     WHEN status = 'Registrado' THEN 'Aprovado'
-                     ELSE status 
-                   END
+              `UPDATE orders
+               SET numero_pedido = $1, status = 'Em Rota'
                WHERE id = $2
                RETURNING *`,
               [numeroPedido.trim(), pedidoId]
             );
 
             if (updateResult.rows.length === 0) {
+              console.error(`❌ Pedido não encontrado: ID ${pedidoId}`);
               return res.status(404).json({
                 sucesso: false,
                 mensagem: "Pedido não encontrado"
               });
             }
 
-            console.log(`✅ Número do pedido confirmado: ${numeroPedido}`);
+            const pedidoAtualizado = updateResult.rows[0];
+            console.log(`✅ Número do pedido confirmado e status alterado para "Em Rota":`, {
+              pedidoId,
+              orderId: pedidoAtualizado.order_id,
+              numeroPedido: pedidoAtualizado.numero_pedido,
+              status: pedidoAtualizado.status
+            });
 
-            // Registrar log
-            if (req.session.userId) {
-              await storage.createLog({
-                userId: req.session.userId,
-                action: "Confirmou número do pedido",
-                itemType: "order",
-                itemId: pedidoId.toString(),
-                details: `Número do pedido confirmado: ${numeroPedido}`
-              });
-            }
+            // Log da ação
+            await storage.createLog({
+              userId: req.user.id,
+              action: "Confirmou número do pedido",
+              itemType: "order",
+              itemId: pedidoId.toString(),
+              details: `Número do pedido ${numeroPedido} confirmado para o pedido ${pedidoAtualizado.order_id} - Status alterado para "Em Rota"`
+            });
 
-            return res.json({
+            res.json({
               sucesso: true,
               mensagem: "Número do pedido confirmado com sucesso",
-              numeroPedido: numeroPedido.trim()
+              numeroPedido: pedidoAtualizado.numero_pedido,
+              status: pedidoAtualizado.status,
+              pedido: pedidoAtualizado
             });
 
           } catch (error) {
             console.error("❌ Erro ao confirmar número do pedido:", error);
-            return res.status(500).json({
+            res.status(500).json({
               sucesso: false,
               mensagem: "Erro ao confirmar número do pedido"
             });

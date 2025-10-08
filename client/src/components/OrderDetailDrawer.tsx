@@ -835,17 +835,14 @@ export function OrderDetailDrawer({
       if (result.sucesso) {
         toast({
           title: "Sucesso",
-          description: "Número do pedido confirmado com sucesso",
+          description: "Número do pedido confirmado - Status alterado para Em Rota",
         });
 
         // Atualizar a lista de pedidos
         await queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
 
-        // Limpar o campo
-        setNumeroPedido("");
-
-        // Fechar o drawer para forçar refresh
-        onOpenChange(false);
+        // NÃO fechar o drawer - apenas atualizar para mostrar tela travada
+        // A atualização das queries forçará o re-render com o novo estado
       } else {
         console.error(`❌ Erro no resultado:`, result.mensagem);
         toast({
@@ -1899,14 +1896,32 @@ export function OrderDetailDrawer({
                         )) {
                           return (
                             <div className="space-y-4">
-                              <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
-                                <FileCheck size={48} className="text-green-500 mb-2" />
-                                <h3 className="text-lg font-medium text-green-700">
+                              <div className="flex flex-col items-center justify-center p-8 border border-green-200 rounded-lg bg-[#2f2f37]">
+                                <FileCheck size={64} className="text-green-500 mb-4" />
+                                <h3 className="text-2xl font-bold text-green-700 mb-2">
                                   Número do Pedido Confirmado
                                 </h3>
-                                <p className="text-sm text-green-600 text-center mt-2">
-                                  Número do pedido: {orderDetails.numeroPedido}
-                                </p>
+                                <div className="text-center space-y-3">
+                                  <div className="p-4 bg-green-50 rounded-lg border border-green-300">
+                                    <p className="text-sm text-green-700 font-medium mb-1">
+                                      Número do Pedido:
+                                    </p>
+                                    <p className="text-3xl font-bold text-green-800">
+                                      {orderDetails.numeroPedido}
+                                    </p>
+                                  </div>
+                                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-300">
+                                    <p className="text-sm text-blue-700 font-medium mb-1">
+                                      Status:
+                                    </p>
+                                    <p className="text-xl font-bold text-blue-800">
+                                      Em Rota
+                                    </p>
+                                  </div>
+                                  <p className="text-sm text-green-600 mt-4">
+                                    O pedido foi confirmado e está em rota para entrega
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           );
