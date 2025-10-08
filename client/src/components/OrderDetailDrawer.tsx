@@ -1,3 +1,4 @@
+replit_final_file>
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -59,6 +60,7 @@ import {
 import { Order, Product, Company, PurchaseOrder, Unit } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeComponent } from "./QRCodeComponent";
+import { DocumentData, PDFViewer } from "./PDFViewer"; // Importa o componente PDFViewer e seu tipo
 
 interface OrderDetailDrawerProps {
   open: boolean;
@@ -1024,6 +1026,52 @@ export function OrderDetailDrawer({
   // Função para gerar link do Google Maps
   const getGoogleMapsLink = (location: string) => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+  };
+
+  // Estado para o visualizador de PDF
+  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
+  const [pdfToView, setPdfToView] = useState<DocumentData | null>(null);
+
+  // Função para visualizar PDF
+  const handleViewPdf = async (docType: string, defaultFilename: string) => {
+    if (!orderId) return;
+
+    try {
+      const response = await fetch(`/api/pedidos/${orderId}/documentos/${docType}`);
+      if (!response.ok) {
+        throw new Error(`Erro ao carregar documento: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        const base64Data = reader.result as string;
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = defaultFilename;
+
+        if (contentDisposition) {
+          const matches = contentDisposition.match(/filename="(.+)"/);
+          if (matches && matches[1]) {
+            filename = matches[1];
+          }
+        }
+
+        setPdfToView({ data: base64Data, name: filename });
+        setIsPdfViewerOpen(true);
+      };
+      reader.onerror = () => {
+        throw new Error("Falha ao ler o arquivo PDF");
+      };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error(`Erro ao visualizar ${docType}:`, error);
+      toast({
+        title: "Erro ao visualizar documento",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
   };
 
   // Função para imprimir o pedido
@@ -2770,6 +2818,24 @@ export function OrderDetailDrawer({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Viewer Dialog */}
+      <Dialog open={isPdfViewerOpen} onOpenChange={setIsPdfViewerOpen}>
+        <DialogContent className="max-w-6xl h-[90vh] p-0">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle>{pdfToView?.name || 'Documento PDF'}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {pdfToView?.data && (
+              <PDFViewer
+                fileData={pdfToView.data}
+                fileName={pdfToView.name}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Drawer>
   );
 }
+</replit_final_file>
