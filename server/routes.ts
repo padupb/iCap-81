@@ -4953,30 +4953,81 @@ Status: Teste em progresso...`;
             const orderId = pedido.order_id;
 
             // Parse documentos_info
-            let documentosInfo;
-            try {
-              documentosInfo = typeof pedido.documentos_info === 'string'
-                ? JSON.parse(pedido.documentos_info)
-                : pedido.documentos_info;
-            } catch (error) {
-              console.log("❌ Erro ao parsear documentos_info:", error);
-              return res.status(404).json({
-                sucesso: false,
-                mensagem: "Informações de documentos inválidas"
-              });
+            let documentosInfo = null;
+            let storageKey = null;
+            let filename = null;
+
+            if (pedido.documentos_info) {
+              try {
+                documentosInfo = typeof pedido.documentos_info === 'string'
+                  ? JSON.parse(pedido.documentos_info)
+                  : pedido.documentos_info;
+
+                if (documentosInfo && documentosInfo[tipo]) {
+                  const docInfo = documentosInfo[tipo];
+                  storageKey = docInfo.storageKey;
+                  filename = docInfo.filename || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`;
+                  console.log(`📋 Informações do documento encontradas em documentosInfo`);
+                }
+              } catch (error) {
+                console.log("⚠️ Erro ao parsear documentos_info, tentando busca direta:", error);
+              }
             }
 
-            if (!documentosInfo || !documentosInfo[tipo]) {
-              console.log(`❌ Documento ${tipo} não encontrado em documentosInfo:`, documentosInfo);
-              return res.status(404).json({
-                sucesso: false,
-                mensagem: `Documento ${tipo} não encontrado`
-              });
+            // Se não encontrou nos metadados, tentar buscar diretamente no storage
+            if (!storageKey) {
+              console.log(`🔍 documentosInfo não disponível, tentando busca direta no storage`);
+              
+              // Tentar encontrar o arquivo diretamente no Object Storage ou sistema local
+              const possibleFilenames = [
+                `${tipo}-${Date.now()}.${tipo.includes('xml') ? 'xml' : 'pdf'}`,
+                `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`
+              ];
+
+              // Listar arquivos no Object Storage relacionados ao pedido
+              if (objectStorageAvailable && objectStorage) {
+                try {
+                  const objects = await objectStorage.list();
+                  const relatedFiles = objects.filter(obj => {
+                    const key = obj.key || obj.name || String(obj);
+                    return key.includes(orderId) && key.includes(tipo.replace('_', '-'));
+                  });
+
+                  if (relatedFiles.length > 0) {
+                    // Pegar o primeiro arquivo relacionado (mais recente)
+                    const firstFile = relatedFiles[0];
+                    storageKey = firstFile.key || firstFile.name || String(firstFile);
+                    filename = storageKey.split('/').pop();
+                    console.log(`✅ Arquivo encontrado no Object Storage: ${storageKey}`);
+                  }
+                } catch (listError) {
+                  console.log(`⚠️ Erro ao listar arquivos no Object Storage:`, listError);
+                }
+              }
+
+              // Tentar sistema local como fallback
+              if (!storageKey) {
+                const uploadsDir = path.join(process.cwd(), 'uploads', orderId);
+                if (fs.existsSync(uploadsDir)) {
+                  const files = fs.readdirSync(uploadsDir);
+                  const matchingFile = files.find(f => f.includes(tipo.replace('_', '-')) || f.includes(tipo));
+                  
+                  if (matchingFile) {
+                    storageKey = path.join(uploadsDir, matchingFile);
+                    filename = matchingFile;
+                    console.log(`✅ Arquivo encontrado no sistema local: ${storageKey}`);
+                  }
+                }
+              }
             }
 
-            const docInfo = documentosInfo[tipo];
-            const storageKey = docInfo.storageKey;
-            const filename = docInfo.filename || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`;
+            if (!storageKey || !filename) {
+              console.log(`❌ Documento ${tipo} não encontrado para pedido ${orderId}`);
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: `Documento ${tipo} não encontrado. Os documentos podem não ter sido carregados ainda.`
+              });
+            }
 
             console.log(`📂 Buscando documento:`, {
               tipo,
@@ -4992,7 +5043,7 @@ Status: Teste em progresso...`;
               console.log(`❌ Arquivo não encontrado no storage`);
               return res.status(404).json({
                 sucesso: false,
-                mensagem: "Arquivo não encontrado"
+                mensagem: "Arquivo não encontrado no armazenamento"
               });
             }
 
