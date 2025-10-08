@@ -1917,14 +1917,6 @@ export function OrderDetailDrawer({
                                       {orderDetails.numero_pedido || orderDetails.numeroPedido || "Não informado"}
                                     </p>
                                   </div>
-                                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-300">
-                                    <p className="text-sm text-blue-700 font-medium mb-1">
-                                      Status:
-                                    </p>
-                                    <p className="text-xl font-bold text-blue-800">
-                                      {orderDetails.status}
-                                    </p>
-                                  </div>
                                   <p className="text-sm text-green-600 mt-4">
                                     O pedido foi confirmado e está em rota para entrega
                                   </p>
