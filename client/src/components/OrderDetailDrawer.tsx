@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -1953,7 +1953,7 @@ export function OrderDetailDrawer({
                             <div className="space-y-4">
                               <div className="flex flex-col items-center justify-center p-8 border border-green-200 rounded-lg bg-[#2f2f37]">
                                 <FileCheck size={64} className="text-green-500 mb-4" />
-                                <h3 className="text-2xl font-bold text-green-700 mb-2">
+                                <h3 className="text-2xl font-bold text-green-800 mb-2">
                                   Número do Pedido Confirmado
                                 </h3>
                                 <div className="text-center space-y-3">
