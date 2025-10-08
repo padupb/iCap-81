@@ -140,33 +140,59 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         const result = await objectStorage.downloadAsBytes(storageKey);
         let buffer = null;
 
+        console.log(`📊 Tipo de resultado recebido:`, {
+          tipo: typeof result,
+          isBuffer: result instanceof Buffer,
+          isUint8Array: result instanceof Uint8Array,
+          hasOk: result && typeof result === 'object' && 'ok' in result,
+          hasValue: result && typeof result === 'object' && 'value' in result
+        });
+
         // Processar resultado do Replit Object Storage
-        if (result && typeof result === 'object' && result.ok && result.value) {
+        if (result && typeof result === 'object' && 'ok' in result && 'value' in result) {
           // Result wrapper do Replit
-          if (result.value instanceof Uint8Array) {
-            buffer = Buffer.from(result.value);
-          } else if (result.value instanceof Buffer) {
-            buffer = result.value;
-          } else if (Array.isArray(result.value)) {
-            buffer = Buffer.from(result.value);
+          console.log(`🎯 Result wrapper detectado - Status: ${result.ok}`);
+
+          if (!result.ok) {
+            console.log(`❌ Result indica erro: ${result.error || 'download failed'}`);
+            continue; // Tentar próxima chave
+          }
+
+          const valueData = result.value;
+
+          if (valueData instanceof Uint8Array) {
+            buffer = Buffer.from(valueData);
+            console.log(`✅ Convertido Uint8Array para Buffer: ${buffer.length} bytes`);
+          } else if (valueData instanceof Buffer) {
+            buffer = valueData;
+            console.log(`✅ Buffer direto do Result: ${buffer.length} bytes`);
+          } else if (Array.isArray(valueData)) {
+            buffer = Buffer.from(valueData);
+            console.log(`✅ Array convertido para Buffer: ${buffer.length} bytes`);
+          } else {
+            console.log(`⚠️ Tipo de value não reconhecido:`, typeof valueData);
           }
         } else if (result instanceof Uint8Array) {
           // Dados diretos como Uint8Array
           buffer = Buffer.from(result);
+          console.log(`✅ Uint8Array direto convertido: ${buffer.length} bytes`);
         } else if (result instanceof Buffer) {
           // Dados diretos como Buffer
           buffer = result;
+          console.log(`✅ Buffer direto: ${buffer.length} bytes`);
+        } else {
+          console.log(`❌ Tipo de resultado não suportado:`, typeof result);
         }
 
         // Verificar se o buffer é válido
         if (buffer && buffer.length > 1) {
-          console.log(`✅ Arquivo encontrado: ${storageKey} (${buffer.length} bytes)`);
+          console.log(`✅ Arquivo encontrado e validado: ${storageKey} (${buffer.length} bytes)`);
           return {
             data: buffer,
             originalName: filename
           };
         } else {
-          console.log(`⚠️ Arquivo muito pequeno ou vazio: ${storageKey}`);
+          console.log(`⚠️ Buffer inválido ou muito pequeno: ${buffer ? buffer.length : 0} bytes`);
         }
 
       } catch (error) {
@@ -181,7 +207,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       const listResult = await objectStorage.list();
       let objects = [];
 
-      if (listResult && listResult.ok && listResult.value) {
+      if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
         objects = listResult.value;
       } else if (Array.isArray(listResult)) {
         objects = listResult;
