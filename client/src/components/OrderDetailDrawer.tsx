@@ -376,6 +376,12 @@ export function OrderDetailDrawer({
     const order = orders.find((o) => o.id === orderId);
     if (!order) return null;
 
+    console.log('📋 Debug orderDetails:', {
+      orderId: order.id,
+      numeroPedido: order.numeroPedido,
+      status: order.status
+    });
+
     const product = products.find((p) => p.id === order.productId);
     const supplier = companies.find((c) => c.id === order.supplierId);
     const unit = product ? units.find((u) => u.id === product.unitId) : null;
@@ -1907,7 +1913,7 @@ export function OrderDetailDrawer({
                                       Número do Pedido:
                                     </p>
                                     <p className="text-3xl font-bold text-green-800">
-                                      {orderDetails.numeroPedido}
+                                      {orderDetails.numeroPedido || "Não informado"}
                                     </p>
                                   </div>
                                   <div className="p-3 bg-blue-50 rounded-lg border border-blue-300">
@@ -1915,7 +1921,7 @@ export function OrderDetailDrawer({
                                       Status:
                                     </p>
                                     <p className="text-xl font-bold text-blue-800">
-                                      Em Rota
+                                      {orderDetails.status}
                                     </p>
                                   </div>
                                   <p className="text-sm text-green-600 mt-4">
