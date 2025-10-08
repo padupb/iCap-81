@@ -208,17 +208,14 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       let objects = [];
 
       if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
-        objects = Array.isArray(listResult.value) ? listResult.value : [listResult.value];
+        objects = listResult.value;
       } else if (Array.isArray(listResult)) {
         objects = listResult;
-      } else if (listResult) {
-        // Tentar converter para array se for outro tipo
-        objects = Object.values(listResult);
       }
 
       console.log(`📊 Total de objetos: ${objects.length}`);
 
-      // Filtrar objetos relacionados ao pedido
+      // Mostrar arquivos relacionados ao pedido
       const relatedFiles = objects.filter(obj => {
         const objKey = obj.key || obj.name || String(obj);
         return objKey.includes(orderId) || objKey.includes(filename.split('-')[0]);
@@ -1214,11 +1211,9 @@ Status: Teste em progresso...`;
 
               let objects = [];
               if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
-                objects = Array.isArray(listResult.value) ? listResult.value : [listResult.value];
+                objects = listResult.value;
               } else if (Array.isArray(listResult)) {
                 objects = listResult;
-              } else if (listResult) {
-                objects = Object.values(listResult);
               }
 
               log.push(`✅ Listagem realizada em ${listTime}ms`);
@@ -2847,15 +2842,14 @@ Status: Teste em progresso...`;
               const numeroOrdem = ordemResult.rows[0].numero_ordem;
               console.log(`📋 Ordem encontrada: ${numeroOrdem}`);
 
-              // Salvar arquivo diretamente na pasta OC do Object Storage
               let pdfKey;
               try {
-                // PRIORIDADE: Tentar salvar diretamente no Object Storage na pasta OC
+                // PRIORIDADE: Tentar salvar diretamente no Object Storage na pasta orders/OC
                 if (objectStorageAvailable && objectStorage) {
                   const buffer = fs.readFileSync(req.file.path);
-                  const storageKey = `OC/${numeroOrdem}.pdf`;
+                  const storageKey = `orders/OC/${numeroOrdem}.pdf`;
 
-                  console.log(` পাঠানোর Saving PDF to OC folder: ${storageKey}`);
+                  console.log(`📤 Saving PDF to orders/OC folder: ${storageKey}`);
                   console.log(`📊 Buffer size: ${buffer.length} bytes`);
 
                   // Usar o método correto do Replit Object Storage
@@ -2866,7 +2860,7 @@ Status: Teste em progresso...`;
                   try {
                     const verification = await objectStorage.downloadAsBytes(storageKey);
                     if (verification && verification.length > 1 && verification.length === buffer.length) { // Verifica se o arquivo não está corrompido e tem o tamanho correto
-                      console.log(`✅ PDF saved and verified in OC folder: ${storageKey} (${verification.length} bytes)`);
+                      console.log(`✅ PDF saved and verified in orders/OC folder: ${storageKey} (${verification.length} bytes)`);
                       pdfKey = storageKey;
                     } else {
                       console.log(`⚠️ Upload completed but verification failed (size ${verification?.length || 0} vs ${buffer.length})`);
@@ -2897,7 +2891,7 @@ Status: Teste em progresso...`;
                   );
                 }
               } catch (error) {
-                console.error(`❌ Error saving PDF to OC folder:`, error);
+                console.error(`❌ Error saving PDF to orders/OC folder:`, error);
                 console.log(`🔄 Attempting fallback to saveFileToStorage function.`);
 
                 // Fallback para função existente
@@ -3997,7 +3991,7 @@ Status: Teste em progresso...`;
             if (novaData > validoAte) {
               return res.status(400).json({
                 sucesso: false,
-                mensagem: `A data de reprogramação não pode ultrapassar a validade da ordem de compra (${validoAte.toLocaleDateString('pt-BR')})`
+                mensagem: `A nova data de entrega não pode ultrapassar a validade da ordem de compra (${validoAte.toLocaleDateString('pt-BR')})`
               });
             }
 
