@@ -3333,9 +3333,10 @@ Status: Teste em progresso...`;
                 i.ordem_compra_id,
                 i.produto_id,
                 i.quantidade,
-                p.name as produto_nome,
-                u.name as unidade_nome,
-                u.abbreviation as unidade
+                p.name as product_name,
+                u.name as unit_name,
+                u.abbreviation as unit_abbreviation,
+                i.quantidade_alocada
               FROM itens_ordem_compra i
               LEFT JOIN products p ON i.produto_id = p.id
               LEFT JOIN units u ON p.unit_id = u.id
@@ -3350,9 +3351,10 @@ Status: Teste em progresso...`;
               id: item.id,
               ordem_compra_id: item.ordem_compra_id,
               produto_id: item.produto_id,
-              produto_nome: item.produto_nome || "Produto não encontrado",
-              unidade: item.unidade || item.unidade_nome || 'un',
-              quantidade: parseFloat(item.quantidade || 0)
+              produto_nome: item.product_name || "Produto não encontrado",
+              unidade: item.unit_abbreviation || item.unit_name || 'un',
+              quantidade: parseFloat(item.quantidade || 0),
+              quantidade_alocada: parseFloat(item.quantidade_alocada || 0)
             }));
 
             console.log(`📊 Itens formatados:`, itens);
