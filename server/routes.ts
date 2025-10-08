@@ -4977,6 +4977,59 @@ Status: Teste em progresso...`;
             if (!storageKey) {
               console.log(`🔍 documentosInfo não disponível, tentando busca direta no storage`);
 
+              // Listar arquivos no Object Storage para debug
+              if (objectStorageAvailable && objectStorage) {
+                try {
+                  const listResult = await objectStorage.list();
+                  let objects = [];
+
+                  // Tratar diferentes formatos de resposta do Replit Object Storage
+                  if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
+                    objects = listResult.value;
+                  } else if (Array.isArray(listResult)) {
+                    objects = listResult;
+                  }
+
+                  console.log(`📊 Total de objetos no Object Storage: ${objects.length}`);
+
+                  // Filtrar objetos relacionados ao pedido
+                  const relatedObjects = objects.filter(obj => {
+                    const key = obj.key || obj.name || String(obj);
+                    return key.includes(orderId) || key.includes(tipo);
+                  });
+
+                  console.log(`🔍 Objetos relacionados ao pedido ${orderId}:`, relatedObjects.length);
+
+                  if (relatedObjects.length > 0) {
+                    const firstMatch = relatedObjects[0];
+                    const matchKey = firstMatch.key || firstMatch.name || String(firstMatch);
+                    console.log(`✅ Tentando usar objeto encontrado: ${matchKey}`);
+                    
+                    try {
+                      const fileResult = await readFileFromStorage(matchKey, orderId, filename);
+                      if (fileResult) {
+                        const { data: fileBuffer, originalName } = fileResult;
+                        
+                        if (fileBuffer.length > 1) {
+                          console.log(`✅ Arquivo encontrado via busca direta: ${matchKey}`);
+                          
+                          res.setHeader("Content-Type", tipo.includes('xml') ? "application/xml" : "application/pdf");
+                          res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
+                          res.setHeader("Content-Length", fileBuffer.length);
+                          res.setHeader("Cache-Control", "no-cache");
+                          
+                          return res.end(fileBuffer);
+                        }
+                      }
+                    } catch (matchError) {
+                      console.log(`⚠️ Erro ao baixar objeto encontrado: ${matchError.message}`);
+                    }
+                  }
+                } catch (listError) {
+                  console.log(`⚠️ Erro ao listar arquivos no Object Storage: ${listError.message}`);
+                }
+              }
+
               // Tentar encontrar o arquivo diretamente no Object Storage ou sistema local
               const possibleFilenames = [
                 `${tipo}-${Date.now()}.${tipo.includes('xml') ? 'xml' : 'pdf'}`,
