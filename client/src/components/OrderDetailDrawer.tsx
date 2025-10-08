@@ -802,6 +802,11 @@ export function OrderDetailDrawer({
       return;
     }
 
+    console.log(`📤 Enviando confirmação de número do pedido:`, {
+      pedidoId: orderDetails.id,
+      numeroPedido: numeroPedido.trim()
+    });
+
     try {
       const response = await fetch(`/api/pedidos/${orderDetails.id}/confirmar-numero-pedido`, {
         method: "POST",
@@ -813,7 +818,19 @@ export function OrderDetailDrawer({
         }),
       });
 
+      console.log(`📥 Resposta recebida:`, {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get("content-type")
+      });
+
+      if (!response.ok) {
+        console.error(`❌ Resposta não OK: ${response.status}`);
+        throw new Error(`Erro no servidor: ${response.status}`);
+      }
+
       const result = await response.json();
+      console.log(`📋 Resultado parseado:`, result);
 
       if (result.sucesso) {
         toast({
@@ -822,22 +839,26 @@ export function OrderDetailDrawer({
         });
 
         // Atualizar a lista de pedidos
-        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
 
         // Limpar o campo
         setNumeroPedido("");
+
+        // Fechar o drawer para forçar refresh
+        onOpenChange(false);
       } else {
+        console.error(`❌ Erro no resultado:`, result.mensagem);
         toast({
           title: "Erro",
-          description: result.mensagem,
+          description: result.mensagem || "Erro desconhecido",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Erro ao confirmar número do pedido:", error);
+      console.error("❌ Erro ao confirmar número do pedido:", error);
       toast({
         title: "Erro",
-        description: "Erro ao confirmar número do pedido",
+        description: error instanceof Error ? error.message : "Erro ao confirmar número do pedido",
         variant: "destructive",
       });
     }
