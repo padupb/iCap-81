@@ -208,14 +208,17 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       let objects = [];
 
       if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
-        objects = listResult.value;
+        objects = Array.isArray(listResult.value) ? listResult.value : [listResult.value];
       } else if (Array.isArray(listResult)) {
         objects = listResult;
+      } else if (listResult) {
+        // Tentar converter para array se for outro tipo
+        objects = Object.values(listResult);
       }
 
       console.log(`📊 Total de objetos: ${objects.length}`);
 
-      // Mostrar arquivos relacionados ao pedido
+      // Filtrar objetos relacionados ao pedido
       const relatedFiles = objects.filter(obj => {
         const objKey = obj.key || obj.name || String(obj);
         return objKey.includes(orderId) || objKey.includes(filename.split('-')[0]);
@@ -1211,9 +1214,11 @@ Status: Teste em progresso...`;
 
               let objects = [];
               if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
-                objects = listResult.value;
+                objects = Array.isArray(listResult.value) ? listResult.value : [listResult.value];
               } else if (Array.isArray(listResult)) {
                 objects = listResult;
+              } else if (listResult) {
+                objects = Object.values(listResult);
               }
 
               log.push(`✅ Listagem realizada em ${listTime}ms`);
@@ -3992,7 +3997,7 @@ Status: Teste em progresso...`;
             if (novaData > validoAte) {
               return res.status(400).json({
                 sucesso: false,
-                mensagem: `A nova data de entrega não pode ultrapassar a validade da ordem de compra (${validoAte.toLocaleDateString('pt-BR')})`
+                mensagem: `A data de reprogramação não pode ultrapassar a validade da ordem de compra (${validoAte.toLocaleDateString('pt-BR')})`
               });
             }
 
@@ -4977,7 +4982,7 @@ Status: Teste em progresso...`;
             // Se não encontrou nos metadados, tentar buscar diretamente no storage
             if (!storageKey) {
               console.log(`🔍 documentosInfo não disponível, tentando busca direta no storage`);
-              
+
               // Tentar encontrar o arquivo diretamente no Object Storage ou sistema local
               const possibleFilenames = [
                 `${tipo}-${Date.now()}.${tipo.includes('xml') ? 'xml' : 'pdf'}`,
@@ -5011,7 +5016,7 @@ Status: Teste em progresso...`;
                 if (fs.existsSync(uploadsDir)) {
                   const files = fs.readdirSync(uploadsDir);
                   const matchingFile = files.find(f => f.includes(tipo.replace('_', '-')) || f.includes(tipo));
-                  
+
                   if (matchingFile) {
                     storageKey = path.join(uploadsDir, matchingFile);
                     filename = matchingFile;
