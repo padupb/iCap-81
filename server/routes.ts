@@ -1700,7 +1700,7 @@ Status: Teste em progresso...`;
             }
 
             // Verificar se é o último usuário administrador
-            // Esta seria uma verificação mais completa em um sistema em produção
+            // Esta verificação seria mais completa em um sistema em produção
 
             const deleted = await storage.deleteUser(id);
 
@@ -2729,7 +2729,7 @@ Status: Teste em progresso...`;
 
                     // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
                     if (fileBuffer.length <= 1) {
-                      console.log(`⚠️ PDF encontrado via pdf_info é muito pequeno (${fileBuffer.length} byte) - possível corrupção`);
+                      console.log(`⚠️ PDF encontrado via pdf_info é muito pequeno (${fileBuffer.length} byte) - ignorado`);
                       return res.status(404).json({
                         sucesso: false,
                         mensagem: `Arquivo encontrado mas parece estar corrompido (${fileBuffer.length} byte).`
@@ -4916,6 +4916,125 @@ Status: Teste em progresso...`;
             res.status(500).json({
               sucesso: false,
               mensagem: "Erro ao confirmar número do pedido"
+            });
+          }
+        });
+
+        // Rota para download de documentos do pedido
+        app.get("/api/pedidos/:id/documentos/:tipo", async (req, res) => {
+          try {
+            const { id, tipo } = req.params;
+            const pedidoId = parseInt(id);
+
+            if (isNaN(pedidoId)) {
+              return res.status(400).json({
+                sucesso: false,
+                mensagem: "ID de pedido inválido"
+              });
+            }
+
+            console.log(`📥 Download solicitado - Pedido: ${pedidoId}, Tipo: ${tipo}`);
+
+            // Buscar informações do pedido
+            const pedidoResult = await pool.query(
+              "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+              [pedidoId]
+            );
+
+            if (!pedidoResult.rows.length) {
+              console.log(`❌ Pedido ${pedidoId} não encontrado`);
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: "Pedido não encontrado"
+              });
+            }
+
+            const pedido = pedidoResult.rows[0];
+            const orderId = pedido.order_id;
+
+            // Parse documentos_info
+            let documentosInfo;
+            try {
+              documentosInfo = typeof pedido.documentos_info === 'string'
+                ? JSON.parse(pedido.documentos_info)
+                : pedido.documentos_info;
+            } catch (error) {
+              console.log("❌ Erro ao parsear documentos_info:", error);
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: "Informações de documentos inválidas"
+              });
+            }
+
+            if (!documentosInfo || !documentosInfo[tipo]) {
+              console.log(`❌ Documento ${tipo} não encontrado em documentosInfo:`, documentosInfo);
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: `Documento ${tipo} não encontrado`
+              });
+            }
+
+            const docInfo = documentosInfo[tipo];
+            const storageKey = docInfo.storageKey;
+            const filename = docInfo.filename || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`;
+
+            console.log(`📂 Buscando documento:`, {
+              tipo,
+              storageKey,
+              filename,
+              orderId
+            });
+
+            // Buscar o arquivo
+            const fileResult = await readFileFromStorage(storageKey, orderId, filename);
+
+            if (!fileResult) {
+              console.log(`❌ Arquivo não encontrado no storage`);
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: "Arquivo não encontrado"
+              });
+            }
+
+            const { data: fileBuffer, originalName } = fileResult;
+
+            // Verificar se é redirect do Google Drive
+            if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+              const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+              console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+              return res.redirect(302, driveLink);
+            }
+
+            // Verificar integridade
+            if (!fileBuffer || fileBuffer.length <= 1) {
+              console.log(`⚠️ Arquivo corrompido ou vazio: ${fileBuffer?.length || 0} bytes`);
+              return res.status(404).json({
+                sucesso: false,
+                mensagem: "Arquivo está corrompido ou vazio"
+              });
+            }
+
+            console.log(`✅ Enviando arquivo: ${originalName} (${fileBuffer.length} bytes)`);
+
+            // Determinar content-type
+            const contentType = tipo.includes('xml')
+              ? 'application/xml'
+              : 'application/pdf';
+
+            // Enviar arquivo - IMPORTANTE: usar res.send() para dados binários
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Length', fileBuffer.length);
+            res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+            res.setHeader('Cache-Control', 'no-cache');
+
+            return res.send(fileBuffer);
+
+          } catch (error) {
+            console.error("❌ Erro ao fazer download do documento:", error);
+            return res.status(500).json({
+              sucesso: false,
+              mensagem: "Erro ao fazer download do documento",
+              erro: error instanceof Error ? error.message : "Erro desconhecido"
             });
           }
         });
