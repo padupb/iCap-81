@@ -379,6 +379,7 @@ export function OrderDetailDrawer({
     console.log('📋 Debug orderDetails:', {
       orderId: order.id,
       numeroPedido: order.numeroPedido,
+      numero_pedido: order.numero_pedido,
       status: order.status
     });
 
@@ -1913,7 +1914,7 @@ export function OrderDetailDrawer({
                                       Número do Pedido:
                                     </p>
                                     <p className="text-3xl font-bold text-green-800">
-                                      {orderDetails.numeroPedido || "Não informado"}
+                                      {orderDetails.numero_pedido || orderDetails.numeroPedido || "Não informado"}
                                     </p>
                                   </div>
                                   <div className="p-3 bg-blue-50 rounded-lg border border-blue-300">
