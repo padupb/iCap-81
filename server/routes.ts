@@ -4030,8 +4030,8 @@ Status: Teste em progresso...`;
   // Rota para obter a chave da API do Google Maps dos Secrets
   app.get("/api/google-maps-key", async (req, res) => {
     try {
-      // Buscar a chave do Google Maps dos Secrets do Replit
-      const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+      // SOLUÇÃO: Usar a chave diretamente do .env como fallback
+      const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyBS_TMgZfqMle79oUmh_GwV-u22wo1C4T5';
       
       console.log('🔍 Verificando Google Maps API Key:');
       console.log('   • Variável de ambiente definida:', !!process.env.GOOGLE_MAPS_API_KEY);
