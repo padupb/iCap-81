@@ -4623,6 +4623,128 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para aprovar pedido urgente
+  app.put("/api/orders/:id/approve", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`✅ Aprovando pedido urgente ID: ${orderId}`);
+
+      // Buscar informações do pedido
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [orderId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Atualizar status para Aprovado
+      await pool.query(
+        `UPDATE orders SET status = 'Aprovado' WHERE id = $1`,
+        [orderId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Aprovou pedido urgente",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: `Pedido ${pedido.order_id} (${pedido.product_name}) aprovado`
+      });
+
+      res.json({
+        success: true,
+        message: "Pedido aprovado com sucesso"
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao aprovar pedido:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao aprovar pedido"
+      });
+    }
+  });
+
+  // Rota para rejeitar pedido urgente
+  app.put("/api/orders/:id/reject", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`❌ Rejeitando pedido urgente ID: ${orderId}`);
+
+      // Buscar informações do pedido
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [orderId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Atualizar status para Cancelado
+      await pool.query(
+        `UPDATE orders SET status = 'Cancelado' WHERE id = $1`,
+        [orderId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Rejeitou pedido urgente",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: `Pedido ${pedido.order_id} (${pedido.product_name}) rejeitado/cancelado`
+      });
+
+      res.json({
+        success: true,
+        message: "Pedido rejeitado com sucesso"
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao rejeitar pedido:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao rejeitar pedido"
+      });
+    }
+  });
+
   // Configuração do servidor HTTP com o app Express
   const httpServer = createServer(app);
   return httpServer;
