@@ -3677,7 +3677,6 @@ Status: Teste em progresso...`;
         console.log(`✅ Reprogramação do pedido ${pedidoId} aprovada.`);
 
   // Rota específica para download da foto de confirmação
-  // SEM autenticação para permitir download direto via link
   app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -3731,46 +3730,106 @@ Status: Teste em progresso...`;
         });
       }
 
-      const { storageKey, originalName: filename } = fotoInfo;
+      const { storageKey, originalName, mimetype } = fotoInfo;
+      console.log(`🔍 Buscando foto: ${storageKey}`);
 
-      const fileResult = await readFileFromStorage(
-        storageKey,
-        pedido.order_id,
-        filename
-      );
-
-      if (!fileResult) {
-        console.log(`❌ Foto não encontrada no storage: ${storageKey}`);
-        return res.status(404).json({
+      // Download direto do Object Storage para imagens
+      if (!objectStorageAvailable || !objectStorage) {
+        console.log(`❌ Object Storage não disponível`);
+        return res.status(500).json({
           success: false,
-          message: "Foto de confirmação não encontrada no storage",
-          hasFoto: false
+          message: "Object Storage não disponível"
         });
       }
 
-      const { data: fileBuffer, originalName } = fileResult;
+      let imageBuffer = null;
 
-      // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
-      if (fileBuffer.length <= 1) {
-        console.log(`❌ Arquivo corrompido: ${originalName} (${fileBuffer.length} bytes)`);
-        return res.status(404).json({
+      try {
+        console.log(`📥 Fazendo download do Object Storage: ${storageKey}`);
+        const downloadResult = await objectStorage.downloadAsBytes(storageKey);
+
+        console.log(`📊 Resultado do download:`, {
+          tipo: typeof downloadResult,
+          isBuffer: downloadResult instanceof Buffer,
+          isUint8Array: downloadResult instanceof Uint8Array,
+          hasOk: downloadResult && typeof downloadResult === 'object' && 'ok' in downloadResult,
+          hasValue: downloadResult && typeof downloadResult === 'object' && 'value' in downloadResult
+        });
+
+        // Processar resultado do Replit Object Storage
+        if (downloadResult && typeof downloadResult === 'object' && 'ok' in downloadResult) {
+          // Result wrapper do Replit
+          console.log(`🎯 Result wrapper detectado - Status: ${downloadResult.ok}`);
+
+          if (!downloadResult.ok) {
+            console.log(`❌ Download falhou: ${downloadResult.error || 'erro desconhecido'}`);
+            throw new Error(`Download falhou: ${downloadResult.error || 'erro desconhecido'}`);
+          }
+
+          const valueData = downloadResult.value;
+
+          if (!valueData) {
+            console.log(`❌ Result.value está vazio`);
+            throw new Error("Dados vazios no download");
+          }
+
+          // Converter value para Buffer
+          if (valueData instanceof Uint8Array) {
+            imageBuffer = Buffer.from(valueData);
+            console.log(`✅ Uint8Array convertido para Buffer: ${imageBuffer.length} bytes`);
+          } else if (valueData instanceof Buffer) {
+            imageBuffer = valueData;
+            console.log(`✅ Buffer direto: ${imageBuffer.length} bytes`);
+          } else if (Array.isArray(valueData)) {
+            imageBuffer = Buffer.from(valueData);
+            console.log(`✅ Array convertido para Buffer: ${imageBuffer.length} bytes`);
+          } else {
+            console.log(`❌ Tipo de value não suportado: ${typeof valueData}`);
+            throw new Error(`Tipo de dados não suportado: ${typeof valueData}`);
+          }
+        } else if (downloadResult instanceof Uint8Array) {
+          imageBuffer = Buffer.from(downloadResult);
+          console.log(`✅ Uint8Array direto convertido: ${imageBuffer.length} bytes`);
+        } else if (downloadResult instanceof Buffer) {
+          imageBuffer = downloadResult;
+          console.log(`✅ Buffer direto: ${imageBuffer.length} bytes`);
+        } else if (Array.isArray(downloadResult)) {
+          imageBuffer = Buffer.from(downloadResult);
+          console.log(`✅ Array direto convertido: ${imageBuffer.length} bytes`);
+        } else {
+          console.log(`❌ Tipo de resultado não suportado: ${typeof downloadResult}`);
+          throw new Error(`Tipo de resultado não suportado: ${typeof downloadResult}`);
+        }
+
+        // Verificar tamanho mínimo
+        if (!imageBuffer || imageBuffer.length < 100) {
+          console.log(`❌ Buffer muito pequeno: ${imageBuffer?.length || 0} bytes`);
+          throw new Error(`Arquivo corrompido ou muito pequeno: ${imageBuffer?.length || 0} bytes`);
+        }
+
+        console.log(`✅ Foto carregada com sucesso: ${imageBuffer.length} bytes`);
+
+        // Determinar Content-Type
+        const contentType = mimetype || (originalName.endsWith('.png') ? 'image/png' : 'image/jpeg');
+
+        // Configurar headers para download
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+        res.setHeader('Content-Length', imageBuffer.length);
+        res.setHeader('Cache-Control', 'no-cache');
+
+        // Enviar o arquivo
+        res.end(imageBuffer);
+
+      } catch (downloadError) {
+        const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
+        console.error(`❌ Erro no download da foto:`, error);
+        return res.status(500).json({
           success: false,
-          message: "Arquivo corrompido",
-          hasFoto: false
+          message: `Erro ao baixar foto: ${error.message}`
         });
       }
 
-      // Determinar tipo de conteúdo baseado na extensão
-      const ext = originalName.split('.').pop()?.toLowerCase();
-      const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
-
-      // Configurar headers para download
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-      res.setHeader('Content-Length', fileBuffer.length);
-
-      // Enviar o arquivo
-      res.end(fileBuffer);
     } catch (error) {
       console.error("❌ Erro ao buscar foto de confirmação:", error);
       res.status(500).json({
