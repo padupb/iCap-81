@@ -140,20 +140,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         let result;
 
         // Tentar downloadAsBuffer primeiro se disponível
-        try {
-          if (typeof objectStorage.downloadAsBuffer === 'function') {
-            try {
-              result = await objectStorage.downloadAsBuffer(storageKey);
-              console.log(`📥 Download usando downloadAsBuffer`);
-            } catch (bufferError) {
-              console.log(`⚠️ downloadAsBuffer falhou, tentando downloadAsBytes`);
-              result = await objectStorage.downloadAsBytes(storageKey);
-            }
-          } else {
+        if (typeof objectStorage.downloadAsBuffer === 'function') {
+          try {
+            result = await objectStorage.downloadAsBuffer(storageKey);
+            console.log(`📥 Download usando downloadAsBuffer`);
+          } catch (bufferError) {
+            console.log(`⚠️ downloadAsBuffer falhou, tentando downloadAsBytes`);
             result = await objectStorage.downloadAsBytes(storageKey);
           }
-        } catch (bufferError) {
-          console.log(`⚠️ downloadAsBuffer falhou, tentando downloadAsBytes`);
+        } else {
           result = await objectStorage.downloadAsBytes(storageKey);
         }
 
