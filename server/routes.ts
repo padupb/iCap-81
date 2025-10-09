@@ -4033,13 +4033,17 @@ Status: Teste em progresso...`;
       // Buscar a chave do Google Maps dos Secrets do Replit
       const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || '';
       
-      console.log('🔑 Google Maps API Key solicitada:', googleMapsApiKey ? 'Encontrada nos Secrets' : 'Não encontrada');
+      console.log('🔍 Verificando Google Maps API Key:');
+      console.log('   • Variável de ambiente definida:', !!process.env.GOOGLE_MAPS_API_KEY);
+      console.log('   • Tamanho da chave:', googleMapsApiKey?.length || 0);
+      console.log('   • Preview da chave:', googleMapsApiKey ? `${googleMapsApiKey.substring(0, 25)}...` : 'VAZIA');
+      console.log('   • Status:', googleMapsApiKey ? '✅ Encontrada' : '❌ Não encontrada');
       
       res.json({
         apiKey: googleMapsApiKey
       });
     } catch (error) {
-      console.error("Erro ao buscar chave do Google Maps:", error);
+      console.error("❌ Erro ao buscar chave do Google Maps:", error);
       res.status(500).json({
         apiKey: null,
         error: "Erro ao buscar chave da API"

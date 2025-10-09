@@ -217,16 +217,36 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
   };
 
   // Buscar a chave da API do Google Maps diretamente do backend
-  const { data: googleMapsApiKey } = useQuery({
+  const { data: googleMapsApiKey, isLoading: apiKeyLoading, error: apiKeyError } = useQuery({
     queryKey: ['/api/google-maps-key'],
     queryFn: async () => {
+      console.log('🔍 DashboardTrackingMap - Buscando Google Maps API Key...');
       const response = await fetch('/api/google-maps-key');
-      if (!response.ok) throw new Error('Falha ao carregar chave do Google Maps');
+      console.log('📡 DashboardTrackingMap - Response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('❌ DashboardTrackingMap - Erro na resposta:', response.statusText);
+        throw new Error('Falha ao carregar chave do Google Maps');
+      }
+      
       const data = await response.json();
-      console.log('🔑 DashboardTrackingMap - API Key recebida:', data.apiKey ? `${data.apiKey.substring(0, 10)}...` : 'não encontrada');
+      console.log('📦 DashboardTrackingMap - Dados recebidos:', data);
+      console.log('🔑 DashboardTrackingMap - API Key:', data.apiKey ? `${data.apiKey.substring(0, 20)}...` : 'VAZIA/NULL');
+      
       return data.apiKey || null;
     },
   });
+
+  // Log de debug para verificar estado da API Key
+  React.useEffect(() => {
+    console.log('🔍 DashboardTrackingMap - Estado da API Key:', {
+      apiKeyLoading,
+      hasApiKey: !!googleMapsApiKey,
+      apiKeyLength: googleMapsApiKey?.length || 0,
+      apiKeyError: apiKeyError?.message || 'nenhum',
+      apiKeyPreview: googleMapsApiKey ? `${googleMapsApiKey.substring(0, 25)}...` : 'VAZIA'
+    });
+  }, [googleMapsApiKey, apiKeyLoading, apiKeyError]);
 
   if (!googleMapsApiKey || googleMapsApiKey === '') {
     console.log('❌ DashboardTrackingMap - API Key inválida ou vazia');
