@@ -505,6 +505,16 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             throw error; // Lançar o erro original capturado no catch anterior
           }
         }
+      } catch (error) {
+        console.error("❌ Erro detalhado ao salvar no Object Storage:", {
+          message: error.message,
+          key: `${orderId}/${filename}`,
+          bufferSize: buffer.length,
+          objectStorageAvailable,
+          hasObjectStorage: !!objectStorage
+        });
+        console.log("🔄 Tentando Google Drive como fallback...");
+      }
 
       } catch (error) {
         console.error("❌ Erro detalhado ao salvar no Object Storage:", {
