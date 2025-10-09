@@ -53,12 +53,12 @@ export default function Sidebar() {
   return (
     <div className="w-60 border-r border-sidebar-border flex flex-col relative z-40">
       {/* Logo/Header */}
-      <div className="px-4 py-4 border-b border-sidebar-border bg-[#26262c] flex justify-center items-center min-h-[96px]">
+      <div className="px-4 py-4 border-b border-sidebar-border bg-[#26262c] flex justify-center items-center min-h-[80px]">
         <Link href="/">
           <img
             src={settings.logoUrl || "/public/uploads/logo.png"}
             alt={settings.appName || 'iCap'}
-            className="w-[180px] h-[150px] object-contain cursor-pointer hover:opacity-80 transition-opacity"
+            className="w-[140px] h-[60px] object-contain cursor-pointer hover:opacity-80 transition-opacity"
             onError={(e) => {
               const img = e.currentTarget as HTMLImageElement;
               if (img.src !== "/public/uploads/logo.png") {
