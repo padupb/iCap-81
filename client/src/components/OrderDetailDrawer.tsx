@@ -175,6 +175,8 @@ function SimpleTracker({
     };
   };
 
+  const coordinates = getMapCoordinates();
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -198,18 +200,24 @@ function SimpleTracker({
     );
   }
 
-  const coordinates = getMapCoordinates();
-
   return (
       <div className="space-y-4">
         {/* Seção do Mapa */}
-        <div className="space-y-8">
-          <div className="border rounded-lg overflow-hidden">
-            <MapComponent lat={coordinates.lat} lng={coordinates.lng} />
+        <div className="space-y-2">
+          <div className="border rounded-lg overflow-hidden" style={{ height: '400px' }}>
+            <MapComponent 
+              lat={coordinates.lat} 
+              lng={coordinates.lng}
+              zoom={trackingPoints.length > 0 ? 15 : 12}
+            />
           </div>
-          {trackingPoints.length > 0 && (
+          {trackingPoints.length > 0 ? (
             <p className="text-xs text-muted-foreground text-center">
               Mostrando localização mais recente do rastreamento
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center">
+              Mapa com localização padrão - Aguardando pontos de rastreamento
             </p>
           )}
         </div>
@@ -217,8 +225,12 @@ function SimpleTracker({
         {/* Seção dos Pontos de Rastreamento */}
         {trackingPoints.length === 0 ? (
           <div className="text-center py-8">
-            <div className="text-muted-foreground text-sm">
-              Nenhum ponto de rastreamento encontrado para este pedido
+            <MapPin className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
+            <div className="text-muted-foreground text-sm font-medium">
+              Nenhum ponto de rastreamento encontrado
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Os pontos aparecerão aqui quando forem adicionados
             </div>
           </div>
         ) : (
