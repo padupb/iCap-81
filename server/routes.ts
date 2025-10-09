@@ -2807,21 +2807,22 @@ Status: Teste em progresso...`;
       console.log(`📦 Buscando itens da ordem de compra ID: ${id}`);
 
       // Buscar itens da ordem de compra com informações do produto
+      // CORREÇÃO: usar tabela itens_ordem_compra em vez de purchase_order_items
       const result = await pool.query(`
         SELECT 
-          poi.id,
-          poi.purchase_order_id as "ordem_compra_id",
-          poi.product_id as "produto_id",
-          poi.quantity as "quantidade",
-          p.name as "produto_nome",
-          p.unit_id as "unidade_id",
-          u.name as "unidade_nome",
-          u.abbreviation as "unidade_abreviacao"
-        FROM purchase_order_items poi
-        INNER JOIN products p ON poi.product_id = p.id
+          ioc.id,
+          ioc.ordem_compra_id,
+          ioc.produto_id,
+          ioc.quantidade,
+          p.name as produto_nome,
+          p.unit_id as unidade_id,
+          u.name as unidade_nome,
+          u.abbreviation as unidade_abreviacao
+        FROM itens_ordem_compra ioc
+        INNER JOIN products p ON ioc.produto_id = p.id
         LEFT JOIN units u ON p.unit_id = u.id
-        WHERE poi.purchase_order_id = $1
-        ORDER BY poi.id ASC
+        WHERE ioc.ordem_compra_id = $1
+        ORDER BY ioc.id ASC
       `, [id]);
 
       console.log(`✅ Encontrados ${result.rows.length} itens para a ordem de compra ${id}`);
