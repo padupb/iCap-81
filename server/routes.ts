@@ -2793,6 +2793,120 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para verificar saldo disponível de um produto em uma ordem de compra
+  app.get("/api/ordens-compra/:ordemId/produtos/:produtoId/saldo", async (req, res) => {
+    try {
+      const ordemId = parseInt(req.params.ordemId);
+      const produtoId = parseInt(req.params.produtoId);
+
+      if (isNaN(ordemId) || isNaN(produtoId)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "IDs inválidos"
+        });
+      }
+
+      console.log(`📊 Verificando saldo - Ordem: ${ordemId}, Produto: ${produtoId}`);
+
+      // Buscar quantidade total na ordem de compra
+      const itemResult = await pool.query(`
+        SELECT 
+          ioc.quantidade,
+          p.name as produto_nome,
+          u.abbreviation as unidade
+        FROM itens_ordem_compra ioc
+        INNER JOIN products p ON ioc.produto_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        WHERE ioc.ordem_compra_id = $1 AND ioc.produto_id = $2
+      `, [ordemId, produtoId]);
+
+      if (itemResult.rows.length === 0) {
+        return res.json({
+          sucesso: false,
+          mensagem: "Produto não encontrado na ordem de compra"
+        });
+      }
+
+      const item = itemResult.rows[0];
+      const quantidadeTotal = parseFloat(item.quantidade);
+
+      // Buscar quantidade já usada em pedidos (excluindo cancelados)
+      const pedidosResult = await pool.query(`
+        SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
+        FROM orders
+        WHERE purchase_order_id = $1 
+          AND product_id = $2 
+          AND status != 'Cancelado'
+      `, [ordemId, produtoId]);
+
+      const quantidadeUsada = parseFloat(pedidosResult.rows[0].total_usado || 0);
+      const saldoDisponivel = quantidadeTotal - quantidadeUsada;
+
+      console.log(`✅ Saldo calculado - Total: ${quantidadeTotal}, Usado: ${quantidadeUsada}, Disponível: ${saldoDisponivel}`);
+
+      res.json({
+        sucesso: true,
+        produtoId,
+        ordemId,
+        quantidadeTotal,
+        quantidadeUsada,
+        saldoDisponivel,
+        unidade: item.unidade || 'un'
+      });
+
+    } catch (error) {
+      console.error("Erro ao verificar saldo:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao verificar saldo",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para verificar quantidade entregue de um produto em uma ordem de compra
+  app.get("/api/ordens-compra/:ordemId/produtos/:produtoId/entregue", async (req, res) => {
+    try {
+      const ordemId = parseInt(req.params.ordemId);
+      const produtoId = parseInt(req.params.produtoId);
+
+      if (isNaN(ordemId) || isNaN(produtoId)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "IDs inválidos"
+        });
+      }
+
+      console.log(`📦 Verificando quantidade entregue - Ordem: ${ordemId}, Produto: ${produtoId}`);
+
+      // Buscar quantidade entregue (pedidos com status Entregue)
+      const result = await pool.query(`
+        SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as quantidade_entregue
+        FROM orders
+        WHERE purchase_order_id = $1 
+          AND product_id = $2 
+          AND status = 'Entregue'
+      `, [ordemId, produtoId]);
+
+      const quantidadeEntregue = parseFloat(result.rows[0].quantidade_entregue || 0);
+
+      console.log(`✅ Quantidade entregue: ${quantidadeEntregue}`);
+
+      res.json({
+        sucesso: true,
+        quantidadeEntregue
+      });
+
+    } catch (error) {
+      console.error("Erro ao verificar quantidade entregue:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao verificar quantidade entregue",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Rota para buscar itens de uma ordem de compra
   app.get("/api/ordem-compra/:id/itens", async (req, res) => {
     try {
