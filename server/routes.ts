@@ -292,11 +292,11 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
               console.log(`❌ Método alternativo também falhou: ${altError.message}`);
             }
           }
-
         } catch (downloadError) {
           console.log(`❌ Erro em ${storageKey}: ${downloadError.message}`);
           // Continuar tentando outras chaves
         }
+      }
       }
 
       // Se não encontrou, listar arquivos para debug
