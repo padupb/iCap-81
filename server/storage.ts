@@ -769,14 +769,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllOrders(): Promise<Order[]> {
-    if (!db) {
-      console.warn('⚠️ Banco de dados não inicializado');
-      return [];
-    }
+    if (!db) return [];
 
     try {
-      console.log('🔍 Executando query para buscar pedidos...');
-      
       const result = await db
         .select({
           id: orders.id,
@@ -798,31 +793,26 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(products, eq(orders.productId, products.id))
         .orderBy(desc(orders.createdAt));
 
-      console.log(`📊 Storage: Total de pedidos retornados: ${result.length}`);
-      
-      if (result.length === 0) {
-        console.log('⚠️ Storage: Nenhum pedido encontrado no banco de dados');
-      }
+      console.log(`📊 Total de pedidos retornados: ${result.length}`);
 
       return result.map(row => ({
         id: row.id,
-        orderId: row.orderId || `ORD${row.id}`,
+        orderId: row.orderId,
         purchaseOrderId: row.purchaseOrderId,
         productId: row.productId,
         productName: row.productName,
-        quantity: row.quantity || '0',
+        quantity: row.quantity,
         supplierId: row.supplierId,
-        workLocation: row.workLocation || 'Não especificado',
+        workLocation: row.workLocation,
         deliveryDate: row.deliveryDate,
-        status: row.status || 'Registrado',
-        isUrgent: row.isUrgent || false,
+        status: row.status,
+        isUrgent: row.isUrgent,
         userId: row.userId,
         createdAt: row.createdAt,
         numeroPedido: row.numeroPedido
       })) as Order[];
     } catch (error) {
-      console.error('❌ Erro crítico ao buscar pedidos:', error);
-      console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      console.error('Erro ao buscar ordens:', error);
       return [];
     }
   }
