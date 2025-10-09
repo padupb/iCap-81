@@ -244,21 +244,24 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
               console.log(`⚠️ Erro ao converter object para buffer:`, error.message);
               console.log(`📋 Stack:`, error.stack);
             }
-          } else if (result instanceof Uint8Array) {
-            // Dados diretos como Uint8Array
-            buffer = Buffer.from(result);
-            console.log(`✅ Uint8Array direto convertido: ${buffer.length} bytes`);
-          } else if (result instanceof Buffer) {
-            // Dados diretos como Buffer
-            buffer = result;
-            console.log(`✅ Buffer direto: ${buffer.length} bytes`);
-          } else if (Array.isArray(result)) {
-            // Array direto de bytes
-            buffer = Buffer.from(result);
-            console.log(`✅ Array direto convertido: ${buffer.length} bytes`);
           } else {
-            console.log(`❌ Tipo de resultado não suportado:`, typeof result);
+            console.log(`❌ Tipo de value não suportado:`, typeof valueData);
           }
+        } else if (result instanceof Uint8Array) {
+          // Dados diretos como Uint8Array
+          buffer = Buffer.from(result);
+          console.log(`✅ Uint8Array direto convertido: ${buffer.length} bytes`);
+        } else if (result instanceof Buffer) {
+          // Dados diretos como Buffer
+          buffer = result;
+          console.log(`✅ Buffer direto: ${buffer.length} bytes`);
+        } else if (Array.isArray(result)) {
+          // Array direto de bytes
+          buffer = Buffer.from(result);
+          console.log(`✅ Array direto convertido: ${buffer.length} bytes`);
+        } else {
+          console.log(`❌ Tipo de resultado não suportado:`, typeof result);
+        }
 
           // Verificar se o buffer é válido (mais de 100 bytes para arquivos reais)
           if (buffer && buffer.length > 100) {
