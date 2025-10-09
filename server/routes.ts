@@ -3221,6 +3221,758 @@ Status: Teste em progresso...`;
     }
   );
 
+  // Rota para confirmar número do pedido
+  app.post("/api/pedidos/:id/confirmar-numero-pedido", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { numeroPedido } = req.body;
+
+      console.log(`📤 Confirmação de número do pedido recebida:`, {
+        pedidoId,
+        numeroPedido
+      });
+
+      // Validações
+      if (!numeroPedido || !numeroPedido.trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Número do pedido é obrigatório"
+        });
+      }
+
+      if (numeroPedido.length > 20) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "O número do pedido deve ter no máximo 20 caracteres"
+        });
+      }
+
+      // Atualizar o pedido
+      await pool.query(
+        `UPDATE orders 
+         SET numero_pedido = $1, status = 'Em Rota'
+         WHERE id = $2`,
+        [numeroPedido.trim(), pedidoId]
+      );
+
+      // Log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Confirmou número do pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Número do pedido confirmado: ${numeroPedido.trim()}`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Número do pedido confirmado com sucesso"
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao confirmar número do pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao confirmar número do pedido"
+      });
+    }
+  });
+
+  // Rota para solicitar reprogramação
+  app.post("/api/pedidos/:id/reprogramar", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { novaDataEntrega, motivo } = req.body;
+
+      console.log(`🔄 Reprogramação de pedido recebida:`, {
+        pedidoId,
+        novaDataEntrega,
+        motivo
+      });
+
+      // Validações
+      if (!novaDataEntrega || !motivo || !motivo.trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Nova data de entrega e motivo são obrigatórios"
+        });
+      }
+
+      const dataEntrega = convertToLocalDate(novaDataEntrega); // Conversão para fuso brasileiro
+
+      // Buscar informações do pedido original para histórico
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name, p.confirmation_type
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      const pedidoAntigo = pedidoResult.rows[0];
+
+      // Criar um registro de reprogramação no log
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Reprogramou pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Pedido ${pedidoAntigo.order_id} (${pedidoAntigo.product_name}) reprogramado. Motivo: ${motivo}. Nova data: ${dataEntrega.toLocaleDateString('pt-BR')}.`
+      });
+
+      // Atualizar o pedido com a nova data e status "Aguardando Aprovação"
+      await pool.query(
+        `UPDATE orders 
+         SET delivery_date = $1, status = 'Aguardando Aprovação'
+         WHERE id = $2`,
+        [dataEntrega, pedidoId]
+      );
+
+      res.json({
+        sucesso: true,
+        mensagem: "Pedido reprogramado com sucesso e aguardando aprovação"
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao reprogramar pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao reprogramar pedido"
+      });
+    }
+  });
+
+  // Rota para aprovar/recusar reprogramação de pedido
+  app.post("/api/pedidos/:id/aprovar-reprogramacao", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { aprovado, motivoRecusa } = req.body;
+
+      console.log(`✅ Aprovação/Recusa de reprogramação recebida:`, {
+        pedidoId,
+        aprovado,
+        motivoRecusa
+      });
+
+      // Buscar informações do pedido original para histórico
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Verificar se o usuário tem permissão para aprovar/recusar
+      // Apenas usuários com permissão "approve_order_rescheduling" ou KeyUsers podem aprovar
+      const hasApprovePermission = req.user.permissions?.includes("approve_order_rescheduling") || req.user.isKeyUser;
+
+      if (!hasApprovePermission) {
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Você não tem permissão para aprovar ou recusar reprogramações de pedido."
+        });
+      }
+
+      let novoStatus: string;
+      let logMessage: string;
+
+      if (aprovado) {
+        novoStatus = "Aguardando Envio"; // Ou outro status apropriado após aprovação
+        logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) aprovada.`;
+        console.log(`✅ Reprogramação do pedido ${pedidoId} aprovada.`);
+      } else {
+        novoStatus = "Pendente"; // Ou um status que indique que a reprogramação foi recusada e o pedido voltou ao estado anterior
+        logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) recusada. Motivo: ${motivoRecusa || 'N/A'}.`;
+        console.log(`❌ Reprogramação do pedido ${pedidoId} recusada. Motivo: ${motivoRecusa}`);
+      }
+
+      // Atualizar o status do pedido
+      await pool.query(
+        `UPDATE orders 
+         SET status = $1
+         WHERE id = $2`,
+        [novoStatus, pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: aprovado ? "Aprovou reprogramação de pedido" : "Recusou reprogramação de pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: logMessage
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: aprovado ? "Reprogramação aprovada com sucesso." : "Reprogramação recusada com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao aprovar/recusar reprogramação:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao processar a aprovação/recusa da reprogramação."
+      });
+    }
+  });
+
+  // Rota para confirmar entrega de pedido
+  app.post("/api/pedidos/:id/confirmar-entrega", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { quantidadeEntregue } = req.body;
+
+      console.log(`✅ Recebida confirmação de entrega para pedido:`, {
+        pedidoId,
+        quantidadeEntregue
+      });
+
+      // Validações
+      if (quantidadeEntregue === undefined || isNaN(parseFloat(quantidadeEntregue))) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Quantidade entregue inválida."
+        });
+      }
+
+      const entregueFloat = parseFloat(quantidadeEntregue);
+
+      // Buscar informações do pedido original para histórico e validação de saldo
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name, p.confirmation_type, ioc.quantidade as quantidade_ordem_compra
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         LEFT JOIN itens_ordem_compra ioc ON o.purchase_order_id = ioc.ordem_compra_id AND o.product_id = ioc.produto_id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Verificar se o usuário tem permissão para confirmar entrega
+      const hasConfirmPermission = req.user.canConfirmDelivery || req.user.isKeyUser;
+      if (!hasConfirmPermission) {
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Você não tem permissão para confirmar entregas."
+        });
+      }
+
+      // Validar se a quantidade entregue excede a quantidade pedida (se houver item na OC)
+      if (pedido.quantidade_ordem_compra !== null && entregueFloat > parseFloat(pedido.quantidade_ordem_compra)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `A quantidade entregue (${entregueFloat}) excede a quantidade pedida na ordem de compra (${parseFloat(pedido.quantidade_ordem_compra)}).`
+        });
+      }
+
+      // Atualizar o status do pedido e a quantidade entregue
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Entregue', delivered_quantity = $1
+         WHERE id = $2`,
+        [entregueFloat, pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Confirmou entrega de pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Entrega do pedido ${pedido.order_id} (${pedido.product_name}) confirmada. Quantidade: ${entregueFloat}.`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Entrega confirmada com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao confirmar entrega:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao confirmar a entrega."
+      });
+    }
+  });
+
+  // Rota para cancelar pedido (somente KeyUser)
+  app.post("/api/pedidos/:id/cancelar", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { motivo } = req.body;
+
+      console.log(`🚫 Cancelamento de pedido solicitado:`, {
+        pedidoId,
+        motivo
+      });
+
+      // Validações
+      if (!motivo || !motivo.trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Motivo do cancelamento é obrigatório."
+        });
+      }
+
+      // Buscar informações do pedido original para histórico
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Atualizar o status do pedido para 'Cancelado'
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Cancelado'
+         WHERE id = $1`,
+        [pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Cancelou pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Pedido ${pedido.order_id} (${pedido.product_name}) cancelado. Motivo: ${motivo}.`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Pedido cancelado com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao cancelar pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao cancelar o pedido."
+      });
+    }
+  });
+
+  // Rota para adicionar nota fiscal a um pedido
+  app.post("/api/pedidos/:id/adicionar-nota", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { numeroNota, dataEmissao, valorTotal } = req.body;
+
+      console.log(`📝 Adicionando nota fiscal ao pedido:`, {
+        pedidoId,
+        numeroNota,
+        dataEmissao,
+        valorTotal
+      });
+
+      // Validações
+      if (!numeroNota || !dataEmissao || !valorTotal) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Número da nota, data de emissão e valor total são obrigatórios."
+        });
+      }
+
+      const emissao = convertToLocalDate(dataEmissao);
+      const valor = parseFloat(valorTotal);
+
+      if (isNaN(valor) || valor <= 0) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Valor total inválido."
+        });
+      }
+
+      // Buscar informações do pedido para log
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Atualizar o pedido com as informações da nota fiscal
+      await pool.query(
+        `UPDATE orders 
+         SET invoice_number = $1, invoice_date = $2, invoice_total = $3
+         WHERE id = $4`,
+        [numeroNota, emissao, valor, pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Adicionou nota fiscal a pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Nota fiscal ${numeroNota} adicionada ao pedido ${pedido.order_id} (${pedido.product_name}). Valor: R$ ${valor.toFixed(2)}.`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Nota fiscal adicionada com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao adicionar nota fiscal:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao adicionar nota fiscal."
+      });
+    }
+  });
+
+  // Rota para buscar detalhes de um pedido específico
+  app.get("/api/pedidos/:id", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido."
+        });
+      }
+
+      console.log(`🔍 Buscando detalhes do pedido ID: ${pedidoId}`);
+
+      // Buscar detalhes do pedido principal
+      const pedidoResult = await pool.query(`
+        SELECT 
+          o.*,
+          p.name as product_name,
+          p.confirmation_type,
+          u.abbreviation as unit_abbreviation,
+          oc.numero_ordem as purchase_order_number,
+          c_supplier.name as supplier_name,
+          c_work.name as work_location_name,
+          COALESCE(SUM(CASE WHEN o.status = 'Entregue' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
+          COALESCE(SUM(CASE WHEN o.status != 'Cancelado' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
+        FROM orders o
+        JOIN products p ON o.product_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+        LEFT JOIN companies c_supplier ON o.supplier_id = c_supplier.id
+        LEFT JOIN companies c_work ON oc.cnpj = c_work.cnpj -- Assumindo que o CNPJ da obra está na tabela companies
+        WHERE o.id = $1
+        GROUP BY o.id, p.name, p.confirmation_type, u.abbreviation, oc.numero_ordem, c_supplier.name, c_work.name
+      `, [pedidoId]);
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+      console.log(`✅ Pedido encontrado: ${pedido.order_id}`);
+
+      // Buscar informações do aprovador (se aplicável)
+      let approverInfo = null;
+      if (pedido.status === 'Registrado' && pedido.purchase_order_id) {
+        const approverResult = await pool.query(`
+          SELECT u.name as approver_name, u.email as approver_email
+          FROM orders o
+          JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+          JOIN companies c ON oc.cnpj = c.cnpj
+          JOIN users u ON c.approver_id = u.id
+          WHERE o.id = $1 AND c.approver_id IS NOT NULL
+        `, [pedidoId]);
+
+        if (approverResult.rows.length > 0) {
+          approverInfo = {
+            name: approverResult.rows[0].approver_name,
+            email: approverResult.rows[0].approver_email
+          };
+        }
+      }
+
+      res.json({
+        sucesso: true,
+        pedido: {
+          ...pedido,
+          approverInfo: approverInfo
+        }
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar detalhes do pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar detalhes do pedido."
+      });
+    }
+  });
+
+  // Rota para buscar todos os pedidos com filtros
+  app.get("/api/pedidos", isAuthenticated, async (req, res) => {
+    try {
+      const { status, supplierId, productId, purchaseOrderId, startDate, endDate, workLocation } = req.query;
+
+      console.log("🔍 Buscando pedidos com filtros:", {
+        status,
+        supplierId,
+        productId,
+        purchaseOrderId,
+        startDate,
+        endDate,
+        workLocation,
+        userCompanyId: req.user.companyId,
+        userIsKeyUser: req.user.isKeyUser
+      });
+
+      let query = `
+        SELECT 
+          o.*,
+          p.name as product_name,
+          p.confirmation_type,
+          u.abbreviation as unit_abbreviation,
+          oc.numero_ordem as purchase_order_number,
+          c_supplier.name as supplier_name,
+          c_work.name as work_location_name,
+          COALESCE(SUM(CASE WHEN o.status = 'Entregue' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
+          COALESCE(SUM(CASE WHEN o.status != 'Cancelado' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
+        FROM orders o
+        JOIN products p ON o.product_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+        LEFT JOIN companies c_supplier ON o.supplier_id = c_supplier.id
+        LEFT JOIN companies c_work ON oc.cnpj = c_work.cnpj
+        WHERE 1=1 
+      `; // Start with 1=1 for easy AND conditions
+
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+
+      // --- FILTRO BASEADO NA EMPRESA DO USUÁRIO ---
+      // Se o usuário pertence a uma empresa com critérios e não é KeyUser/Admin
+      if (req.user && req.user.companyId && !req.user.isKeyUser && req.user.id !== 1) {
+        const userCompany = await storage.getCompany(req.user.companyId);
+        if (userCompany) {
+          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+          if (companyCategory && (companyCategory.requiresApprover || companyCategory.requiresContract || companyCategory.receivesPurchaseOrders)) {
+            // Incluir pedidos onde a empresa é fornecedora OU obra de destino
+            query += ` AND (o.supplier_id = $${paramIndex} OR oc.cnpj = $${paramIndex + 1})`;
+            queryParams.push(req.user.companyId, userCompany.cnpj);
+            paramIndex += 2;
+            console.log(`🔒 Filtro de empresa aplicado: Fornecedor=${req.user.companyId}, Obra CNPJ=${userCompany.cnpj}`);
+          }
+        }
+      }
+
+      // --- FILTRO DE STATUS ---
+      if (status) {
+        query += ` AND o.status = $${paramIndex++}`;
+        queryParams.push(status);
+      }
+
+      // --- FILTRO POR FORNECEDOR ---
+      if (supplierId) {
+        query += ` AND o.supplier_id = $${paramIndex++}`;
+        queryParams.push(supplierId);
+      }
+
+      // --- FILTRO POR PRODUTO ---
+      if (productId) {
+        query += ` AND o.product_id = $${paramIndex++}`;
+        queryParams.push(productId);
+      }
+
+      // --- FILTRO POR ORDEM DE COMPRA ---
+      if (purchaseOrderId) {
+        query += ` AND o.purchase_order_id = $${paramIndex++}`;
+        queryParams.push(purchaseOrderId);
+      }
+
+      // --- FILTRO POR LOCAL DE OBRA ---
+      if (workLocation) {
+        query += ` AND c_work.name ILIKE $${paramIndex++}`; // ILIKE para case-insensitive search
+        queryParams.push(`%${workLocation}%`);
+      }
+
+      // --- FILTRO POR PERÍODO ---
+      if (startDate) {
+        query += ` AND o.delivery_date >= $${paramIndex++}`;
+        queryParams.push(convertToLocalDate(startDate as string)); // Convert to local date
+      }
+      if (endDate) {
+        // Add 1 day to endDate to include the entire day
+        const adjustedEndDate = new Date(endDate as string);
+        adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
+        query += ` AND o.delivery_date < $${paramIndex++}`;
+        queryParams.push(adjustedEndDate);
+      }
+
+      // --- GROUP BY ---
+      query += `
+        GROUP BY o.id, p.name, p.confirmation_type, u.abbreviation, oc.numero_ordem, c_supplier.name, c_work.name
+        ORDER BY o.created_at DESC
+      `;
+
+      const result = await pool.query(query, queryParams);
+
+      res.json(result.rows);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar pedidos com filtros:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar pedidos."
+      });
+    }
+  });
+
+
+  // Rota para adicionar comentário a um pedido
+  app.post("/api/pedidos/:id/comentar", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { comentario } = req.body;
+
+      console.log(`💬 Adicionando comentário ao pedido:`, {
+        pedidoId,
+        comentario
+      });
+
+      // Validações
+      if (!comentario || !comentario.trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Comentário é obrigatório."
+        });
+      }
+
+      // Buscar informações do pedido para log
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Adicionar o comentário ao histórico do pedido
+      await pool.query(
+        `INSERT INTO order_comments (order_id, user_id, comment, created_at)
+         VALUES ($1, $2, $3, $4)`,
+        [pedidoId, req.user.id, comentario.trim(), new Date()]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Adicionou comentário a pedido",
+        itemType: "order_comment",
+        itemId: pedidoId.toString(),
+        details: `Comentário adicionado ao pedido ${pedido.order_id} (${pedido.product_name}).`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Comentário adicionado com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao adicionar comentário:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao adicionar comentário."
+      });
+    }
+  });
+
+  // Rota para buscar comentários de um pedido
+  app.get("/api/pedidos/:id/comentarios", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido."
+        });
+      }
+
+      console.log(`🔍 Buscando comentários do pedido ID: ${pedidoId}`);
+
+      const comentariosResult = await pool.query(`
+        SELECT 
+          oc.*,
+          u.name as user_name,
+          u.email as user_email
+        FROM order_comments oc
+        JOIN users u ON oc.user_id = u.id
+        WHERE oc.order_id = $1
+        ORDER BY oc.created_at ASC
+      `, [pedidoId]);
+
+      res.json(comentariosResult.rows);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar comentários do pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar comentários do pedido."
+      });
+    }
+  });
+
   // Configuração do servidor HTTP com o app Express
   const httpServer = createServer(app);
   return httpServer;
