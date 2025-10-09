@@ -42,6 +42,7 @@ export default function Sidebar() {
   const { canView } = useAuthorization();
   const { settings } = useSettings();
   const [showQRModal, setShowQRModal] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   // Buscar reprogramações pendentes para mostrar o badge
   const { data: reprogramacoes = [] } = useQuery({
@@ -54,22 +55,12 @@ export default function Sidebar() {
       {/* Logo/Header */}
       <div className="px-4 py-4 border-b border-sidebar-border bg-[#26262c] flex justify-center items-center min-h-[96px]">
         <Link href="/">
-          {settings.logoUrl && settings.logoUrl.trim() !== "" ? (
+          {settings.logoUrl && settings.logoUrl.trim() !== "" && !logoError ? (
             <img
               src={settings.logoUrl}
               alt={settings.appName || 'iCap'}
               className="w-[140px] h-[60px] object-contain cursor-pointer hover:opacity-80 transition-opacity"
-              onError={(e) => {
-                // Se houver erro ao carregar a logo, esconder a imagem e mostrar o texto
-                e.currentTarget.style.display = 'none';
-                const parent = e.currentTarget.parentElement;
-                if (parent && !parent.querySelector('h1')) {
-                  const fallbackText = document.createElement('h1');
-                  fallbackText.className = "text-xl font-semibold text-white cursor-pointer hover:text-primary transition-colors";
-                  fallbackText.textContent = settings.appName || 'i-CAP 5.0';
-                  parent.appendChild(fallbackText);
-                }
-              }}
+              onError={() => setLogoError(true)}
             />
           ) : (
             <h1 className="text-xl font-semibold text-white cursor-pointer hover:text-primary transition-colors">
