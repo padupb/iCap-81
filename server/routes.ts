@@ -461,10 +461,9 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   // PRIORIDADE 1: Tentar Object Storage se disponível
   if (objectStorageAvailable && objectStorage) {
     try {
-      // USAR PADRÃO SIMPLES: orderId/filename (sem prefixo "orders/")
-      const key = `${orderId}/${filename}`;
-
-      console.log(`📤 Tentando upload para Object Storage: ${key}`);
+      // CORREÇÃO: Adicionar prefixo 'orders/' ao caminho
+      const storageKey = `orders/${orderId}/${filename}`;
+      console.log(`📤 Tentando upload para Object Storage: ${storageKey}`);
       console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
 
       // Validar buffer antes do upload
@@ -480,14 +479,14 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
         console.log(`📤 Convertido para Uint8Array: ${uint8Array.length} bytes`);
 
         // Upload usando bytes
-        uploadResult = await objectStorage.uploadFromBytes(key, uint8Array);
+        uploadResult = await objectStorage.uploadFromBytes(storageKey, uint8Array);
         console.log("✅ Upload realizado com uploadFromBytes");
       } else {
         // Se não for Buffer, tentar converter primeiro
         console.log(`⚠️ Dados não são Buffer, tentando conversão. Tipo: ${typeof buffer}`);
         const bufferData = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
         const uint8Array = new Uint8Array(bufferData);
-        uploadResult = await objectStorage.uploadFromBytes(key, uint8Array);
+        uploadResult = await objectStorage.uploadFromBytes(storageKey, uint8Array);
         console.log("✅ Upload realizado após conversão para Buffer");
       }
 
@@ -495,7 +494,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       console.log(`🔍 Verificando integridade do arquivo após upload...`);
 
       try {
-        const downloadTest = await objectStorage.downloadAsBytes(key);
+        const downloadTest = await objectStorage.downloadAsBytes(storageKey);
 
         // Extrair buffer usando a mesma função do readFileFromStorage
         const testBuffer = extractBufferFromStorageResult(downloadTest);
@@ -514,19 +513,19 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
         console.log(`   • Integridade: ${downloadedSize === originalSize ? 'OK' : 'FALHA'}`);
 
         if (downloadedSize === originalSize) {
-          console.log(`✅ Arquivo verificado no Object Storage: ${key}`);
+          console.log(`✅ Arquivo verificado no Object Storage: ${storageKey}`);
           console.log(`✅ Arquivo estará disponível após redeploys`);
-          return key;
+          return storageKey;
         } else {
           console.error(`❌ Tamanhos não coincidem! Original: ${originalSize}, Baixado: ${downloadedSize}`);
-          console.log(`⚠️ Continuando mesmo com diferença de tamanho (pode ser compressão do Object Storage)`);
-          return key;
+          console.log(`⚠️ Continuando com upload mesmo com diferença de tamanho (pode ser compressão do Object Storage)`);
+          return storageKey;
         }
       } catch (verifyError) {
         const error = verifyError instanceof Error ? verifyError : new Error(String(verifyError));
         console.log(`⚠️ Erro na verificação de integridade: ${error.message}`);
-        console.log(`⚠️ Continuando com upload mesmo sem verificação`);
-        return key;
+        console.log(`⚠️ Continuing with upload even without verification`);
+        return storageKey;
       }
     } catch (storageError) {
       const error = storageError instanceof Error ? storageError : new Error(String(storageError));
@@ -3691,7 +3690,7 @@ Status: Teste em progresso...`;
 
       console.log(`📸 Solicitação de download da foto de confirmação: Pedido ${id}`);
 
-      // Buscar informações do pedido usando foto_confirmacao
+      // Buscar informações do pedido com foto_confirmacao
       const pedidoResult = await pool.query(
         "SELECT order_id, foto_confirmacao FROM orders WHERE id = $1",
         [id]
@@ -4258,7 +4257,7 @@ Status: Teste em progresso...`;
         LEFT JOIN units u ON p.unit_id = u.id
         LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
         LEFT JOIN companies c_supplier ON o.supplier_id = c_supplier.id
-        LEFT JOIN companies c_work ON oc.cnpj = c_work.cnpj -- Assumindo que o CNPJ da obra está na tabela companies
+        LEFT JOIN companies c_work ON oc.cnpj = c_work.cnpj
         WHERE o.id = $1
         GROUP BY o.id, p.name, p.confirmation_type, u.abbreviation, oc.numero_ordem, c_supplier.name, c_work.name
       `, [pedidoId]);
@@ -4627,7 +4626,7 @@ Status: Teste em progresso...`;
   app.put("/api/orders/:id/approve", isAuthenticated, async (req, res) => {
     try {
       const orderId = parseInt(req.params.id);
-      
+
       if (isNaN(orderId)) {
         return res.status(400).json({
           success: false,
@@ -4688,7 +4687,7 @@ Status: Teste em progresso...`;
   app.put("/api/orders/:id/reject", isAuthenticated, async (req, res) => {
     try {
       const orderId = parseInt(req.params.id);
-      
+
       if (isNaN(orderId)) {
         return res.status(400).json({
           success: false,
