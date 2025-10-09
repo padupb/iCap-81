@@ -143,12 +143,35 @@ npm run db:push --force  # Força sincronização (com warnings)
 3. Frontend converte lat/lng para números com `parseFloat()` (DashboardTrackingMap.tsx linhas 157-158)
 4. Adicionado filtro defensivo para coordenadas inválidas (NaN)
 
-### 4. Segurança (PENDENTE ⚠️)
+### 4. Confirmação de Entrega - Endpoint Incorreto (RESOLVIDO ✅)
+**Problema**: Erro ao confirmar entrega de pedido com foto da nota fiscal assinada.
+- Frontend chamava `/api/pedidos/:id/confirmar` (endpoint não existia)
+- Backend tinha apenas `/api/pedidos/:id/confirmar-entrega` (sem suporte a upload de foto)
+- Frontend enviava FormData com `quantidadeRecebida` + `fotoNotaAssinada`
+- Backend esperava JSON com `quantidadeEntregue`
+- Middleware multer configurado mas não usado
+
+**Solução**:
+1. Criado endpoint `/api/pedidos/:id/confirmar` com middleware multer (server/routes.ts linha 3755)
+2. Suporte a FormData com campos: `quantidadeRecebida` e `fotoNotaAssinada`
+3. Upload de foto para Object Storage com padrão: `{pedidoId}/foto-nota-assinada-{timestamp}.{ext}`
+4. Atualização de `documentos_info` do pedido para incluir path da foto
+5. Validações de permissão, quantidade vs ordem de compra, e foto obrigatória
+6. Endpoint legado `/api/pedidos/:id/confirmar-entrega` mantido para compatibilidade
+
+### 5. Segurança (PENDENTE ⚠️)
 - Mobile auth aceita qualquer Bearer token
 - KeyUser baseado apenas em ID (1-5)
 - Necessário implementar validação JWT adequada
 
 ## Mudanças Recentes
+
+### 09/10/2025 - Noite
+- ✅ Corrigido endpoint de confirmação de entrega com upload de foto
+- ✅ Criado `/api/pedidos/:id/confirmar` com suporte a FormData e multer
+- ✅ Implementado upload de foto da nota assinada para Object Storage
+- ✅ Validações de quantidade, permissões e foto obrigatória
+- ✅ Confirmação de entrega agora funciona corretamente com foto
 
 ### 09/10/2025 - Tarde
 - ✅ Corrigido schema mismatch em tracking_points (INTEGER → TEXT)
