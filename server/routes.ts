@@ -3748,7 +3748,129 @@ Status: Teste em progresso...`;
     }
   });
 
-  // Rota para confirmar entrega de pedido
+  // Rota para confirmar entrega de pedido COM FOTO (usado pelo frontend)
+  app.post("/api/pedidos/:id/confirmar", isAuthenticated, uploadFotoConfirmacao.single('fotoNotaAssinada'), async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const quantidadeRecebida = req.body.quantidadeRecebida;
+      const foto = req.file;
+
+      console.log(`✅ Recebida confirmação de entrega para pedido:`, {
+        pedidoId,
+        quantidadeRecebida,
+        temFoto: !!foto
+      });
+
+      // Validações
+      if (!quantidadeRecebida || isNaN(parseFloat(quantidadeRecebida))) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Quantidade recebida inválida."
+        });
+      }
+
+      if (!foto) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Foto da nota fiscal assinada é obrigatória."
+        });
+      }
+
+      const entregueFloat = parseFloat(quantidadeRecebida);
+
+      // Buscar informações do pedido original
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name, p.confirmation_type, ioc.quantidade as quantidade_ordem_compra
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         LEFT JOIN itens_ordem_compra ioc ON o.purchase_order_id = ioc.ordem_compra_id AND o.product_id = ioc.produto_id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Verificar se o usuário tem permissão para confirmar entrega
+      const hasConfirmPermission = req.user.canConfirmDelivery || req.user.isKeyUser;
+      if (!hasConfirmPermission) {
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Você não tem permissão para confirmar entregas."
+        });
+      }
+
+      // Validar se a quantidade entregue excede a quantidade pedida
+      if (pedido.quantidade_ordem_compra !== null && entregueFloat > parseFloat(pedido.quantidade_ordem_compra)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `A quantidade entregue (${entregueFloat}) excede a quantidade pedida na ordem de compra (${parseFloat(pedido.quantidade_ordem_compra)}).`
+        });
+      }
+
+      // Upload da foto para Object Storage
+      const timestamp = Date.now();
+      const fotoKey = `${pedidoId}/foto-nota-assinada-${timestamp}.${foto.mimetype === 'image/png' ? 'png' : 'jpg'}`;
+      
+      console.log(`📤 Fazendo upload da foto para Object Storage: ${fotoKey}`);
+      
+      const uploadResult = await storage.client.uploadFromBytes(
+        fotoKey,
+        new Uint8Array(foto.buffer)
+      );
+
+      if (!uploadResult.ok) {
+        console.error('❌ Erro ao fazer upload da foto:', uploadResult.error);
+        return res.status(500).json({
+          sucesso: false,
+          mensagem: "Erro ao salvar a foto da nota fiscal."
+        });
+      }
+
+      console.log(`✅ Foto salva com sucesso: ${fotoKey}`);
+
+      // Atualizar documentos_info do pedido para incluir a foto
+      const documentosInfo = pedido.documentos_info || {};
+      documentosInfo.foto_nota = fotoKey;
+
+      // Atualizar o status do pedido e a quantidade entregue
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Entregue', delivered_quantity = $1, documentos_info = $2
+         WHERE id = $3`,
+        [entregueFloat, JSON.stringify(documentosInfo), pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Confirmou entrega de pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Entrega do pedido ${pedido.order_id} (${pedido.product_name}) confirmada. Quantidade: ${entregueFloat}. Foto da nota assinada salva.`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Entrega confirmada com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao confirmar entrega:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao confirmar a entrega."
+      });
+    }
+  });
+
+  // Rota para confirmar entrega de pedido SEM FOTO (legado)
   app.post("/api/pedidos/:id/confirmar-entrega", isAuthenticated, async (req, res) => {
     try {
       const pedidoId = parseInt(req.params.id);
