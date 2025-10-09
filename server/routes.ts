@@ -783,7 +783,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
           companyId: user.companyId,
           roleId: user.roleId,
           permissions: user.role ? user.role.permissions || [] : [],
-          isKeyUser: user.id === 1, // Assumendo que o usuário com ID 1 é o KeyUser
+          isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
           canCreatePurchaseOrder: user.canCreatePurchaseOrder
@@ -3678,13 +3678,13 @@ Status: Teste em progresso...`;
 
   // Rota específica para download da foto de confirmação
   // SEM autenticação para permitir download direto via link
-  app.get("/api/pedidos/:id/foto-confirmacao", async (req, res) => {
+  app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({
           success: false,
-          message: "ID inválido"
+          message: "ID de pedido inválido"
         });
       }
 
@@ -3716,6 +3716,7 @@ Status: Teste em progresso...`;
         });
       }
 
+      // Parse do JSON da foto_confirmacao
       const fotoInfo = typeof pedido.foto_confirmacao === 'string'
         ? JSON.parse(pedido.foto_confirmacao)
         : pedido.foto_confirmacao;
@@ -3729,11 +3730,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      const storageKey = fotoInfo.storageKey;
-      const filename = fotoInfo.filename || 'foto-confirmacao.jpg';
-      const mimetype = fotoInfo.mimetype || 'image/jpeg';
-
-      console.log(`📂 Buscando foto: ${storageKey}`);
+      const { storageKey, originalName: filename } = fotoInfo;
 
       const fileResult = await readFileFromStorage(
         storageKey,
@@ -3761,15 +3758,17 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`✅ Foto encontrada: ${originalName} (${fileBuffer.length} bytes)`);
+      // Determinar tipo de conteúdo baseado na extensão
+      const ext = originalName.split('.').pop()?.toLowerCase();
+      const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
-      res.setHeader("Content-Type", mimetype);
-      res.setHeader("Content-Length", fileBuffer.length);
-      res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
-      res.setHeader("Cache-Control", "no-cache");
+      // Configurar headers para download
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+      res.setHeader('Content-Length', fileBuffer.length);
 
+      // Enviar o arquivo
       res.end(fileBuffer);
-
     } catch (error) {
       console.error("❌ Erro ao buscar foto de confirmação:", error);
       res.status(500).json({
