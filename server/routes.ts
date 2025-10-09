@@ -5278,37 +5278,36 @@ Status: Teste em progresso...`;
               if (!fileBuffer || fileBuffer.length <= 1) {
                 console.log(`⚠️ Arquivo corrompido ou vazio: ${fileBuffer?.length || 0} bytes`);
                 return res.status(404).json({
-                  sucesso: false,
-                  mensagem: "Arquivo está corrompido ou vazio"
-                });
-              }
-
-              console.log(`✅ Enviando arquivo: ${originalName} (${fileBuffer.length} bytes)`);
-
-              // Determinar content-type
-              const contentType = tipo.includes('xml')
-                ? 'application/xml'
-                : 'application/pdf';
-
-              // Enviar arquivo - IMPORTANTE: usar res.send() para dados binários
-              res.setHeader('Content-Type', contentType);
-              res.setHeader('Content-Length', fileBuffer.length);
-              res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-              res.setHeader('Cache-Control', 'no-cache');
-
-              return res.send(fileBuffer);
-
-            } catch (error) {
-              console.error("❌ Erro ao fazer download do documento:", error);
-              return res.status(500).json({
-                sucesso: false,
-                mensagem: "Erro ao fazer download do documento",
-                erro: error instanceof Error ? error.message : "Erro desconhecido"
+                  sucesso: false,                mensagem: "Arquivo está corrompido ou vazio"
               });
             }
-          });
 
-          // Configuração do servidor HTTP com o app Express
-          const httpServer = createServer(app);
-          return httpServer;
-        }
+            console.log(`✅ Enviando arquivo: ${originalName} (${fileBuffer.length} bytes)`);
+
+            // Determinar content-type
+            const contentType = tipo.includes('xml')
+              ? 'application/xml'
+              : 'application/pdf';
+
+            // Enviar arquivo - IMPORTANTE: usar res.send() para dados binários
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Length', fileBuffer.length);
+            res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+            res.setHeader('Cache-Control', 'no-cache');
+
+            return res.send(fileBuffer);
+
+          } catch (error) {
+            console.error("❌ Erro ao fazer download do documento:", error);
+            return res.status(500).json({
+              sucesso: false,
+              mensagem: "Erro ao fazer download do documento",
+              erro: error instanceof Error ? error.message : "Erro desconhecido"
+            });
+          }
+        });
+
+        // Configuração do servidor HTTP com o app Express
+        const httpServer = createServer(app);
+        return httpServer;
+      }
