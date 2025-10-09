@@ -156,8 +156,16 @@ npm run db:push --force  # Força sincronização (com warnings)
 ```bash
 DATABASE_URL=<Neon PostgreSQL connection string>
 JWT_SECRET=<Opcional - para JWT token validation>
-GOOGLE_MAPS_API_KEY=<Para Google Maps>
+GOOGLE_MAPS_API_KEY=<Para Google Maps - ver GOOGLE_MAPS_SETUP.md>
 ```
+
+### Configuração do Google Maps
+⚠️ **IMPORTANTE**: A chave do Google Maps precisa ser configurada corretamente no Google Cloud Console. Consulte `GOOGLE_MAPS_SETUP.md` para instruções detalhadas.
+
+**Problema Comum**: Se você vir erro `InvalidKeyMapError` no console do navegador, a chave precisa:
+1. Ter a **Maps JavaScript API** habilitada
+2. Permitir o domínio do Replit nos **HTTP referrers**
+3. Ter as **API restrictions** configuradas corretamente
 
 ## Notas de Desenvolvimento
 

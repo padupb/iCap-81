@@ -4030,14 +4030,19 @@ Status: Teste em progresso...`;
   // Rota para obter a chave da API do Google Maps dos Secrets
   app.get("/api/google-maps-key", async (req, res) => {
     try {
-      // SOLUÇÃO: Usar a chave diretamente do .env como fallback
-      const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyBS_TMgZfqMle79oUmh_GwV-u22wo1C4T5';
+      const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
       
-      console.log('🔍 Verificando Google Maps API Key:');
-      console.log('   • Variável de ambiente definida:', !!process.env.GOOGLE_MAPS_API_KEY);
-      console.log('   • Tamanho da chave:', googleMapsApiKey?.length || 0);
-      console.log('   • Preview da chave:', googleMapsApiKey ? `${googleMapsApiKey.substring(0, 25)}...` : 'VAZIA');
-      console.log('   • Status:', googleMapsApiKey ? '✅ Encontrada' : '❌ Não encontrada');
+      if (!googleMapsApiKey) {
+        console.error('❌ GOOGLE_MAPS_API_KEY não encontrada nos secrets');
+        return res.status(500).json({
+          error: 'Chave da API do Google Maps não configurada',
+          apiKey: null
+        });
+      }
+      
+      console.log('✅ Google Maps API Key carregada dos secrets');
+      console.log('   • Tamanho:', googleMapsApiKey.length);
+      console.log('   • Preview:', `${googleMapsApiKey.substring(0, 20)}...`);
       
       res.json({
         apiKey: googleMapsApiKey
@@ -4045,8 +4050,8 @@ Status: Teste em progresso...`;
     } catch (error) {
       console.error("❌ Erro ao buscar chave do Google Maps:", error);
       res.status(500).json({
-        apiKey: null,
-        error: "Erro ao buscar chave da API"
+        error: 'Erro ao carregar chave da API',
+        apiKey: null
       });
     }
   });
