@@ -1,6 +1,6 @@
-replit_final_file>
 import type { Express, Request, Response, NextFunction } from "express";
-import { createServer, type Server } from "http";
+import type { Server } from "http";
+import { createServer } from "http";
 import { storage } from "./storage";
 import { db, pool } from "./db";
 import { isAuthenticated, hasPermission, isKeyUser, authenticateUser } from "./middleware/auth";
@@ -3616,7 +3616,7 @@ Status: Teste em progresso...`;
 
       // Buscar informações do pedido original para histórico
       const pedidoResult = await pool.query(
-        `SELECT o.*, p.name as product_name, p.confirmation_type
+        `SELECT o.*, p.name as product_name
          FROM orders o
          JOIN products p ON o.product_id = p.id
          WHERE o.id = $1`,
@@ -4383,4 +4383,3 @@ Status: Teste em progresso...`;
   const httpServer = createServer(app);
   return httpServer;
 }
-</replit_final_file>
