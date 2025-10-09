@@ -151,22 +151,46 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
   // Preparar markers para o mapa (com validação defensiva)
   const markers = trackingData
     .map((data) => {
-      const lat = parseFloat(data.lastTrackingPoint!.latitude as string);
-      const lng = parseFloat(data.lastTrackingPoint!.longitude as string);
+      // Garantir que temos um lastTrackingPoint válido
+      if (!data.lastTrackingPoint || !data.lastTrackingPoint.latitude || !data.lastTrackingPoint.longitude) {
+        console.warn(`⚠️ Pedido ${data.order.orderId} sem ponto de rastreamento válido`);
+        return null;
+      }
+
+      // Converter para número de forma segura
+      const latStr = String(data.lastTrackingPoint.latitude).trim();
+      const lngStr = String(data.lastTrackingPoint.longitude).trim();
       
-      console.log(`📍 Criando marker para pedido ${data.order.orderId}:`, {
-        latitude: data.lastTrackingPoint!.latitude,
-        longitude: data.lastTrackingPoint!.longitude,
-        lat: lat,
-        lng: lng,
-        isValidLat: !isNaN(lat) && isFinite(lat),
-        isValidLng: !isNaN(lng) && isFinite(lng)
+      const lat = parseFloat(latStr);
+      const lng = parseFloat(lngStr);
+      
+      console.log(`📍 Processando marker para pedido ${data.order.orderId}:`, {
+        latitudeOriginal: data.lastTrackingPoint.latitude,
+        longitudeOriginal: data.lastTrackingPoint.longitude,
+        latString: latStr,
+        lngString: lngStr,
+        latNumber: lat,
+        lngNumber: lng,
+        latValid: !isNaN(lat) && isFinite(lat),
+        lngValid: !isNaN(lng) && isFinite(lng)
       });
+
+      // Validação rigorosa
+      if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng)) {
+        console.warn(`⚠️ Coordenadas inválidas para pedido ${data.order.orderId}`);
+        return null;
+      }
+
+      // Validação de range (coordenadas do Brasil aproximadamente)
+      if (lat < -35 || lat > 5 || lng < -75 || lng > -30) {
+        console.warn(`⚠️ Coordenadas fora do range válido para pedido ${data.order.orderId}: lat=${lat}, lng=${lng}`);
+        return null;
+      }
       
       return {
         id: data.order.id,
-        lat,
-        lng,
+        lat: Number(lat),
+        lng: Number(lng),
         title: `Pedido ${data.order.orderId}`,
         content: `${data.product?.name || 'Produto'} - ${data.order.status}`,
         orderId: data.order.orderId,
@@ -174,13 +198,22 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
         color: data.color,
       };
     })
-    .filter((marker) => {
-      const isValid = !isNaN(marker.lat) && !isNaN(marker.lng) && isFinite(marker.lat) && isFinite(marker.lng);
+    .filter((marker): marker is NonNullable<typeof marker> => {
+      if (marker === null) return false;
+      
+      const isValid = 
+        typeof marker.lat === 'number' && 
+        typeof marker.lng === 'number' &&
+        !isNaN(marker.lat) && 
+        !isNaN(marker.lng) && 
+        isFinite(marker.lat) && 
+        isFinite(marker.lng);
+      
       if (!isValid) {
-        console.warn(`⚠️ Marker inválido filtrado:`, marker);
+        console.error(`❌ Marker inválido filtrado:`, marker);
       }
       return isValid;
-    }); // Filtrar coordenadas inválidas
+    });
 
   // Calcular centro e zoom do mapa baseado em todas as cargas
   const mapSettings = React.useMemo(() => {

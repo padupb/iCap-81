@@ -153,12 +153,35 @@ const GoogleMapsWrapper: React.FC<Props & { googleMapsApiKey: string }> = ({
       {markers.length === 0 && <Marker position={center} />}
 
       {/* Múltiplos marcadores */}
-      {markers.map((marker) => {
+      {markers.map((marker, index) => {
         // Validação extra de segurança
-        if (!marker || isNaN(marker.lat) || isNaN(marker.lng) || !isFinite(marker.lat) || !isFinite(marker.lng)) {
-          console.error('❌ Marker inválido ignorado:', marker);
+        if (!marker) {
+          console.error(`❌ Marker ${index} é null/undefined`);
           return null;
         }
+
+        const lat = Number(marker.lat);
+        const lng = Number(marker.lng);
+
+        if (typeof lat !== 'number' || typeof lng !== 'number' || 
+            isNaN(lat) || isNaN(lng) || 
+            !isFinite(lat) || !isFinite(lng)) {
+          console.error(`❌ Marker ${index} com coordenadas inválidas:`, {
+            marker,
+            lat,
+            lng,
+            latType: typeof lat,
+            lngType: typeof lng
+          });
+          return null;
+        }
+
+        console.log(`✅ Criando marker ${index} no Google Maps:`, {
+          id: marker.id,
+          lat,
+          lng,
+          title: marker.title
+        });
 
         const color = marker.color || generateColorFromId(marker.id);
         const icon = marker.icon || createColoredDot(marker.id, color);
@@ -166,7 +189,10 @@ const GoogleMapsWrapper: React.FC<Props & { googleMapsApiKey: string }> = ({
         return (
           <Marker
             key={marker.id}
-            position={{ lat: marker.lat, lng: marker.lng }}
+            position={{ 
+              lat: Number(lat), 
+              lng: Number(lng) 
+            }}
             title={`Pedido ${marker.orderId || marker.id}`}
             icon={icon}
             onClick={() => handleMarkerClick(marker)}
