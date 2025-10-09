@@ -176,13 +176,25 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           } else if (Array.isArray(valueData)) {
             buffer = Buffer.from(valueData);
             console.log(`✅ Array convertido para Buffer: ${buffer.length} bytes`);
-          } else if (typeof valueData === 'object') {
+          } else if (typeof valueData === 'object' && valueData !== null) {
             // Pode ser um objeto array-like {0: byte1, 1: byte2, ...}
             try {
-              const bytes = Object.values(valueData);
-              if (bytes.every(b => typeof b === 'number')) {
-                buffer = Buffer.from(bytes);
-                console.log(`✅ Object array-like convertido para Buffer: ${buffer.length} bytes`);
+              // Verificar se é um objeto com chaves numéricas
+              const keys = Object.keys(valueData);
+              const numericKeys = keys.filter(k => !isNaN(parseInt(k))).sort((a, b) => parseInt(a) - parseInt(b));
+              
+              if (numericKeys.length > 0) {
+                // Extrair valores na ordem correta das chaves numéricas
+                const bytes = numericKeys.map(k => valueData[k]);
+                
+                if (bytes.every(b => typeof b === 'number' && b >= 0 && b <= 255)) {
+                  buffer = Buffer.from(bytes);
+                  console.log(`✅ Object array-like convertido para Buffer: ${buffer.length} bytes de ${numericKeys.length} chaves`);
+                } else {
+                  console.log(`⚠️ Object contém valores não numéricos ou fora do intervalo de bytes`);
+                }
+              } else {
+                console.log(`⚠️ Object não tem chaves numéricas válidas`);
               }
             } catch (e) {
               console.log(`⚠️ Erro ao converter object para buffer:`, e.message);
