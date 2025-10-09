@@ -3252,47 +3252,53 @@ Status: Teste em progresso...`;
           console.log(`📊 Informações de documentos encontradas:`, documentosInfo);
 
           const docInfo = documentosInfo[tipo];
-          if (docInfo && docInfo.storageKey) {
-            console.log(`📂 Tentando acessar documento usando storageKey: ${docInfo.storageKey}`);
+          if (docInfo) {
+            // Suportar tanto o formato antigo (string) quanto o novo (objeto)
+            const storageKey = typeof docInfo === 'string' ? docInfo : docInfo.storageKey;
+            const filename = typeof docInfo === 'string' ? null : docInfo.filename;
+            
+            if (storageKey) {
+              console.log(`📂 Tentando acessar documento usando storageKey: ${storageKey}`);
 
-            const fileResult = await readFileFromStorage(
-              docInfo.storageKey,
-              id.toString(),
-              docInfo.filename || `${tipo}.${tipo.includes('xml') ? 'xml' : tipo.includes('pdf') ? 'pdf' : 'jpg'}`
-            );
+              const fileResult = await readFileFromStorage(
+                storageKey,
+                id.toString(),
+                filename || `${tipo}.${tipo.includes('xml') ? 'xml' : tipo.includes('pdf') ? 'pdf' : 'jpg'}`
+              );
 
-            if (fileResult) {
-              const { data: fileBuffer, originalName } = fileResult;
+              if (fileResult) {
+                const { data: fileBuffer, originalName } = fileResult;
 
-              // Verificar se é um redirect para Google Drive
-              if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
-                const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-                console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-                return res.redirect(302, driveLink);
-              }
-
-              // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
-              if (fileBuffer.length <= 1) {
-                console.log(`⚠️ Documento encontrado via documentos_info é muito pequeno (${fileBuffer.length} byte) - ignorado`);
-              } else {
-                console.log(`✅ Documento recuperado usando documentos_info (${fileBuffer.length} bytes) - Nome: ${originalName}`);
-
-                // Determinar Content-Type baseado no tipo
-                let contentType = 'application/octet-stream';
-                if (tipo.includes('pdf')) {
-                  contentType = 'application/pdf';
-                } else if (tipo.includes('xml')) {
-                  contentType = 'application/xml';
-                } else if (tipo.includes('foto')) {
-                  contentType = 'image/jpeg';
+                // Verificar se é um redirect para Google Drive
+                if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+                  const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+                  console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+                  return res.redirect(302, driveLink);
                 }
 
-                res.setHeader("Content-Type", contentType);
-                res.setHeader("Content-Length", fileBuffer.length);
-                res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
-                res.setHeader("Cache-Control", "no-cache");
+                // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+                if (fileBuffer.length <= 1) {
+                  console.log(`⚠️ Documento encontrado via documentos_info é muito pequeno (${fileBuffer.length} byte) - ignorado`);
+                } else {
+                  console.log(`✅ Documento recuperado usando documentos_info (${fileBuffer.length} bytes) - Nome: ${originalName}`);
 
-                return res.end(fileBuffer);
+                  // Determinar Content-Type baseado no tipo
+                  let contentType = 'application/octet-stream';
+                  if (tipo.includes('pdf')) {
+                    contentType = 'application/pdf';
+                  } else if (tipo.includes('xml')) {
+                    contentType = 'application/xml';
+                  } else if (tipo.includes('foto')) {
+                    contentType = docInfo.mimetype || 'image/jpeg';
+                  }
+
+                  res.setHeader("Content-Type", contentType);
+                  res.setHeader("Content-Length", fileBuffer.length);
+                  res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
+                  res.setHeader("Cache-Control", "no-cache");
+
+                  return res.end(fileBuffer);
+                }
               }
             }
           }
@@ -3711,6 +3717,104 @@ Status: Teste em progresso...`;
         novoStatus = "Aguardando Envio"; // Ou outro status apropriado após aprovação
         logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) aprovada.`;
         console.log(`✅ Reprogramação do pedido ${pedidoId} aprovada.`);
+
+
+  // Rota específica para download da foto de confirmação
+  app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID inválido"
+        });
+      }
+
+      console.log(`📸 Solicitação de download da foto de confirmação: Pedido ${id}`);
+
+      // Buscar informações do pedido
+      const pedidoResult = await pool.query(
+        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+      
+      if (!pedido.documentos_info) {
+        return res.status(404).json({
+          success: false,
+          message: "Foto de confirmação não encontrada"
+        });
+      }
+
+      const documentosInfo = typeof pedido.documentos_info === 'string'
+        ? JSON.parse(pedido.documentos_info)
+        : pedido.documentos_info;
+
+      const fotoInfo = documentosInfo.foto_nota;
+      
+      if (!fotoInfo) {
+        return res.status(404).json({
+          success: false,
+          message: "Foto de confirmação não encontrada"
+        });
+      }
+
+      // Suportar formato antigo (string) e novo (objeto)
+      const storageKey = typeof fotoInfo === 'string' ? fotoInfo : fotoInfo.storageKey;
+      const filename = typeof fotoInfo === 'string' ? 'foto-confirmacao.jpg' : fotoInfo.filename;
+      const mimetype = typeof fotoInfo === 'string' ? 'image/jpeg' : (fotoInfo.mimetype || 'image/jpeg');
+
+      console.log(`📂 Buscando foto: ${storageKey}`);
+
+      const fileResult = await readFileFromStorage(
+        storageKey,
+        id.toString(),
+        filename
+      );
+
+      if (!fileResult) {
+        return res.status(404).json({
+          success: false,
+          message: "Foto de confirmação não encontrada no storage"
+        });
+      }
+
+      const { data: fileBuffer, originalName } = fileResult;
+
+      if (fileBuffer.length <= 1) {
+        return res.status(404).json({
+          success: false,
+          message: "Arquivo corrompido"
+        });
+      }
+
+      console.log(`✅ Foto encontrada: ${originalName} (${fileBuffer.length} bytes)`);
+
+      res.setHeader("Content-Type", mimetype);
+      res.setHeader("Content-Length", fileBuffer.length);
+      res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
+      res.setHeader("Cache-Control", "no-cache");
+
+      res.end(fileBuffer);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar foto de confirmação:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar foto de confirmação"
+      });
+    }
+  });
+
       } else {
         novoStatus = "Pendente"; // Ou um status que indique que a reprogramação foi recusada e o pedido voltou ao estado anterior
         logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) recusada. Motivo: ${motivoRecusa || 'N/A'}.`;
@@ -3814,35 +3918,44 @@ Status: Teste em progresso...`;
         });
       }
 
-      // Upload da foto para Object Storage
+      // Upload da foto para Object Storage usando saveFileToStorage
       const timestamp = Date.now();
-      const fotoKey = `${pedidoId}/foto-nota-assinada-${timestamp}.${foto.mimetype === 'image/png' ? 'png' : 'jpg'}`;
+      const fotoFilename = `foto-nota-assinada-${timestamp}.${foto.mimetype === 'image/png' ? 'png' : 'jpg'}`;
       
-      console.log(`📤 Fazendo upload da foto para Object Storage: ${fotoKey}`);
+      console.log(`📤 Fazendo upload da foto para Object Storage...`);
       
-      const uploadResult = await objectStorage.uploadFromBytes(
-        fotoKey,
-        new Uint8Array(foto.buffer)
-      );
-
-      if (!uploadResult.ok) {
-        console.error('❌ Erro ao fazer upload da foto:', uploadResult.error);
+      let fotoKey;
+      try {
+        fotoKey = await saveFileToStorage(
+          foto.buffer,
+          fotoFilename,
+          pedidoId.toString()
+        );
+        console.log(`✅ Foto salva com sucesso no Object Storage: ${fotoKey}`);
+      } catch (uploadError) {
+        const error = uploadError instanceof Error ? uploadError : new Error(String(uploadError));
+        console.error('❌ Erro ao fazer upload da foto:', error);
         return res.status(500).json({
           sucesso: false,
-          mensagem: "Erro ao salvar a foto da nota fiscal."
+          mensagem: `Erro ao salvar a foto: ${error.message}`
         });
       }
 
-      console.log(`✅ Foto salva com sucesso: ${fotoKey}`);
-
       // Atualizar documentos_info do pedido para incluir a foto
       const documentosInfo = pedido.documentos_info || {};
-      documentosInfo.foto_nota = fotoKey;
+      documentosInfo.foto_nota = {
+        filename: fotoFilename,
+        storageKey: fotoKey,
+        size: foto.size,
+        mimetype: foto.mimetype,
+        uploadDate: new Date().toISOString()
+      };
 
-      // Atualizar o status do pedido e a quantidade entregue
+      // Atualizar o status do pedido e salvar a quantidade recebida no campo quantity
+      // (já que delivered_quantity não existe na tabela)
       await pool.query(
         `UPDATE orders 
-         SET status = 'Entregue', delivered_quantity = $1, documentos_info = $2
+         SET status = 'Entregue', quantity = $1, documentos_info = $2
          WHERE id = $3`,
         [entregueFloat, JSON.stringify(documentosInfo), pedidoId]
       );
