@@ -297,7 +297,6 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           // Continuar tentando outras chaves
         }
       }
-      }
 
       // Se não encontrou, listar arquivos para debug
       try {
