@@ -14,6 +14,14 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
+// Função utilitária para converter data para fuso horário local
+function convertToLocalDate(dateString: string): Date {
+  const date = new Date(dateString);
+  // Ajustar para o fuso horário de Brasília (GMT-3)
+  date.setHours(date.getHours() - 3);
+  return date;
+}
+
 // Configuração do Object Storage (Replit)
 let objectStorage: any = null;
 let objectStorageAvailable = false;
@@ -58,9 +66,6 @@ async function initializeObjectStorage() {
       if (storageModule.Client) {
         objectStorage = new storageModule.Client();
         console.log("✅ Cliente criado usando new Client()");
-      } else if (storageModule.getClient) {
-        objectStorage = storageModule.getClient();
-        console.log("✅ Cliente criado usando getClient()");
       } else if (storageModule.default && storageModule.default.Client) {
         objectStorage = new storageModule.default.Client();
         console.log("✅ Cliente criado usando default.Client()");
@@ -226,7 +231,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
                   console.log(`✅ Object array-like convertido para Buffer: ${buffer.length} bytes`);
                 } else if (!allValidBytes) {
                   console.log(`⚠️ Object contém valores não numéricos ou fora do intervalo de bytes`);
-                  console.log(`🔍 Tipos encontrados:`, [...new Set(validBytes.map(b => typeof b))]);
+                  console.log(`🔍 Tipos encontrados:`, Array.from(new Set(validBytes.map(b => typeof b))));
                 } else {
                   console.log(`⚠️ Buffer resultante muito pequeno: ${validBytes.length} bytes`);
                 }
@@ -277,7 +282,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
               });
 
               // Se o resultado bruto for maior, usar ele
-              if (rawResult && rawResult.length > buffer?.length) {
+              if (rawResult && rawResult.length > (buffer?.length || 0)) {
                 const altBuffer = Buffer.from(rawResult);
                 if (altBuffer.length > 100) {
                   console.log(`✅ Método alternativo funcionou: ${altBuffer.length} bytes`);
@@ -401,9 +406,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       }
     }
 
-    console.log(`❌ Arquivo ${filename} não encontrado`);
-    return null;
-  }
+  console.log(`❌ Arquivo ${filename} não encontrado`);
+  return null;
 }
 
 // Função utilitária para salvar arquivo no Object Storage, Google Drive ou sistema local
@@ -462,7 +466,7 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       } else if (typeof downloadTest === 'object' && downloadTest !== null && downloadTest.length !== undefined) {
         // Array-like object
         try {
-          const values = Object.values(downloadTest);
+          const values = Object.values(downloadTest) as number[];
           testData = new Uint8Array(values);
           console.log(`✅ Object array-like convertido para Uint8Array`);
         } catch (conversionError) {
@@ -1239,7 +1243,7 @@ Status: Teste em progresso...`;
         } else if (typeof downloadedData === 'object' && downloadedData !== null && downloadedData.length !== undefined) {
           // Array-like object
           try {
-            const values = Object.values(downloadedData);
+            const values = Object.values(downloadedData) as number[];
             rawData = new Uint8Array(values);
             log.push(`✅ Object array-like convertido para Uint8Array`);
           } catch (conversionError) {
@@ -1754,7 +1758,8 @@ Status: Teste em progresso...`;
     } catch (error) {
       console.error("Erro ao criar usuário:", error);
       // Tratar erro de email duplicado especificamente
-      if (error.code === '23505' && error.constraint === 'users_email_unique') {
+      const dbError = error as any;
+      if (dbError.code === '23505' && dbError.constraint === 'users_email_unique') {
         return res.status(400).json({
           success: false,
           message: `Já existe um usuário cadastrado com este email. Escolha outro email.`
@@ -2583,7 +2588,7 @@ Status: Teste em progresso...`;
 
       const result = await pool.query(query, queryParams);
 
-      console.log("Debug: ordens de compra com cnpj:", result.rows.map(row => ({
+      console.log("Debug: ordens de compra com cnpj:", result.rows.map((row: any) => ({
         id: row.id,
         numero_ordem: row.numero_ordem,
         empresa_id: row.empresa_id,
@@ -2839,7 +2844,8 @@ Status: Teste em progresso...`;
             console.log(`⚠️ PDF na pasta OC é muito pequeno (${downloadedBytes?.length || 0} bytes) - possível corrupção.`);
           }
         } catch (ocError) {
-          console.log(`🔄 PDF não encontrado na pasta OC: ${ocError.message}`);
+          const error = ocError instanceof Error ? ocError : new Error(String(ocError));
+          console.log(`🔄 PDF não encontrado na pasta OC: ${error.message}`);
         }
       } else {
         console.log(`⚠️ Object Storage não disponível para busca na pasta OC`);
@@ -2929,10 +2935,11 @@ Status: Teste em progresso...`;
       if (objectStorageAvailable && objectStorage) {
         try {
           const objects = await objectStorage.list();
-          const ocObjects = objects.filter(obj => obj.key.startsWith('OC/'));
-          console.log(`📋 PDFs na pasta OC do Object Storage:`, ocObjects.map(obj => obj.key));
+          const ocObjects = objects.filter((obj: any) => obj.key.startsWith('OC/'));
+          console.log(`📋 PDFs na pasta OC do Object Storage:`, ocObjects.map((obj: any) => obj.key));
         } catch (listError) {
-          console.log(`❌ Erro ao listar objetos do Object Storage:`, listError.message);
+          const error = listError instanceof Error ? listError : new Error(String(listError));
+          console.log(`❌ Erro ao listar objetos do Object Storage:`, error.message);
         }
       }
 
@@ -3002,8 +3009,9 @@ Status: Teste em progresso...`;
 
           console.log(`✅ PDF salvo com a chave: ${pdfKey}`);
         } catch (saveError) {
-          console.error(`❌ Erro ao salvar PDF:`, saveError);
-          throw new Error(`Falha ao salvar PDF: ${saveError.message}`);
+          const error = saveError instanceof Error ? saveError : new Error(String(saveError));
+          console.error(`❌ Erro ao salvar PDF:`, error);
+          throw new Error(`Falha ao salvar PDF: ${error.message}`);
         }
 
         // Construir informações do PDF para armazenar no banco
