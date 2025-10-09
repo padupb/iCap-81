@@ -2496,8 +2496,35 @@ export function OrderDetailDrawer({
                             </label>
                             <Button
                               variant="outline"
-                              onClick={() => {
-                                window.open(`/api/pedidos/${orderDetails.id}/foto-confirmacao`, '_blank');
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/foto-confirmacao`);
+                                  if (!response.ok) {
+                                    throw new Error('Erro ao baixar foto');
+                                  }
+                                  
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.style.display = 'none';
+                                  a.href = url;
+                                  a.download = `foto-confirmacao-${orderDetails.orderId}.jpg`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  window.URL.revokeObjectURL(url);
+                                  document.body.removeChild(a);
+                                  
+                                  toast({
+                                    title: "Download Concluído",
+                                    description: "Foto baixada com sucesso",
+                                  });
+                                } catch (error) {
+                                  toast({
+                                    title: "Erro no Download",
+                                    description: error instanceof Error ? error.message : "Erro ao baixar foto",
+                                    variant: "destructive",
+                                  });
+                                }
                               }}
                               className="w-full"
                             >
