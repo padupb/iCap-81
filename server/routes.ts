@@ -182,32 +182,49 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
               // Verificar se é um objeto com chaves numéricas
               const keys = Object.keys(valueData);
               
-              // Filtrar apenas chaves numéricas e ordenar numericamente
-              const numericKeys = keys
-                .filter(k => !isNaN(Number(k)))
-                .map(k => Number(k))
-                .sort((a, b) => a - b);
+              console.log(`🔍 Object keys amostra (primeiras 10):`, keys.slice(0, 10));
+              console.log(`🔍 Total de keys:`, keys.length);
+              
+              // Verificar se as chaves são numéricas
+              const numericKeys = keys.filter(k => /^\d+$/.test(k));
               
               if (numericKeys.length > 0) {
-                // Extrair valores na ordem correta usando índices numéricos
-                const bytes = numericKeys.map(k => valueData[k]);
+                console.log(`🔍 Keys numéricas encontradas: ${numericKeys.length}`);
+                
+                // Criar array de bytes na ordem correta
+                const maxIndex = Math.max(...numericKeys.map(k => parseInt(k)));
+                const bytes = new Array(maxIndex + 1);
+                
+                for (const key of numericKeys) {
+                  const index = parseInt(key);
+                  bytes[index] = valueData[key];
+                }
+                
+                // Remover undefined (se houver)
+                const validBytes = bytes.filter(b => b !== undefined);
+                
+                console.log(`🔍 Total de bytes extraídos: ${validBytes.length}`);
+                console.log(`🔍 Amostra dos primeiros 10 bytes:`, validBytes.slice(0, 10));
                 
                 // Verificar se todos os valores são bytes válidos
-                const allValidBytes = bytes.every(b => typeof b === 'number' && b >= 0 && b <= 255);
+                const allValidBytes = validBytes.every(b => typeof b === 'number' && b >= 0 && b <= 255);
                 
-                if (allValidBytes && bytes.length > 100) {
-                  buffer = Buffer.from(bytes);
+                if (allValidBytes && validBytes.length > 100) {
+                  buffer = Buffer.from(validBytes);
                   console.log(`✅ Object array-like convertido para Buffer: ${buffer.length} bytes`);
                 } else if (!allValidBytes) {
                   console.log(`⚠️ Object contém valores não numéricos ou fora do intervalo de bytes`);
+                  console.log(`🔍 Tipos encontrados:`, [...new Set(validBytes.map(b => typeof b))]);
                 } else {
-                  console.log(`⚠️ Buffer resultante muito pequeno: ${bytes.length} bytes`);
+                  console.log(`⚠️ Buffer resultante muito pequeno: ${validBytes.length} bytes`);
                 }
               } else {
                 console.log(`⚠️ Object não tem chaves numéricas válidas`);
+                console.log(`🔍 Tipos de keys:`, keys.slice(0, 5).map(k => `${k} (${typeof k})`));
               }
             } catch (e) {
               console.log(`⚠️ Erro ao converter object para buffer:`, e.message);
+              console.log(`📋 Stack:`, e.stack);
             }
           } else {
             console.log(`⚠️ Tipo de value não reconhecido:`, typeof valueData);
