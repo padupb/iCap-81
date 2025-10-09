@@ -414,7 +414,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
         // Usar o método correto do Replit Object Storage
         try {
-          console.log(`📤 Iniciando upload - Tamanho original: ${buffer.length} bytes`);
+          console.log(`❐ Iniciando upload - Tamanho original: ${buffer.length} bytes`);
 
           // Validar buffer antes do upload
           if (!buffer || buffer.length === 0) {
@@ -425,7 +425,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           if (buffer instanceof Buffer) {
             // Converter buffer para Uint8Array que é o formato esperado pelo Replit Object Storage
             const uint8Array = new Uint8Array(buffer);
-            console.log(`📤 Convertido para Uint8Array: ${uint8Array.length} bytes`);
+            console.log(`❐ Convertido para Uint8Array: ${uint8Array.length} bytes`);
 
             // Upload usando bytes
             await objectStorage.uploadFromBytes(key, uint8Array);
