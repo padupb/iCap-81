@@ -140,15 +140,20 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         let result;
 
         // Tentar downloadAsBuffer primeiro se disponível
-        if (typeof objectStorage.downloadAsBuffer === 'function') {
-          try {
-            result = await objectStorage.downloadAsBuffer(storageKey);
-            console.log(`📥 Download usando downloadAsBuffer`);
-          } catch (bufferError) {
-            console.log(`⚠️ downloadAsBuffer falhou, tentando downloadAsBytes`);
+        try {
+          if (typeof objectStorage.downloadAsBuffer === 'function') {
+            try {
+              result = await objectStorage.downloadAsBuffer(storageKey);
+              console.log(`📥 Download usando downloadAsBuffer`);
+            } catch (bufferError) {
+              console.log(`⚠️ downloadAsBuffer falhou, tentando downloadAsBytes`);
+              result = await objectStorage.downloadAsBytes(storageKey);
+            }
+          } else {
             result = await objectStorage.downloadAsBytes(storageKey);
           }
-        } else {
+        } catch (bufferError) {
+          console.log(`⚠️ downloadAsBuffer falhou, tentando downloadAsBytes`);
           result = await objectStorage.downloadAsBytes(storageKey);
         }
 
@@ -761,7 +766,7 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
                   companyId: user.companyId,
                   roleId: user.roleId,
                   permissions: user.role ? user.role.permissions || [] : [],
-                  isKeyUser: user.id === 1, // Assumendo que o usuário com ID 1 é o KeyUser
+                  isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
                   canConfirmDelivery: user.canConfirmDelivery,
                   canCreateOrder: user.canCreateOrder,
                   canCreatePurchaseOrder: user.canCreatePurchaseOrder
@@ -1504,7 +1509,7 @@ Status: Teste em progresso...`;
                 console.log("❌ Object Storage não disponível");
                 return res.status(500).json({
                   success: false,
-                  message: "Object Storage não está disponível"
+                  message: "Object Storage não disponível"
                 });
               }
 
