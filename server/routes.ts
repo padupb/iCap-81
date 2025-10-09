@@ -3820,7 +3820,7 @@ Status: Teste em progresso...`;
       
       console.log(`📤 Fazendo upload da foto para Object Storage: ${fotoKey}`);
       
-      const uploadResult = await storage.client.uploadFromBytes(
+      const uploadResult = await objectStorage.uploadFromBytes(
         fotoKey,
         new Uint8Array(foto.buffer)
       );
