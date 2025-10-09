@@ -377,9 +377,15 @@ export default function Orders() {
     if (purchaseOrderId) {
       setIsLoadingItems(true);
       fetch(`/api/ordem-compra/${purchaseOrderId}/itens`)
-        .then((response) => response.json())
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
         .then((data) => {
-          setPurchaseOrderItems(data);
+          // A API retorna um array direto de itens
+          setPurchaseOrderItems(Array.isArray(data) ? data : []);
           // Atualizar a ordem de compra selecionada
           const selectedPO = purchaseOrders.find(
             (po) => po.id === purchaseOrderId,
@@ -393,6 +399,7 @@ export default function Orders() {
             description: "Falha ao carregar itens da ordem de compra",
             variant: "destructive",
           });
+          setPurchaseOrderItems([]);
         })
         .finally(() => {
           setIsLoadingItems(false);

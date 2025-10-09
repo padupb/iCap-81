@@ -2793,6 +2793,50 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para buscar itens de uma ordem de compra
+  app.get("/api/ordem-compra/:id/itens", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID inválido"
+        });
+      }
+
+      console.log(`📦 Buscando itens da ordem de compra ID: ${id}`);
+
+      // Buscar itens da ordem de compra com informações do produto
+      const result = await pool.query(`
+        SELECT 
+          poi.id,
+          poi.purchase_order_id as "ordem_compra_id",
+          poi.product_id as "produto_id",
+          poi.quantity as "quantidade",
+          p.name as "produto_nome",
+          p.unit_id as "unidade_id",
+          u.name as "unidade_nome",
+          u.abbreviation as "unidade_abreviacao"
+        FROM purchase_order_items poi
+        INNER JOIN products p ON poi.product_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        WHERE poi.purchase_order_id = $1
+        ORDER BY poi.id ASC
+      `, [id]);
+
+      console.log(`✅ Encontrados ${result.rows.length} itens para a ordem de compra ${id}`);
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Erro ao buscar itens da ordem de compra:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar itens da ordem de compra",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Rota de compatibilidade para o frontend que ainda usa /api/purchase-orders/:id/pdf
   // Esta rota agora tenta recuperar o PDF do Object Storage (pasta OC) primeiro,
   // depois usa o pdf_info, e como fallback busca no sistema local.
