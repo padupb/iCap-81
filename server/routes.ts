@@ -181,17 +181,27 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             try {
               // Verificar se é um objeto com chaves numéricas
               const keys = Object.keys(valueData);
-              const numericKeys = keys.filter(k => !isNaN(parseInt(k))).sort((a, b) => parseInt(a) - parseInt(b));
+              
+              // Filtrar apenas chaves numéricas e ordenar numericamente
+              const numericKeys = keys
+                .filter(k => !isNaN(Number(k)))
+                .map(k => Number(k))
+                .sort((a, b) => a - b);
               
               if (numericKeys.length > 0) {
-                // Extrair valores na ordem correta das chaves numéricas
+                // Extrair valores na ordem correta usando índices numéricos
                 const bytes = numericKeys.map(k => valueData[k]);
                 
-                if (bytes.every(b => typeof b === 'number' && b >= 0 && b <= 255)) {
+                // Verificar se todos os valores são bytes válidos
+                const allValidBytes = bytes.every(b => typeof b === 'number' && b >= 0 && b <= 255);
+                
+                if (allValidBytes && bytes.length > 100) {
                   buffer = Buffer.from(bytes);
-                  console.log(`✅ Object array-like convertido para Buffer: ${buffer.length} bytes de ${numericKeys.length} chaves`);
-                } else {
+                  console.log(`✅ Object array-like convertido para Buffer: ${buffer.length} bytes`);
+                } else if (!allValidBytes) {
                   console.log(`⚠️ Object contém valores não numéricos ou fora do intervalo de bytes`);
+                } else {
+                  console.log(`⚠️ Buffer resultante muito pequeno: ${bytes.length} bytes`);
                 }
               } else {
                 console.log(`⚠️ Object não tem chaves numéricas válidas`);
