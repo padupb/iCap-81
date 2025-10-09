@@ -199,37 +199,25 @@ const GoogleMapsWrapper: React.FC<Props & { googleMapsApiKey: string }> = ({
 };
 
 const MapComponent: React.FC<Props> = (props) => {
-  // Buscar configurações do sistema para obter a chave da API do Google Maps
-  const { data: settings = [], isLoading: settingsLoading } = useQuery({
-    queryKey: ['/api/settings'],
+  // Buscar a chave da API do Google Maps diretamente do backend
+  const { data: googleMapsApiKey, isLoading: settingsLoading } = useQuery({
+    queryKey: ['/api/google-maps-key'],
     queryFn: async () => {
-      const response = await fetch('/api/settings');
-      if (!response.ok) throw new Error('Falha ao carregar configurações');
-      return response.json();
+      const response = await fetch('/api/google-maps-key');
+      if (!response.ok) throw new Error('Falha ao carregar chave do Google Maps');
+      const data = await response.json();
+      console.log('🔑 MapComponent - API Key recebida:', data.apiKey ? `${data.apiKey.substring(0, 10)}...` : 'não encontrada');
+      return data.apiKey || null;
     },
   });
 
-  // Extrair chave da API do Google Maps das configurações
-  const googleMapsApiKey = React.useMemo(() => {
-    console.log('🔍 MapComponent - Verificando configurações:', settings);
-    if (settings && settings.length > 0) {
-      const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      console.log('🗝️ MapComponent - Configuração encontrada:', googleMapsKeySetting);
-      const apiKey = googleMapsKeySetting?.value?.trim() || null;
-      console.log('🔑 MapComponent - API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'não encontrada');
-      return apiKey;
-    }
-    console.log('⚠️ MapComponent - Nenhuma configuração disponível');
-    return null;
-  }, [settings]);
-
-  // Aguardar carregamento das configurações
+  // Aguardar carregamento da chave
   if (settingsLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-100" style={{ height: '500px' }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Carregando configurações...</p>
+          <p className="text-sm text-gray-600">Carregando Google Maps...</p>
         </div>
       </div>
     );

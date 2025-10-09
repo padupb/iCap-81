@@ -4027,6 +4027,26 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para obter a chave da API do Google Maps dos Secrets
+  app.get("/api/google-maps-key", async (req, res) => {
+    try {
+      // Buscar a chave do Google Maps dos Secrets do Replit
+      const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+      
+      console.log('🔑 Google Maps API Key solicitada:', googleMapsApiKey ? 'Encontrada nos Secrets' : 'Não encontrada');
+      
+      res.json({
+        apiKey: googleMapsApiKey
+      });
+    } catch (error) {
+      console.error("Erro ao buscar chave do Google Maps:", error);
+      res.status(500).json({
+        apiKey: null,
+        error: "Erro ao buscar chave da API"
+      });
+    }
+  });
+
   // Rota para buscar todos os pedidos com filtros
   app.get("/api/pedidos", isAuthenticated, async (req, res) => {
     try {

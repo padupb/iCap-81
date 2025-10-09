@@ -216,29 +216,17 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     }
   };
 
-  // Buscar configurações do sistema para obter a chave da API do Google Maps
-  const { data: settings = [] } = useQuery({
-    queryKey: ['/api/settings'],
+  // Buscar a chave da API do Google Maps diretamente do backend
+  const { data: googleMapsApiKey } = useQuery({
+    queryKey: ['/api/google-maps-key'],
     queryFn: async () => {
-      const response = await fetch('/api/settings');
-      if (!response.ok) throw new Error('Falha ao carregar configurações');
-      return response.json();
+      const response = await fetch('/api/google-maps-key');
+      if (!response.ok) throw new Error('Falha ao carregar chave do Google Maps');
+      const data = await response.json();
+      console.log('🔑 DashboardTrackingMap - API Key recebida:', data.apiKey ? `${data.apiKey.substring(0, 10)}...` : 'não encontrada');
+      return data.apiKey || null;
     },
   });
-
-  // Extrair chave da API do Google Maps das configurações do keyuser
-  const googleMapsApiKey = React.useMemo(() => {
-    console.log('🔍 DashboardTrackingMap - Verificando configurações:', settings);
-    if (settings && settings.length > 0) {
-      const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      console.log('🗝️ DashboardTrackingMap - Configuração encontrada:', googleMapsKeySetting);
-      const apiKey = googleMapsKeySetting?.value?.trim() || null;
-      console.log('🔑 DashboardTrackingMap - API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'não encontrada');
-      return apiKey;
-    }
-    console.log('⚠️ DashboardTrackingMap - Nenhuma configuração disponível');
-    return null;
-  }, [settings]);
 
   if (!googleMapsApiKey || googleMapsApiKey === '') {
     console.log('❌ DashboardTrackingMap - API Key inválida ou vazia');
