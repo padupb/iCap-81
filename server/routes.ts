@@ -4186,7 +4186,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`📍 Buscando pontos de rastreamento para pedido: ${orderId}`);
+      console.log(`📍 Buscando pontos de rastreamento para pedido ID: ${orderId}`);
 
       // Verificar se a tabela tracking_points existe
       const tableCheck = await pool.query(`
@@ -4201,7 +4201,20 @@ Status: Teste em progresso...`;
         return res.json([]);
       }
 
-      // Buscar pontos de rastreamento
+      // Primeiro, buscar o código (order_id) do pedido
+      const orderResult = await pool.query(`
+        SELECT order_id FROM orders WHERE id = $1
+      `, [orderId]);
+
+      if (!orderResult.rows.length) {
+        console.log(`⚠️ Pedido ${orderId} não encontrado`);
+        return res.json([]);
+      }
+
+      const orderCode = orderResult.rows[0].order_id;
+      console.log(`📋 Código do pedido: ${orderCode}`);
+
+      // Buscar pontos de rastreamento usando o código do pedido
       const result = await pool.query(`
         SELECT 
           tp.*,
@@ -4210,9 +4223,9 @@ Status: Teste em progresso...`;
         LEFT JOIN users u ON tp.user_id = u.id
         WHERE tp.order_id = $1
         ORDER BY tp.created_at ASC
-      `, [orderId]);
+      `, [orderCode]);
 
-      console.log(`✅ ${result.rows.length} pontos encontrados para pedido ${orderId}`);
+      console.log(`✅ ${result.rows.length} pontos encontrados para pedido ${orderCode}`);
 
       res.json(result.rows);
     } catch (error) {

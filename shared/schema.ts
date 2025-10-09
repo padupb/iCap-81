@@ -174,9 +174,7 @@ export const systemLogs = pgTable("system_logs", {
 // Tracking points table
 export const trackingPoints = pgTable("tracking_points", {
   id: serial("id").primaryKey(),
-  orderId: integer("order_id")
-    .notNull()
-    .references(() => orders.id),
+  orderId: text("order_id").notNull(), // Armazena o código do pedido (ex: CCM0809250025)
   status: text("status").notNull(),
   comment: text("comment"),
   userId: integer("user_id")

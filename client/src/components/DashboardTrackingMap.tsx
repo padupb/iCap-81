@@ -148,17 +148,24 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     return () => clearInterval(interval);
   }, [ordersInRoute.length]);
 
-  // Preparar markers para o mapa
-  const markers = trackingData.map((data) => ({
-    id: data.order.id,
-    lat: data.lastTrackingPoint!.latitude,
-    lng: data.lastTrackingPoint!.longitude,
-    title: `Pedido ${data.order.orderId}`,
-    content: `${data.product?.name || 'Produto'} - ${data.order.status}`,
-    orderId: data.order.orderId,
-    status: data.order.status,
-    color: data.color,
-  }));
+  // Preparar markers para o mapa (com validação defensiva)
+  const markers = trackingData
+    .map((data) => {
+      const lat = parseFloat(data.lastTrackingPoint!.latitude as string);
+      const lng = parseFloat(data.lastTrackingPoint!.longitude as string);
+      
+      return {
+        id: data.order.id,
+        lat,
+        lng,
+        title: `Pedido ${data.order.orderId}`,
+        content: `${data.product?.name || 'Produto'} - ${data.order.status}`,
+        orderId: data.order.orderId,
+        status: data.order.status,
+        color: data.color,
+      };
+    })
+    .filter((marker) => !isNaN(marker.lat) && !isNaN(marker.lng)); // Filtrar coordenadas inválidas
 
   // Calcular centro e zoom do mapa baseado em todas as cargas
   const mapSettings = React.useMemo(() => {
