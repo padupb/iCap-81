@@ -783,7 +783,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
           companyId: user.companyId,
           roleId: user.roleId,
           permissions: user.role ? user.role.permissions || [] : [],
-          isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
+          isKeyUser: user.id === 1, // Assumendo que o usuário com ID 1 é o KeyUser
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
           canCreatePurchaseOrder: user.canCreatePurchaseOrder
@@ -3680,7 +3680,6 @@ Status: Teste em progresso...`;
   app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-
       if (isNaN(id)) {
         return res.status(400).json({
           success: false,
@@ -3688,9 +3687,9 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`📸 Solicitação de download da foto de confirmação: Pedido ${id}`);
+      console.log(`📸 Solicitação de download da foto de confirmação - Pedido ${id}`);
 
-      // Buscar informações do pedido com foto_confirmacao
+      // Buscar informações do pedido incluindo foto_confirmacao
       const pedidoResult = await pool.query(
         "SELECT order_id, foto_confirmacao FROM orders WHERE id = $1",
         [id]
