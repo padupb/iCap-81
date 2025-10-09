@@ -2738,11 +2738,6 @@ export function OrderDetailDrawer({
                                       <p className="text-xs text-muted-foreground mt-1">
                                         Por: {item.usuario}
                                       </p>
-                                      {item.descricao && (
-                                        <p className="text-sm mt-2 text-foreground">
-                                          {item.descricao}
-                                        </p>
-                                      )}
                                     </div>
                                   </div>
                                 );
