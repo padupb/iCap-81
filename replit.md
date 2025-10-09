@@ -130,14 +130,34 @@ npm run db:push --force  # Força sincronização (com warnings)
 3. Usa padrões: `{orderId}/{tipo}-*`, `orders/{orderId}/{tipo}-*`
 4. Fallback para sistema local se necessário
 
-### 3. Segurança (PENDENTE ⚠️)
+### 3. Tracking Points - Schema Mismatch (RESOLVIDO ✅)
+**Problema**: Mapa do dashboard não exibia pontos de rastreamento devido a incompatibilidade de tipos.
+- Schema Drizzle tinha `tracking_points.orderId` como INTEGER
+- Banco de dados tinha `order_id` como TEXT (para armazenar códigos alfanuméricos)
+- Endpoint buscava com ID numérico mas banco esperava código (ex: "CCM0809250025")
+- Coordenadas lat/lng retornavam como strings mas Google Maps precisa de números
+
+**Solução**:
+1. Atualizado schema Drizzle: `orderId: text("order_id").notNull()` (shared/schema.ts)
+2. Endpoint agora busca primeiro o código do pedido e depois os tracking points (server/routes.ts linhas 4207-4229)
+3. Frontend converte lat/lng para números com `parseFloat()` (DashboardTrackingMap.tsx linhas 157-158)
+4. Adicionado filtro defensivo para coordenadas inválidas (NaN)
+
+### 4. Segurança (PENDENTE ⚠️)
 - Mobile auth aceita qualquer Bearer token
 - KeyUser baseado apenas em ID (1-5)
 - Necessário implementar validação JWT adequada
 
 ## Mudanças Recentes
 
-### 09/10/2025
+### 09/10/2025 - Tarde
+- ✅ Corrigido schema mismatch em tracking_points (INTEGER → TEXT)
+- ✅ Endpoint `/api/tracking-points/:orderId` agora traduz ID numérico para código alfanumérico
+- ✅ Frontend converte coordenadas de string para number antes de renderizar mapa
+- ✅ Validação defensiva para coordenadas inválidas (filtra NaN)
+- ✅ Mapa do dashboard agora exibe pontos de rastreamento corretamente
+
+### 09/10/2025 - Manhã
 - ✅ Corrigido padrão de resposta do Object Storage (`{ok, value: [Buffer]}`)
 - ✅ Implementada função auxiliar `extractBufferFromStorageResult()`
 - ✅ Corrigido download de documentos com fallback para busca direta no storage
