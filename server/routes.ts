@@ -412,102 +412,70 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`📤 Tentando upload para Object Storage: ${key}`);
         console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
 
-        // Usar o método correto do Replit Object Storage
-        try {
-          console.log(`❐ Iniciando upload - Tamanho original: ${buffer.length} bytes`);
-
-          // Validar buffer antes do upload
-          if (!buffer || buffer.length === 0) {
-            throw new Error("Buffer vazio ou inválido para upload");
-          }
-
-          // O método correto é uploadFromBytes para arquivos binários
-          if (buffer instanceof Buffer) {
-            // Converter buffer para Uint8Array que é o formato esperado pelo Replit Object Storage
-            const uint8Array = new Uint8Array(buffer);
-            console.log(`❐ Convertido para Uint8Array: ${uint8Array.length} bytes`);
-
-            // Upload usando bytes
-            await objectStorage.uploadFromBytes(key, uint8Array);
-            console.log("✅ Upload realizado com uploadFromBytes");
-          } else {
-            // Se não for Buffer, tentar converter primeiro
-            console.log(`⚠️ Dados não são Buffer, tentando conversão. Tipo: ${typeof buffer}`);
-            const bufferData = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-            const uint8Array = new Uint8Array(bufferData);
-            await objectStorage.uploadFromBytes(key, uint8Array);
-            console.log("✅ Upload realizado após conversão para Buffer");
-          }
-
-          // VERIFICAÇÃO CRÍTICA: Testar integridade do arquivo após upload
-          console.log(`🔍 Verificando integridade do arquivo após upload...`);
-          try {
-            const downloadTest = await objectStorage.downloadAsBytes(key);
-
-            // Extrair dados do resultado (pode estar em wrapper)
-            let testData = null;
-            if (downloadTest && typeof downloadTest === 'object' && downloadTest.ok && downloadTest.value) {
-              testData = downloadTest.value;
-            } else if (downloadTest instanceof Uint8Array || downloadTest instanceof Buffer) {
-              testData = downloadTest;
-            } else if (Array.isArray(downloadTest)) {
-              testData = downloadTest;
-            } else {
-              testData = downloadTest;
-            }
-
-            if (testData && testData.length > 0) {
-              const downloadedSize = testData.length;
-              const originalSize = buffer.length;
-
-              console.log(`📊 Verificação de integridade:`);
-              console.log(`   • Tamanho original: ${originalSize} bytes`);
-              console.log(`   • Tamanho baixado: ${downloadedSize} bytes`);
-              console.log(`   • Integridade: ${downloadedSize === originalSize ? 'OK' : 'FALHA'}`);
-
-              if (downloadedSize === originalSize) {
-                console.log(`✅ Arquivo verificado no Object Storage: ${key}`);
-                console.log(`✅ Arquivo estará disponível após redeploys`);
-                return key;
-              } else {
-                console.error(`❌ Tamanhos não coincidem! Original: ${originalSize}, Baixado: ${downloadedSize}`);
-                throw new Error(`Corrupção detectada: tamanhos diferentes (${originalSize} → ${downloadedSize})`);
-              }
-            } else {
-              console.error(`❌ Download de verificação retornou dados vazios ou nulos`);
-              throw new Error("Verificação falhou: dados vazios no download");
-            }
-          } catch (verifyError) {
-            console.error("❌ Falha na verificação de integridade:", verifyError.message);
-            // Não retornar a key se a verificação falhou completamente
-            throw new Error(`Upload falhou na verificação: ${verifyError.message}`);
-          }
-
-        } catch (error) {
-          console.error("❌ Erro específico no upload:", error.message);
-          console.error("❌ Stack trace:", error.stack);
-
-          // Tentar métodos alternativos se o principal falhar
-          console.log("🔄 Tentando métodos alternativos...");
-
-          try {
-            // Tentar método upload genérico se existir
-            if (typeof objectStorage.upload === 'function') {
-              console.log("🔧 Tentando método upload genérico");
-              await objectStorage.upload(key, buffer);
-              console.log("✅ Upload realizado com método genérico");
-              return key;
-            } else {
-              throw new Error("Nenhum método alternativo disponível");
-            }
-          } catch (altError) {
-            console.error("❌ Métodos alternativos também falharam:", altError.message);
-            throw error; // Lançar o erro original capturado no catch anterior
-          }
+        // Validar buffer antes do upload
+        if (!buffer || buffer.length === 0) {
+          throw new Error("Buffer vazio ou inválido para upload");
         }
-      } catch (error) {
+
+        // O método correto é uploadFromBytes para arquivos binários
+        let uploadResult;
+        if (buffer instanceof Buffer) {
+          // Converter buffer para Uint8Array que é o formato esperado pelo Replit Object Storage
+          const uint8Array = new Uint8Array(buffer);
+          console.log(`📤 Convertido para Uint8Array: ${uint8Array.length} bytes`);
+
+          // Upload usando bytes
+          uploadResult = await objectStorage.uploadFromBytes(key, uint8Array);
+          console.log("✅ Upload realizado com uploadFromBytes");
+        } else {
+          // Se não for Buffer, tentar converter primeiro
+          console.log(`⚠️ Dados não são Buffer, tentando conversão. Tipo: ${typeof buffer}`);
+          const bufferData = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+          const uint8Array = new Uint8Array(bufferData);
+          uploadResult = await objectStorage.uploadFromBytes(key, uint8Array);
+          console.log("✅ Upload realizado após conversão para Buffer");
+        }
+
+        // VERIFICAÇÃO CRÍTICA: Testar integridade do arquivo após upload
+        console.log(`🔍 Verificando integridade do arquivo após upload...`);
+        const downloadTest = await objectStorage.downloadAsBytes(key);
+
+        // Extrair dados do resultado (pode estar em wrapper)
+        let testData = null;
+        if (downloadTest && typeof downloadTest === 'object' && downloadTest.ok && downloadTest.value) {
+          testData = downloadTest.value;
+        } else if (downloadTest instanceof Uint8Array || downloadTest instanceof Buffer) {
+          testData = downloadTest;
+        } else if (Array.isArray(downloadTest)) {
+          testData = downloadTest;
+        } else {
+          testData = downloadTest;
+        }
+
+        if (testData && testData.length > 0) {
+          const downloadedSize = testData.length;
+          const originalSize = buffer.length;
+
+          console.log(`📊 Verificação de integridade:`);
+          console.log(`   • Tamanho original: ${originalSize} bytes`);
+          console.log(`   • Tamanho baixado: ${downloadedSize} bytes`);
+          console.log(`   • Integridade: ${downloadedSize === originalSize ? 'OK' : 'FALHA'}`);
+
+          if (downloadedSize === originalSize) {
+            console.log(`✅ Arquivo verificado no Object Storage: ${key}`);
+            console.log(`✅ Arquivo estará disponível após redeploys`);
+            return key;
+          } else {
+            console.error(`❌ Tamanhos não coincidem! Original: ${originalSize}, Baixado: ${downloadedSize}`);
+            throw new Error(`Corrupção detectada: tamanhos diferentes (${originalSize} → ${downloadedSize})`);
+          }
+        } else {
+          console.error(`❌ Download de verificação retornou dados vazios ou nulos`);
+          throw new Error("Verificação falhou: dados vazios no download");
+        }
+      } catch (storageError) {
         console.error("❌ Erro detalhado ao salvar no Object Storage:", {
-          message: error.message,
+          message: storageError.message,
           key: `${orderId}/${filename}`,
           bufferSize: buffer.length,
           objectStorageAvailable,
@@ -532,8 +500,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`✅ Link público gerado com sucesso`);
         return `gdrive:${publicLink}`;
       }
-    } catch (error) {
-      console.error("❌ Erro ao salvar no Google Drive:", error);
+    } catch (driveError) {
+      console.error("❌ Erro ao salvar no Google Drive:", driveError);
       console.log("🔄 Fallback para sistema local...");
     }
 
@@ -548,9 +516,9 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
       console.log(`📁 💾 Arquivo salvo localmente (temporário): ${filePath}`);
       console.log(`⚠️ Este arquivo será perdido no próximo deploy!`);
       return filePath;
-    } catch (error) {
-      console.error("❌ Erro ao salvar localmente:", error);
-      throw new Error(`Falha ao salvar arquivo: ${error.message}`);
+    } catch (localError) {
+      console.error("❌ Erro ao salvar localmente:", localError);
+      throw new Error(`Falha ao salvar arquivo: ${localError.message}`);
     }
   }
 
