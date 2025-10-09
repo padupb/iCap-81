@@ -3120,6 +3120,158 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para download de documentos de pedidos (nota_pdf, nota_xml, certificado_pdf, foto_nota)
+  app.get("/api/pedidos/:id/documentos/:tipo", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const tipo = req.params.tipo; // nota_pdf, nota_xml, certificado_pdf, foto_nota
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID inválido"
+        });
+      }
+
+      // Validar tipo de documento
+      const tiposPermitidos = ['nota_pdf', 'nota_xml', 'certificado_pdf', 'foto_nota'];
+      if (!tiposPermitidos.includes(tipo)) {
+        return res.status(400).json({
+          success: false,
+          message: `Tipo de documento inválido. Use: ${tiposPermitidos.join(', ')}`
+        });
+      }
+
+      console.log(`📥 Solicitação de download: Pedido ${id}, Documento: ${tipo}`);
+
+      // Buscar informações do pedido incluindo documentos_info
+      const pedidoResult = await pool.query(
+        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+      const orderId = pedido.order_id;
+      console.log(`🔍 Buscando documento ${tipo} para pedido: ${orderId}`);
+
+      // PRIORIDADE 1: Tentar buscar do documentos_info (Object Storage)
+      if (pedido.documentos_info) {
+        try {
+          const documentosInfo = typeof pedido.documentos_info === 'string'
+            ? JSON.parse(pedido.documentos_info)
+            : pedido.documentos_info;
+
+          console.log(`📊 Informações de documentos encontradas:`, documentosInfo);
+
+          const docInfo = documentosInfo[tipo];
+          if (docInfo && docInfo.storageKey) {
+            console.log(`📂 Tentando acessar documento usando storageKey: ${docInfo.storageKey}`);
+
+            const fileResult = await readFileFromStorage(
+              docInfo.storageKey,
+              id.toString(),
+              docInfo.filename || `${tipo}.${tipo.includes('xml') ? 'xml' : tipo.includes('pdf') ? 'pdf' : 'jpg'}`
+            );
+
+            if (fileResult) {
+              const { data: fileBuffer, originalName } = fileResult;
+
+              // Verificar se é um redirect para Google Drive
+              if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+                const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+                console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+                return res.redirect(302, driveLink);
+              }
+
+              // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+              if (fileBuffer.length <= 1) {
+                console.log(`⚠️ Documento encontrado via documentos_info é muito pequeno (${fileBuffer.length} byte) - ignorado`);
+              } else {
+                console.log(`✅ Documento recuperado usando documentos_info (${fileBuffer.length} bytes) - Nome: ${originalName}`);
+
+                // Determinar Content-Type baseado no tipo
+                let contentType = 'application/octet-stream';
+                if (tipo.includes('pdf')) {
+                  contentType = 'application/pdf';
+                } else if (tipo.includes('xml')) {
+                  contentType = 'application/xml';
+                } else if (tipo.includes('foto')) {
+                  contentType = 'image/jpeg';
+                }
+
+                res.setHeader("Content-Type", contentType);
+                res.setHeader("Content-Length", fileBuffer.length);
+                res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
+                res.setHeader("Cache-Control", "no-cache");
+
+                return res.end(fileBuffer);
+              }
+            }
+          }
+        } catch (error) {
+          console.log(`❌ Erro ao processar documentos_info:`, error);
+        }
+      }
+
+      // PRIORIDADE 2: FALLBACK - Tentar buscar o arquivo na pasta uploads/[orderId]/
+      const uploadsPath = path.join(process.cwd(), "uploads", id.toString());
+      console.log(`📁 Tentando documento em uploads: ${uploadsPath}`);
+
+      if (fs.existsSync(uploadsPath)) {
+        const files = fs.readdirSync(uploadsPath);
+        const matchingFile = files.find(f => f.startsWith(tipo));
+
+        if (matchingFile) {
+          const filePath = path.join(uploadsPath, matchingFile);
+          const buffer = fs.readFileSync(filePath);
+
+          // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
+          if (buffer.length > 1) {
+            console.log(`✅ Documento encontrado em uploads: ${filePath} (${buffer.length} bytes)`);
+
+            // Determinar Content-Type baseado no tipo
+            let contentType = 'application/octet-stream';
+            if (tipo.includes('pdf')) {
+              contentType = 'application/pdf';
+            } else if (tipo.includes('xml')) {
+              contentType = 'application/xml';
+            } else if (tipo.includes('foto')) {
+              contentType = 'image/jpeg';
+            }
+
+            res.setHeader("Content-Type", contentType);
+            res.setHeader("Content-Disposition", `attachment; filename="${matchingFile}"`);
+            res.setHeader("Content-Length", buffer.length);
+            res.setHeader("Cache-Control", "no-cache");
+            return res.end(buffer);
+          } else {
+            console.log(`⚠️ Documento local em uploads é muito pequeno (${buffer.length} byte) - ignorado`);
+          }
+        }
+      }
+
+      // Se não encontrar o arquivo em lugar nenhum
+      return res.status(404).json({
+        success: false,
+        message: `Documento ${tipo} do pedido ${orderId} não encontrado.`
+      });
+
+    } catch (error) {
+      console.error("Erro ao buscar documento do pedido:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro interno do servidor"
+      });
+    }
+  });
+
   // Rota para upload de PDF da ordem de compra
   app.post(
     "/api/ordem-compra/:id/upload-pdf",
