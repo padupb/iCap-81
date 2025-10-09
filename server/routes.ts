@@ -3691,11 +3691,12 @@ Status: Teste em progresso...`;
 
       // Buscar informações do pedido incluindo foto_confirmacao
       const pedidoResult = await pool.query(
-        "SELECT order_id, foto_confirmacao FROM orders WHERE id = $1",
+        "SELECT order_id, foto_confirmacao, status FROM orders WHERE id = $1",
         [id]
       );
 
       if (!pedidoResult.rows.length) {
+        console.log(`❌ Pedido ${id} não encontrado`);
         return res.status(404).json({
           success: false,
           message: "Pedido não encontrado"
@@ -3703,11 +3704,14 @@ Status: Teste em progresso...`;
       }
 
       const pedido = pedidoResult.rows[0];
+      console.log(`📋 Pedido ${pedido.order_id} - Status: ${pedido.status}`);
 
       if (!pedido.foto_confirmacao) {
+        console.log(`⚠️ Pedido ${pedido.order_id} não possui foto de confirmação`);
         return res.status(404).json({
           success: false,
-          message: "Foto de confirmação não encontrada"
+          message: "Este pedido ainda não possui foto de confirmação de entrega",
+          hasFoto: false
         });
       }
 
@@ -3716,9 +3720,11 @@ Status: Teste em progresso...`;
         : pedido.foto_confirmacao;
 
       if (!fotoInfo || !fotoInfo.storageKey) {
+        console.log(`⚠️ Informações incompletas da foto do pedido ${pedido.order_id}`);
         return res.status(404).json({
           success: false,
-          message: "Informações da foto de confirmação incompletas"
+          message: "Informações da foto de confirmação incompletas",
+          hasFoto: false
         });
       }
 
@@ -3730,23 +3736,27 @@ Status: Teste em progresso...`;
 
       const fileResult = await readFileFromStorage(
         storageKey,
-        id.toString(),
+        pedido.order_id,
         filename
       );
 
       if (!fileResult) {
+        console.log(`❌ Foto não encontrada no storage: ${storageKey}`);
         return res.status(404).json({
           success: false,
-          message: "Foto de confirmação não encontrada no storage"
+          message: "Foto de confirmação não encontrada no storage",
+          hasFoto: false
         });
       }
 
       const { data: fileBuffer, originalName } = fileResult;
 
       if (fileBuffer.length <= 1) {
+        console.log(`❌ Arquivo corrompido: ${originalName} (${fileBuffer.length} bytes)`);
         return res.status(404).json({
           success: false,
-          message: "Arquivo corrompido"
+          message: "Arquivo corrompido",
+          hasFoto: false
         });
       }
 
@@ -3763,7 +3773,8 @@ Status: Teste em progresso...`;
       console.error("❌ Erro ao buscar foto de confirmação:", error);
       res.status(500).json({
         success: false,
-        message: "Erro ao buscar foto de confirmação"
+        message: "Erro ao buscar foto de confirmação",
+        hasFoto: false
       });
     }
   });
