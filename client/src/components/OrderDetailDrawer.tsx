@@ -1038,16 +1038,16 @@ export function OrderDetailDrawer({
   // Função para formatar data e hora no fuso de Cuiabá (-04:00)
   const formatDateTimeInCuiaba = (dateString: string): string => {
     const date = new Date(dateString);
-    
+
     // Converter para o fuso horário de Cuiabá (UTC-4)
     const cuiabaTime = new Date(date.toLocaleString('en-US', { timeZone: 'America/Cuiaba' }));
-    
+
     const day = String(cuiabaTime.getDate()).padStart(2, '0');
     const month = String(cuiabaTime.getMonth() + 1).padStart(2, '0');
     const year = cuiabaTime.getFullYear();
     const hours = String(cuiabaTime.getHours()).padStart(2, '0');
     const minutes = String(cuiabaTime.getMinutes()).padStart(2, '0');
-    
+
     return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
 
@@ -1353,7 +1353,11 @@ export function OrderDetailDrawer({
 
                   <div className="detail-item">
                     <div className="detail-label">Data de Entrega</div>
-                    <div className="detail-value">${formatDate(orderDetails.deliveryDate.toString())}</div>
+                    <div className="detail-value">${orderDetails.status === "Suspenso" ? (
+                                  `<span class="text-orange-600">Reprogramação solicitada</span>`
+                                ) : (
+                                  formatDate(orderDetails.deliveryDate.toString())
+                                )}</div>
                   </div>
 
                   <div className="detail-item">
