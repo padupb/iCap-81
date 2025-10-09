@@ -4728,9 +4728,7 @@ Status: Teste em progresso...`;
                 error: error instanceof Error ? error.message : "Erro desconhecido"
               });
             }
-          });
-
-          // Rota para configurar sigla personalizada de uma empresa
+          });          // Rota para configurar sigla personalizada de uma empresa
           app.post("/api/companies/:id/acronym", isAuthenticated, isKeyUser, async (req, res) => {
             try {
               const id = parseInt(req.params.id);
