@@ -228,14 +228,20 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
 
   // Extrair chave da API do Google Maps das configurações do keyuser
   const googleMapsApiKey = React.useMemo(() => {
+    console.log('🔍 DashboardTrackingMap - Verificando configurações:', settings);
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      return googleMapsKeySetting ? googleMapsKeySetting.value : null;
+      console.log('🗝️ DashboardTrackingMap - Configuração encontrada:', googleMapsKeySetting);
+      const apiKey = googleMapsKeySetting?.value?.trim() || null;
+      console.log('🔑 DashboardTrackingMap - API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'não encontrada');
+      return apiKey;
     }
+    console.log('⚠️ DashboardTrackingMap - Nenhuma configuração disponível');
     return null;
   }, [settings]);
 
-  if (!googleMapsApiKey || googleMapsApiKey.trim() === '') {
+  if (!googleMapsApiKey || googleMapsApiKey === '') {
+    console.log('❌ DashboardTrackingMap - API Key inválida ou vazia');
     return (
       <div className="bg-input rounded-xl h-48 flex items-center justify-center border border-border">
         <div className="text-center">
@@ -248,6 +254,8 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
       </div>
     );
   }
+  
+  console.log('✅ DashboardTrackingMap - API Key válida, carregando mapa...');
 
   if (isLoading) {
     return (

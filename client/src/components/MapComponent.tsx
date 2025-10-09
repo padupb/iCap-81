@@ -211,10 +211,15 @@ const MapComponent: React.FC<Props> = (props) => {
 
   // Extrair chave da API do Google Maps das configurações
   const googleMapsApiKey = React.useMemo(() => {
+    console.log('🔍 MapComponent - Verificando configurações:', settings);
     if (settings && settings.length > 0) {
       const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      return googleMapsKeySetting ? googleMapsKeySetting.value : null;
+      console.log('🗝️ MapComponent - Configuração encontrada:', googleMapsKeySetting);
+      const apiKey = googleMapsKeySetting?.value?.trim() || null;
+      console.log('🔑 MapComponent - API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'não encontrada');
+      return apiKey;
     }
+    console.log('⚠️ MapComponent - Nenhuma configuração disponível');
     return null;
   }, [settings]);
 
@@ -231,7 +236,8 @@ const MapComponent: React.FC<Props> = (props) => {
   }
 
   // Verificar se a chave da API está configurada
-  const shouldLoadGoogleMaps = googleMapsApiKey && googleMapsApiKey.trim() !== '';
+  const shouldLoadGoogleMaps = googleMapsApiKey && googleMapsApiKey !== '';
+  console.log('🔍 MapComponent - shouldLoadGoogleMaps:', shouldLoadGoogleMaps);
 
   if (!shouldLoadGoogleMaps) {
     return (
