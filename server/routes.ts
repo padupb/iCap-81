@@ -236,9 +236,9 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
                 console.log(`⚠️ Object não tem chaves numéricas válidas`);
                 console.log(`🔍 Tipos de keys:`, keys.slice(0, 5).map(k => `${k} (${typeof k})`));
               }
-            } catch (e) {
-              console.log(`⚠️ Erro ao converter object para buffer:`, e.message);
-              console.log(`📋 Stack:`, e.stack);
+            } catch (conversionError) {
+              console.log(`⚠️ Erro ao converter object para buffer:`, conversionError.message);
+              console.log(`📋 Stack:`, conversionError.stack);
             }
           } else if (result instanceof Uint8Array) {
             // Dados diretos como Uint8Array
@@ -293,8 +293,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             }
           }
 
-        } catch (error) {
-          console.log(`❌ Erro em ${storageKey}: ${error.message}`);
+        } catch (downloadError) {
+          console.log(`❌ Erro em ${storageKey}: ${downloadError.message}`);
           // Continuar tentando outras chaves
         }
       }
