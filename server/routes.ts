@@ -3878,13 +3878,15 @@ Status: Teste em progresso...`;
       const fotoFilename = `foto-nota-assinada-${timestamp}.${foto.mimetype === 'image/png' ? 'png' : 'jpg'}`;
 
       console.log(`📤 Fazendo upload da foto para Object Storage...`);
+      console.log(`📋 Código do pedido (order_id): ${pedido.order_id}`);
 
       let fotoStorageKey;
       try {
+        // CORREÇÃO: Usar order_id (código) em vez de id (número) do pedido
         fotoStorageKey = await saveFileToStorage(
           foto.buffer,
           fotoFilename,
-          pedidoId.toString()
+          pedido.order_id
         );
         console.log(`✅ Foto salva com sucesso no Object Storage: ${fotoStorageKey}`);
       } catch (uploadError) {
