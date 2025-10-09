@@ -55,14 +55,20 @@ export default function Sidebar() {
       {/* Logo/Header */}
       <div className="px-4 py-4 border-b border-sidebar-border bg-[#26262c] flex justify-center items-center min-h-[96px]">
         <Link href="/">
-          {settings.logoUrl && settings.logoUrl.trim() !== "" && !logoError ? (
-            <img
-              src={settings.logoUrl}
-              alt={settings.appName || 'iCap'}
-              className="w-[140px] h-[60px] object-contain cursor-pointer hover:opacity-80 transition-opacity"
-              onError={() => setLogoError(true)}
-            />
-          ) : (
+          <img
+            src={settings.logoUrl || "/public/uploads/logo.png"}
+            alt={settings.appName || 'iCap'}
+            className="w-[180px] h-[150px] object-contain cursor-pointer hover:opacity-80 transition-opacity"
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              if (img.src !== "/public/uploads/logo.png") {
+                img.src = "/public/uploads/logo.png";
+              } else {
+                setLogoError(true);
+              }
+            }}
+          />
+          {logoError && (
             <h1 className="text-xl font-semibold text-white cursor-pointer hover:text-primary transition-colors">
               {settings.appName || 'i-CAP 5.0'}
             </h1>
