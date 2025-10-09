@@ -33,7 +33,8 @@ async function initializeObjectStorage() {
       storageModule = await import('@replit/object-storage');
       console.log("✅ Módulo @replit/object-storage importado com sucesso");
     } catch (importError) {
-      console.log("❌ Falha ao importar @replit/object-storage:", importError.message);
+      const error = importError instanceof Error ? importError : new Error(String(importError));
+      console.log("❌ Falha ao importar @replit/object-storage:", error.message);
       // Verificar se o pacote está instalado
       try {
         const fs = await import('fs');
@@ -67,7 +68,8 @@ async function initializeObjectStorage() {
         throw new Error("Nenhum método de criação de cliente encontrado no módulo");
       }
     } catch (clientError) {
-      console.log("❌ Erro ao criar cliente:", clientError.message);
+      const error = clientError instanceof Error ? clientError : new Error(String(clientError));
+      console.log("❌ Erro ao criar cliente:", error.message);
       objectStorageAvailable = false;
       return false;
     }
@@ -80,12 +82,13 @@ async function initializeObjectStorage() {
       console.log("📦 Arquivos serão persistidos no Object Storage entre deployments");
       return true;
     } catch (testError) {
-      console.log("❌ Falha no teste de conectividade:", testError.message);
+      const error = testError instanceof Error ? testError : new Error(String(testError));
+      console.log("❌ Falha no teste de conectividade:", error.message);
 
       // Diagnóstico adicional
-      if (testError.message.includes('permission') || testError.message.includes('unauthorized')) {
+      if (error.message.includes('permission') || error.message.includes('unauthorized')) {
         console.log("🔒 Problema de permissões - verifique se Object Storage está habilitado no Replit");
-      } else if (testError.message.includes('network') || testError.message.includes('timeout')) {
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
         console.log("🌐 Problema de conectividade - tente novamente em alguns segundos");
       }
 
@@ -93,7 +96,8 @@ async function initializeObjectStorage() {
       return false;
     }
   } catch (error) {
-    console.warn("⚠️ Erro inesperado na inicialização do Object Storage:", error.message);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.warn("⚠️ Erro inesperado na inicialização do Object Storage:", err.message);
     console.log("📂 Usando armazenamento local temporário (será perdido no redeploy)");
     objectStorageAvailable = false;
     return false;
@@ -231,8 +235,9 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
                 console.log(`🔍 Tipos de keys:`, keys.slice(0, 5).map(k => `${k} (${typeof k})`));
               }
             } catch (conversionError) {
-              console.log(`⚠️ Erro ao converter object para buffer:`, conversionError.message);
-              console.log(`📋 Stack:`, conversionError.stack);
+              const error = conversionError instanceof Error ? conversionError : new Error(String(conversionError));
+              console.log(`⚠️ Erro ao converter object para buffer:`, error.message);
+              console.log(`📋 Stack:`, error.stack);
             }
           } else if (result instanceof Uint8Array) {
             // Dados diretos como Uint8Array
@@ -283,11 +288,13 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
                 }
               }
             } catch (altError) {
-              console.log(`❌ Método alternativo também falhou: ${altError.message}`);
+              const error = altError instanceof Error ? altError : new Error(String(altError));
+              console.log(`❌ Método alternativo também falhou: ${error.message}`);
             }
           }
         } catch (downloadError) {
-          console.log(`❌ Erro em ${storageKey}: ${downloadError.message}`);
+          const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
+          console.log(`❌ Erro em ${storageKey}: ${error.message}`);
           // Continuar tentando outras chaves
         }
       }
@@ -307,14 +314,14 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`📊 Total de objetos: ${objects.length}`);
 
         // Mostrar arquivos relacionados ao pedido
-        const relatedFiles = objects.filter(obj => {
+        const relatedFiles = objects.filter((obj: any) => {
           const objKey = obj.key || obj.name || String(obj);
           return objKey.includes(orderId) || objKey.includes(filename.split('-')[0]);
         });
 
         if (relatedFiles.length > 0) {
           console.log(`📋 Arquivos relacionados encontrados:`);
-          relatedFiles.forEach(obj => {
+          relatedFiles.forEach((obj: any) => {
             const objKey = obj.key || obj.name || String(obj);
             console.log(`   • ${objKey}`);
           });
@@ -350,7 +357,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
                 };
               }
             } catch (downloadError) {
-              console.log(`❌ Erro no download do arquivo relacionado: ${downloadError.message}`);
+              const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
+              console.log(`❌ Erro no download do arquivo relacionado: ${error.message}`);
             }
           }
         } else {
@@ -358,13 +366,14 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           // Mostrar alguns arquivos para referência
           const sampleFiles = objects.slice(0, 10);
           console.log(`📋 Primeiros 10 arquivos no storage:`);
-          sampleFiles.forEach(obj => {
+          sampleFiles.forEach((obj: any) => {
             const objKey = obj.key || obj.name || String(obj);
             console.log(`   • ${objKey}`);
           });
         }
       } catch (listError) {
-        console.log(`⚠️ Erro ao listar arquivos: ${listError.message}`);
+        const error = listError instanceof Error ? listError : new Error(String(listError));
+        console.log(`⚠️ Erro ao listar arquivos: ${error.message}`);
       }
     }
 
@@ -387,7 +396,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
           }
         }
       } catch (error) {
-        console.log(`⚠️ Erro no arquivo local ${filePath}: ${error.message}`);
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.log(`⚠️ Erro no arquivo local ${filePath}: ${err.message}`);
       }
     }
 
@@ -456,8 +466,9 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
           testData = new Uint8Array(values);
           console.log(`✅ Object array-like convertido para Uint8Array`);
         } catch (conversionError) {
-          console.log(`❌ Erro na conversão de object para Uint8Array: ${conversionError.message}`);
-          throw new Error(`Conversão de dados: ${conversionError.message}`);
+          const error = conversionError instanceof Error ? conversionError : new Error(String(conversionError));
+          console.log(`❌ Erro na conversão de object para Uint8Array: ${error.message}`);
+          throw new Error(`Conversão de dados: ${error.message}`);
         }
       } else {
         console.log(`❌ Tipo de dados não reconhecido para download de verificação`);
@@ -487,8 +498,9 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
         throw new Error(`Corrupção detectada: tamanhos diferentes (${originalSize} → ${downloadedSize})`);
       }
     } catch (storageError) {
+      const error = storageError instanceof Error ? storageError : new Error(String(storageError));
       console.error("❌ Erro detalhado ao salvar no Object Storage:", {
-        message: storageError.message,
+        message: error.message,
         key: `${orderId}/${filename}`,
         bufferSize: buffer.length,
         objectStorageAvailable,
@@ -530,8 +542,9 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     console.log(`⚠️ Este arquivo será perdido no próximo deploy!`);
     return filePath;
   } catch (localError) {
-    console.error("❌ Erro ao salvar localmente:", localError);
-    throw new Error(`Falha ao salvar arquivo: ${localError.message}`);
+    const error = localError instanceof Error ? localError : new Error(String(localError));
+    console.error("❌ Erro ao salvar localmente:", error);
+    throw new Error(`Falha ao salvar arquivo: ${error.message}`);
   }
 }
 
@@ -1144,8 +1157,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await objectStorage.list();
         log.push('✅ Conectividade confirmada');
       } catch (connectError) {
-        log.push(`❌ Falha na conectividade: ${connectError.message}`);
-        throw new Error(`Conectividade: ${connectError.message}`);
+        const error = connectError instanceof Error ? connectError : new Error(String(connectError));
+        log.push(`❌ Falha na conectividade: ${error.message}`);
+        throw new Error(`Conectividade: ${error.message}`);
       }
 
       // TESTE 2: Upload de arquivo de teste
@@ -1175,8 +1189,9 @@ Status: Teste em progresso...`;
         log.push(`✅ Upload realizado com sucesso em ${uploadTime}ms`);
         log.push(`📂 Chave: ${testKey}`);
       } catch (uploadError) {
-        log.push(`❌ Falha no upload: ${uploadError.message}`);
-        throw new Error(`Upload: ${uploadError.message}`);
+        const error = uploadError instanceof Error ? uploadError : new Error(String(uploadError));
+        log.push(`❌ Falha no upload: ${error.message}`);
+        throw new Error(`Upload: ${error.message}`);
       }
 
       // TESTE 3: Download e verificação de integridade
@@ -1228,8 +1243,9 @@ Status: Teste em progresso...`;
             rawData = new Uint8Array(values);
             log.push(`✅ Object array-like convertido para Uint8Array`);
           } catch (conversionError) {
-            log.push(`❌ Erro na conversão de object para Uint8Array: ${conversionError.message}`);
-            throw new Error(`Conversão de dados: ${conversionError.message}`);
+            const error = conversionError instanceof Error ? conversionError : new Error(String(conversionError));
+            log.push(`❌ Erro na conversão de object para Uint8Array: ${error.message}`);
+            throw new Error(`Conversão de dados: ${error.message}`);
           }
         } else {
           log.push(`❌ Tipo de dados não reconhecido para conversão`);
@@ -1257,8 +1273,9 @@ Status: Teste em progresso...`;
           log.push(`📊 Tamanho do conteúdo: ${downloadedContent.length} caracteres`);
 
         } catch (textError) {
-          log.push(`❌ Erro na conversão para texto: ${textError.message}`);
-          throw new Error(`Conversão para texto: ${textError.message}`);
+          const error = textError instanceof Error ? textError : new Error(String(textError));
+          log.push(`❌ Erro na conversão para texto: ${error.message}`);
+          throw new Error(`Conversão para texto: ${error.message}`);
         }
 
         // Verificar integridade
@@ -1273,9 +1290,10 @@ Status: Teste em progresso...`;
         }
 
       } catch (downloadError) {
-        log.push(`❌ Falha no download: ${downloadError.message}`);
-        log.log(`🔍 Stack trace: ${downloadError.stack}`);
-        throw new Error(`Download: ${downloadError.message}`);
+        const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
+        log.push(`❌ Falha no download: ${error.message}`);
+        log.push(`🔍 Stack trace: ${error.stack}`);
+        throw new Error(`Download: ${error.message}`);
       }
 
       // TESTE 4: Listagem de objetos
@@ -1297,7 +1315,7 @@ Status: Teste em progresso...`;
         log.push(`📊 Total de objetos: ${objects.length}`);
 
         // Filtrar objetos relacionados aos testes do keyuser
-        const keyuserObjects = objects.filter(obj => {
+        const keyuserObjects = objects.filter((obj: any) => {
           const key = obj.key || obj.name || obj;
           return key && key.includes('keyuser');
         });
@@ -1306,15 +1324,16 @@ Status: Teste em progresso...`;
 
         if (keyuserObjects.length > 0) {
           log.push('📋 Últimos 3 objetos do keyuser:');
-          keyuserObjects.slice(-3).forEach((obj, index) => {
+          keyuserObjects.slice(-3).forEach((obj: any, index: number) => {
             const key = obj.key || obj.name || String(obj);
             const size = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
             log.push(`   ${index + 1}. ${key} ${size}`);
           });
         }
       } catch (listError) {
-        log.push(`❌ Falha na listagem: ${listError.message}`);
-        throw new Error(`Listagem: ${listError.message}`);
+        const error = listError instanceof Error ? listError : new Error(String(listError));
+        log.push(`❌ Falha na listagem: ${error.message}`);
+        throw new Error(`Listagem: ${error.message}`);
       }
 
       // TESTE 5: Performance (se solicitado)
@@ -1349,7 +1368,8 @@ Status: Teste em progresso...`;
           log.push(`✅ Performance - Upload: ${perfUploadTime}ms, Download: ${perfDownloadTime}ms`);
           log.push(`📊 Performance total: ${performanceTime}ms para 10KB`);
         } catch (perfError) {
-          log.push(`⚠️ Erro no teste de performance: ${perfError.message}`);
+          const error = perfError instanceof Error ? perfError : new Error(String(perfError));
+          log.push(`⚠️ Erro no teste de performance: ${error.message}`);
         }
       }
 
@@ -1387,9 +1407,10 @@ Status: Teste em progresso...`;
       });
 
     } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       const totalTime = Date.now() - startTime;
       log.push('\n❌ TESTE FALHOU');
-      log.push(`💥 Erro: ${error.message}`);
+      log.push(`💥 Erro: ${err.message}`);
       log.push(`⏱️ Tempo até falha: ${totalTime}ms`);
 
       // Registrar falha no log do sistema
@@ -1398,13 +1419,13 @@ Status: Teste em progresso...`;
         action: "Falha no teste da API Object Storage",
         itemType: "system",
         itemId: "object_storage_api",
-        details: `Erro: ${error.message}`
+        details: `Erro: ${err.message}`
       });
 
       res.json({
         success: false,
-        message: `Teste da API falhou: ${error.message}`,
-        error: error.message,
+        message: `Teste da API falhou: ${err.message}`,
+        error: err.message,
         log: log.join('\n'),
         timestamp: new Date().toISOString()
       });
@@ -1460,10 +1481,11 @@ Status: Teste em progresso...`;
       }
 
     } catch (error) {
-      console.error("Erro ao corrigir arquivo:", error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Erro ao corrigir arquivo:", err);
       res.status(500).json({
         success: false,
-        message: `Erro: ${error.message}`
+        message: `Erro: ${err.message}`
       });
     }
   });
@@ -1557,8 +1579,9 @@ Status: Teste em progresso...`;
         }
 
       } catch (downloadError) {
-        console.error("❌ Erro no download:", downloadError);
-        throw new Error(`Falha no download: ${downloadError.message}`);
+        const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
+        console.error("❌ Erro no download:", error);
+        throw new Error(`Falha no download: ${error.message}`);
       }
 
       // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
@@ -1593,10 +1616,11 @@ Status: Teste em progresso...`;
       console.log(`✅ Download concluído com sucesso para o KeyUser`);
 
     } catch (error) {
-      console.error("Erro ao fazer download do arquivo de teste:", error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Erro ao fazer download do arquivo de teste:", err);
       res.status(500).json({
         success: false,
-        message: `Erro ao fazer download: ${error.message}`
+        message: `Erro ao fazer download: ${err.message}`
       });
     }
   });

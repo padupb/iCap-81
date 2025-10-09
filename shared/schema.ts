@@ -282,7 +282,7 @@ export const insertTrackingPointSchema = createInsertSchema(trackingPoints)
 
 // Types
 export type Order = typeof orders.$inferSelect;
-export type InsertOrder = typeof orders.$inferInsert;
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type CompanyCategory = typeof companyCategories.$inferSelect;
@@ -293,8 +293,6 @@ export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Unit = typeof units.$inferSelect;
 export type InsertUnit = z.infer<typeof insertUnitSchema>;
-export type Order = typeof orders.$inferSelect;
-export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
 export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
