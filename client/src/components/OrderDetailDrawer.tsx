@@ -1035,6 +1035,22 @@ export function OrderDetailDrawer({
     return user?.name || `Usuário ID: ${userId}`;
   };
 
+  // Função para formatar data e hora no fuso de Cuiabá (-04:00)
+  const formatDateTimeInCuiaba = (dateString: string): string => {
+    const date = new Date(dateString);
+    
+    // Converter para o fuso horário de Cuiabá (UTC-4)
+    const cuiabaTime = new Date(date.toLocaleString('en-US', { timeZone: 'America/Cuiaba' }));
+    
+    const day = String(cuiabaTime.getDate()).padStart(2, '0');
+    const month = String(cuiabaTime.getMonth() + 1).padStart(2, '0');
+    const year = cuiabaTime.getFullYear();
+    const hours = String(cuiabaTime.getHours()).padStart(2, '0');
+    const minutes = String(cuiabaTime.getMinutes()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
   // Função para gerar link do Google Maps
   const getGoogleMapsLink = (location: string) => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
@@ -2611,7 +2627,7 @@ export function OrderDetailDrawer({
                             history.push({
                               etapa: "Pedido Criado",
                               data: orderDetails.createdAt || new Date().toISOString(),
-                              usuario: "Sistema",
+                              usuario: getUserNameById(orderDetails.userId) || "Sistema",
                               descricao: `Pedido ${orderDetails.orderId} criado para ${formatProductWithUnit(orderDetails)}`,
                               icon: "Package"
                             });
@@ -2621,10 +2637,11 @@ export function OrderDetailDrawer({
                                 orderDetails.status === "Em Rota" ||
                                 orderDetails.status === "Em transporte" ||
                                 orderDetails.status === "Entregue") {
+                              const fornecedorName = orderDetails.supplier?.name || "Fornecedor";
                               history.push({
                                 etapa: "Documentos Carregados",
                                 data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
-                                usuario: "Fornecedor",
+                                usuario: fornecedorName,
                                 descricao: "Nota fiscal PDF, XML e certificado enviados",
                                 icon: "FileText"
                               });
@@ -2648,7 +2665,7 @@ export function OrderDetailDrawer({
                               history.push({
                                 etapa: "Entrega Confirmada",
                                 data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
-                                usuario: getUserNameById(undefined),
+                                usuario: getUserNameById(user?.id) || "Sistema",
                                 descricao: `Entrega confirmada com quantidade: ${orderDetails.quantidadeRecebida || orderDetails.quantity} ${orderDetails.unit?.abbreviation || ""}`,
                                 icon: "CheckCircle"
                               });
@@ -2659,7 +2676,7 @@ export function OrderDetailDrawer({
                               history.push({
                                 etapa: "Pedido Cancelado",
                                 data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
-                                usuario: "Sistema",
+                                usuario: getUserNameById(user?.id) || "Sistema",
                                 descricao: "Pedido cancelado",
                                 icon: "XCircle"
                               });
@@ -2711,7 +2728,7 @@ export function OrderDetailDrawer({
                                       <div className="flex items-center justify-between">
                                         <h4 className="font-medium text-sm">{item.etapa}</h4>
                                         <Badge variant="outline" className="text-xs">
-                                          {formatDate(item.data)}
+                                          {formatDateTimeInCuiaba(item.data)}
                                         </Badge>
                                       </div>
                                       <p className="text-xs text-muted-foreground mt-1">
