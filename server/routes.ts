@@ -3677,7 +3677,8 @@ Status: Teste em progresso...`;
         console.log(`✅ Reprogramação do pedido ${pedidoId} aprovada.`);
 
   // Rota específica para download da foto de confirmação
-  app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
+  // SEM autenticação para permitir download direto via link
+  app.get("/api/pedidos/:id/foto-confirmacao", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
