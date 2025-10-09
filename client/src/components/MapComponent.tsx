@@ -154,6 +154,12 @@ const GoogleMapsWrapper: React.FC<Props & { googleMapsApiKey: string }> = ({
 
       {/* Múltiplos marcadores */}
       {markers.map((marker) => {
+        // Validação extra de segurança
+        if (!marker || isNaN(marker.lat) || isNaN(marker.lng) || !isFinite(marker.lat) || !isFinite(marker.lng)) {
+          console.error('❌ Marker inválido ignorado:', marker);
+          return null;
+        }
+
         const color = marker.color || generateColorFromId(marker.id);
         const icon = marker.icon || createColoredDot(marker.id, color);
 

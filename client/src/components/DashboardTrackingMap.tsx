@@ -154,6 +154,15 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
       const lat = parseFloat(data.lastTrackingPoint!.latitude as string);
       const lng = parseFloat(data.lastTrackingPoint!.longitude as string);
       
+      console.log(`📍 Criando marker para pedido ${data.order.orderId}:`, {
+        latitude: data.lastTrackingPoint!.latitude,
+        longitude: data.lastTrackingPoint!.longitude,
+        lat: lat,
+        lng: lng,
+        isValidLat: !isNaN(lat) && isFinite(lat),
+        isValidLng: !isNaN(lng) && isFinite(lng)
+      });
+      
       return {
         id: data.order.id,
         lat,
@@ -165,7 +174,13 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
         color: data.color,
       };
     })
-    .filter((marker) => !isNaN(marker.lat) && !isNaN(marker.lng)); // Filtrar coordenadas inválidas
+    .filter((marker) => {
+      const isValid = !isNaN(marker.lat) && !isNaN(marker.lng) && isFinite(marker.lat) && isFinite(marker.lng);
+      if (!isValid) {
+        console.warn(`⚠️ Marker inválido filtrado:`, marker);
+      }
+      return isValid;
+    }); // Filtrar coordenadas inválidas
 
   // Calcular centro e zoom do mapa baseado em todas as cargas
   const mapSettings = React.useMemo(() => {
