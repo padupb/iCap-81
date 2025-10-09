@@ -19,13 +19,16 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
   const [mapError, setMapError] = useState<string | null>(null);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string>('');
 
-  // Buscar configurações do sistema
-  const { data: settings = [] } = useQuery({
-    queryKey: ['/api/settings'],
+  // Buscar a chave da API do Google Maps dos Secrets do Replit
+  const { data: googleMapsApiKey, isLoading: apiKeyLoading } = useQuery({
+    queryKey: ['/api/google-maps-key'],
     queryFn: async () => {
-      const response = await fetch('/api/settings');
-      if (!response.ok) throw new Error('Falha ao carregar configurações');
-      return response.json();
+      console.log('🔍 GoogleMapsTracking - Buscando Google Maps API Key dos Secrets...');
+      const response = await fetch('/api/google-maps-key');
+      if (!response.ok) throw new Error('Falha ao carregar chave do Google Maps');
+      const data = await response.json();
+      console.log('🔑 GoogleMapsTracking - API Key recebida:', data.apiKey ? `${data.apiKey.substring(0, 20)}...` : 'não encontrada');
+      return data.apiKey || '';
     },
   });
 
@@ -45,22 +48,12 @@ export function GoogleMapsTracking({ orderId }: GoogleMapsTrackingProps) {
     refetchInterval: 30000, // Atualizar a cada 30 segundos
   });
 
-  // Extrair chave da API do Google Maps das configurações do keyuser
+  // Definir API Key quando carregada
   useEffect(() => {
-    console.log('🔍 Verificando configurações para Google Maps API Key (configurada pelo keyuser):', settings);
-    if (settings && settings.length > 0) {
-      const googleMapsKeySetting = settings.find((setting: any) => setting.key === 'google_maps_api_key');
-      console.log('🗝️ Configuração do keyuser encontrada:', googleMapsKeySetting);
-      if (googleMapsKeySetting && googleMapsKeySetting.value) {
-        console.log('✅ Google Maps API Key do keyuser encontrada, comprimento:', googleMapsKeySetting.value.length);
-        setGoogleMapsApiKey(googleMapsKeySetting.value);
-      } else {
-        console.log('❌ Google Maps API Key não configurada pelo keyuser');
-      }
-    } else {
-      console.log('❌ Nenhuma configuração do keyuser encontrada');
+    if (googleMapsApiKey) {
+      console.log('✅ Google Maps API Key carregada dos Secrets do Replit');
     }
-  }, [settings]);
+  }, [googleMapsApiKey]);
 
   // Carregar Google Maps API com os novos componentes gmp
   useEffect(() => {

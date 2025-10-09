@@ -231,14 +231,23 @@ const GoogleMapsWrapper: React.FC<Props & { googleMapsApiKey: string }> = ({
 };
 
 const MapComponent: React.FC<Props> = (props) => {
-  // Buscar a chave da API do Google Maps diretamente do backend
+  // Buscar a chave da API do Google Maps dos Secrets do Replit
   const { data: googleMapsApiKey, isLoading: settingsLoading } = useQuery({
     queryKey: ['/api/google-maps-key'],
     queryFn: async () => {
+      console.log('🔍 MapComponent - Buscando Google Maps API Key dos Secrets...');
       const response = await fetch('/api/google-maps-key');
-      if (!response.ok) throw new Error('Falha ao carregar chave do Google Maps');
+      console.log('📡 MapComponent - Response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('❌ MapComponent - Erro na resposta:', response.statusText);
+        throw new Error('Falha ao carregar chave do Google Maps');
+      }
+      
       const data = await response.json();
-      console.log('🔑 MapComponent - API Key recebida:', data.apiKey ? `${data.apiKey.substring(0, 10)}...` : 'não encontrada');
+      console.log('📦 MapComponent - Dados recebidos:', data);
+      console.log('🔑 MapComponent - API Key:', data.apiKey ? `${data.apiKey.substring(0, 20)}...` : 'VAZIA/NULL');
+      
       return data.apiKey || null;
     },
   });

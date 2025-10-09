@@ -1481,6 +1481,28 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para buscar Google Maps API Key dos Secrets do Replit
+  app.get("/api/google-maps-key", async (req, res) => {
+    try {
+      // Buscar diretamente da variável de ambiente (Replit Secrets)
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      
+      if (!apiKey) {
+        console.log('⚠️ Google Maps API Key não encontrada nos Secrets do Replit');
+        return res.json({ apiKey: null });
+      }
+      
+      console.log('✅ Google Maps API Key carregada dos secrets');
+      console.log(`   • Tamanho: ${apiKey.length}`);
+      console.log(`   • Preview: ${apiKey.substring(0, 20)}...`);
+      
+      res.json({ apiKey });
+    } catch (error) {
+      console.error('❌ Erro ao buscar Google Maps API Key:', error);
+      res.status(500).json({ apiKey: null, error: 'Erro ao buscar chave da API' });
+    }
+  });
+
   // Rota para re-upload de arquivo corrompido (KeyUser only)
   app.post("/api/keyuser/fix-corrupted-file", isAuthenticated, isKeyUser, async (req, res) => {
     try {

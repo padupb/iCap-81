@@ -271,11 +271,11 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
     }
   };
 
-  // Buscar a chave da API do Google Maps diretamente do backend
+  // Buscar a chave da API do Google Maps dos Secrets do Replit
   const { data: googleMapsApiKey, isLoading: apiKeyLoading, error: apiKeyError } = useQuery({
     queryKey: ['/api/google-maps-key'],
     queryFn: async () => {
-      console.log('🔍 DashboardTrackingMap - Buscando Google Maps API Key...');
+      console.log('🔍 DashboardTrackingMap - Buscando Google Maps API Key dos Secrets...');
       const response = await fetch('/api/google-maps-key');
       console.log('📡 DashboardTrackingMap - Response status:', response.status);
       
