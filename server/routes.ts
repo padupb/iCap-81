@@ -1,3 +1,4 @@
+replit_final_file>
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -121,9 +122,9 @@ function extractBufferFromStorageResult(result: any): Buffer | null {
   // Caso 1: Wrapper {ok, value}
   if (result && typeof result === 'object' && 'ok' in result) {
     if (!result.ok || !result.value) return null;
-    
+
     const val = result.value;
-    
+
     // Se value é array com Buffer/Uint8Array no primeiro elemento
     if (Array.isArray(val) && val.length > 0) {
       const firstItem = val[0];
@@ -131,19 +132,19 @@ function extractBufferFromStorageResult(result: any): Buffer | null {
       if (firstItem instanceof Uint8Array) return Buffer.from(firstItem);
       if (Array.isArray(firstItem)) return Buffer.from(firstItem);
     }
-    
+
     // Se value é Buffer ou Uint8Array diretamente
     if (val instanceof Buffer) return val;
     if (val instanceof Uint8Array) return Buffer.from(val);
     if (Array.isArray(val)) return Buffer.from(val);
-    
+
     return null;
   }
 
   // Caso 2: Buffer ou Uint8Array direto
   if (result instanceof Buffer) return result;
   if (result instanceof Uint8Array) return Buffer.from(result);
-  
+
   // Caso 3: Array direto
   if (Array.isArray(result)) {
     const firstItem = result[0];
@@ -827,6 +828,22 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+// Middleware para upload de foto de confirmação de entrega
+const uploadFotoConfirmacao = multer({
+  storage: multer.memoryStorage(), // Armazenar em memória para processamento posterior
+  limits: {
+    fileSize: 5 * 1024 * 1024, // Limite de 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Aceitar apenas imagens JPG e PNG
+    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos JPG e PNG são permitidos'), false);
+    }
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
 
   // Rotas de autenticação
@@ -1486,16 +1503,16 @@ Status: Teste em progresso...`;
     try {
       // Buscar diretamente da variável de ambiente (Replit Secrets)
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-      
+
       if (!apiKey) {
         console.log('⚠️ Google Maps API Key não encontrada nos Secrets do Replit');
         return res.json({ apiKey: null });
       }
-      
+
       console.log('✅ Google Maps API Key carregada dos secrets');
       console.log(`   • Tamanho: ${apiKey.length}`);
       console.log(`   • Preview: ${apiKey.substring(0, 20)}...`);
-      
+
       res.json({ apiKey });
     } catch (error) {
       console.error('❌ Erro ao buscar Google Maps API Key:', error);
@@ -2539,7 +2556,7 @@ Status: Teste em progresso...`;
     }
   });
 
-  // Excluir pedido (apenas keyuser)
+  // Excluir pedido (apenas KeyUser)
   app.delete("/api/orders/:id", isAuthenticated, isKeyUser, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -3286,11 +3303,11 @@ Status: Teste em progresso...`;
 
       // PRIORIDADE 2: Tentar buscar diretamente no Object Storage usando order_id (para casos onde documentos_info está vazio)
       if (objectStorageAvailable && objectStorage && orderId) {
-        
+
         try {
           // Listar arquivos na pasta do pedido
           const listResult = await objectStorage.list();
-          
+
           // O Replit Object Storage retorna {ok, value} ou {ok, error}
           let objects = [];
           if (listResult && typeof listResult === 'object') {
@@ -3302,7 +3319,7 @@ Status: Teste em progresso...`;
               objects = listResult.objects;
             }
           }
-          
+
           // Buscar arquivos que correspondem ao padrão
           const possibleKeys = [];
 
@@ -3321,9 +3338,9 @@ Status: Teste em progresso...`;
           // Tentar download direto usando as chaves encontradas
           for (const key of possibleKeys) {
             try {
-              
+
               const downloadResult = await objectStorage.downloadAsBytes(key);
-              
+
               // Replit Object Storage retorna {ok, value: [Buffer]} 
               // O value é um array contendo o buffer no primeiro elemento
               let downloadedBytes = null;
@@ -3333,7 +3350,7 @@ Status: Teste em progresso...`;
               } else if (downloadResult && (downloadResult instanceof Uint8Array || downloadResult instanceof Buffer || Array.isArray(downloadResult))) {
                 downloadedBytes = Array.isArray(downloadResult) && downloadResult.length > 0 ? downloadResult[0] : downloadResult;
               }
-              
+
               if (downloadedBytes && downloadedBytes.length > 1) {
                 const buffer = Buffer.from(downloadedBytes);
 
@@ -3365,7 +3382,7 @@ Status: Teste em progresso...`;
         }
       }
 
-      // PRIORIDADE 3: FALLBACK - Tentar buscar o arquivo na pasta uploads/[orderId]/
+      // PRIORIDADE 3: FALLBACK - Tentar buscar o arquivo na pasta uploads/[id]/
       const uploadsPath = path.join(process.cwd(), "uploads", id.toString());
       console.log(`📁 Tentando documento em uploads: ${uploadsPath}`);
 
@@ -4053,7 +4070,7 @@ Status: Teste em progresso...`;
   app.get("/api/google-maps-key", async (req, res) => {
     try {
       const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
-      
+
       if (!googleMapsApiKey) {
         console.error('❌ GOOGLE_MAPS_API_KEY não encontrada nos secrets');
         return res.status(500).json({
@@ -4061,11 +4078,11 @@ Status: Teste em progresso...`;
           apiKey: null
         });
       }
-      
+
       console.log('✅ Google Maps API Key carregada dos secrets');
       console.log('   • Tamanho:', googleMapsApiKey.length);
       console.log('   • Preview:', `${googleMapsApiKey.substring(0, 20)}...`);
-      
+
       res.json({
         apiKey: googleMapsApiKey
       });
@@ -4366,3 +4383,4 @@ Status: Teste em progresso...`;
   const httpServer = createServer(app);
   return httpServer;
 }
+</replit_final_file>
