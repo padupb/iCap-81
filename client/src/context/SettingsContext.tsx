@@ -41,7 +41,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             urgentDaysThreshold: parseInt(data.find((s: any) => s.key === "urgent_days_threshold")?.value || "7", 10),
             approvalTimeoutHours: parseInt(data.find((s: any) => s.key === "approval_timeout_hours")?.value || "48", 10),
             googleMapsApiKey: data.find((s: any) => s.key === "google_maps_api_key")?.value || defaultSettings.googleMapsApiKey,
-            logoUrl: data.find((s: any) => s.key === "logo_url")?.value || defaultSettings.logoUrl,
+            logoUrl: data.find((s: any) => s.key === "logo_url")?.value?.trim() || defaultSettings.logoUrl,
           };
           
           setSettings(settingsObject);
