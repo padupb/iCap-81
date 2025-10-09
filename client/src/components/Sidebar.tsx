@@ -57,20 +57,12 @@ export default function Sidebar() {
           {settings.logoUrl ? (
             <img
               src={settings.logoUrl}
-              alt="Logo"
+              alt={settings.appName || 'iCap'}
               className="w-[140px] h-[60px] object-contain cursor-pointer hover:opacity-80 transition-opacity"
-              onError={(e) => {
-                // Fallback para texto se a imagem falhar
-                e.currentTarget.style.display = 'none';
-                const fallback = document.createElement('h1');
-                fallback.className = "text-xl font-semibold text-white cursor-pointer hover:text-primary transition-colors";
-                fallback.textContent = settings.appName || 'iCap';
-                e.currentTarget.parentNode?.appendChild(fallback);
-              }}
             />
           ) : (
             <h1 className="text-xl font-semibold text-white cursor-pointer hover:text-primary transition-colors">
-              {settings.appName || 'iCap'}
+              {settings.appName || 'i-CAP 5.0'}
             </h1>
           )}
         </Link>
