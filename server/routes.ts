@@ -3733,9 +3733,9 @@ Status: Teste em progresso...`;
 
       console.log(`📸 Solicitação de download da foto de confirmação: Pedido ${id}`);
 
-      // Buscar informações do pedido
+      // Buscar informações do pedido usando foto_confirmacao
       const pedidoResult = await pool.query(
-        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+        "SELECT order_id, foto_confirmacao FROM orders WHERE id = $1",
         [id]
       );
 
@@ -3748,30 +3748,27 @@ Status: Teste em progresso...`;
 
       const pedido = pedidoResult.rows[0];
       
-      if (!pedido.documentos_info) {
+      if (!pedido.foto_confirmacao) {
         return res.status(404).json({
           success: false,
           message: "Foto de confirmação não encontrada"
         });
       }
 
-      const documentosInfo = typeof pedido.documentos_info === 'string'
-        ? JSON.parse(pedido.documentos_info)
-        : pedido.documentos_info;
+      const fotoInfo = typeof pedido.foto_confirmacao === 'string'
+        ? JSON.parse(pedido.foto_confirmacao)
+        : pedido.foto_confirmacao;
 
-      const fotoInfo = documentosInfo.foto_nota;
-      
-      if (!fotoInfo) {
+      if (!fotoInfo || !fotoInfo.storageKey) {
         return res.status(404).json({
           success: false,
-          message: "Foto de confirmação não encontrada"
+          message: "Informações da foto de confirmação incompletas"
         });
       }
 
-      // Suportar formato antigo (string) e novo (objeto)
-      const storageKey = typeof fotoInfo === 'string' ? fotoInfo : fotoInfo.storageKey;
-      const filename = typeof fotoInfo === 'string' ? 'foto-confirmacao.jpg' : fotoInfo.filename;
-      const mimetype = typeof fotoInfo === 'string' ? 'image/jpeg' : (fotoInfo.mimetype || 'image/jpeg');
+      const storageKey = fotoInfo.storageKey;
+      const filename = fotoInfo.filename || 'foto-confirmacao.jpg';
+      const mimetype = fotoInfo.mimetype || 'image/jpeg';
 
       console.log(`📂 Buscando foto: ${storageKey}`);
 
@@ -3941,23 +3938,22 @@ Status: Teste em progresso...`;
         });
       }
 
-      // Atualizar documentos_info do pedido para incluir a foto
-      const documentosInfo = pedido.documentos_info || {};
-      documentosInfo.foto_nota = {
+      // Atualizar foto_confirmacao (JSONB) com a foto e quantidade confirmada
+      const fotoConfirmacao = {
         filename: fotoFilename,
         storageKey: fotoKey,
         size: foto.size,
         mimetype: foto.mimetype,
+        quantidadeConfirmada: entregueFloat,
         uploadDate: new Date().toISOString()
       };
 
-      // Atualizar o status do pedido e salvar a quantidade recebida no campo quantity
-      // (já que delivered_quantity não existe na tabela)
+      // Atualizar o status do pedido e salvar foto_confirmacao
       await pool.query(
         `UPDATE orders 
-         SET status = 'Entregue', quantity = $1, documentos_info = $2
-         WHERE id = $3`,
-        [entregueFloat, JSON.stringify(documentosInfo), pedidoId]
+         SET status = 'Entregue', foto_confirmacao = $1
+         WHERE id = $2`,
+        [JSON.stringify(fotoConfirmacao), pedidoId]
       );
 
       // Registrar log da ação
@@ -3966,7 +3962,7 @@ Status: Teste em progresso...`;
         action: "Confirmou entrega de pedido",
         itemType: "order",
         itemId: pedidoId.toString(),
-        details: `Entrega do pedido ${pedido.order_id} (${pedido.product_name}) confirmada. Quantidade: ${entregueFloat}. Foto da nota assinada salva.`
+        details: `Entrega do pedido ${pedido.order_id} (${pedido.product_name}) confirmada. Quantidade recebida: ${entregueFloat}. Foto salva no Object Storage.`
       });
 
       res.json({
@@ -3979,6 +3975,59 @@ Status: Teste em progresso...`;
       res.status(500).json({
         sucesso: false,
         mensagem: "Erro ao confirmar a entrega."
+      });
+    }
+  });
+
+  // Rota para buscar quantidade confirmada de um pedido
+  app.get("/api/pedidos/:id/quantidade-confirmada", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID inválido"
+        });
+      }
+
+      const pedidoResult = await pool.query(
+        "SELECT foto_confirmacao FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const fotoConfirmacao = pedidoResult.rows[0].foto_confirmacao;
+      
+      if (!fotoConfirmacao) {
+        return res.json({
+          success: true,
+          quantidadeConfirmada: null,
+          message: "Pedido ainda não foi confirmado"
+        });
+      }
+
+      const confirmacao = typeof fotoConfirmacao === 'string'
+        ? JSON.parse(fotoConfirmacao)
+        : fotoConfirmacao;
+
+      res.json({
+        success: true,
+        quantidadeConfirmada: confirmacao.quantidadeConfirmada || null,
+        uploadDate: confirmacao.uploadDate || null
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar quantidade confirmada:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar quantidade confirmada"
       });
     }
   });
