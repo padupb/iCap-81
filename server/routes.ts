@@ -515,17 +515,6 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         });
         console.log("🔄 Tentando Google Drive como fallback...");
       }
-
-      } catch (error) {
-        console.error("❌ Erro detalhado ao salvar no Object Storage:", {
-          message: error.message,
-          key: `${orderId}/${filename}`,
-          bufferSize: buffer.length,
-          objectStorageAvailable,
-          hasObjectStorage: !!objectStorage
-        });
-        console.log("🔄 Tentando Google Drive como fallback...");
-      }
     } else {
       console.log("⚠️ Object Storage não disponível:", {
         objectStorageAvailable,
@@ -4850,9 +4839,7 @@ Status: Teste em progresso...`;
             } else {
               cb(new Error("O arquivo deve ser um APK"));
             }
-          };
-
-          const uploadIcapMob = multer({
+          };          const uploadIcapMob = multer({
             storage: icapMobStorage,
             fileFilter: icapMobFileFilter,
             limits: {
