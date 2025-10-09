@@ -113,6 +113,48 @@ async function initializeObjectStorage() {
 initializeObjectStorage();
 
 // Função utilitária simplificada para ler arquivo do Object Storage
+// Função auxiliar para extrair Buffer de resposta do Object Storage
+// Replit Object Storage retorna {ok, value: [Buffer]} onde value é array com Buffer no índice 0
+function extractBufferFromStorageResult(result: any): Buffer | null {
+  if (!result) return null;
+
+  // Caso 1: Wrapper {ok, value}
+  if (result && typeof result === 'object' && 'ok' in result) {
+    if (!result.ok || !result.value) return null;
+    
+    const val = result.value;
+    
+    // Se value é array com Buffer/Uint8Array no primeiro elemento
+    if (Array.isArray(val) && val.length > 0) {
+      const firstItem = val[0];
+      if (firstItem instanceof Buffer) return firstItem;
+      if (firstItem instanceof Uint8Array) return Buffer.from(firstItem);
+      if (Array.isArray(firstItem)) return Buffer.from(firstItem);
+    }
+    
+    // Se value é Buffer ou Uint8Array diretamente
+    if (val instanceof Buffer) return val;
+    if (val instanceof Uint8Array) return Buffer.from(val);
+    if (Array.isArray(val)) return Buffer.from(val);
+    
+    return null;
+  }
+
+  // Caso 2: Buffer ou Uint8Array direto
+  if (result instanceof Buffer) return result;
+  if (result instanceof Uint8Array) return Buffer.from(result);
+  
+  // Caso 3: Array direto
+  if (Array.isArray(result)) {
+    const firstItem = result[0];
+    if (firstItem instanceof Buffer) return firstItem;
+    if (firstItem instanceof Uint8Array) return Buffer.from(firstItem);
+    return Buffer.from(result);
+  }
+
+  return null;
+}
+
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer, originalName: string } | null> {
   console.log(`🔍 DOWNLOAD SIMPLES: ${filename} | Key: ${key} | OrderId: ${orderId}`);
 
@@ -3220,7 +3262,88 @@ Status: Teste em progresso...`;
         }
       }
 
-      // PRIORIDADE 2: FALLBACK - Tentar buscar o arquivo na pasta uploads/[orderId]/
+      // PRIORIDADE 2: Tentar buscar diretamente no Object Storage usando order_id (para casos onde documentos_info está vazio)
+      if (objectStorageAvailable && objectStorage && orderId) {
+        
+        try {
+          // Listar arquivos na pasta do pedido
+          const listResult = await objectStorage.list();
+          
+          // O Replit Object Storage retorna {ok, value} ou {ok, error}
+          let objects = [];
+          if (listResult && typeof listResult === 'object') {
+            if (listResult.ok && listResult.value) {
+              objects = Array.isArray(listResult.value) ? listResult.value : [];
+            } else if (Array.isArray(listResult)) {
+              objects = listResult;
+            } else if (listResult.objects) {
+              objects = listResult.objects;
+            }
+          }
+          
+          // Buscar arquivos que correspondem ao padrão
+          const possibleKeys = [];
+
+          // Adicionar chaves encontradas no storage que correspondem ao pedido e tipo
+          for (const obj of objects) {
+            const objectKey = obj && (obj.key || obj.name);
+            if (objectKey && (
+              objectKey.includes(`${orderId}/${tipo}-`) ||
+              objectKey.includes(`orders/${orderId}/${tipo}-`) ||
+              objectKey.includes(`/${orderId}/${tipo}`)
+            )) {
+              possibleKeys.push(objectKey);
+            }
+          }
+
+          // Tentar download direto usando as chaves encontradas
+          for (const key of possibleKeys) {
+            try {
+              
+              const downloadResult = await objectStorage.downloadAsBytes(key);
+              
+              // Replit Object Storage retorna {ok, value: [Buffer]} 
+              // O value é um array contendo o buffer no primeiro elemento
+              let downloadedBytes = null;
+              if (downloadResult && typeof downloadResult === 'object' && 'value' in downloadResult) {
+                const val = downloadResult.value;
+                downloadedBytes = Array.isArray(val) && val.length > 0 ? val[0] : val;
+              } else if (downloadResult && (downloadResult instanceof Uint8Array || downloadResult instanceof Buffer || Array.isArray(downloadResult))) {
+                downloadedBytes = Array.isArray(downloadResult) && downloadResult.length > 0 ? downloadResult[0] : downloadResult;
+              }
+              
+              if (downloadedBytes && downloadedBytes.length > 1) {
+                const buffer = Buffer.from(downloadedBytes);
+
+                let contentType = 'application/octet-stream';
+                if (tipo.includes('pdf')) {
+                  contentType = 'application/pdf';
+                } else if (tipo.includes('xml')) {
+                  contentType = 'application/xml';
+                } else if (tipo.includes('foto')) {
+                  contentType = 'image/jpeg';
+                }
+
+                const filename = key.split('/').pop() || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`;
+
+                res.setHeader("Content-Type", contentType);
+                res.setHeader("Content-Length", buffer.length);
+                res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+                res.setHeader("Cache-Control", "no-cache");
+
+                return res.end(buffer);
+              }
+            } catch (downloadError) {
+              console.log(`⚠️ Erro ao baixar ${key}:`, downloadError instanceof Error ? downloadError.message : 'erro desconhecido');
+              continue;
+            }
+          }
+        } catch (listError) {
+          console.log(`⚠️ Erro ao listar objetos do Object Storage:`, listError instanceof Error ? listError.message : listError);
+        }
+      }
+
+      // PRIORIDADE 3: FALLBACK - Tentar buscar o arquivo na pasta uploads/[orderId]/
       const uploadsPath = path.join(process.cwd(), "uploads", id.toString());
       console.log(`📁 Tentando documento em uploads: ${uploadsPath}`);
 
