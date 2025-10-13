@@ -2332,9 +2332,9 @@ Status: Teste em progresso...`;
           o.id,
           o.order_id as "orderId",
           o.delivery_date as "deliveryDate",
-          o.new_delivery_date as "newDeliveryDate",
-          o.rescheduling_comment as "reschedulingComment",
-          o.created_at as "createdAt",
+          o.nova_data_entrega as "newDeliveryDate",
+          o.justificativa_reprogramacao as "reschedulingComment",
+          o.data_solicitacao_reprogramacao as "createdAt",
           o.supplier_id as "supplierId",
           o.purchase_order_id as "purchaseOrderId",
           p.name as "productName",
@@ -2352,9 +2352,9 @@ Status: Teste em progresso...`;
         LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
         LEFT JOIN companies oc_company ON oc.empresa_id = oc_company.id
         LEFT JOIN companies dest_company ON oc.cnpj = dest_company.cnpj
-        LEFT JOIN users creator ON o.user_id = creator.id
+        LEFT JOIN users creator ON o.usuario_reprogramacao = creator.id
         WHERE o.status = 'Aguardando Aprovação'
-        ORDER BY o.created_at DESC
+        ORDER BY o.data_solicitacao_reprogramacao DESC
       `);
 
       let reprogramacoes = reprogramacoesResult.rows;
@@ -3929,14 +3929,14 @@ Status: Teste em progresso...`;
         });
       }
 
-      // Atualizar pedido com nova data e justificativa (usando nomes corretos das colunas)
+      // Atualizar pedido com nova data e justificativa (usando nomes corretos das colunas em português)
       await pool.query(
         `UPDATE orders 
-         SET new_delivery_date = $1, 
-             rescheduling_comment = $2,
-             rescheduling_requested_at = NOW(),
-             rescheduling_requested_by = $3,
-             status = 'Suspenso'
+         SET nova_data_entrega = $1, 
+             justificativa_reprogramacao = $2,
+             data_solicitacao_reprogramacao = NOW(),
+             usuario_reprogramacao = $3,
+             status = 'Aguardando Aprovação'
          WHERE id = $4`,
         [novaDataEntrega, motivo.trim(), req.user.id, pedidoId]
       );
