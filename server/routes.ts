@@ -461,10 +461,12 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   // PRIORIDADE 1: Tentar Object Storage se disponível
   if (objectStorageAvailable && objectStorage) {
     try {
-      // CORREÇÃO: Adicionar prefixo 'orders/' ao caminho
+      // GARANTIR padrão correto: orders/{orderId}/{filename}
       const storageKey = `orders/${orderId}/${filename}`;
-      console.log(`UserProgressing upload to Object Storage: ${storageKey}`);
+      console.log(`📤 Upload to Object Storage: ${storageKey}`);
       console.log(`📊 Buffer size: ${buffer.length} bytes`);
+      console.log(`📋 Order ID: ${orderId}`);
+      console.log(`📄 Filename: ${filename}`);
 
       // Validar buffer antes do upload
       if (!buffer || buffer.length === 0) {
@@ -3222,7 +3224,9 @@ Status: Teste em progresso...`;
           // Precisamos ler o arquivo do disco para fazer upload no Object Storage
           const buffer = fs.readFileSync(file.path);
           const filename = file.filename; // Nome gerado pelo Multer
-          const storageKey = await saveFileToStorage(buffer, filename, orderId); // Salva no Object Storage, Google Drive ou local
+          
+          // CORREÇÃO: Garantir que a chave siga o padrão orders/{orderId}/{filename}
+          const storageKey = await saveFileToStorage(buffer, filename, orderId);
           console.log(`✅ ${fieldName} saved with key: ${storageKey}`);
 
           // Informações para serem salvas no banco de dados
