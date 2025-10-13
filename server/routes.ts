@@ -4206,6 +4206,55 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para buscar pontos de rastreamento de um pedido
+  app.get("/api/tracking-points/:id", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`🗺️ Buscando tracking points para pedido ${pedidoId}`);
+
+      // Buscar tracking points do banco de dados
+      const trackingResult = await pool.query(
+        `SELECT * FROM tracking_points WHERE order_id = $1 ORDER BY timestamp DESC`,
+        [pedidoId]
+      );
+
+      // Retornar array vazio se não houver pontos
+      if (trackingResult.rows.length === 0) {
+        console.log(`📍 Nenhum tracking point encontrado para pedido ${pedidoId}`);
+        return res.json([]);
+      }
+
+      const trackingPoints = trackingResult.rows.map(row => ({
+        id: row.id,
+        orderId: row.order_id,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        timestamp: row.timestamp,
+        status: row.status,
+        description: row.description
+      }));
+
+      console.log(`✅ ${trackingPoints.length} tracking points encontrados para pedido ${pedidoId}`);
+      res.json(trackingPoints);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar tracking points:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar pontos de rastreamento",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Rota para download da foto de confirmação
   app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
     try {
