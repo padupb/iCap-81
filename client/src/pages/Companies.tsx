@@ -33,6 +33,16 @@ type UserType = {
   roleId?: number;
 };
 
+type CompanyWithCategory = Company & {
+  category?: {
+    id: number;
+    name: string;
+    requiresApprover: boolean;
+    requiresContract: boolean;
+    receivesPurchaseOrders: boolean;
+  } | null;
+};
+
 const companyFormSchema = insertCompanySchemaZod;
 
 type CompanyFormData = z.infer<typeof companyFormSchema>;
@@ -57,7 +67,7 @@ export default function Companies() {
   const queryClient = useQueryClient();
   const { canCreate, canEdit } = useAuthorization();
 
-  const { data: companies = [], isLoading } = useQuery<Company[]>({
+  const { data: companies = [], isLoading } = useQuery<CompanyWithCategory[]>({
     queryKey: ["/api/companies"],
   });
 

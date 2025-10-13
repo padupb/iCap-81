@@ -2047,7 +2047,19 @@ Status: Teste em progresso...`;
   app.get("/api/companies", async (req, res) => {
     try {
       const companies = await storage.getAllCompanies();
-      res.json(companies);
+      
+      // Buscar categorias para cada empresa
+      const companiesWithCategory = await Promise.all(
+        companies.map(async (company) => {
+          const category = await storage.getCompanyCategory(company.categoryId);
+          return {
+            ...company,
+            category: category || null
+          };
+        })
+      );
+      
+      res.json(companiesWithCategory);
     } catch (error) {
       console.error("Erro ao buscar empresas:", error);
       res.status(500).json({ message: "Erro ao buscar empresas" });
