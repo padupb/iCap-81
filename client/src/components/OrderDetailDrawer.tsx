@@ -1111,10 +1111,10 @@ export function OrderDetailDrawer({
 
     try {
       console.log(`📥 Iniciando download de ${docType} para pedido ${orderId}`);
-      
+
       // Fazer requisição para obter o blob
       const response = await fetch(`/api/pedidos/${orderId}/documentos/${docType}`);
-      
+
       if (!response.ok) {
         throw new Error(`Erro ao carregar documento: ${response.statusText}`);
       }
@@ -1122,7 +1122,7 @@ export function OrderDetailDrawer({
       // Obter o blob da resposta
       const blob = await response.blob();
       console.log(`📊 Blob recebido: ${blob.size} bytes, tipo: ${blob.type}`);
-      
+
       // Verificar se o blob não está vazio
       if (blob.size === 0) {
         throw new Error("Arquivo vazio recebido do servidor");
@@ -1130,18 +1130,18 @@ export function OrderDetailDrawer({
 
       // Criar URL do blob
       const url = window.URL.createObjectURL(blob);
-      
+
       // Criar link para download
       const link = document.createElement('a');
       link.href = url;
       link.download = defaultFilename;
       link.style.display = 'none';
-      
+
       // Adicionar ao DOM, clicar e remover
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Limpar URL do blob após um delay
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
@@ -2123,53 +2123,99 @@ export function OrderDetailDrawer({
                             </p>
                           </div>
 
-                          <div className="mt-4">
+                          <div className="mt-4 space-y-2">
                             <Button
-                              variant="default"
-                              size="lg"
+                              variant="outline"
+                              size="sm"
                               onClick={async () => {
                                 try {
-                                  console.log(`📦 Iniciando download do ZIP para pedido ${orderDetails.id}`);
-                                  
-                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/documentos/download-zip`);
-                                  
-                                  if (!response.ok) {
-                                    throw new Error(`Erro: ${response.status}`);
-                                  }
+                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/documentos/nota_pdf`);
+                                  if (!response.ok) throw new Error('Arquivo não encontrado');
 
                                   const blob = await response.blob();
                                   const url = window.URL.createObjectURL(blob);
                                   const a = document.createElement('a');
                                   a.href = url;
-                                  a.download = `Pedido_${orderDetails.orderId}_Documentos.zip`;
+                                  a.download = `${orderDetails.orderId}_nota.pdf`;
                                   document.body.appendChild(a);
                                   a.click();
+                                  document.body.removeChild(a);
                                   window.URL.revokeObjectURL(url);
-                                  a.remove();
-
-                                  toast({
-                                    title: "Download concluído",
-                                    description: `ZIP com todos os documentos do pedido ${orderDetails.orderId} baixado com sucesso`,
-                                  });
                                 } catch (error) {
-                                  console.error("Erro ao baixar ZIP:", error);
                                   toast({
-                                    title: "Erro no download",
-                                    description: error instanceof Error ? error.message : "Erro ao baixar ZIP",
+                                    title: "Erro",
+                                    description: "Não foi possível baixar o arquivo",
                                     variant: "destructive",
                                   });
                                 }
                               }}
                               className="w-full"
-                              title="Baixar todos os documentos em um arquivo ZIP"
                             >
-                              <Download className="w-5 h-5 mr-2" />
-                              Baixar Todos os Documentos (ZIP)
+                              <Download className="mr-2 h-4 w-4" />
+                              Baixar Nota Fiscal (PDF)
                             </Button>
-                            
-                            <p className="text-xs text-muted-foreground text-center mt-2">
-                              O arquivo ZIP contém: Nota Fiscal (PDF e XML) e Certificado (PDF)
-                            </p>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/documentos/nota_xml`);
+                                  if (!response.ok) throw new Error('Arquivo não encontrado');
+
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `${orderDetails.orderId}_nota.xml`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  window.URL.revokeObjectURL(url);
+                                } catch (error) {
+                                  toast({
+                                    title: "Erro",
+                                    description: "Não foi possível baixar o arquivo",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                              className="w-full"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Baixar Nota Fiscal (XML)
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/documentos/certificado_pdf`);
+                                  if (!response.ok) throw new Error('Arquivo não encontrado');
+
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `${orderDetails.orderId}_certificado.pdf`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  window.URL.revokeObjectURL(url);
+                                } catch (error) {
+                                  toast({
+                                    title: "Erro",
+                                    description: "Não foi possível baixar o arquivo",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                              className="w-full"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Baixar Certificado (PDF)
+                            </Button>
                           </div>
                         </div>
                           );
