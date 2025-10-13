@@ -3727,14 +3727,22 @@ Status: Teste em progresso...`;
       console.log(`🔄 Reprogramação de pedido recebida:`, {
         pedidoId,
         novaDataEntrega,
-        motivo
+        motivo,
+        requestBody: req.body
       });
 
       // Validações
-      if (!novaDataEntrega || !motivo || !motivo.trim()) {
+      if (!novaDataEntrega) {
         return res.status(400).json({
           sucesso: false,
-          mensagem: "Nova data de entrega e motivo são obrigatórios"
+          mensagem: "Nova data de entrega é obrigatória"
+        });
+      }
+
+      if (!motivo || !motivo.trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Motivo da reprogramação é obrigatório"
         });
       }
 
