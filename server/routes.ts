@@ -125,18 +125,18 @@ function extractBufferFromStorageResult(result: any): Buffer | null {
 
     const val = result.value;
 
+    // Se value é Buffer ou Uint8Array diretamente
+    if (val instanceof Buffer) return val;
+    if (val instanceof Uint8Array) return Buffer.from(val);
+
     // Se value é array com Buffer/Uint8Array no primeiro elemento
     if (Array.isArray(val) && val.length > 0) {
       const firstItem = val[0];
       if (firstItem instanceof Buffer) return firstItem;
       if (firstItem instanceof Uint8Array) return Buffer.from(firstItem);
-      if (Array.isArray(firstItem)) return Buffer.from(firstItem);
+      // Se for array de números (bytes diretos)
+      if (typeof firstItem === 'number') return Buffer.from(val);
     }
-
-    // Se value é Buffer ou Uint8Array diretamente
-    if (val instanceof Buffer) return val;
-    if (val instanceof Uint8Array) return Buffer.from(val);
-    if (Array.isArray(val)) return Buffer.from(val);
 
     return null;
   }
@@ -146,11 +146,13 @@ function extractBufferFromStorageResult(result: any): Buffer | null {
   if (result instanceof Uint8Array) return Buffer.from(result);
 
   // Caso 3: Array direto
-  if (Array.isArray(result)) {
+  if (Array.isArray(result) && result.length > 0) {
     const firstItem = result[0];
+    // Se o primeiro item é um Buffer ou Uint8Array, usar ele
     if (firstItem instanceof Buffer) return firstItem;
     if (firstItem instanceof Uint8Array) return Buffer.from(firstItem);
-    return Buffer.from(result);
+    // Se for array de números, converter
+    if (typeof firstItem === 'number') return Buffer.from(result);
   }
 
   return null;
@@ -3924,8 +3926,27 @@ Status: Teste em progresso...`;
             imageBuffer = valueData;
             console.log(`✅ Buffer direto: ${imageBuffer.length} bytes`);
           } else if (Array.isArray(valueData)) {
-            imageBuffer = Buffer.from(valueData);
-            console.log(`✅ Array convertido para Buffer: ${imageBuffer.length} bytes`);
+            // CORREÇÃO: valueData pode ser um array contendo Uint8Array/Buffer no primeiro elemento
+            if (valueData.length > 0) {
+              const firstElement = valueData[0];
+              if (firstElement instanceof Uint8Array) {
+                imageBuffer = Buffer.from(firstElement);
+                console.log(`✅ Array[0] Uint8Array convertido para Buffer: ${imageBuffer.length} bytes`);
+              } else if (firstElement instanceof Buffer) {
+                imageBuffer = firstElement;
+                console.log(`✅ Array[0] Buffer direto: ${imageBuffer.length} bytes`);
+              } else if (typeof firstElement === 'number') {
+                // Se for array de números (bytes)
+                imageBuffer = Buffer.from(valueData);
+                console.log(`✅ Array de bytes convertido para Buffer: ${imageBuffer.length} bytes`);
+              } else {
+                console.log(`❌ Tipo de Array[0] não suportado: ${typeof firstElement}`);
+                throw new Error(`Tipo de dados no array não suportado: ${typeof firstElement}`);
+              }
+            } else {
+              console.log(`❌ Array vazio`);
+              throw new Error("Array de dados está vazio");
+            }
           } else {
             console.log(`❌ Tipo de value não suportado: ${typeof valueData}`);
             throw new Error(`Tipo de dados não suportado: ${typeof valueData}`);
