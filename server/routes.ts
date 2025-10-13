@@ -157,7 +157,7 @@ function extractBufferFromStorageResult(result: any): Buffer | null {
 }
 
 async function readFileFromStorage(key: string, orderId: string, filename: string): Promise<{ data: Buffer, originalName: string } | null> {
-  console.log(`🔍 DOWNLOAD SIMPLES: ${filename} | Key: ${key} | OrderId: ${orderId}`);
+  console.log(`🔍 DOWNLOAD: ${filename} | Key: ${key} | OrderId: ${orderId}`);
 
   // Google Drive redirect
   if (key.startsWith('gdrive:')) {
@@ -168,289 +168,78 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     };
   }
 
-  // Object Storage - busca simplificada e efetiva
+  // Object Storage
   if (objectStorageAvailable && objectStorage) {
-    console.log(`📦 Object Storage - busca simplificada`);
+    console.log(`📦 Tentando Object Storage...`);
 
-    // Lista simplificada de chaves para tentar
     const storageKeys = [
-      key.trim(), // Key original
-      `${orderId}/${filename}`, // Padrão: orderId/filename
-      filename, // Só o nome do arquivo
-      `orders/${orderId}/${filename}` // Com prefixo orders/
+      key.trim(),
+      `${orderId}/${filename}`,
+      filename,
+      `orders/${orderId}/${filename}`
     ];
 
     for (const storageKey of storageKeys) {
       try {
-        console.log(`📥 Tentando download: ${storageKey}`);
-
-        let result;
-
-        // Tentar downloadAsBuffer primeiro se disponível
-        if (typeof objectStorage.downloadAsBuffer === 'function') {
-          try {
-            result = await objectStorage.downloadAsBuffer(storageKey);
-            console.log(`📥 Download usando downloadAsBuffer`);
-          } catch (bufferError) {
-            console.log(`⚠️ downloadAsBuffer falhou, tentando downloadAsBytes`);
-            result = await objectStorage.downloadAsBytes(storageKey);
-          }
-        } else {
-          result = await objectStorage.downloadAsBytes(storageKey);
-        }
-
-        let buffer = null;
-
-        console.log(`📊 Tipo de resultado recebido:`, {
-          tipo: typeof result,
-          isBuffer: result instanceof Buffer,
-          isUint8Array: result instanceof Uint8Array,
-          hasOk: result && typeof result === 'object' && 'ok' in result,
-          hasValue: result && typeof result === 'object' && 'value' in result,
-          keys: result && typeof result === 'object' ? Object.keys(result) : []
-        });
-
-        // Processar resultado do Replit Object Storage
-        if (result && typeof result === 'object' && 'ok' in result) {
-          // Result wrapper do Replit
-          console.log(`🎯 Result wrapper detectado - Status: ${result.ok}`);
-
-          if (!result.ok) {
-            console.log(`❌ Result indica erro: ${result.error || 'download failed'}`);
-            continue; // Tentar próxima chave
-          }
-
-          // O value pode estar diretamente ou pode ser vazio se ok=true mas sem dados
+        console.log(`📥 Tentando: ${storageKey}`);
+        
+        const result = await objectStorage.downloadAsBytes(storageKey);
+        
+        // Extrair buffer do resultado
+        let buffer: Buffer | null = null;
+        
+        if (result && typeof result === 'object' && 'ok' in result && result.ok) {
+          // Wrapper do Replit com {ok: true, value: Uint8Array}
           const valueData = result.value;
-
-          if (!valueData) {
-            console.log(`⚠️ Result.ok=true mas value está vazio/undefined`);
-            continue;
-          }
-
+          
           if (valueData instanceof Uint8Array) {
             buffer = Buffer.from(valueData);
-            console.log(`✅ Convertido Uint8Array para Buffer: ${buffer.length} bytes`);
           } else if (valueData instanceof Buffer) {
             buffer = valueData;
-            console.log(`✅ Buffer direto do Result: ${buffer.length} bytes`);
           } else if (Array.isArray(valueData)) {
             buffer = Buffer.from(valueData);
-            console.log(`✅ Array convertido para Buffer: ${buffer.length} bytes`);
-          } else if (typeof valueData === 'object' && valueData !== null) {
-            // Pode ser um objeto array-like {0: byte1, 1: byte2, ...}
-            try {
-              // Verificar se é um objeto com chaves numéricas
-              const keys = Object.keys(valueData);
-              console.log(`🔍 Object keys amostra (primeiras 10):`, keys.slice(0, 10));
-              console.log(`🔍 Total de keys:`, keys.length);
-
-              // Verificar se as chaves são numéricas
-              const numericKeys = keys.filter(k => /^\d+$/.test(k));
-
-              if (numericKeys.length > 0) {
-                console.log(`🔍 Chaves numéricas encontradas: ${numericKeys.length}`);
-
-                // Criar array de bytes na ordem correta
-                const maxIndex = Math.max(...numericKeys.map(k => parseInt(k)));
-                const bytes = new Array(maxIndex + 1);
-
-                for (const key of numericKeys) {
-                  const index = parseInt(key);
-                  bytes[index] = valueData[key];
-                }
-
-                // Remover undefined (se houver)
-                const validBytes = bytes.filter(b => b !== undefined);
-
-                console.log(`🔍 Total de bytes extraídos: ${validBytes.length}`);
-                console.log(`🔍 Amostra dos primeiros 10 bytes:`, validBytes.slice(0, 10));
-
-                // Verificar se todos os valores são bytes válidos
-                const allValidBytes = validBytes.every(b => typeof b === 'number' && b >= 0 && b <= 255);
-
-                if (allValidBytes && validBytes.length > 100) {
-                  buffer = Buffer.from(validBytes);
-                  console.log(`✅ Object array-like convertido para Buffer: ${buffer.length} bytes`);
-                } else if (!allValidBytes) {
-                  console.log(`⚠️ Object contém valores não numéricos ou fora do intervalo de bytes`);
-                  console.log(`🔍 Tipos encontrados:`, Array.from(new Set(validBytes.map(b => typeof b))));
-                } else {
-                  console.log(`⚠️ Buffer resultante muito pequeno: ${validBytes.length} bytes`);
-                }
-              } else {
-                console.log(`⚠️ Object não tem chaves numéricas válidas`);
-                console.log(`🔍 Tipos de keys:`, keys.slice(0, 5).map(k => `${k} (${typeof k})`));
-              }
-            } catch (conversionError) {
-              const error = conversionError instanceof Error ? conversionError : new Error(String(conversionError));
-              console.log(`⚠️ Erro ao converter object para buffer:`, error.message);
-              console.log(`📋 Stack:`, error.stack);
-            }
-          } else {
-            console.log(`❌ Tipo de value não suportado:`, typeof valueData);
           }
         } else if (result instanceof Uint8Array) {
-          // Dados diretos como Uint8Array
           buffer = Buffer.from(result);
-          console.log(`✅ Uint8Array direto convertido: ${buffer.length} bytes`);
         } else if (result instanceof Buffer) {
-          // Dados diretos como Buffer
           buffer = result;
-          console.log(`✅ Buffer direto: ${buffer.length} bytes`);
         } else if (Array.isArray(result)) {
-          // Array direto de bytes
           buffer = Buffer.from(result);
-          console.log(`✅ Array direto convertido: ${buffer.length} bytes`);
-        } else {
-          console.log(`❌ Tipo de resultado não suportado:`, typeof result);
         }
 
-          // Verificar se o buffer é válido (mais de 100 bytes para arquivos reais)
-          if (buffer && buffer.length > 100) {
-            console.log(`✅ Arquivo encontrado e validado: ${storageKey} (${buffer.length} bytes)`);
-            return {
-              data: buffer,
-              originalName: filename
-            };
-          } else {
-            console.log(`⚠️ Buffer muito pequeno (provável erro): ${buffer ? buffer.length : 0} bytes`);
-            console.log(`🔄 Tentando método alternativo de download...`);
-
-            // Método alternativo: tentar download direto sem conversão
-            try {
-              const rawResult = await objectStorage.downloadAsBytes(storageKey);
-              console.log(`📊 Resultado bruto do método alternativo:`, {
-                tipo: typeof rawResult,
-                tamanho: rawResult?.length || 'indefinido',
-                temOk: rawResult?.ok !== undefined,
-                temValue: rawResult?.value !== undefined
-              });
-
-              // Se o resultado bruto for maior, usar ele
-              if (rawResult && rawResult.length > (buffer?.length || 0)) {
-                const altBuffer = Buffer.from(rawResult);
-                if (altBuffer.length > 100) {
-                  console.log(`✅ Método alternativo funcionou: ${altBuffer.length} bytes`);
-                  return {
-                    data: altBuffer,
-                    originalName: filename
-                  };
-                }
-              }
-            } catch (altError) {
-              const error = altError instanceof Error ? altError : new Error(String(altError));
-              console.log(`❌ Método alternativo também falhou: ${error.message}`);
-            }
-          }
-        } catch (downloadError) {
-          const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
-          console.log(`❌ Erro em ${storageKey}: ${error.message}`);
-          // Continuar tentando outras chaves
-        }
-      }
-
-      // Se não encontrou, listar arquivos para debug
-      try {
-        console.log(`🔍 Listando arquivos no Object Storage para debug...`);
-        const listResult = await objectStorage.list();
-        let objects = [];
-
-        if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
-          objects = listResult.value;
-        } else if (Array.isArray(listResult)) {
-          objects = listResult;
-        }
-
-        console.log(`📊 Total de objetos: ${objects.length}`);
-
-        // Mostrar arquivos relacionados ao pedido
-        const relatedFiles = objects.filter((obj: any) => {
-          const objKey = obj.key || obj.name || String(obj);
-          return objKey.includes(orderId) || objKey.includes(filename.split('-')[0]);
-        });
-
-        if (relatedFiles.length > 0) {
-          console.log(`📋 Arquivos relacionados encontrados:`);
-          relatedFiles.forEach((obj: any) => {
-            const objKey = obj.key || obj.name || String(obj);
-            console.log(`   • ${objKey}`);
-          });
-
-          // Tentar o primeiro arquivo relacionado
-          if (relatedFiles[0]) {
-            const firstKey = relatedFiles[0].key || relatedFiles[0].name || String(relatedFiles[0]);
-            console.log(`🎯 Tentando download do primeiro arquivo relacionado: ${firstKey}`);
-
-            try {
-              const result = await objectStorage.downloadAsBytes(firstKey);
-              let buffer = null;
-
-              if (result && typeof result === 'object' && result.ok && result.value) {
-                if (result.value instanceof Uint8Array) {
-                  buffer = Buffer.from(result.value);
-                } else if (result.value instanceof Buffer) {
-                  buffer = result.value;
-                } else if (Array.isArray(result.value)) {
-                  buffer = Buffer.from(result.value);
-                }
-              } else if (result instanceof Uint8Array) {
-                buffer = Buffer.from(result);
-              } else if (result instanceof Buffer) {
-                buffer = result;
-              }
-
-              if (buffer && buffer.length > 1) {
-                console.log(`✅ Download bem-sucedido do arquivo relacionado: ${firstKey} (${buffer.length} bytes)`);
-                return {
-                  data: buffer,
-                  originalName: filename
-                };
-              }
-            } catch (downloadError) {
-              const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
-              console.log(`❌ Erro no download do arquivo relacionado: ${error.message}`);
-            }
-          }
-        } else {
-          console.log(`📋 Nenhum arquivo relacionado encontrado`);
-          // Mostrar alguns arquivos para referência
-          const sampleFiles = objects.slice(0, 10);
-          console.log(`📋 Primeiros 10 arquivos no storage:`);
-          sampleFiles.forEach((obj: any) => {
-            const objKey = obj.key || obj.name || String(obj);
-            console.log(`   • ${objKey}`);
-          });
-        }
-      } catch (listError) {
-        const error = listError instanceof Error ? listError : new Error(String(listError));
-        console.log(`⚠️ Erro ao listar arquivos: ${error.message}`);
-      }
-    }
-
-    // Fallback para sistema local
-    const localPaths = [
-      path.join(process.cwd(), "uploads", orderId, filename),
-      path.join(process.cwd(), "uploads", filename)
-    ];
-
-    for (const filePath of localPaths) {
-      try {
-        if (fs.existsSync(filePath)) {
-          const buffer = fs.readFileSync(filePath);
-          if (buffer.length > 1) {
-            console.log(`✅ Arquivo local encontrado: ${filePath} (${buffer.length} bytes)`);
-            return {
-              data: buffer,
-              originalName: filename
-            };
-          }
+        if (buffer && buffer.length > 0) {
+          console.log(`✅ Arquivo baixado: ${storageKey} (${buffer.length} bytes)`);
+          return {
+            data: buffer,
+            originalName: filename
+          };
         }
       } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        console.log(`⚠️ Erro no arquivo local ${filePath}: ${err.message}`);
+        console.log(`❌ Erro em ${storageKey}:`, error);
       }
     }
+  }
+
+  // Fallback para sistema local
+  const localPaths = [
+    path.join(process.cwd(), "uploads", orderId, filename),
+    path.join(process.cwd(), "uploads", filename)
+  ];
+
+  for (const filePath of localPaths) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const buffer = fs.readFileSync(filePath);
+        console.log(`✅ Arquivo local: ${filePath} (${buffer.length} bytes)`);
+        return {
+          data: buffer,
+          originalName: filename
+        };
+      }
+    } catch (error) {
+      console.log(`⚠️ Erro no arquivo local ${filePath}:`, error);
+    }
+  }
 
   console.log(`❌ Arquivo ${filename} não encontrado`);
   return null;
