@@ -972,30 +972,6 @@ export function OrderDetailDrawer({
       return;
     }
 
-    // Regra: Pedido não pode ser cancelado com menos de 3 dias de antecedência
-    const threeDaysBeforeDelivery = new Date(orderDetails.deliveryDate);
-    threeDaysBeforeDelivery.setDate(threeDaysBeforeDelivery.getDate() - 3);
-    const now = new Date();
-
-    if (now < threeDaysBeforeDelivery) {
-      toast({
-        title: "Atenção",
-        description: "Não é possível cancelar pedidos com menos de 3 dias de antecedência da entrega.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Regra: Pedido não pode ser cancelado após documentos fiscais terem sido carregados
-    if (documentsLoaded || orderDetails.status === "Carregado") {
-      toast({
-        title: "Atenção",
-        description: "Não é possível cancelar um pedido após o upload dos documentos fiscais.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const response = await fetch(`/api/pedidos/${orderDetails.id}/cancelar`, {
         method: "POST",
@@ -1003,7 +979,7 @@ export function OrderDetailDrawer({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          motivoCancelamento: cancelJustification.trim(),
+          motivo: cancelJustification.trim(),
         }),
       });
 
@@ -1018,7 +994,8 @@ export function OrderDetailDrawer({
         // Atualizar a lista de pedidos
         queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
 
-        // Fechar o drawer
+        // Fechar o dialog e o drawer
+        setIsCancelDialogOpen(false);
         onOpenChange(false);
       } else {
         toast({

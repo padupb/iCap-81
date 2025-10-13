@@ -2745,33 +2745,6 @@ Status: Teste em progresso...`;
         });
       }
 
-      // Verificar se tem pelo menos 3 dias de antecedência
-      const deliveryDate = new Date(order.delivery_date);
-      deliveryDate.setHours(0, 0, 0, 0);
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const diffTime = deliveryDate.getTime() - today.getTime();
-      // Usar Math.floor para contar apenas dias completos
-      const daysDiff = Math.floor(diffTime / (1000 * 3600 * 24));
-
-      console.log(`📅 Validação de cancelamento - Pedido ${order.order_id}:`, {
-        dataEntrega: deliveryDate.toISOString().split('T')[0],
-        dataHoje: today.toISOString().split('T')[0],
-        diffTime,
-        diasRestantes: daysDiff,
-        permiteCancelamento: daysDiff >= 3
-      });
-
-      // Permitir cancelamento se tiver 3 ou mais dias COMPLETOS de antecedência
-      if (daysDiff < 3) {
-        return res.status(400).json({
-          sucesso: false,
-          mensagem: `Pedidos só podem ser cancelados com pelo menos 3 dias de antecedência. Este pedido tem ${daysDiff} dia(s) até a entrega.`
-        });
-      }
-
       // Atualizar o pedido para status Cancelado e zerar quantidade
       await pool.query(
         `UPDATE orders 
@@ -2781,6 +2754,8 @@ Status: Teste em progresso...`;
          WHERE id = $2`,
         [motivo.trim(), id]
       );
+
+      console.log(`✅ Pedido ${order.order_id} cancelado com sucesso`);
 
       // Registrar log
       if (req.session.userId) {
