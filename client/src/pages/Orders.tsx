@@ -819,9 +819,15 @@ export default function Orders() {
       }
     }
 
+    // Corrigir data para evitar mudança de dia devido ao timezone
+    // Pegar a data selecionada e forçar horário meio-dia UTC para evitar problemas de fuso
+    const [year, month, day] = data.deliveryDate.split('-');
+    const correctedDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0));
+
     // Adicionar campos adicionais necessários para o backend
     const orderData = {
       ...data,
+      deliveryDate: correctedDate.toISOString(),
       supplierId: selectedPurchaseOrder?.empresa_id,
       workLocation: "Conforme ordem de compra",
       isUrgent: false,
