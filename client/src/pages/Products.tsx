@@ -424,8 +424,12 @@ export default function Products() {
                           <Badge variant="secondary">
                             {unit.name} ({unit.abbreviation})
                           </Badge>
+                        ) : product.unitId ? (
+                          <Badge variant="outline" className="text-yellow-600">
+                            ID: {product.unitId}
+                          </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-sm">Unidade não encontrada</span>
+                          <span className="text-muted-foreground text-sm">Sem unidade</span>
                         )}
                       </TableCell>
                       <TableCell> {/* New Cell for confirmation type */}

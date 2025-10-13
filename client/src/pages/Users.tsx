@@ -825,8 +825,13 @@ export default function Users() {
                             <Shield className="mr-1" size={12} />
                             {role.name}
                           </Badge>
+                        ) : user.roleId ? (
+                          <Badge variant="outline" className="text-yellow-600">
+                            <Shield className="mr-1" size={12} />
+                            ID: {user.roleId}
+                          </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
+                          <span className="text-muted-foreground text-sm">Sem função</span>
                         )}
                       </TableCell>
                       <TableCell>
