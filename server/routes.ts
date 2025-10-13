@@ -463,8 +463,8 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     try {
       // CORREÇÃO: Adicionar prefixo 'orders/' ao caminho
       const storageKey = `orders/${orderId}/${filename}`;
-      console.log(`📤 Tentando upload para Object Storage: ${storageKey}`);
-      console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
+      console.log(`UserProgressing upload to Object Storage: ${storageKey}`);
+      console.log(`📊 Buffer size: ${buffer.length} bytes`);
 
       // Validar buffer antes do upload
       if (!buffer || buffer.length === 0) {
@@ -476,22 +476,22 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
       if (buffer instanceof Buffer) {
         // Converter buffer para Uint8Array que é o formato esperado pelo Replit Object Storage
         const uint8Array = new Uint8Array(buffer);
-        console.log(`📤 Convertido para Uint8Array: ${uint8Array.length} bytes`);
+        console.log(`UserProgressing to Uint8Array: ${uint8Array.length} bytes`);
 
         // Upload usando bytes
         uploadResult = await objectStorage.uploadFromBytes(storageKey, uint8Array);
-        console.log("✅ Upload realizado com uploadFromBytes");
+        console.log("✅ Upload completed using uploadFromBytes");
       } else {
         // Se não for Buffer, tentar converter primeiro
-        console.log(`⚠️ Dados não são Buffer, tentando conversão. Tipo: ${typeof buffer}`);
+        console.log(`⚠️ Data is not a Buffer, attempting conversion. Type: ${typeof buffer}`);
         const bufferData = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
         const uint8Array = new Uint8Array(bufferData);
         uploadResult = await objectStorage.uploadFromBytes(storageKey, uint8Array);
-        console.log("✅ Upload realizado após conversão para Buffer");
+        console.log("✅ Upload completed after conversion to Buffer");
       }
 
       // VERIFICAÇÃO CRÍTICA: Testar integridade do arquivo após upload
-      console.log(`🔍 Verificando integridade do arquivo após upload...`);
+      console.log(`🔍 Verifying file integrity after upload...`);
 
       try {
         const downloadTest = await objectStorage.downloadAsBytes(storageKey);
@@ -500,46 +500,46 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
         const testBuffer = extractBufferFromStorageResult(downloadTest);
 
         if (!testBuffer || testBuffer.length === 0) {
-          console.error(`❌ Download de verificação retornou dados vazios ou nulos`);
-          throw new Error("Verificação falhou: dados vazios no download");
+          console.error(`❌ Verification download returned empty or null data`);
+          throw new Error("Verification failed: empty data in download");
         }
 
         const downloadedSize = testBuffer.length;
         const originalSize = buffer.length;
 
-        console.log(`📊 Verificação de integridade:`);
-        console.log(`   • Tamanho original: ${originalSize} bytes`);
-        console.log(`   • Tamanho baixado: ${downloadedSize} bytes`);
-        console.log(`   • Integridade: ${downloadedSize === originalSize ? 'OK' : 'FALHA'}`);
+        console.log(`📊 Integrity verification:`);
+        console.log(`   • Original size: ${originalSize} bytes`);
+        console.log(`   • Downloaded size: ${downloadedSize} bytes`);
+        console.log(`   • Integrity: ${downloadedSize === originalSize ? 'OK' : 'FAILED'}`);
 
         if (downloadedSize === originalSize) {
-          console.log(`✅ Arquivo verificado no Object Storage: ${storageKey}`);
-          console.log(`✅ Arquivo estará disponível após redeploys`);
+          console.log(`✅ File verified in Object Storage: ${storageKey}`);
+          console.log(`✅ File will be available after redeploys`);
           return storageKey;
         } else {
-          console.error(`❌ Tamanhos não coincidem! Original: ${originalSize}, Baixado: ${downloadedSize}`);
+          console.error(`❌ Sizes do not match! Original: ${originalSize}, Downloaded: ${downloadedSize}`);
           console.log(`⚠️ Continuing with upload even without verification`);
           return storageKey;
         }
       } catch (verifyError) {
         const error = verifyError instanceof Error ? verifyError : new Error(String(verifyError));
-        console.log(`⚠️ Erro na verificação de integridade: ${error.message}`);
+        console.log(`⚠️ Error during integrity verification: ${error.message}`);
         console.log(`⚠️ Continuing with upload even without verification`);
         return storageKey;
       }
     } catch (storageError) {
       const error = storageError instanceof Error ? storageError : new Error(String(storageError));
-      console.error("❌ Erro detalhado ao salvar no Object Storage:", {
+      console.error("❌ Detailed error saving to Object Storage:", {
         message: error.message,
         key: `${orderId}/${filename}`,
         bufferSize: buffer.length,
         objectStorageAvailable,
         hasObjectStorage: !!objectStorage
       });
-      console.log("🔄 Tentando Google Drive como fallback...");
+      console.log("🔄 Attempting Google Drive as fallback...");
     }
   } else {
-    console.log("⚠️ Object Storage não disponível:", {
+    console.log("⚠️ Object Storage not available:", {
       objectStorageAvailable,
       hasObjectStorage: !!objectStorage
     });
@@ -551,16 +551,16 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     const publicLink = await googleDriveService.uploadBuffer(buffer, filename, orderId);
 
     if (publicLink) {
-      console.log(`📁 🔗 Arquivo salvo no Google Drive: ${publicLink}`);
-      console.log(`✅ Link público gerado com sucesso`);
+      console.log(`📁 🔗 File saved to Google Drive: ${publicLink}`);
+      console.log(`✅ Public link generated successfully`);
       return `gdrive:${publicLink}`;
     }
   } catch (driveError) {
-    console.error("❌ Erro ao salvar no Google Drive:", driveError);
-    console.log("🔄 Fallback para sistema local...");
+    console.error("❌ Error saving to Google Drive:", driveError);
+    console.log("🔄 Fallback to local system...");
   }
 
-  // FALLBACK: Salvar no sistema local (temporário)
+  // FALLBACK: Save to local system (temporary)
   try {
     const orderDir = path.join(process.cwd(), "uploads", orderId);
     if (!fs.existsSync(orderDir)) {
@@ -568,13 +568,13 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
     }
     const filePath = path.join(orderDir, filename);
     fs.writeFileSync(filePath, buffer);
-    console.log(`📁 💾 Arquivo salvo localmente (temporário): ${filePath}`);
-    console.log(`⚠️ Este arquivo será perdido no próximo deploy!`);
+    console.log(`📁 💾 File saved locally (temporary): ${filePath}`);
+    console.log(`⚠️ This file will be lost on the next deploy!`);
     return filePath;
   } catch (localError) {
     const error = localError instanceof Error ? localError : new Error(String(localError));
-    console.error("❌ Erro ao salvar localmente:", error);
-    throw new Error(`Falha ao salvar arquivo: ${error.message}`);
+    console.error("❌ Error saving locally:", error);
+    throw new Error(`Failed to save file: ${error.message}`);
   }
 }
 
@@ -586,61 +586,61 @@ const storage_upload = multer.diskStorage({
       const pedidoId = req.params.id;
       const uploadDir = path.join(process.cwd(), "uploads");
 
-      console.log("📂 Configurando destino de upload para pedido ID:", pedidoId);
-      console.log("📂 Diretório base de upload:", uploadDir);
+      console.log("📂 Setting up upload destination for order ID:", pedidoId);
+      console.log("📂 Base upload directory:", uploadDir);
 
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
-        console.log("📂 Diretório de upload criado:", uploadDir);
+        console.log("📂 Upload directory created:", uploadDir);
       }
 
       // Buscar o order_id do pedido
       const result = await pool.query("SELECT order_id FROM orders WHERE id = $1", [pedidoId]);
 
       if (result.rows.length === 0) {
-        console.error("❌ Pedido não encontrado para ID:", pedidoId);
+        console.error("❌ Order not found for ID:", pedidoId);
         return cb(new Error("Pedido não encontrado"), "");
       }
 
       const orderId = result.rows[0].order_id;
-      console.log("📋 Order ID encontrado:", orderId);
+      console.log("📋 Order ID found:", orderId);
 
       // Criar diretório com o order_id (número do pedido)
       const orderDir = path.join(uploadDir, orderId);
-      console.log("📂 Diretório final do pedido:", orderDir);
+      console.log("📂 Final order directory:", orderDir);
 
       try {
         if (!fs.existsSync(orderDir)) {
           fs.mkdirSync(orderDir, { recursive: true });
-          console.log("📂 Diretório do pedido criado com sucesso:", orderDir);
+          console.log("📂 Order directory created successfully:", orderDir);
 
           // Verificar se o diretório foi realmente criado
           if (fs.existsSync(orderDir)) {
-            console.log("✅ Confirmado: Diretório existe após criação");
+            console.log("✅ Confirmed: Directory exists after creation");
           } else {
-            console.error("❌ Erro: Diretório não foi criado mesmo sem erro");
+            console.error("❌ Error: Directory was not created even without error");
             return cb(new Error("Falha ao criar diretório"), "");
           }
         } else {
-          console.log("📂 Diretório do pedido já existe:", orderDir);
+          console.log("📂 Order directory already exists:", orderDir);
         }
 
         // Verificar permissões de escrita
         try {
           fs.accessSync(orderDir, fs.constants.W_OK);
-          console.log("✅ Permissões de escrita confirmadas");
+          console.log("✅ Write permissions confirmed");
         } catch (permError) {
-          console.error("❌ Sem permissões de escrita:", permError);
+          console.error("❌ No write permissions:", permError);
           return cb(new Error("Sem permissões de escrita no diretório"), "");
         }
 
         cb(null, orderDir);
       } catch (dirError) {
-        console.error("❌ Erro específico ao criar diretório:", dirError);
+        console.error("❌ Specific error creating directory:", dirError);
         return cb(dirError as Error, "");
       }
     } catch (error) {
-      console.error("❌ Erro geral ao configurar destino de upload:", error);
+      console.error("❌ General error setting up upload destination:", error);
       cb(error as Error, "");
     }
   },
@@ -648,7 +648,7 @@ const storage_upload = multer.diskStorage({
     const fileExt = path.extname(file.originalname);
     // Campo do arquivo + data atual + extensão original
     const fileName = file.fieldname + "-" + Date.now() + fileExt;
-    console.log("📄 Nome do arquivo gerado:", fileName);
+    console.log("📄 Generated filename:", fileName);
     cb(null, fileName);
   }
 });
@@ -1209,7 +1209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // TESTE 2: Upload de arquivo de teste
-      log.push('\n📤 TESTE 2: Testando upload...');
+      log.push('\nUserProgressing TESTE 2: Testing upload...');
       const testContent = `Teste da API Object Storage
 Executado por: ${req.user.name}
 Data/Hora: ${new Date().toLocaleString('pt-BR')}
@@ -1233,6 +1233,7 @@ Status: Teste em progresso...`;
         await objectStorage.uploadFromBytes(testKey, uint8Array);
         const uploadTime = Date.now() - uploadStartTime;
         log.push(`✅ Upload realizado com sucesso em ${uploadTime}ms`);
+        log.push(`UserProgressing Teste 2: Upload successful in ${uploadTime}ms`);
         log.push(`📂 Chave: ${testKey}`);
       } catch (uploadError) {
         const error = uploadError instanceof Error ? uploadError : new Error(String(uploadError));
@@ -1328,6 +1329,7 @@ Status: Teste em progresso...`;
         const isIntegrityOk = downloadedContent.includes(req.user.name) && downloadedContent.includes('iCAP 5.0');
 
         log.push(`✅ Download realizado em ${downloadTime}ms`);
+        log.push(`UserProgressing Teste 3: Download completed in ${downloadTime}ms`);
         log.push(`🔍 Integridade: ${isIntegrityOk ? 'OK' : 'FALHA'}`);
 
         if (!isIntegrityOk) {
@@ -1343,7 +1345,7 @@ Status: Teste em progresso...`;
       }
 
       // TESTE 4: Listagem de objetos
-      log.push('\n📋 TESTE 4: Testando listagem de objetos...');
+      log.push('\nUserProgressing TESTE 4: Testing object listing...');
       const listStartTime = Date.now();
 
       try {
@@ -1358,6 +1360,7 @@ Status: Teste em progresso...`;
         }
 
         log.push(`✅ Listagem realizada em ${listTime}ms`);
+        log.push(`UserProgressing Teste 4: Object listing completed in ${listTime}ms`);
         log.push(`📊 Total de objetos: ${objects.length}`);
 
         // Filtrar objetos relacionados aos testes do keyuser
@@ -1366,10 +1369,10 @@ Status: Teste em progresso...`;
           return key && key.includes('keyuser');
         });
 
-        log.push(`🔑 Objetos do keyuser: ${keyuserObjects.length}`);
+        log.push(`UserProgressing Teste 4: Keyuser objects found: ${keyuserObjects.length}`);
 
         if (keyuserObjects.length > 0) {
-          log.push('📋 Últimos 3 objetos do keyuser:');
+          log.push('UserProgressing Teste 4: Last 3 keyuser objects:');
           keyuserObjects.slice(-3).forEach((obj: any, index: number) => {
             const key = obj.key || obj.name || String(obj);
             const size = obj.size ? `(${(obj.size / 1024).toFixed(2)} KB)` : '';
@@ -1385,7 +1388,7 @@ Status: Teste em progresso...`;
       // TESTE 5: Performance (se solicitado)
       let performanceTime = 0;
       if (req.body.includePerformance) {
-        log.push('\n⚡ TESTE 5: Testando performance...');
+        log.push('\nUserProgressing TESTE 5: Testing performance...');
         const perfStartTime = Date.now();
 
         try {
@@ -1412,6 +1415,7 @@ Status: Teste em progresso...`;
 
           performanceTime = Date.now() - perfStartTime;
           log.push(`✅ Performance - Upload: ${perfUploadTime}ms, Download: ${perfDownloadTime}ms`);
+          log.push(`UserProgressing Teste 5: Performance - Upload: ${perfUploadTime}ms, Download: ${perfDownloadTime}ms`);
           log.push(`📊 Performance total: ${performanceTime}ms para 10KB`);
         } catch (perfError) {
           const error = perfError instanceof Error ? perfError : new Error(String(perfError));
@@ -1420,13 +1424,17 @@ Status: Teste em progresso...`;
       }
 
       // TESTE 6: Limpeza do arquivo de teste - PULAR para permitir download
-      log.push('\n🧹 TESTE 6: Mantendo arquivo para download...');
-      log.push(`📂 Arquivo de teste mantido para download: ${testKey}`);
+      log.push('\nUserProgressing TESTE 6: Keeping test file for download...');
+      log.push(`UserProgressing TESTE 6: Test file kept for download: ${testKey}`);
+      log.push(`UserProgressing TESTE 6: Test file kept for download: ${testKey}`);
 
       const totalTime = Date.now() - startTime;
       log.push('\n🎉 TODOS OS TESTES CONCLUÍDOS COM SUCESSO!');
+      log.push(`UserProgressing TESTE 6: All tests completed successfully!`);
       log.push(`⏱️ Tempo total: ${totalTime}ms`);
+      log.push(`UserProgressing TESTE 6: Total time: ${totalTime}ms`);
       log.push(`✅ Object Storage está funcionando perfeitamente`);
+      log.push(`✅ Object Storage is working perfectly`);
 
       // Registrar no log do sistema
       await storage.createLog({
@@ -1456,8 +1464,11 @@ Status: Teste em progresso...`;
       const err = error instanceof Error ? error : new Error(String(error));
       const totalTime = Date.now() - startTime;
       log.push('\n❌ TESTE FALHOU');
+      log.push(`UserProgressing TESTE FALHADO: TEST FAILED`);
       log.push(`💥 Erro: ${err.message}`);
+      log.push(`UserProgressing Erro: Error: ${err.message}`);
       log.push(`⏱️ Tempo até falha: ${totalTime}ms`);
+      log.push(`UserProgressing Tempo até falha: Time until failure: ${totalTime}ms`);
 
       // Registrar falha no log do sistema
       await storage.createLog({
@@ -1483,7 +1494,7 @@ Status: Teste em progresso...`;
     try {
       const { orderId, localPath, storageKey } = req.body;
 
-      console.log(`🔧 Tentando corrigir arquivo corrompido...`);
+      console.log(`UserProgressing to fix corrupted file...`);
       console.log(`   Pedido: ${orderId}`);
       console.log(`   Caminho local: ${localPath}`);
       console.log(`   Storage Key: ${storageKey}`);
@@ -1504,7 +1515,7 @@ Status: Teste em progresso...`;
 
           // Verificar
           const verification = await objectStorage.downloadAsBytes(storageKey);
-          console.log(`🔍 Verificação: ${verification?.length || verification?.value?.length || 0} bytes`);
+          console.log(`UserProgressing Verification: ${verification?.length || verification?.value?.length || 0} bytes`);
 
           return res.json({
             success: true,
@@ -1569,7 +1580,7 @@ Status: Teste em progresso...`;
       try {
         const downloadedData = await objectStorage.downloadAsBytes(storageKey);
 
-        console.log(`📊 Dados baixados:`, {
+        console.log(`UserProgressing Downloaded data:`, {
           tipo: typeof downloadedData,
           isBuffer: downloadedData instanceof Buffer,
           isUint8Array: downloadedData instanceof Uint8Array,
@@ -1581,35 +1592,35 @@ Status: Teste em progresso...`;
         // ESTRATÉGIA 1: Dados diretos como Buffer ou Uint8Array
         if (downloadedData instanceof Buffer) {
           fileBuffer = downloadedData;
-          console.log(`✅ Buffer direto - ${fileBuffer.length} bytes`);
+          console.log(`✅ Direct Buffer - ${fileBuffer.length} bytes`);
         } else if (downloadedData instanceof Uint8Array) {
           fileBuffer = Buffer.from(downloadedData);
-          console.log(`✅ Uint8Array para Buffer - ${fileBuffer.length} bytes`);
+          console.log(`✅ Uint8Array to Buffer - ${fileBuffer.length} bytes`);
         }
         // ESTRATÉGIA 2: Result wrapper do Replit
         else if (downloadedData && typeof downloadedData === 'object' && downloadedData.ok !== undefined) {
-          console.log(`🎯 Result wrapper detectado - Status: ${downloadedData.ok ? 'OK' : 'ERROR'}`);
+          console.log(`UserProgressing Result wrapper detected - Status: ${downloadedData.ok ? 'OK' : 'ERROR'}`);
 
           if (!downloadedData.ok || downloadedData.error) {
-            console.log(`❌ Result indica erro: ${downloadedData.error || 'download failed'}`);
+            console.log(`❌ Download failed: ${downloadedData.error || 'download failed'}`);
             throw new Error(`Object Storage error: ${downloadedData.error || 'download failed'}`);
           }
 
           const valueData = downloadedData.value;
           if (valueData instanceof Buffer) {
             fileBuffer = valueData;
-            console.log(`✅ Buffer do Result wrapper - ${fileBuffer.length} bytes`);
+            console.log(`✅ Buffer from Result wrapper - ${fileBuffer.length} bytes`);
           } else if (valueData instanceof Uint8Array) {
             fileBuffer = Buffer.from(valueData);
-            console.log(`✅ Uint8Array do Result wrapper para Buffer - ${fileBuffer.length} bytes`);
+            console.log(`✅ Uint8Array from Result wrapper to Buffer - ${fileBuffer.length} bytes`);
           } else if (Array.isArray(valueData) && valueData.length > 0) {
             // Verificar se é array de bytes válido
             const isValidByteArray = valueData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
             if (isValidByteArray) {
               fileBuffer = Buffer.from(valueData);
-              console.log(`✅ Array de bytes do Result wrapper convertido - ${fileBuffer.length} bytes`);
+              console.log(`✅ Byte array from Result wrapper converted - ${fileBuffer.length} bytes`);
             } else {
-              console.log(`❌ Array de bytes do Result wrapper não contém bytes válidos`);
+              console.log(`❌ Byte array from Result wrapper does not contain valid bytes`);
             }
           }
         }
@@ -1618,15 +1629,15 @@ Status: Teste em progresso...`;
           const isValidByteArray = downloadedData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
           if (isValidByteArray) {
             fileBuffer = Buffer.from(downloadedData);
-            console.log(`✅ Array direto convertido - ${fileBuffer.length} bytes`);
+            console.log(`✅ Direct array converted - ${fileBuffer.length} bytes`);
           } else {
-            console.log(`❌ Array direto não contém bytes válidos`);
+            console.log(`❌ Direct array does not contain valid bytes`);
           }
         }
 
       } catch (downloadError) {
         const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
-        console.error("❌ Erro no download:", error);
+        console.error("❌ Download error:", error);
         throw new Error(`Falha no download: ${error.message}`);
       }
 
@@ -1676,8 +1687,8 @@ Status: Teste em progresso...`;
     try {
       const { userId } = req.body;
 
-      console.log("🔄 Reset de senha solicitado para usuário:", userId);
-      console.log("📝 Usuário da sessão:", req.session.userId);
+      console.log("UserProgressing password reset for user:", userId);
+      console.log("📝 Session user:", req.session.userId);
 
       if (!userId) {
         return res.status(400).json({
@@ -1703,13 +1714,13 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log("👤 Usuário encontrado para reset:", user.name);
+      console.log("UserProgressing User found for reset:", user.name);
 
       // Hash da senha padrão
       const bcrypt = await import('bcrypt');
       const hashedPassword = await bcrypt.hash('icap123', 10);
 
-      console.log("🔐 Hash da senha padrão gerado");
+      console.log("UserProgressing Default password hash generated");
 
       // Atualizar senha para padrão e marcar primeiro_login como true
       await storage.updateUser(parseInt(userId), {
@@ -1717,7 +1728,7 @@ Status: Teste em progresso...`;
         primeiroLogin: true
       });
 
-      console.log("✅ Usuário atualizado - senha resetada e primeiro_login = true");
+      console.log("✅ User updated - password reset and first_login = true");
 
       // Log da ação
       await storage.createLog({
@@ -1728,7 +1739,7 @@ Status: Teste em progresso...`;
         details: `Senha do usuário ${user.name} foi redefinida para icap123`
       });
 
-      console.log("📝 Log da ação criado");
+      console.log("UserProgressing Action log created");
 
       res.json({
         success: true,
@@ -2468,7 +2479,7 @@ Status: Teste em progresso...`;
       // - Pedidos não urgentes: "Aprovado" (aprovação automática)
       const status = isUrgent ? "Registrado" : "Aprovado";
 
-      console.log(`📋 Criando pedido:`, {
+      console.log(`UserProgressing Creating order:`, {
         deliveryDate: dataEntrega.toISOString(),
         daysDiff,
         isUrgent,
@@ -2749,7 +2760,7 @@ Status: Teste em progresso...`;
         data_criacao: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
       }));
 
-      console.log(`📋 Purchase orders para criação de pedidos: ${formattedOrders.length} ordens válidas retornadas`);
+      console.log(`UserProgressing Purchase orders for order creation: ${formattedOrders.length} valid orders returned`);
 
       res.json(formattedOrders);
     } catch (error) {
@@ -2845,7 +2856,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`📊 Verificando saldo - Ordem: ${ordemId}, Produto: ${produtoId}`);
+      console.log(`UserProgressing Checking balance - Order: ${ordemId}, Product: ${produtoId}`);
 
       // Buscar quantidade total na ordem de compra
       const itemResult = await pool.query(`
@@ -2916,7 +2927,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`📦 Verificando quantidade entregue - Ordem: ${ordemId}, Produto: ${produtoId}`);
+      console.log(`UserProgressing Checking delivered quantity - Order: ${ordemId}, Product: ${produtoId}`);
 
       // Buscar quantidade entregue (pedidos com status Entregue)
       const result = await pool.query(`
@@ -2957,7 +2968,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`📦 Buscando itens da ordem de compra ID: ${id}`);
+      console.log(`UserProgressing Fetching items for purchase order ID: ${id}`);
 
       // Buscar itens da ordem de compra com informações do produto
       // CORREÇÃO: usar tabela itens_ordem_compra em vez de purchase_order_items
@@ -2978,7 +2989,7 @@ Status: Teste em progresso...`;
         ORDER BY ioc.id ASC
       `, [id]);
 
-      console.log(`✅ Encontrados ${result.rows.length} itens para a ordem de compra ${id}`);
+      console.log(`✅ Found ${result.rows.length} items for purchase order ${id}`);
 
       res.json(result.rows);
     } catch (error) {
@@ -3019,18 +3030,18 @@ Status: Teste em progresso...`;
       }
 
       const ordem = ordemResult.rows[0];
-      console.log(`🔍 Buscando PDF para ordem: ${ordem.numero_ordem}`);
+      console.log(`UserProgressing Searching for PDF for order: ${ordem.numero_ordem}`);
 
       // PRIORIDADE 1: Tentar buscar do Object Storage na pasta OC primeiro
       if (objectStorageAvailable && objectStorage) {
         const ocKey = `OC/${ordem.numero_ordem}.pdf`;
-        console.log(`📂 Tentando buscar na pasta OC: ${ocKey}`);
+        console.log(`UserProgressing Attempting to retrieve from OC folder: ${ocKey}`);
 
         try {
           const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
           if (downloadedBytes && downloadedBytes.length > 1) { // Verificar se o arquivo não está vazio ou corrompido
             const buffer = Buffer.from(downloadedBytes);
-            console.log(`✅ PDF recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
+            console.log(`✅ PDF retrieved from OC folder: ${ocKey} (${buffer.length} bytes)`);
 
             // USAR O NOME ORIGINAL DO ARQUIVO NO STORAGE
             const originalFilename = `${ordem.numero_ordem}.pdf`;
@@ -3042,11 +3053,11 @@ Status: Teste em progresso...`;
 
             return res.end(buffer);
           } else {
-            console.log(`⚠️ PDF na pasta OC é muito pequeno (${downloadedBytes?.length || 0} bytes) - possível corrupção.`);
+            console.log(`UserProgressing PDF in OC folder is too small (${downloadedBytes?.length || 0} bytes) - potential corruption.`);
           }
         } catch (ocError) {
           const error = ocError instanceof Error ? ocError : new Error(String(ocError));
-          console.log(`🔄 PDF não encontrado na pasta OC: ${error.message}`);
+          console.log(`UserProgressing PDF not found in OC folder: ${error.message}`);
         }
       } else {
         console.log(`⚠️ Object Storage não disponível para busca na pasta OC`);
@@ -3059,13 +3070,13 @@ Status: Teste em progresso...`;
             ? JSON.parse(ordem.pdf_info)
             : ordem.pdf_info;
 
-          console.log(`📊 Informações do PDF encontradas:`, pdfInfo);
+          console.log(`UserProgressing PDF info found:`, pdfInfo);
 
           const storageKey = pdfInfo.storageKey;
           const filename = pdfInfo.filename;
 
           if (storageKey) {
-            console.log(`📂 Tentando acessar PDF usando storageKey: ${storageKey}`);
+            console.log(`UserProgressing Attempting to access PDF using storageKey: ${storageKey}`);
 
             const fileResult = await readFileFromStorage(
               storageKey,
@@ -3079,20 +3090,20 @@ Status: Teste em progresso...`;
               // Verificar se é um redirect para Google Drive
               if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
                 const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-                console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+                console.log(`UserProgressing Redirecting to Google Drive: ${driveLink}`);
                 return res.redirect(302, driveLink);
               }
 
               // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
               if (fileBuffer.length <= 1) {
-                console.log(`⚠️ PDF encontrado via pdf_info é muito pequeno (${fileBuffer.length} byte) - ignorado`);
+                console.log(`UserProgressing PDF found via pdf_info is too small (${fileBuffer.length} byte) - ignored`);
                 return res.status(404).json({
                   sucesso: false,
                   mensagem: `Arquivo encontrado mas parece estar corrompido (${fileBuffer.length} byte).`
                 });
               }
 
-              console.log(`✅ PDF recuperado usando pdf_info (${fileBuffer.length} bytes) - Nome original: ${originalName}`);
+              console.log(`✅ PDF retrieved using pdf_info (${fileBuffer.length} bytes) - Original Name: ${originalName}`);
 
               res.setHeader("Content-Type", "application/pdf");
               res.setHeader("Content-Length", fileBuffer.length);
@@ -3103,25 +3114,25 @@ Status: Teste em progresso...`;
             }
           }
         } catch (error) {
-          console.log(`❌ Erro ao processar pdf_info:`, error);
+          console.log(`UserProgressing Error processing pdf_info:`, error);
         }
       }
 
       // PRIORIDADE 3: FALLBACK - Tentar buscar o arquivo na pasta uploads usando o número da ordem
       const uploadsPath = path.join(process.cwd(), "uploads", `${ordem.numero_ordem}.pdf`);
-      console.log(`📁 Tentando PDF em uploads: ${uploadsPath}`);
+      console.log(`UserProgressing Attempting PDF in uploads: ${uploadsPath}`);
 
       if (fs.existsSync(uploadsPath)) {
         const buffer = fs.readFileSync(uploadsPath);
         // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
         if (buffer.length > 1) {
-          console.log(`✅ PDF encontrado em uploads: ${uploadsPath} (${buffer.length} bytes)`);
+          console.log(`✅ PDF found in uploads: ${uploadsPath} (${buffer.length} bytes)`);
           res.setHeader("Content-Type", "application/pdf");
           res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
           res.setHeader("Content-Length", buffer.length);
           return res.end(buffer);
         } else {
-          console.log(`⚠️ PDF local em uploads é muito pequeno (${buffer.length} byte) - ignorado`);
+          console.log(`UserProgressing Local PDF in uploads is too small (${buffer.length} byte) - ignored`);
         }
       }
 
@@ -3129,7 +3140,7 @@ Status: Teste em progresso...`;
       const uploadsDir = path.join(process.cwd(), "uploads");
       if (fs.existsSync(uploadsDir)) {
         const files = fs.readdirSync(uploadsDir).filter(f => f.endsWith('.pdf'));
-        console.log(`📋 PDFs disponíveis em uploads:`, files);
+        console.log(`UserProgressing PDFs available in uploads:`, files);
       }
 
       // Verificar também se há arquivos no Object Storage para debug
@@ -3137,7 +3148,7 @@ Status: Teste em progresso...`;
         try {
           const objects = await objectStorage.list();
           const ocObjects = objects.filter((obj: any) => obj.key.startsWith('OC/'));
-          console.log(`📋 PDFs na pasta OC do Object Storage:`, ocObjects.map((obj: any) => obj.key));
+          console.log(`UserProgressing PDFs in OC folder of Object Storage:`, ocObjects.map((obj: any) => obj.key));
         } catch (listError) {
           const error = listError instanceof Error ? listError : new Error(String(listError));
           console.log(`❌ Erro ao listar objetos do Object Storage:`, error.message);
@@ -3159,35 +3170,32 @@ Status: Teste em progresso...`;
     }
   });
 
-  // Rota para download de documentos de pedidos (nota_pdf, nota_xml, certificado_pdf, foto_nota)
-  app.get("/api/pedidos/:id/documentos/:tipo", isAuthenticated, async (req, res) => {
+  // Rota para upload de documentos (nota fiscal, certificado)
+  app.post("/api/pedidos/:id/documentos", isAuthenticated, upload.fields([
+    { name: "nota_pdf", maxCount: 1 },
+    { name: "nota_xml", maxCount: 1 },
+    { name: "certificado_pdf", maxCount: 1 }
+  ]), async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const tipo = req.params.tipo; // nota_pdf, nota_xml, certificado_pdf, foto_nota
+      const pedidoId = parseInt(req.params.id);
 
-      if (isNaN(id)) {
+      if (isNaN(pedidoId)) {
         return res.status(400).json({
           success: false,
-          message: "ID inválido"
+          message: "ID do pedido inválido"
         });
       }
 
-      // Validar tipo de documento
-      const tiposPermitidos = ['nota_pdf', 'nota_xml', 'certificado_pdf', 'foto_nota'];
-      if (!tiposPermitidos.includes(tipo)) {
-        return res.status(400).json({
-          success: false,
-          message: `Tipo de documento inválido. Use: ${tiposPermitidos.join(', ')}`
-        });
-      }
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
-      console.log(`📥 Solicitação de download: Pedido ${id}, Documento: ${tipo}`);
+      console.log(`UserProgressing Uploading documents for order ${pedidoId}:`, {
+        nota_pdf: files?.nota_pdf?.[0]?.filename,
+        nota_xml: files?.nota_xml?.[0]?.filename,
+        certificado_pdf: files?.certificado_pdf?.[0]?.filename
+      });
 
-      // Buscar informações do pedido incluindo documentos_info
-      const pedidoResult = await pool.query(
-        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
-        [id]
-      );
+      // Buscar informações do pedido para obter order_id
+      const pedidoResult = await pool.query("SELECT order_id, documentos_info FROM orders WHERE id = $1", [pedidoId]);
 
       if (!pedidoResult.rows.length) {
         return res.status(404).json({
@@ -3197,307 +3205,105 @@ Status: Teste em progresso...`;
       }
 
       const pedido = pedidoResult.rows[0];
-      const orderId = pedido.order_id;
-      console.log(`🔍 Buscando documento ${tipo} para pedido: ${orderId}`);
+      const orderId = pedido.order_id; // Código do pedido
 
-      // PRIORIDADE 1: Tentar buscar do documentos_info (Object Storage)
+      // Processar cada arquivo enviado
+      const uploadedDocs: any = {};
+      const keysToUpload: Promise<string | null>[] = [];
+
+      // Função para lidar com o upload de um arquivo específico
+      const processFile = async (fieldName: string, file?: Express.Multer.File) => {
+        if (!file) return null;
+
+        console.log(`UserProgressing Uploading ${fieldName}: ${file.originalname} (${file.size} bytes)`);
+
+        try {
+          const buffer = file.buffer; // Multer armazena em memória por padrão se storage não for diskStorage
+          const filename = file.filename; // Nome gerado pelo Multer
+          const storageKey = await saveFileToStorage(buffer, filename, orderId); // Salva no Object Storage, Google Drive ou local
+          console.log(`✅ ${fieldName} saved with key: ${storageKey}`);
+
+          // Informações para serem salvas no banco de dados
+          return {
+            storageKey,
+            filename: filename,
+            originalName: file.originalname,
+            size: file.size,
+            mimetype: file.mimetype,
+            uploadDate: new Date().toISOString()
+          };
+        } catch (saveError) {
+          console.error(`❌ Error saving ${fieldName}:`, saveError instanceof Error ? saveError.message : saveError);
+          throw saveError; // Propagar o erro para o catch principal
+        }
+      };
+
+      // Processar e fazer upload de cada arquivo
+      if (files?.nota_pdf?.[0]) {
+        keysToUpload.push(processFile("nota_pdf", files.nota_pdf[0]).then(docInfo => { uploadedDocs.nota_pdf = docInfo; return docInfo?.storageKey || null; }));
+      }
+      if (files?.nota_xml?.[0]) {
+        keysToUpload.push(processFile("nota_xml", files.nota_xml[0]).then(docInfo => { uploadedDocs.nota_xml = docInfo; return docInfo?.storageKey || null; }));
+      }
+      if (files?.certificado_pdf?.[0]) {
+        keysToUpload.push(processFile("certificado_pdf", files.certificado_pdf[0]).then(docInfo => { uploadedDocs.certificado_pdf = docInfo; return docInfo?.storageKey || null; }));
+      }
+
+      // Aguardar a conclusão de todos os uploads
+      await Promise.all(keysToUpload);
+
+      // Buscar informações existentes de documentos para não sobrescrever completamente
+      let existingDocsInfo: any = {};
       if (pedido.documentos_info) {
         try {
-          const documentosInfo = typeof pedido.documentos_info === 'string'
+          existingDocsInfo = typeof pedido.documentos_info === 'string'
             ? JSON.parse(pedido.documentos_info)
             : pedido.documentos_info;
-
-          console.log(`📊 Informações de documentos encontradas:`, documentosInfo);
-
-          const docInfo = documentosInfo[tipo];
-          if (docInfo) {
-            // Suportar tanto o formato antigo (string) quanto o novo (objeto)
-            const storageKey = typeof docInfo === 'string' ? docInfo : docInfo.storageKey;
-            const filename = typeof docInfo === 'string' ? null : docInfo.filename;
-
-            if (storageKey) {
-              console.log(`📂 Tentando acessar documento usando storageKey: ${storageKey}`);
-
-              const fileResult = await readFileFromStorage(
-                storageKey,
-                id.toString(),
-                filename || `${tipo}.${tipo.includes('xml') ? 'xml' : tipo.includes('pdf') ? 'pdf' : 'jpg'}`
-              );
-
-              if (fileResult) {
-                const { data: fileBuffer, originalName } = fileResult;
-
-                // Verificar se é um redirect para Google Drive
-                if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
-                  const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-                  console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-                  return res.redirect(302, driveLink);
-                }
-
-                // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
-                if (fileBuffer.length <= 1) {
-                  console.log(`⚠️ Documento encontrado via documentos_info é muito pequeno (${fileBuffer.length} byte) - ignorado`);
-                } else {
-                  console.log(`✅ Documento recuperado usando documentos_info (${fileBuffer.length} bytes) - Nome: ${originalName}`);
-
-                  // Determinar Content-Type baseado no tipo
-                  let contentType = 'application/octet-stream';
-                  if (tipo.includes('pdf')) {
-                    contentType = 'application/pdf';
-                  } else if (tipo.includes('xml')) {
-                    contentType = 'application/xml';
-                  } else if (tipo.includes('foto')) {
-                    contentType = docInfo.mimetype || 'image/jpeg';
-                  }
-
-                  res.setHeader("Content-Type", contentType);
-                  res.setHeader("Content-Length", fileBuffer.length);
-                  res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
-                  res.setHeader("Cache-Control", "no-cache");
-
-                  return res.end(fileBuffer);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.log(`❌ Erro ao processar documentos_info:`, error);
+        } catch (parseError) {
+          console.log("⚠️ Erro ao parsear documentos_info existente, iniciando com objeto vazio.");
+          existingDocsInfo = {};
         }
       }
 
-      // PRIORIDADE 2: Tentar buscar diretamente no Object Storage usando order_id (para casos onde documentos_info está vazio)
-      if (objectStorageAvailable && objectStorage && orderId) {
+      // Atualizar o JSON com os novos documentos
+      const updatedDocsInfo = {
+        ...existingDocsInfo,
+        ...uploadedDocs
+      };
 
-        try {
-          // Listar arquivos na pasta do pedido
-          const listResult = await objectStorage.list();
+      // Atualizar o pedido com as informações dos documentos
+      await pool.query(
+        `UPDATE orders 
+         SET documentos_info = $1
+         WHERE id = $2`,
+        [JSON.stringify(updatedDocsInfo), pedidoId]
+      );
 
-          // O Replit Object Storage retorna {ok, value} ou {ok, error}
-          let objects = [];
-          if (listResult && typeof listResult === 'object') {
-            if (listResult.ok && listResult.value) {
-              objects = Array.isArray(listResult.value) ? listResult.value : [];
-            } else if (Array.isArray(listResult)) {
-              objects = listResult;
-            } else if (listResult.objects) {
-              objects = listResult.objects;
-            }
-          }
+      // Registrar log de upload
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Upload de documentos para pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Documentos enviados para o pedido ${orderId}. Nota PDF: ${!!files?.nota_pdf?.[0]}, Nota XML: ${!!files?.nota_xml?.[0]}, Certificado PDF: ${!!files?.certificado_pdf?.[0]}`
+      });
 
-          // Buscar arquivos que correspondem ao padrão
-          const possibleKeys = [];
-
-          // Adicionar chaves encontradas no storage que correspondem ao pedido e tipo
-          for (const obj of objects) {
-            const objectKey = obj && (obj.key || obj.name);
-            if (objectKey && (
-              objectKey.includes(`${orderId}/${tipo}-`) ||
-              objectKey.includes(`orders/${orderId}/${tipo}-`) ||
-              objectKey.includes(`/${orderId}/${tipo}`)
-            )) {
-              possibleKeys.push(objectKey);
-            }
-          }
-
-          // Tentar download direto usando as chaves encontradas
-          for (const key of possibleKeys) {
-            try {
-
-              const downloadResult = await objectStorage.downloadAsBytes(key);
-
-              // Replit Object Storage retorna {ok, value: [Buffer]} 
-              // O value é um array contendo o buffer no primeiro elemento
-              let downloadedBytes = null;
-              if (downloadResult && typeof downloadResult === 'object' && 'value' in downloadResult) {
-                const val = downloadResult.value;
-                downloadedBytes = Array.isArray(val) && val.length > 0 ? val[0] : val;
-              } else if (downloadResult && (downloadResult instanceof Uint8Array || downloadResult instanceof Buffer || Array.isArray(downloadResult))) {
-                downloadedBytes = Array.isArray(downloadResult) && downloadResult.length > 0 ? downloadResult[0] : downloadResult;
-              }
-
-              if (downloadedBytes && downloadedBytes.length > 1) {
-                const buffer = Buffer.from(downloadedBytes);
-
-                let contentType = 'application/octet-stream';
-                if (tipo.includes('pdf')) {
-                  contentType = 'application/pdf';
-                } else if (tipo.includes('xml')) {
-                  contentType = 'application/xml';
-                } else if (tipo.includes('foto')) {
-                  contentType = 'image/jpeg';
-                }
-
-                const filename = key.split('/').pop() || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`;
-
-                res.setHeader("Content-Type", contentType);
-                res.setHeader("Content-Length", buffer.length);
-                res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-                res.setHeader("Cache-Control", "no-cache");
-
-                return res.end(buffer);
-              }
-            } catch (downloadError) {
-              console.log(`⚠️ Erro ao baixar ${key}:`, downloadError instanceof Error ? downloadError.message : 'erro desconhecido');
-              continue;
-            }
-          }
-        } catch (listError) {
-          console.log(`⚠️ Erro ao listar objetos do Object Storage:`, listError instanceof Error ? listError.message : listError);
-        }
-      }
-
-      // PRIORIDADE 3: FALLBACK - Tentar buscar o arquivo na pasta uploads/[id]/
-      const uploadsPath = path.join(process.cwd(), "uploads", id.toString());
-      console.log(`📁 Tentando documento em uploads: ${uploadsPath}`);
-
-      if (fs.existsSync(uploadsPath)) {
-        const files = fs.readdirSync(uploadsPath);
-        const matchingFile = files.find(f => f.startsWith(tipo));
-
-        if (matchingFile) {
-          const filePath = path.join(uploadsPath, matchingFile);
-          const buffer = fs.readFileSync(filePath);
-
-          // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
-          if (buffer.length > 1) {
-            console.log(`✅ Documento encontrado em uploads: ${filePath} (${buffer.length} bytes)`);
-
-            // Determinar Content-Type baseado no tipo
-            let contentType = 'application/octet-stream';
-            if (tipo.includes('pdf')) {
-              contentType = 'application/pdf';
-            } else if (tipo.includes('xml')) {
-              contentType = 'application/xml';
-            } else if (tipo.includes('foto')) {
-              contentType = 'image/jpeg';
-            }
-
-            res.setHeader("Content-Type", contentType);
-            res.setHeader("Content-Disposition", `attachment; filename="${matchingFile}"`);
-            res.setHeader("Content-Length", buffer.length);
-            res.setHeader("Cache-Control", "no-cache");
-            return res.end(buffer);
-          } else {
-            console.log(`⚠️ Documento local em uploads é muito pequeno (${buffer.length} byte) - ignorado`);
-          }
-        }
-      }
-
-      // Se não encontrar o arquivo em lugar nenhum
-      return res.status(404).json({
-        success: false,
-        message: `Documento ${tipo} do pedido ${orderId} não encontrado.`
+      res.json({
+        success: true,
+        message: "Documentos enviados com sucesso.",
+        documents: updatedDocsInfo
       });
 
     } catch (error) {
-      console.error("Erro ao buscar documento do pedido:", error);
+      console.error("❌ Erro ao fazer upload de documentos:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       res.status(500).json({
         success: false,
-        message: "Erro interno do servidor"
+        message: "Erro ao fazer upload de documentos",
+        error: errorMessage
       });
     }
   });
-
-  // Rota para upload de PDF da ordem de compra
-  app.post(
-    "/api/ordem-compra/:id/upload-pdf",
-    uploadOrdemCompraPdf.single("ordem_pdf"),
-    async (req, res) => {
-      try {
-        const id = parseInt(req.params.id);
-        if (isNaN(id)) {
-          return res.status(400).json({
-            sucesso: false,
-            mensagem: "ID inválido"
-          });
-        }
-
-        if (!req.file) {
-          return res.status(400).json({
-            sucesso: false,
-            mensagem: "Nenhum arquivo PDF foi enviado"
-          });
-        }
-
-        console.log(`📤 Iniciando upload de PDF da ordem de compra ID: ${id}`);
-        console.log(`📄 Arquivo recebido: ${req.file.filename} (${req.file.size} bytes)`);
-
-        // Buscar informações da ordem de compra
-        const ordemResult = await pool.query(
-          "SELECT numero_ordem FROM ordens_compra WHERE id = $1",
-          [id]
-        );
-
-        if (!ordemResult.rows.length) {
-          return res.status(404).json({
-            sucesso: false,
-            mensagem: "Ordem de compra não encontrada"
-          });
-        }
-
-        const numeroOrdem = ordemResult.rows[0].numero_ordem;
-        console.log(`📋 Ordem encontrada: ${numeroOrdem}`);
-
-        // Salvar PDF usando a função simplificada
-        let pdfKey;
-        try {
-          pdfKey = await saveFileToStorage(
-            fs.readFileSync(req.file.path),
-            req.file.filename,
-            `ordens_compra_${numeroOrdem}`
-          );
-
-          console.log(`✅ PDF salvo com a chave: ${pdfKey}`);
-        } catch (saveError) {
-          const error = saveError instanceof Error ? saveError : new Error(String(saveError));
-          console.error(`❌ Erro ao salvar PDF:`, error);
-          throw new Error(`Falha ao salvar PDF: ${error.message}`);
-        }
-
-        // Construir informações do PDF para armazenar no banco
-        const pdfInfo = {
-          name: req.file.originalname,
-          filename: req.file.filename,
-          size: req.file.size,
-          path: req.file.path,
-          storageKey: pdfKey,
-          date: new Date().toISOString()
-        };
-
-        // Atualizar a tabela ordens_compra com as informações do PDF
-        await pool.query(
-          `UPDATE ordens_compra SET pdf_info = $1 WHERE id = $2`,
-          [JSON.stringify(pdfInfo), id]
-        );
-
-        console.log(`📊 PDF info saved to database for order ${numeroOrdem}`);
-
-        // Registrar log de upload
-        if (req.session.userId) {
-          await storage.createLog({
-            userId: req.session.userId,
-            action: "Upload de PDF da ordem de compra",
-            itemType: "purchase_order",
-            itemId: id.toString(),
-            details: `PDF da ordem de compra ${numeroOrdem} enviado e salvo no Object Storage`
-          });
-        }
-
-        res.json({
-          sucesso: true,
-          mensagem: "Upload do PDF realizado com sucesso e salvo no Object Storage",
-          pdfInfo: pdfInfo
-        });
-      } catch (error) {
-        console.error("Erro ao fazer upload do PDF:", error);
-        res.status(500).json({
-          sucesso: false,
-          mensagem: "Erro ao fazer upload do PDF",
-          erro: error instanceof Error ? error.message : "Erro desconhecido"
-        });
-      }
-    }
-  );
 
   // Rota para confirmar número do pedido
   app.post("/api/pedidos/:id/confirmar-numero-pedido", isAuthenticated, async (req, res) => {
@@ -3505,7 +3311,7 @@ Status: Teste em progresso...`;
       const pedidoId = parseInt(req.params.id);
       const { numeroPedido } = req.body;
 
-      console.log(`📤 Confirmação de número do pedido recebida:`, {
+      console.log(`UserProgressing Confirming order number received:`, {
         pedidoId,
         numeroPedido
       });
@@ -3562,7 +3368,7 @@ Status: Teste em progresso...`;
       const pedidoId = parseInt(req.params.id);
       const { novaDataEntrega, motivo } = req.body;
 
-      console.log(`🔄 Reprogramação de pedido recebida:`, {
+      console.log(`UserProgressing Requesting rescheduling for order:`, {
         pedidoId,
         novaDataEntrega,
         motivo
@@ -3633,7 +3439,7 @@ Status: Teste em progresso...`;
       const pedidoId = parseInt(req.params.id);
       const { aprovado, motivoRecusa } = req.body;
 
-      console.log(`✅ Aprovação/Recusa de reprogramação recebida:`, {
+      console.log(`UserProgressing Rescheduling approval/rejection received:`, {
         pedidoId,
         aprovado,
         motivoRecusa
@@ -3674,7 +3480,7 @@ Status: Teste em progresso...`;
       if (aprovado) {
         novoStatus = "Aguardando Envio"; // Ou outro status apropriado após aprovação
         logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) aprovada.`;
-        console.log(`✅ Reprogramação do pedido ${pedidoId} aprovada.`);
+        console.log(`UserProgressing Rescheduling for order ${pedidoId} approved.`);
 
   // Rota específica para download da foto de confirmação
   app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
@@ -3687,7 +3493,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`📸 Solicitação de download da foto de confirmação - Pedido ${id}`);
+      console.log(`UserProgressing Requesting confirmation photo download - Order ${id}`);
 
       // Buscar informações do pedido incluindo foto_confirmacao
       const pedidoResult = await pool.query(
@@ -3696,7 +3502,7 @@ Status: Teste em progresso...`;
       );
 
       if (!pedidoResult.rows.length) {
-        console.log(`❌ Pedido ${id} não encontrado`);
+        console.log(`❌ Order ${id} not found`);
         return res.status(404).json({
           success: false,
           message: "Pedido não encontrado",
@@ -3705,10 +3511,10 @@ Status: Teste em progresso...`;
       }
 
       const pedido = pedidoResult.rows[0];
-      console.log(`📋 Pedido ${pedido.order_id} - Status: ${pedido.status}`);
+      console.log(`📋 Order ${pedido.order_id} - Status: ${pedido.status}`);
 
       if (!pedido.foto_confirmacao) {
-        console.log(`⚠️ Pedido ${pedido.order_id} não possui foto de confirmação`);
+        console.log(`⚠️ Order ${pedido.order_id} does not have a confirmation photo`);
         return res.status(404).json({
           success: false,
           message: "Este pedido ainda não possui foto de confirmação de entrega",
@@ -3722,7 +3528,7 @@ Status: Teste em progresso...`;
         : pedido.foto_confirmacao;
 
       if (!fotoInfo || !fotoInfo.storageKey) {
-        console.log(`⚠️ Informações incompletas da foto do pedido ${pedido.order_id}`);
+        console.log(`UserProgressing Incomplete photo information for order ${pedido.order_id}`);
         return res.status(404).json({
           success: false,
           message: "Informações da foto de confirmação incompletas",
@@ -3731,7 +3537,7 @@ Status: Teste em progresso...`;
       }
 
       const { storageKey, originalName, mimetype } = fotoInfo;
-      console.log(`🔍 Buscando foto: ${storageKey}`);
+      console.log(`UserProgressing Searching for photo: ${storageKey}`);
 
       // Download direto do Object Storage para imagens
       if (!objectStorageAvailable || !objectStorage) {
@@ -3745,10 +3551,10 @@ Status: Teste em progresso...`;
       let imageBuffer = null;
 
       try {
-        console.log(`📥 Fazendo download do Object Storage: ${storageKey}`);
+        console.log(`UserProgressing Downloading from Object Storage: ${storageKey}`);
         const downloadResult = await objectStorage.downloadAsBytes(storageKey);
 
-        console.log(`📊 Resultado do download:`, {
+        console.log(`UserProgressing Download result:`, {
           tipo: typeof downloadResult,
           isBuffer: downloadResult instanceof Buffer,
           isUint8Array: downloadResult instanceof Uint8Array,
@@ -3759,55 +3565,55 @@ Status: Teste em progresso...`;
         // Processar resultado do Replit Object Storage
         if (downloadResult && typeof downloadResult === 'object' && 'ok' in downloadResult) {
           // Result wrapper do Replit
-          console.log(`🎯 Result wrapper detectado - Status: ${downloadResult.ok}`);
+          console.log(`UserProgressing Result wrapper detected - Status: ${downloadResult.ok}`);
 
           if (!downloadResult.ok) {
-            console.log(`❌ Download falhou: ${downloadResult.error || 'erro desconhecido'}`);
-            throw new Error(`Download falhou: ${downloadResult.error || 'erro desconhecido'}`);
+            console.log(`UserProgressing Download failed: ${downloadResult.error || 'unknown error'}`);
+            throw new Error(`Download failed: ${downloadResult.error || 'unknown error'}`);
           }
 
           const valueData = downloadResult.value;
 
           if (!valueData) {
-            console.log(`❌ Result.value está vazio`);
+            console.log(`UserProgressing Result.value is empty`);
             throw new Error("Dados vazios no download");
           }
 
           // Converter value para Buffer
           if (valueData instanceof Uint8Array) {
             imageBuffer = Buffer.from(valueData);
-            console.log(`✅ Uint8Array convertido para Buffer: ${imageBuffer.length} bytes`);
+            console.log(`✅ Uint8Array converted to Buffer: ${imageBuffer.length} bytes`);
           } else if (valueData instanceof Buffer) {
             imageBuffer = valueData;
-            console.log(`✅ Buffer direto: ${imageBuffer.length} bytes`);
+            console.log(`✅ Direct Buffer: ${imageBuffer.length} bytes`);
           } else if (Array.isArray(valueData)) {
             imageBuffer = Buffer.from(valueData);
-            console.log(`✅ Array convertido para Buffer: ${imageBuffer.length} bytes`);
+            console.log(`✅ Array converted to Buffer: ${imageBuffer.length} bytes`);
           } else {
-            console.log(`❌ Tipo de value não suportado: ${typeof valueData}`);
-            throw new Error(`Tipo de dados não suportado: ${typeof valueData}`);
+            console.log(`UserProgressing Unsupported value type: ${typeof valueData}`);
+            throw new Error(`Unsupported data type: ${typeof valueData}`);
           }
         } else if (downloadResult instanceof Uint8Array) {
           imageBuffer = Buffer.from(downloadResult);
-          console.log(`✅ Uint8Array direto convertido: ${imageBuffer.length} bytes`);
+          console.log(`✅ Direct Uint8Array converted: ${imageBuffer.length} bytes`);
         } else if (downloadResult instanceof Buffer) {
           imageBuffer = downloadResult;
-          console.log(`✅ Buffer direto: ${imageBuffer.length} bytes`);
+          console.log(`✅ Direct Buffer: ${imageBuffer.length} bytes`);
         } else if (Array.isArray(downloadResult)) {
           imageBuffer = Buffer.from(downloadResult);
-          console.log(`✅ Array direto convertido: ${imageBuffer.length} bytes`);
+          console.log(`✅ Direct Array converted: ${imageBuffer.length} bytes`);
         } else {
-          console.log(`❌ Tipo de resultado não suportado: ${typeof downloadResult}`);
-          throw new Error(`Tipo de resultado não suportado: ${typeof downloadResult}`);
+          console.log(`UserProgressing Unsupported result type: ${typeof downloadResult}`);
+          throw new Error(`Unsupported result type: ${typeof downloadResult}`);
         }
 
         // Verificar tamanho mínimo
         if (!imageBuffer || imageBuffer.length < 100) {
-          console.log(`❌ Buffer muito pequeno: ${imageBuffer?.length || 0} bytes`);
+          console.log(`UserProgressing Buffer too small: ${imageBuffer?.length || 0} bytes`);
           throw new Error(`Arquivo corrompido ou muito pequeno: ${imageBuffer?.length || 0} bytes`);
         }
 
-        console.log(`✅ Foto carregada com sucesso: ${imageBuffer.length} bytes`);
+        console.log(`✅ Photo loaded successfully: ${imageBuffer.length} bytes`);
 
         // Determinar Content-Type
         const contentType = mimetype || (originalName.endsWith('.png') ? 'image/png' : 'image/jpeg');
@@ -3823,7 +3629,7 @@ Status: Teste em progresso...`;
 
       } catch (downloadError) {
         const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
-        console.error(`❌ Erro no download da foto:`, error);
+        console.error(`❌ Error downloading photo:`, error);
         return res.status(500).json({
           success: false,
           message: `Erro ao baixar foto: ${error.message}`
@@ -3843,7 +3649,7 @@ Status: Teste em progresso...`;
       } else {
         novoStatus = "Pendente"; // Ou um status que indique que a reprogramação foi recusada e o pedido voltou ao estado anterior
         logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) recusada. Motivo: ${motivoRecusa || 'N/A'}.`;
-        console.log(`❌ Reprogramação do pedido ${pedidoId} recusada. Motivo: ${motivoRecusa}`);
+        console.log(`UserProgressing Rescheduling for order ${pedidoId} rejected. Reason: ${motivoRecusa}`);
       }
 
       // Atualizar o status do pedido
@@ -3884,7 +3690,7 @@ Status: Teste em progresso...`;
       const quantidadeRecebida = req.body.quantidadeRecebida;
       const foto = req.file;
 
-      console.log(`✅ Recebida confirmação de entrega para pedido:`, {
+      console.log(`UserProgressing Received delivery confirmation for order:`, {
         pedidoId,
         quantidadeRecebida,
         temFoto: !!foto
@@ -3947,8 +3753,8 @@ Status: Teste em progresso...`;
       const timestamp = Date.now();
       const fotoFilename = `foto-nota-assinada-${timestamp}.${foto.mimetype === 'image/png' ? 'png' : 'jpg'}`;
 
-      console.log(`📤 Fazendo upload da foto para Object Storage...`);
-      console.log(`📋 Código do pedido (order_id): ${pedido.order_id}`);
+      console.log(`UserProgressing Uploading photo to Object Storage...`);
+      console.log(`UserProgressing Order code (order_id): ${pedido.order_id}`);
 
       let fotoStorageKey;
       try {
@@ -3958,10 +3764,10 @@ Status: Teste em progresso...`;
           fotoFilename,
           pedido.order_id
         );
-        console.log(`✅ Foto salva com sucesso no Object Storage: ${fotoStorageKey}`);
+        console.log(`✅ Photo saved successfully to Object Storage: ${fotoStorageKey}`);
       } catch (uploadError) {
         const error = uploadError instanceof Error ? uploadError : new Error(String(uploadError));
-        console.error('❌ Erro ao fazer upload da foto:', error);
+        console.error('❌ Error uploading photo:', error);
         return res.status(500).json({
           sucesso: false,
           mensagem: `Erro ao salvar a foto: ${error.message}`
@@ -4069,7 +3875,7 @@ Status: Teste em progresso...`;
       const pedidoId = parseInt(req.params.id);
       const { quantidadeEntregue } = req.body;
 
-      console.log(`✅ Recebida confirmação de entrega para pedido:`, {
+      console.log(`UserProgressing Received delivery confirmation for order:`, {
         pedidoId,
         quantidadeEntregue
       });
@@ -4157,7 +3963,7 @@ Status: Teste em progresso...`;
       const pedidoId = parseInt(req.params.id);
       const { motivo } = req.body;
 
-      console.log(`🚫 Cancelamento de pedido solicitado:`, {
+      console.log(`UserProgressing Order cancellation requested:`, {
         pedidoId,
         motivo
       });
@@ -4225,7 +4031,7 @@ Status: Teste em progresso...`;
       const pedidoId = parseInt(req.params.id);
       const { numeroNota, dataEmissao, valorTotal } = req.body;
 
-      console.log(`📝 Adicionando nota fiscal ao pedido:`, {
+      console.log(`UserProgressing Adding invoice to order:`, {
         pedidoId,
         numeroNota,
         dataEmissao,
@@ -4310,7 +4116,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`🔍 Buscando detalhes do pedido ID: ${pedidoId}`);
+      console.log(`UserProgressing Fetching details for order ID: ${pedidoId}`);
 
       // Buscar detalhes do pedido principal
       const pedidoResult = await pool.query(`
@@ -4415,7 +4221,7 @@ Status: Teste em progresso...`;
     try {
       const { status, supplierId, productId, purchaseOrderId, startDate, endDate, workLocation } = req.query;
 
-      console.log("🔍 Buscando pedidos com filtros:", {
+      console.log("UserProgressing Searching for orders with filters:", {
         status,
         supplierId,
         productId,
@@ -4461,7 +4267,7 @@ Status: Teste em progresso...`;
             query += ` AND (o.supplier_id = $${paramIndex} OR oc.cnpj = $${paramIndex + 1})`;
             queryParams.push(req.user.companyId, userCompany.cnpj);
             paramIndex += 2;
-            console.log(`🔒 Filtro de empresa aplicado: Fornecedor=${req.user.companyId}, Obra CNPJ=${userCompany.cnpj}`);
+            console.log(`UserProgressing Company filter applied: Supplier=${req.user.companyId}, Work CNPJ=${userCompany.cnpj}`);
           }
         }
       }
@@ -4540,7 +4346,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`📍 Buscando pontos de rastreamento para pedido ID: ${orderId}`);
+      console.log(`UserProgressing Fetching tracking points for order ID: ${orderId}`);
 
       // Verificar se a tabela tracking_points existe
       const tableCheck = await pool.query(`
@@ -4551,7 +4357,7 @@ Status: Teste em progresso...`;
       `);
 
       if (!tableCheck.rows[0].exists) {
-        console.log(`⚠️ Tabela tracking_points não existe - retornando array vazio`);
+        console.log(`UserProgressing tracking_points table does not exist - returning empty array`);
         return res.json([]);
       }
 
@@ -4561,12 +4367,12 @@ Status: Teste em progresso...`;
       `, [orderId]);
 
       if (!orderResult.rows.length) {
-        console.log(`⚠️ Pedido ${orderId} não encontrado`);
+        console.log(`UserProgressing Order ${orderId} not found`);
         return res.json([]);
       }
 
       const orderCode = orderResult.rows[0].order_id;
-      console.log(`📋 Código do pedido: ${orderCode}`);
+      console.log(`UserProgressing Order code: ${orderCode}`);
 
       // Buscar pontos de rastreamento usando o código do pedido
       const result = await pool.query(`
@@ -4579,7 +4385,7 @@ Status: Teste em progresso...`;
         ORDER BY tp.created_at ASC
       `, [orderCode]);
 
-      console.log(`✅ ${result.rows.length} pontos encontrados para pedido ${orderCode}`);
+      console.log(`✅ ${result.rows.length} points found for order ${orderCode}`);
 
       res.json(result.rows);
     } catch (error) {
@@ -4598,7 +4404,7 @@ Status: Teste em progresso...`;
       const pedidoId = parseInt(req.params.id);
       const { comentario } = req.body;
 
-      console.log(`💬 Adicionando comentário ao pedido:`, {
+      console.log(`UserProgressing Adding comment to order:`, {
         pedidoId,
         comentario
       });
@@ -4670,7 +4476,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`🔍 Buscando comentários do pedido ID: ${pedidoId}`);
+      console.log(`UserProgressing Fetching comments for order ID: ${pedidoId}`);
 
       const comentariosResult = await pool.query(`
         SELECT 
@@ -4706,7 +4512,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`✅ Aprovando pedido urgente ID: ${orderId}`);
+      console.log(`UserProgressing Approving urgent order ID: ${orderId}`);
 
       // Buscar informações do pedido
       const pedidoResult = await pool.query(
@@ -4767,7 +4573,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      console.log(`❌ Rejeitando pedido urgente ID: ${orderId}`);
+      console.log(`UserProgressing Rejecting urgent order ID: ${orderId}`);
 
       // Buscar informações do pedido
       const pedidoResult = await pool.query(

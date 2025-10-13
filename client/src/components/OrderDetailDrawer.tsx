@@ -909,7 +909,7 @@ export function OrderDetailDrawer({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          novaDataEntrega: selectedDate.toISOString(),
+          deliveryDate: selectedDate.toISOString(),
           justificativa: justificativa.trim(),
         }),
       });
