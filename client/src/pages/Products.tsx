@@ -420,16 +420,14 @@ export default function Products() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {unit ? (
+                        {unit?.abbreviation ? (
                           <Badge variant="secondary">
                             {unit.abbreviation}
                           </Badge>
-                        ) : product.unitId ? (
-                          <Badge variant="outline" className="text-yellow-600">
-                            Unidade ID: {product.unitId}
-                          </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-sm">Sem unidade</span>
+                          <Badge variant="outline" className="text-yellow-600">
+                            ID: {product.unitId || 'N/A'}
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell> {/* New Cell for confirmation type */}
