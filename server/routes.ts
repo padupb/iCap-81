@@ -1764,6 +1764,17 @@ Status: Teste em progresso...`;
     }
   });
 
+  // User Roles routes
+  app.get("/api/user-roles", isAuthenticated, async (req, res) => {
+    try {
+      const roles = await storage.getAllUserRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error("Erro ao buscar funções de usuário:", error);
+      res.status(500).json({ message: "Erro ao buscar funções de usuário" });
+    }
+  });
+
   // Users routes
   app.get("/api/users", isAuthenticated, async (req, res) => {
     try {
