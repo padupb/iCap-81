@@ -14,6 +14,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { z } from "zod";
+import { XMLParser } from "fast-xml-parser";
 
 // Função utilitária para converter data para fuso horário local
 function convertToLocalDate(dateString: string): Date {
@@ -21,6 +22,102 @@ function convertToLocalDate(dateString: string): Date {
   // Ajustar para o fuso horário de Brasília (GMT-3)
   date.setHours(date.getHours() - 3);
   return date;
+}
+
+// Função para extrair quantidade do XML da NF-e
+function extractQuantityFromXML(xmlBuffer: Buffer): { quantity: number; productInfo: any } | null {
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: "@_"
+    });
+
+    const xmlContent = xmlBuffer.toString('utf-8');
+    const result = parser.parse(xmlContent);
+
+    console.log(`🔍 Parsing XML da NF-e...`);
+
+    // Estrutura típica de NF-e: nfeProc > NFe > infNFe > det > prod
+    let nfeData = null;
+    
+    // Tentar diferentes estruturas possíveis de NF-e
+    if (result.nfeProc?.NFe?.infNFe) {
+      nfeData = result.nfeProc.NFe.infNFe;
+    } else if (result.NFe?.infNFe) {
+      nfeData = result.NFe.infNFe;
+    } else if (result.infNFe) {
+      nfeData = result.infNFe;
+    }
+
+    if (!nfeData) {
+      console.log(`⚠️ Estrutura de NF-e não reconhecida`);
+      return null;
+    }
+
+    // Extrair itens (det pode ser array ou objeto único)
+    let items = [];
+    if (Array.isArray(nfeData.det)) {
+      items = nfeData.det;
+    } else if (nfeData.det) {
+      items = [nfeData.det];
+    }
+
+    if (items.length === 0) {
+      console.log(`⚠️ Nenhum item encontrado no XML`);
+      return null;
+    }
+
+    console.log(`📦 Total de itens na NF-e: ${items.length}`);
+
+    // Processar primeiro item ou somar todos
+    let totalQuantity = 0;
+    let productInfo: any = {};
+
+    // Estratégia: Se houver apenas 1 item, usar sua quantidade
+    // Se houver múltiplos itens, somar todas as quantidades
+    for (const item of items) {
+      const prod = item.prod;
+      if (prod) {
+        // qCom = quantidade comercial (mais comum)
+        // qTrib = quantidade tributável (alternativa)
+        const qCom = parseFloat(prod.qCom || 0);
+        const qTrib = parseFloat(prod.qTrib || 0);
+        
+        // Usar quantidade comercial como padrão
+        const itemQty = qCom || qTrib;
+        totalQuantity += itemQty;
+
+        // Guardar informações do primeiro produto para log
+        if (!productInfo.code) {
+          productInfo = {
+            code: prod.cProd || '',
+            name: prod.xProd || '',
+            unit: prod.uCom || '',
+            unitPrice: parseFloat(prod.vUnCom || 0),
+            totalValue: parseFloat(prod.vProd || 0)
+          };
+        }
+
+        console.log(`  📋 Item: ${prod.xProd || 'N/A'} - Qtd: ${itemQty}`);
+      }
+    }
+
+    if (totalQuantity > 0) {
+      console.log(`✅ Quantidade total extraída do XML: ${totalQuantity}`);
+      return {
+        quantity: totalQuantity,
+        productInfo: productInfo
+      };
+    }
+
+    console.log(`⚠️ Quantidade não encontrada no XML`);
+    return null;
+
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error(`❌ Erro ao processar XML:`, err.message);
+    return null;
+  }
 }
 
 // Configuração do Object Storage (Replit)
