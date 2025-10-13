@@ -2326,7 +2326,7 @@ Status: Teste em progresso...`;
   // Rota para buscar reprogramações (pedidos aguardando aprovação)
   app.get("/api/orders/reprogramacoes", isAuthenticated, async (req, res) => {
     try {
-      // Buscar pedidos com status "Aguardando Aprovação" diretamente do banco com JOIN
+      // Buscar pedidos com status "Aguardando Aprovação" OU "Suspenso" diretamente do banco com JOIN
       const reprogramacoesResult = await pool.query(`
         SELECT 
           o.id,
@@ -2353,7 +2353,7 @@ Status: Teste em progresso...`;
         LEFT JOIN companies oc_company ON oc.empresa_id = oc_company.id
         LEFT JOIN companies dest_company ON oc.cnpj = dest_company.cnpj
         LEFT JOIN users creator ON o.usuario_reprogramacao = creator.id
-        WHERE o.status = 'Aguardando Aprovação'
+        WHERE (o.status = 'Aguardando Aprovação' OR o.status = 'Suspenso')
         ORDER BY o.data_solicitacao_reprogramacao DESC
       `);
 
