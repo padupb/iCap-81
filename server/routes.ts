@@ -184,27 +184,17 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`📥 Tentando: ${storageKey}`);
         
         const result = await objectStorage.downloadAsBytes(storageKey);
+        console.log(`📊 Tipo retornado:`, typeof result);
+        console.log(`📊 Tem ok:`, result && typeof result === 'object' && 'ok' in result);
+        console.log(`📊 Tem value:`, result && typeof result === 'object' && 'value' in result);
         
-        // Extrair buffer do resultado
+        // SIMPLIFICADO: O Replit retorna { ok: true, value: Uint8Array }
         let buffer: Buffer | null = null;
         
-        if (result && typeof result === 'object' && 'ok' in result && result.ok) {
-          // Wrapper do Replit com {ok: true, value: Uint8Array}
-          const valueData = result.value;
-          
-          if (valueData instanceof Uint8Array) {
-            buffer = Buffer.from(valueData);
-          } else if (valueData instanceof Buffer) {
-            buffer = valueData;
-          } else if (Array.isArray(valueData)) {
-            buffer = Buffer.from(valueData);
-          }
-        } else if (result instanceof Uint8Array) {
-          buffer = Buffer.from(result);
-        } else if (result instanceof Buffer) {
-          buffer = result;
-        } else if (Array.isArray(result)) {
-          buffer = Buffer.from(result);
+        if (result && typeof result === 'object' && 'ok' in result && result.ok && result.value) {
+          // Formato padrão do Replit: { ok: true, value: Uint8Array }
+          buffer = Buffer.from(result.value);
+          console.log(`✅ Buffer extraído do wrapper Replit: ${buffer.length} bytes`);
         }
 
         if (buffer && buffer.length > 0) {
