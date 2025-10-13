@@ -1733,6 +1733,37 @@ export function OrderDetailDrawer({
                                 <CalendarIcon className="h-4 w-4" />
                               </Button>
                             )}
+                            {(() => {
+                              // Verificar se pode cancelar o pedido
+                              const canCancel =
+                                orderDetails.status !== "Cancelado" &&
+                                orderDetails.status !== "Entregue" &&
+                                orderDetails.quantidade !== 0;
+
+                              // Verificar antecedência mínima de 3 dias
+                              const deliveryDate = new Date(orderDetails.deliveryDate);
+                              const today = new Date();
+                              const diffDays = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                              const hasMinimumAdvance = diffDays >= 3;
+
+                              // Verificar se já tem documentos
+                              const hasDocuments = documentsLoaded || orderDetails.status === "Carregado" || orderDetails.status === "Em Rota" || orderDetails.status === "Em transporte";
+
+                              if (canCancel && hasMinimumAdvance && !hasDocuments) {
+                                return (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsCancelDialogOpen(true)}
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    title="Cancelar pedido"
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                           {orderDetails.status === "Suspenso" && (
                             <p className="text-xs text-muted-foreground">
