@@ -2747,8 +2747,19 @@ Status: Teste em progresso...`;
 
       // Verificar se tem mais de 3 dias de antecedência (não permite quando ≤ 3)
       const deliveryDate = new Date(order.delivery_date);
+      deliveryDate.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+      
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+      
       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+
+      console.log(`📅 Validação de cancelamento - Pedido ${order.order_id}:`, {
+        dataEntrega: deliveryDate.toISOString().split('T')[0],
+        dataHoje: today.toISOString().split('T')[0],
+        diasRestantes: daysDiff,
+        permiteCanelamento: daysDiff > 3
+      });
 
       if (daysDiff <= 3) {
         return res.status(400).json({

@@ -1740,11 +1740,15 @@ export function OrderDetailDrawer({
                                 orderDetails.status !== "Entregue" &&
                                 orderDetails.quantidade !== 0;
 
-                              // Verificar antecedência mínima de 3 dias
+                              // Verificar antecedência mínima de 3 dias - NORMALIZAR DATAS
                               const deliveryDate = new Date(orderDetails.deliveryDate);
+                              deliveryDate.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+                              
                               const today = new Date();
+                              today.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+                              
                               const diffDays = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                              const hasMinimumAdvance = diffDays > 3; // MUDANÇA: Agora exige MAIS de 3 dias (não permite quando ≤ 3)
+                              const hasMinimumAdvance = diffDays > 3; // Exige MAIS de 3 dias
 
                               // Verificar se já tem documentos
                               const hasDocuments = documentsLoaded || orderDetails.status === "Carregado" || orderDetails.status === "Em Rota" || orderDetails.status === "Em transporte";
@@ -1849,11 +1853,15 @@ export function OrderDetailDrawer({
                           orderDetails.status !== "Entregue" &&
                           orderDetails.quantidade !== 0;
 
-                        // Verificar antecedência (mais de 3 dias)
+                        // Verificar antecedência (mais de 3 dias) - NORMALIZAR DATAS
                         const deliveryDate = new Date(orderDetails.deliveryDate);
+                        deliveryDate.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+                        
                         const now = new Date();
+                        now.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+                        
                         const diffDays = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
-                        const hasMinimumAdvance = diffDays > 3; // MUDANÇA: Exige MAIS de 3 dias
+                        const hasMinimumAdvance = diffDays > 3; // Exige MAIS de 3 dias
                         const hasDocuments = documentsLoaded || orderDetails.status === "Carregado";
 
                         if (canCancel && hasMinimumAdvance && !hasDocuments) {
