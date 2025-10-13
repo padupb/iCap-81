@@ -182,15 +182,15 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
     for (const storageKey of storageKeys) {
       try {
         console.log(`📥 Tentando: ${storageKey}`);
-        
+
         const result = await objectStorage.downloadAsBytes(storageKey);
         console.log(`📊 Tipo retornado:`, typeof result);
         console.log(`📊 Tem ok:`, result && typeof result === 'object' && 'ok' in result);
         console.log(`📊 Tem value:`, result && typeof result === 'object' && 'value' in result);
-        
+
         // SIMPLIFICADO: O Replit retorna { ok: true, value: Uint8Array }
         let buffer: Buffer | null = null;
-        
+
         if (result && typeof result === 'object' && 'ok' in result && result.ok && result.value) {
           // Formato padrão do Replit: { ok: true, value: Uint8Array }
           buffer = Buffer.from(result.value);
@@ -997,7 +997,7 @@ Data/Hora: ${new Date().toLocaleString('pt-BR')}
 Timestamp: ${Date.now()}
 Versão: iCAP 5.0
 
-Este é um teste completo da API do Object Storage para verificar:
+Este é um teste completo da API Object Storage para verificar:
 - Upload de arquivos
 - Download de arquivos
 - Listagem de objetos
@@ -3059,19 +3059,29 @@ Status: Teste em progresso...`;
       // Atualizar o pedido com as informações dos documentos
       await pool.query(
         `UPDATE orders 
-         SET documentos_info = $1
+         SET documentoscarregados = true, 
+             documentosinfo = $1,
+             status = CASE 
+               WHEN status = 'Aprovado' THEN 'Carregado'
+               WHEN status = 'Registrado' THEN 'Carregado'
+               ELSE status
+             END
          WHERE id = $2`,
         [JSON.stringify(updatedDocsInfo), pedidoId]
       );
 
-      // Registrar log de upload
-      await storage.createLog({
-        userId: req.user.id,
-        action: "Upload de documentos para pedido",
-        itemType: "order",
-        itemId: pedidoId.toString(),
-        details: `Documentos enviados para o pedido ${orderId}. Nota PDF: ${!!files?.nota_pdf?.[0]}, Nota XML: ${!!files?.nota_xml?.[0]}, Certificado PDF: ${!!files?.certificado_pdf?.[0]}`
-      });
+      console.log(`✅ Documentos salvos e status atualizado para pedido ${pedidoId}`);
+
+      // Registrar log da atualização de status
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Upload de documentos",
+          itemType: "order",
+          itemId: orderId.toString(),
+          details: `Documentos carregados - Status atualizado para 'Carregado'`
+        });
+      }
 
       res.json({
         success: true,
@@ -3080,12 +3090,12 @@ Status: Teste em progresso...`;
       });
 
     } catch (error) {
-      console.error("❌ Erro ao fazer upload de documentos:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("❌ Erro ao fazer upload de documentos:", err);
       res.status(500).json({
         success: false,
         message: "Erro ao fazer upload de documentos",
-        error: errorMessage
+        error: err.message
       });
     }
   });

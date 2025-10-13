@@ -1423,7 +1423,7 @@ export function OrderDetailDrawer({
     });
   };
 
-  // Analysis: Removed the status badge from the header of the drawer.
+  // Analysis: After uploading documents, the order status is updated and the page is reloaded to reflect the changes.
   if (!orderId) return null;
 
   return (
