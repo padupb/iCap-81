@@ -1321,6 +1321,100 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para download individual de documento
+  app.get("/api/pedidos/:id/documentos/:tipo", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      const tipo = req.params.tipo; // nota_pdf, nota_xml, certificado_pdf, foto_nota
+      
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do pedido inválido"
+        });
+      }
+
+      console.log(`📥 Download solicitado - Pedido: ${orderId}, Tipo: ${tipo}`);
+
+      // Buscar pedido no banco
+      const orderResult = await pool.query(
+        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+        [orderId]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const order = orderResult.rows[0];
+      const documentosInfo = order.documentos_info || {};
+
+      console.log(`📋 Documentos disponíveis:`, Object.keys(documentosInfo));
+
+      // Verificar se o documento existe
+      if (!documentosInfo[tipo]) {
+        return res.status(404).json({
+          success: false,
+          message: `Documento ${tipo} não encontrado`
+        });
+      }
+
+      const docInfo = documentosInfo[tipo];
+      console.log(`📄 Documento encontrado:`, docInfo);
+
+      // Download do Object Storage
+      if (!objectStorageAvailable || !objectStorage) {
+        return res.status(500).json({
+          success: false,
+          message: "Object Storage não disponível"
+        });
+      }
+
+      const downloadResult = await objectStorage.downloadAsBytes(docInfo.storageKey);
+      const buffer = extractBufferFromStorageResult(downloadResult);
+
+      if (!buffer || buffer.length === 0) {
+        console.error(`❌ Buffer vazio para ${tipo}`);
+        return res.status(500).json({
+          success: false,
+          message: "Erro ao baixar arquivo - buffer vazio"
+        });
+      }
+
+      console.log(`✅ Arquivo baixado: ${buffer.length} bytes`);
+
+      // Determinar Content-Type
+      let contentType = 'application/octet-stream';
+      if (tipo.includes('pdf')) {
+        contentType = 'application/pdf';
+      } else if (tipo.includes('xml')) {
+        contentType = 'application/xml';
+      } else if (tipo.includes('foto')) {
+        contentType = 'image/jpeg';
+      }
+
+      // Enviar arquivo
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${docInfo.filename}"`);
+      res.setHeader('Content-Length', buffer.length.toString());
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(buffer);
+
+      console.log(`✅ Download concluído: ${docInfo.filename}`);
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("❌ Erro no download:", err);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao baixar documento: ${err.message}`
+        });
+    }
+  });
+
   // Rota para download de ZIP com todos os documentos do pedido
   app.get("/api/pedidos/:id/documentos/download-zip", isAuthenticated, async (req, res) => {
     try {
