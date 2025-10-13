@@ -2326,9 +2326,38 @@ Status: Teste em progresso...`;
   // Rota para buscar reprogramações (pedidos aguardando aprovação)
   app.get("/api/orders/reprogramacoes", isAuthenticated, async (req, res) => {
     try {
-      // Buscar todos os pedidos com status "Aguardando Aprovação"
-      let reprogramacoes = await storage.getAllOrders();
-      reprogramacoes = reprogramacoes.filter(order => order.status === "Aguardando Aprovação");
+      // Buscar pedidos com status "Aguardando Aprovação" diretamente do banco com JOIN
+      const reprogramacoesResult = await pool.query(`
+        SELECT 
+          o.id,
+          o.order_id as "orderId",
+          o.delivery_date as "deliveryDate",
+          o.new_delivery_date as "newDeliveryDate",
+          o.rescheduling_comment as "reschedulingComment",
+          o.created_at as "createdAt",
+          o.supplier_id as "supplierId",
+          o.purchase_order_id as "purchaseOrderId",
+          p.name as "productName",
+          o.quantity,
+          u.name as "unit",
+          c.name as "supplierName",
+          oc.numero_ordem as "purchaseOrderNumber",
+          oc_company.name as "purchaseOrderCompanyName",
+          dest_company.name as "destinationCompanyName",
+          creator.name as "requesterName"
+        FROM orders o
+        LEFT JOIN products p ON o.product_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        LEFT JOIN companies c ON o.supplier_id = c.id
+        LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+        LEFT JOIN companies oc_company ON oc.empresa_id = oc_company.id
+        LEFT JOIN companies dest_company ON oc.cnpj = dest_company.cnpj
+        LEFT JOIN users creator ON o.user_id = creator.id
+        WHERE o.status = 'Aguardando Aprovação'
+        ORDER BY o.created_at DESC
+      `);
+
+      let reprogramacoes = reprogramacoesResult.rows;
 
       console.log(`📋 Total de reprogramações encontradas: ${reprogramacoes.length}`);
 
@@ -2429,7 +2458,26 @@ Status: Teste em progresso...`;
       }
 
       console.log(`📋 Retornando ${reprogramacoes.length} reprogramações após filtros`);
-      res.json(reprogramacoes);
+      
+      // Mapear campos para o formato esperado pelo frontend
+      const mappedReprogramacoes = reprogramacoes.map((r: any) => ({
+        id: r.id,
+        orderId: r.orderId,
+        productName: r.productName,
+        unit: r.unit,
+        quantity: r.quantity,
+        supplierName: r.supplierName,
+        purchaseOrderNumber: r.purchaseOrderNumber,
+        purchaseOrderCompanyName: r.purchaseOrderCompanyName,
+        destinationCompanyName: r.destinationCompanyName,
+        originalDeliveryDate: r.deliveryDate,
+        newDeliveryDate: r.newDeliveryDate,
+        justification: r.reschedulingComment,
+        requestDate: r.createdAt,
+        requesterName: r.requesterName
+      }));
+
+      res.json(mappedReprogramacoes);
     } catch (error) {
       console.error("Erro ao buscar reprogramações:", error);
       res.status(500).json({ message: "Erro ao buscar reprogramações" });
@@ -5037,6 +5085,151 @@ Status: Teste em progresso...`;
       res.status(500).json({
         success: false,
         message: "Erro ao rejeitar pedido"
+      });
+    }
+  });
+
+  // Rota para aprovar reprogramação
+  app.put("/api/orders/:id/reprogramacao/aprovar", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`✅ Aprovando reprogramação do pedido ID: ${orderId}`);
+
+      // Buscar o pedido
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [orderId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Buscar a nova data da reprogramação
+      const newDeliveryDate = pedido.new_delivery_date;
+
+      if (!newDeliveryDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Data de reprogramação não encontrada"
+        });
+      }
+
+      // Atualizar o pedido: mudar delivery_date para new_delivery_date e status para "Programado"
+      await pool.query(
+        `UPDATE orders 
+         SET delivery_date = $1, 
+             status = 'Programado',
+             new_delivery_date = NULL,
+             rescheduling_comment = NULL
+         WHERE id = $2`,
+        [newDeliveryDate, orderId]
+      );
+
+      console.log(`✅ Pedido ${pedido.order_id} reprogramado para ${newDeliveryDate}`);
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Aprovou reprogramação",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: `Pedido ${pedido.order_id} reprogramado de ${pedido.delivery_date} para ${newDeliveryDate}`
+      });
+
+      res.json({
+        success: true,
+        message: "Reprogramação aprovada com sucesso"
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao aprovar reprogramação:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao aprovar reprogramação"
+      });
+    }
+  });
+
+  // Rota para rejeitar reprogramação
+  app.put("/api/orders/:id/reprogramacao/rejeitar", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`❌ Rejeitando reprogramação do pedido ID: ${orderId}`);
+
+      // Buscar o pedido
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [orderId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Cancelar o pedido e limpar campos de reprogramação
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Cancelado',
+             new_delivery_date = NULL,
+             rescheduling_comment = NULL
+         WHERE id = $1`,
+        [orderId]
+      );
+
+      console.log(`❌ Pedido ${pedido.order_id} cancelado (reprogramação rejeitada)`);
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Rejeitou reprogramação",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: `Pedido ${pedido.order_id} cancelado - reprogramação rejeitada`
+      });
+
+      res.json({
+        success: true,
+        message: "Reprogramação rejeitada, pedido cancelado"
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao rejeitar reprogramação:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao rejeitar reprogramação"
       });
     }
   });
