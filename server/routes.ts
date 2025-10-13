@@ -1645,7 +1645,7 @@ Status: Teste em progresso...`;
 
       // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
       if (!fileBuffer || fileBuffer.length <= 1) {
-        console.log("❌ Nenhum buffer válido foi gerado ou arquivo está vazio/corrompido");
+        console.log("❌ Nenhum buffer válido foi gerado ou arquivo está corrompido");
         return res.status(404).json({
           success: false,
           message: "Arquivo não encontrado ou está corrompido (tamanho inválido)"
@@ -3224,7 +3224,7 @@ Status: Teste em progresso...`;
           // Precisamos ler o arquivo do disco para fazer upload no Object Storage
           const buffer = fs.readFileSync(file.path);
           const filename = file.filename; // Nome gerado pelo Multer
-          
+
           // CORREÇÃO: Garantir que a chave siga o padrão orders/{orderId}/{filename}
           const storageKey = await saveFileToStorage(buffer, filename, orderId);
           console.log(`✅ ${fieldName} saved with key: ${storageKey}`);
@@ -3488,27 +3488,27 @@ Status: Teste em progresso...`;
         logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) aprovada.`;
         console.log(`UserProgressing Rescheduling for order ${pedidoId} approved.`);
 
-  // Rota específica para download da foto de confirmação
+  // Rota para fazer download da foto de confirmação
   app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
         return res.status(400).json({
           success: false,
           message: "ID de pedido inválido"
         });
       }
 
-      console.log(`UserProgressing Requesting confirmation photo download - Order ${id}`);
+      console.log(`UserProgressing Requesting confirmation photo download - Order ${pedidoId}`);
 
       // Buscar informações do pedido incluindo foto_confirmacao
       const pedidoResult = await pool.query(
         "SELECT order_id, foto_confirmacao, status FROM orders WHERE id = $1",
-        [id]
+        [pedidoId]
       );
 
       if (!pedidoResult.rows.length) {
-        console.log(`❌ Order ${id} not found`);
+        console.log(`❌ Order ${pedidoId} not found`);
         return res.status(404).json({
           success: false,
           message: "Pedido não encontrado",

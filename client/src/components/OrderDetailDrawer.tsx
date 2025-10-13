@@ -205,8 +205,8 @@ function SimpleTracker({
         {/* Seção do Mapa */}
         <div className="space-y-2">
           <div className="border rounded-lg overflow-hidden" style={{ height: '400px' }}>
-            <MapComponent 
-              lat={coordinates.lat} 
+            <MapComponent
+              lat={coordinates.lat}
               lng={coordinates.lng}
               zoom={trackingPoints.length > 0 ? 15 : 12}
             />
@@ -2502,7 +2502,7 @@ export function OrderDetailDrawer({
                                   if (!response.ok) {
                                     throw new Error('Erro ao baixar foto');
                                   }
-                                  
+
                                   const blob = await response.blob();
                                   const url = window.URL.createObjectURL(blob);
                                   const a = document.createElement('a');
@@ -2513,7 +2513,7 @@ export function OrderDetailDrawer({
                                   a.click();
                                   window.URL.revokeObjectURL(url);
                                   document.body.removeChild(a);
-                                  
+
                                   toast({
                                     title: "Download Concluído",
                                     description: "Foto baixada com sucesso",
