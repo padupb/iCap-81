@@ -2159,6 +2159,312 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Company Categories routes
+  app.get("/api/company-categories", async (req, res) => {
+    try {
+      const categories = await storage.getAllCompanyCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Erro ao buscar categorias:", error);
+      res.status(500).json({ message: "Erro ao buscar categorias" });
+    }
+  });
+
+  app.post("/api/company-categories", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const categoryData = insertCompanyCategorySchema.parse(req.body);
+      const category = await storage.createCompanyCategory(categoryData);
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Criou categoria",
+          itemType: "company_category",
+          itemId: category.id.toString(),
+          details: `Categoria ${category.name} criada`
+        });
+      }
+
+      res.json(category);
+    } catch (error) {
+      console.error("Erro ao criar categoria:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Erro de validação",
+          errors: error.errors
+        });
+      }
+      res.status(500).json({ message: "Erro ao criar categoria" });
+    }
+  });
+
+  app.put("/api/company-categories/:id", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const categoryData = insertCompanyCategorySchema.partial().parse(req.body);
+      const category = await storage.updateCompanyCategory(id, categoryData);
+
+      if (!category) {
+        return res.status(404).json({ message: "Categoria não encontrada" });
+      }
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Atualizou categoria",
+          itemType: "company_category",
+          itemId: id.toString(),
+          details: `Categoria ${category.name} atualizada`
+        });
+      }
+
+      res.json(category);
+    } catch (error) {
+      console.error("Erro ao atualizar categoria:", error);
+      res.status(500).json({ message: "Erro ao atualizar categoria" });
+    }
+  });
+
+  app.delete("/api/company-categories/:id", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const category = await storage.getCompanyCategory(id);
+      if (!category) {
+        return res.status(404).json({ message: "Categoria não encontrada" });
+      }
+
+      const deleted = await storage.deleteCompanyCategory(id);
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Excluiu categoria",
+          itemType: "company_category",
+          itemId: id.toString(),
+          details: `Categoria ${category.name} excluída`
+        });
+      }
+
+      res.json({ success: deleted });
+    } catch (error) {
+      console.error("Erro ao excluir categoria:", error);
+      res.status(500).json({ message: "Erro ao excluir categoria" });
+    }
+  });
+
+  // User Roles routes
+  app.get("/api/user-roles", async (req, res) => {
+    try {
+      const roles = await storage.getAllUserRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error("Erro ao buscar funções:", error);
+      res.status(500).json({ message: "Erro ao buscar funções" });
+    }
+  });
+
+  app.post("/api/user-roles", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const roleData = insertUserRoleSchema.parse(req.body);
+      const role = await storage.createUserRole(roleData);
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Criou função",
+          itemType: "user_role",
+          itemId: role.id.toString(),
+          details: `Função ${role.name} criada`
+        });
+      }
+
+      res.json(role);
+    } catch (error) {
+      console.error("Erro ao criar função:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Erro de validação",
+          errors: error.errors
+        });
+      }
+      res.status(500).json({ message: "Erro ao criar função" });
+    }
+  });
+
+  app.put("/api/user-roles/:id", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const roleData = insertUserRoleSchema.partial().parse(req.body);
+      const role = await storage.updateUserRole(id, roleData);
+
+      if (!role) {
+        return res.status(404).json({ message: "Função não encontrada" });
+      }
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Atualizou função",
+          itemType: "user_role",
+          itemId: id.toString(),
+          details: `Função ${role.name} atualizada`
+        });
+      }
+
+      res.json(role);
+    } catch (error) {
+      console.error("Erro ao atualizar função:", error);
+      res.status(500).json({ message: "Erro ao atualizar função" });
+    }
+  });
+
+  app.delete("/api/user-roles/:id", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const role = await storage.getUserRole(id);
+      if (!role) {
+        return res.status(404).json({ message: "Função não encontrada" });
+      }
+
+      const deleted = await storage.deleteUserRole(id);
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Excluiu função",
+          itemType: "user_role",
+          itemId: id.toString(),
+          details: `Função ${role.name} excluída`
+        });
+      }
+
+      res.json({ success: deleted });
+    } catch (error) {
+      console.error("Erro ao excluir função:", error);
+      res.status(500).json({ message: "Erro ao excluir função" });
+    }
+  });
+
+  // Units routes
+  app.get("/api/units", async (req, res) => {
+    try {
+      const units = await storage.getAllUnits();
+      res.json(units);
+    } catch (error) {
+      console.error("Erro ao buscar unidades:", error);
+      res.status(500).json({ message: "Erro ao buscar unidades" });
+    }
+  });
+
+  app.post("/api/units", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const unitData = insertUnitSchema.parse(req.body);
+      const unit = await storage.createUnit(unitData);
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Criou unidade",
+          itemType: "unit",
+          itemId: unit.id.toString(),
+          details: `Unidade ${unit.name} criada`
+        });
+      }
+
+      res.json(unit);
+    } catch (error) {
+      console.error("Erro ao criar unidade:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Erro de validação",
+          errors: error.errors
+        });
+      }
+      res.status(500).json({ message: "Erro ao criar unidade" });
+    }
+  });
+
+  app.put("/api/units/:id", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const unitData = insertUnitSchema.partial().parse(req.body);
+      const unit = await storage.updateUnit(id, unitData);
+
+      if (!unit) {
+        return res.status(404).json({ message: "Unidade não encontrada" });
+      }
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Atualizou unidade",
+          itemType: "unit",
+          itemId: id.toString(),
+          details: `Unidade ${unit.name} atualizada`
+        });
+      }
+
+      res.json(unit);
+    } catch (error) {
+      console.error("Erro ao atualizar unidade:", error);
+      res.status(500).json({ message: "Erro ao atualizar unidade" });
+    }
+  });
+
+  app.delete("/api/units/:id", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const unit = await storage.getUnit(id);
+      if (!unit) {
+        return res.status(404).json({ message: "Unidade não encontrada" });
+      }
+
+      const deleted = await storage.deleteUnit(id);
+
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Excluiu unidade",
+          itemType: "unit",
+          itemId: id.toString(),
+          details: `Unidade ${unit.name} excluída`
+        });
+      }
+
+      res.json({ success: deleted });
+    } catch (error) {
+      console.error("Erro ao excluir unidade:", error);
+      res.status(500).json({ message: "Erro ao excluir unidade" });
+    }
+  });
+
   // Products routes
   app.get("/api/products", async (req, res) => {
     try {

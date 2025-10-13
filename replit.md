@@ -50,6 +50,13 @@ Sistema completo de gestão logística desenvolvido em React + Node.js/Express, 
    - KeyUser: ID 1-5 (acesso total)
    - Mobile auth via Bearer token
 
+6. **Gestão de Categorias, Funções e Unidades (KeyUser)**
+   - Categorias de Empresa: `GET/POST/PUT/DELETE /api/company-categories`
+   - Funções de Usuário: `GET/POST/PUT/DELETE /api/user-roles`
+   - Unidades de Medida: `GET/POST/PUT/DELETE /api/units`
+   - Todos os dados são buscados do banco via Drizzle ORM
+   - Endpoints protegidos por `isKeyUser` (exceto GET)
+
 ## Estrutura de Pastas
 
 ```
@@ -196,7 +203,15 @@ npm run db:push --force  # Força sincronização (com warnings)
 
 ## Mudanças Recentes
 
-### 13/10/2025 - Noite
+### 13/10/2025 - Noite (Parte 2)
+- ✅ Criados endpoints CRUD para Categorias: `/api/company-categories` (GET/POST/PUT/DELETE)
+- ✅ Criados endpoints CRUD para Funções: `/api/user-roles` (GET/POST/PUT/DELETE)
+- ✅ Criados endpoints CRUD para Unidades: `/api/units` (GET/POST/PUT/DELETE)
+- ✅ Todos os dados são buscados do banco via Drizzle ORM
+- ✅ Endpoints POST/PUT/DELETE protegidos por middleware `isKeyUser`
+- ✅ Menu keyuser atualizado: removida aba "API Keys" e seções desnecessárias
+
+### 13/10/2025 - Noite (Parte 1)
 - ✅ Implementado extração automática de quantidade do XML da NF-e
 - ✅ Instalada biblioteca fast-xml-parser para parsing de XML
 - ✅ Criada função extractQuantityFromXML() para processar NF-e
