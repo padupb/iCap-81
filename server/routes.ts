@@ -3812,6 +3812,7 @@ Status: Teste em progresso...`;
         }
 
         const documentosInfo: Record<string, any> = {};
+        let xmlQuantityData: { quantity: number; productInfo: any } | null = null;
 
         // Processar cada arquivo recebido
         for (const [fieldName, fileArray] of Object.entries(files)) {
@@ -3822,6 +3823,19 @@ Status: Teste em progresso...`;
             try {
               // Ler o arquivo do disco
               const fileBuffer = fs.readFileSync(file.path);
+
+              // Se for XML da nota fiscal, extrair quantidade
+              if (fieldName === 'nota_xml') {
+                console.log(`📊 Processando XML da NF-e para extrair quantidade...`);
+                xmlQuantityData = extractQuantityFromXML(fileBuffer);
+                
+                if (xmlQuantityData) {
+                  console.log(`✅ Quantidade extraída: ${xmlQuantityData.quantity}`);
+                  console.log(`📦 Produto: ${xmlQuantityData.productInfo.name || 'N/A'}`);
+                } else {
+                  console.log(`⚠️ Não foi possível extrair quantidade do XML`);
+                }
+              }
 
               // Salvar no Object Storage
               const storageKey = await saveFileToStorage(
@@ -3871,19 +3885,75 @@ Status: Teste em progresso...`;
 
         console.log(`✅ Pedido ${orderId} atualizado com documentos carregados`);
 
+        // Se extraiu quantidade do XML, atualizar o pedido
+        let quantityUpdateMessage = '';
+        if (xmlQuantityData && xmlQuantityData.quantity > 0) {
+          try {
+            // Buscar quantidade atual do pedido
+            const currentOrderResult = await pool.query(
+              'SELECT quantity, product_id FROM orders WHERE id = $1',
+              [id]
+            );
+
+            if (currentOrderResult.rows.length > 0) {
+              const currentQuantity = parseFloat(currentOrderResult.rows[0].quantity);
+              const newQuantity = xmlQuantityData.quantity;
+
+              console.log(`📊 Atualizando quantidade do pedido:`);
+              console.log(`   Quantidade atual: ${currentQuantity}`);
+              console.log(`   Quantidade do XML: ${newQuantity}`);
+
+              // Atualizar quantidade do pedido
+              await pool.query(
+                'UPDATE orders SET quantity = $1 WHERE id = $2',
+                [newQuantity, id]
+              );
+
+              console.log(`✅ Quantidade do pedido atualizada com sucesso!`);
+
+              // Registrar log específico da correção de quantidade
+              await storage.createLog({
+                userId: req.session.userId || 0,
+                action: "Correção de quantidade via XML",
+                itemType: "order",
+                itemId: id.toString(),
+                details: JSON.stringify({
+                  pedido: orderId,
+                  quantidadeAnterior: currentQuantity,
+                  quantidadeNova: newQuantity,
+                  diferenca: newQuantity - currentQuantity,
+                  produtoXML: xmlQuantityData.productInfo.name,
+                  codigoProdutoXML: xmlQuantityData.productInfo.code
+                })
+              });
+
+              quantityUpdateMessage = ` | Quantidade atualizada: ${currentQuantity} → ${newQuantity}`;
+            }
+          } catch (quantityError) {
+            const error = quantityError instanceof Error ? quantityError : new Error(String(quantityError));
+            console.error(`⚠️ Erro ao atualizar quantidade do pedido:`, error.message);
+            // Não falhar o upload por causa disso, apenas logar
+            quantityUpdateMessage = ` | Aviso: Não foi possível atualizar quantidade automaticamente`;
+          }
+        }
+
         // Registrar no log do sistema
         await storage.createLog({
           userId: req.session.userId || 0,
           action: "Upload de documentos",
           itemType: "order",
           itemId: id.toString(),
-          details: `Documentos carregados para o pedido ${orderId}: ${Object.keys(documentosInfo).join(', ')}`
+          details: `Documentos carregados para o pedido ${orderId}: ${Object.keys(documentosInfo).join(', ')}${quantityUpdateMessage}`
         });
 
         res.status(200).json({
           success: true,
-          message: "Documentos enviados com sucesso",
-          documentos: documentosInfo
+          message: "Documentos enviados com sucesso" + quantityUpdateMessage,
+          documentos: documentosInfo,
+          quantityUpdated: xmlQuantityData ? {
+            extracted: xmlQuantityData.quantity,
+            productInfo: xmlQuantityData.productInfo
+          } : null
         });
 
       } catch (error) {
