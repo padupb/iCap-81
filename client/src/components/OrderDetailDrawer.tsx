@@ -1842,48 +1842,7 @@ export function OrderDetailDrawer({
                         );
                       })()}
 
-                      {/* Botão de Cancelamento (somente se permitido) */}
-                      {(() => {
-                        const canCancel =
-                          orderDetails.status !== "Cancelado" &&
-                          orderDetails.status !== "Entregue" &&
-                          orderDetails.quantidade !== 0;
-
-                        // Verificar se já tem documentos
-                        const hasDocuments = documentsLoaded || orderDetails.status === "Carregado";
-
-                        // Se já tem documentos, não pode cancelar
-                        if (hasDocuments) {
-                          return null;
-                        }
-
-                        // Verificar antecedência (pelo menos 3 dias)
-                        const deliveryDate = new Date(orderDetails.deliveryDate);
-                        deliveryDate.setHours(0, 0, 0, 0);
-
-                        const now = new Date();
-                        now.setHours(0, 0, 0, 0);
-
-                        const diffTime = deliveryDate.getTime() - now.getTime();
-                        // Usar Math.floor para contar apenas dias completos
-                        const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
-
-                        // Permitir cancelar se tiver 3 ou mais dias COMPLETOS de antecedência
-                        if (canCancel && diffDays >= 3) {
-                          return (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setIsCancelDialogOpen(true)}
-                              className="mt-6 w-full"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Cancelar Pedido ({diffDays} dias de antecedência)
-                            </Button>
-                          );
-                        }
-                        return null;
-                      })()}
+                      
                     </div>
                   </div>
 
