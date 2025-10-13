@@ -92,6 +92,10 @@ export const orders = pgTable("orders", {
   documentosCarregados: boolean("documentos_carregados").default(false),
   documentosInfo: text("documentos_info"), // JSON com informações dos documentos
   numeroPedido: text("numero_pedido"), // Número do pedido quando confirmationType = 'numero_pedido'
+  
+  // Campos para reprogramação de entrega
+  newDeliveryDate: timestamp("new_delivery_date"),
+  reschedulingComment: text("rescheduling_comment"),
 });
 
 // Purchase orders table
