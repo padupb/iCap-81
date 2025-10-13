@@ -802,7 +802,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
           companyId: user.companyId,
           roleId: user.roleId,
           permissions: user.role ? user.role.permissions || [] : [],
-          isKeyUser: user.id === 1, // Assumendo que o usuário com ID 1 é o KeyUser
+          isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
           canCreatePurchaseOrder: user.canCreatePurchaseOrder
@@ -1106,7 +1106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("✅ Usando userId:", finalUserId);
 
-      if (!newPassword || newPassword.trim() === "") {
+      if (!newPassword || !newPassword.trim()) {
         console.log("❌ Nova senha não fornecida");
         return res.status(400).json({
           success: false,
@@ -1114,7 +1114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (!confirmPassword || confirmPassword.trim() === "") {
+      if (!confirmPassword || !confirmPassword.trim()) {
         console.log("❌ Confirmação de senha não fornecida");
         return res.status(400).json({
           success: false,
@@ -3454,7 +3454,7 @@ Status: Teste em progresso...`;
 
       // Buscar informações do pedido incluindo documentos_info
       const pedidoResult = await pool.query(
-        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+        "SELECT order_id FROM orders WHERE id = $1",
         [id]
       );
 
@@ -3470,26 +3470,34 @@ Status: Teste em progresso...`;
       console.log(`🔍 Buscando documento ${tipo} para pedido: ${orderId}`);
 
       // PRIORIDADE 1: Tentar buscar do documentos_info (Object Storage)
-      if (pedido.documentos_info) {
+      // Esta rota parece estar desvinculada do upload de documentos.
+      // A informação de documentos está em `documentos_info` (JSONB)
+      // Precisamos buscar essa informação primeiro.
+      // Assumindo que a informação está diretamente no pedido ou precisa ser buscada separadamente.
+      // Se a informação está em `documentos_info`, a lógica abaixo está correta.
+      const docInfoResult = await pool.query(`SELECT documentos_info FROM orders WHERE id = $1`, [id]);
+      const documentos_info = docInfoResult.rows.length > 0 ? docInfoResult.rows[0].documentos_info : null;
+
+      if (documentos_info) {
         try {
-          const documentosInfo = typeof pedido.documentos_info === 'string'
-            ? JSON.parse(pedido.documentos_info)
-            : pedido.documentos_info;
+          const docInfo = typeof documentos_info === 'string'
+            ? JSON.parse(documentos_info)
+            : documentos_info;
 
-          console.log(`📊 Informações de documentos encontradas:`, documentosInfo);
+          console.log(`📊 Informações de documentos encontradas:`, docInfo);
 
-          const docInfo = documentosInfo[tipo];
-          if (docInfo) {
+          const docDetail = docInfo[tipo]; // docDetail pode ser a string da storageKey ou um objeto { storageKey, filename }
+          if (docDetail) {
             // Suportar tanto o formato antigo (string) quanto o novo (objeto)
-            const storageKey = typeof docInfo === 'string' ? docInfo : docInfo.storageKey;
-            const filename = typeof docInfo === 'string' ? null : docInfo.filename;
+            const storageKey = typeof docDetail === 'string' ? docDetail : docDetail.storageKey;
+            const filename = typeof docDetail === 'string' ? null : docDetail.filename;
 
             if (storageKey) {
               console.log(`📂 Tentando acessar documento usando storageKey: ${storageKey}`);
 
               const fileResult = await readFileFromStorage(
                 storageKey,
-                id.toString(),
+                id.toString(), // Usando o ID do pedido em `orders` como orderId
                 filename || `${tipo}.${tipo.includes('xml') ? 'xml' : tipo.includes('pdf') ? 'pdf' : 'jpg'}`
               );
 
@@ -3516,7 +3524,8 @@ Status: Teste em progresso...`;
                   } else if (tipo.includes('xml')) {
                     contentType = 'application/xml';
                   } else if (tipo.includes('foto')) {
-                    contentType = docInfo.mimetype || 'image/jpeg';
+                    // Tentar obter mimetype do docDetail se disponível, senão usar um padrão
+                    contentType = docDetail.mimetype || (originalName.endsWith('.png') ? 'image/png' : 'image/jpeg');
                   }
 
                   res.setHeader("Content-Type", contentType);
@@ -3766,35 +3775,67 @@ Status: Teste em progresso...`;
           });
         }
 
-        // Atualizar o pedido no banco de dados
+        // FUNCIONALIDADE: Ler quantidade do XML e atualizar pedido
+        let quantidadeXml = null;
+
+        if (files.nota_xml && files.nota_xml[0]) {
+          try {
+            console.log(`📄 Lendo XML para extrair quantidade...`);
+            const xmlContent = files.nota_xml[0].buffer.toString('utf-8');
+
+            // Buscar tag <qCom> no XML (quantidade comercial)
+            const qComMatch = xmlContent.match(/<qCom>([\d.,]+)<\/qCom>/);
+
+            if (qComMatch && qComMatch[1]) {
+              // Converter para número (substituir vírgula por ponto)
+              quantidadeXml = parseFloat(qComMatch[1].replace(',', '.'));
+              console.log(`📊 Quantidade extraída do XML: ${quantidadeXml}`);
+
+              // Atualizar a quantidade no pedido
+              await pool.query(
+                `UPDATE orders SET quantity = $1 WHERE id = $2`,
+                [quantidadeXml, id] // Usar o ID do pedido (req.params.id)
+              );
+
+              console.log(`✅ Quantidade do pedido atualizada para: ${quantidadeXml}`);
+            } else {
+              console.log(`⚠️ Tag <qCom> não encontrada no XML`);
+            }
+          } catch (xmlError) {
+            const err = xmlError instanceof Error ? xmlError : new Error(String(xmlError));
+            console.error(`⚠️ Erro ao processar XML:`, err.message);
+            // Não falhar o upload por causa deste erro, apenas logar
+          }
+        }
+
+        // Atualizar o pedido com as informações dos documentos
         await pool.query(
-          'UPDATE orders SET status = $1, documentoscarregados = $2, documentos_info = $3 WHERE id = $4',
-          ['Carregado', true, JSON.stringify(documentosInfo), id]
+          `UPDATE orders 
+           SET documentos_carregados = true,
+               documentos_info = $1,
+               status = CASE 
+                 WHEN status = 'Registrado' THEN 'Carregado'
+                 ELSE status
+               END
+           WHERE id = $2`,
+          [JSON.stringify(documentosInfo), id]
         );
 
-        console.log(`✅ Pedido ${orderId} atualizado com documentos carregados`);
+        console.log(`✅ Informações dos documentos salvas no banco de dados`);
 
-        // Registrar no log do sistema
-        await storage.createLog({
-          userId: req.session.userId || 0,
-          action: "Upload de documentos",
-          itemType: "order",
-          itemId: id.toString(),
-          details: `Documentos carregados para o pedido ${orderId}: ${Object.keys(documentosInfo).join(', ')}`
-        });
-
-        res.status(200).json({
-          success: true,
-          message: "Documentos enviados com sucesso",
-          documentos: documentosInfo
+        res.json({
+          sucesso: true,
+          mensagem: "Documentos enviados com sucesso" + (quantidadeXml ? ` - Quantidade atualizada para ${quantidadeXml}` : ""),
+          documentos: documentosInfo,
+          quantidadeAtualizada: quantidadeXml
         });
 
       } catch (error) {
-        console.error("❌ Erro no upload de documentos:", error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error("Erro ao fazer upload de documentos:", err);
         res.status(500).json({
-          success: false,
-          message: "Erro ao processar o upload de documentos",
-          error: error instanceof Error ? error.message : "Erro desconhecido"
+          sucesso: false,
+          mensagem: `Erro ao fazer upload: ${err.message}`
         });
       }
     }
@@ -4021,7 +4062,7 @@ Status: Teste em progresso...`;
       // Atualizar pedido com nova data e justificativa (usando nomes corretos das colunas em português)
       await pool.query(
         `UPDATE orders 
-         SET nova_data_entrega = $1, 
+         SET nova_data_entrega = $1,
              justificativa_reprogramacao = $2,
              data_solicitacao_reprogramacao = NOW(),
              usuario_reprogramacao = $3,
@@ -5303,6 +5344,391 @@ Status: Teste em progresso...`;
       res.status(500).json({
         success: false,
         message: "Erro ao rejeitar reprogramação"
+      });
+    }
+  });
+
+  // Rota para download da foto de confirmação
+  app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`📸 Download foto de confirmação - Pedido ${id}`);
+
+      // Buscar informações do pedido incluindo foto_confirmacao
+      const pedidoResult = await pool.query(
+        "SELECT order_id, foto_confirmacao, status FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!pedidoResult.rows.length) {
+        console.log(`❌ Pedido ${id} não encontrado`);
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado",
+          hasFoto: false
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      if (!pedido.foto_confirmacao) {
+        console.log(`⚠️ Pedido ${pedido.order_id} não possui foto de confirmação`);
+        return res.status(404).json({
+          success: false,
+          message: "Este pedido ainda não possui foto de confirmação de entrega",
+          hasFoto: false
+        });
+      }
+
+      // Parse do JSON da foto_confirmacao
+      const fotoInfo = typeof pedido.foto_confirmacao === 'string'
+        ? JSON.parse(pedido.foto_confirmacao)
+        : pedido.foto_confirmacao;
+
+      if (!fotoInfo || !fotoInfo.storageKey) {
+        console.log(`⚠️ Informações incompletas da foto`);
+        return res.status(404).json({
+          success: false,
+          message: "Informações da foto incompletas",
+          hasFoto: false
+        });
+      }
+
+      const { storageKey, originalName, mimetype } = fotoInfo;
+      console.log(`🔍 Buscando foto: ${storageKey} (${originalName})`);
+
+      // Calcular a chave correta para o Object Storage
+      // A chave deve ser baseada no order_id (código do pedido), não no ID interno
+      const orderId = pedido.order_id;
+      const correctStorageKey = storageKey.replace(/^[^/]+\//, `${orderId}/`); // Substitui o primeiro segmento da chave se não for orderId/
+
+      // Tentar ler do Object Storage usando a chave corrigida
+      const fileResult = await readFileFromStorage(
+        correctStorageKey,
+        orderId, // Passar o order_id para a função
+        originalName
+      );
+
+      if (!fileResult) {
+        console.log(`❌ Foto não encontrada no storage com a chave ${correctStorageKey}`);
+        // Tentar com a chave original caso a correção tenha falhado
+        const originalFileResult = await readFileFromStorage(
+          storageKey,
+          id.toString(), // Usar o ID interno aqui se a chave original for diferente
+          originalName
+        );
+        if (!originalFileResult) {
+          console.log(`❌ Foto não encontrada no storage com a chave original também.`);
+          return res.status(404).json({
+            success: false,
+            message: "Foto não encontrada no storage",
+            hasFoto: false
+          });
+        }
+        // Se encontrou com a chave original, usar esse resultado
+        const { data: fileBuffer, originalName: fileName } = originalFileResult;
+        console.log(`✅ Foto recuperada com a chave original: ${storageKey} (${fileBuffer.length} bytes)`);
+
+        // Verificar se é redirect para Google Drive
+        if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+          const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+          console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+          return res.redirect(302, driveLink);
+        }
+
+        // Verificar tamanho mínimo
+        if (fileBuffer.length <= 1) {
+          console.log(`❌ Arquivo muito pequeno: ${fileBuffer.length} bytes`);
+          return res.status(404).json({
+            success: false,
+            message: "Arquivo corrompido",
+            hasFoto: false
+          });
+        }
+
+        console.log(`✅ Foto recuperada: ${fileBuffer.length} bytes - ${fileName}`);
+
+        // Determinar Content-Type
+        const contentType = mimetype || (fileName.endsWith('.png') ? 'image/png' : 'image/jpeg');
+
+        // Configurar headers para download
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Length', fileBuffer.length);
+        res.setHeader('Cache-Control', 'no-cache');
+
+        // Enviar o arquivo
+        return res.end(fileBuffer);
+
+      } else {
+        const { data: fileBuffer, originalName: fileName } = fileResult;
+
+        // Verificar se é redirect para Google Drive
+        if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+          const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+          console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+          return res.redirect(302, driveLink);
+        }
+
+        // Verificar tamanho mínimo
+        if (fileBuffer.length <= 1) {
+          console.log(`❌ Arquivo muito pequeno: ${fileBuffer.length} bytes`);
+          return res.status(404).json({
+            success: false,
+            message: "Arquivo corrompido",
+            hasFoto: false
+          });
+        }
+
+        console.log(`✅ Foto recuperada: ${fileBuffer.length} bytes - ${fileName}`);
+
+        // Determinar Content-Type
+        const contentType = mimetype || (fileName.endsWith('.png') ? 'image/png' : 'image/jpeg');
+
+        // Configurar headers para download
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Length', fileBuffer.length);
+        res.setHeader('Cache-Control', 'no-cache');
+
+        // Enviar o arquivo
+        return res.end(fileBuffer);
+      }
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar foto de confirmação:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar foto de confirmação",
+        hasFoto: false
+      });
+    }
+  });
+
+  // Rota para confirmar entrega de pedido COM FOTO (usado pelo frontend)
+  app.post("/api/pedidos/:id/confirmar", isAuthenticated, uploadFotoConfirmacao.single('fotoNotaAssinada'), async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const quantidadeRecebida = req.body.quantidadeRecebida;
+      const foto = req.file;
+
+      console.log(`✅ Recebida confirmação de entrega para pedido:`, {
+        pedidoId,
+        quantidadeRecebida,
+        temFoto: !!foto
+      });
+
+      // Validações
+      if (!quantidadeRecebida || isNaN(parseFloat(quantidadeRecebida))) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Quantidade recebida inválida."
+        });
+      }
+
+      if (!foto) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Foto da nota fiscal assinada é obrigatória."
+        });
+      }
+
+      const entregueFloat = parseFloat(quantidadeRecebida);
+
+      // Buscar informações do pedido original
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name, p.confirmation_type, ioc.quantidade as quantidade_ordem_compra
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         LEFT JOIN itens_ordem_compra ioc ON o.purchase_order_id = ioc.ordem_compra_id AND o.product_id = ioc.produto_id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Verificar se o usuário tem permissão para confirmar entrega
+      const hasConfirmPermission = req.user.canConfirmDelivery || req.user.isKeyUser;
+      if (!hasConfirmPermission) {
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Você não tem permissão para confirmar entregas."
+        });
+      }
+
+      // Validar se a quantidade entregue excede a quantidade pedida
+      if (pedido.quantidade_ordem_compra !== null && entregueFloat > parseFloat(pedido.quantidade_ordem_compra)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `A quantidade entregue (${entregueFloat}) excede a quantidade pedida na ordem de compra (${parseFloat(pedido.quantidade_ordem_compra)}).`
+        });
+      }
+
+      // Upload da foto para Object Storage usando saveFileToStorage
+      const timestamp = Date.now();
+      const fotoFilename = `foto-nota-assinada-${timestamp}.${foto.mimetype === 'image/png' ? 'png' : 'jpg'}`;
+
+      console.log(`📤 Fazendo upload da foto para Object Storage...`);
+      console.log(`📋 Código do pedido (order_id): ${pedido.order_id}`);
+
+      let fotoStorageKey;
+      try {
+        // CORREÇÃO: Usar order_id (código) em vez de id (número) do pedido
+        fotoStorageKey = await saveFileToStorage(
+          foto.buffer,
+          fotoFilename,
+          pedido.order_id
+        );
+        console.log(`✅ Foto salva com sucesso no Object Storage: ${fotoStorageKey}`);
+      } catch (uploadError) {
+        const error = uploadError instanceof Error ? uploadError : new Error(String(uploadError));
+        console.error('❌ Erro ao fazer upload da foto:', error);
+        return res.status(500).json({
+          sucesso: false,
+          mensagem: `Erro ao salvar a foto: ${error.message}`
+        });
+      }
+
+      // Atualizar foto_confirmacao (JSONB) com a foto e quantidade confirmada
+      const fotoConfirmacao = {
+        storageKey: fotoStorageKey,
+        filename: fotoFilename,
+        originalName: foto.originalname,
+        size: foto.size,
+        mimetype: foto.mimetype,
+        uploadDate: new Date().toISOString(),
+        quantidadeConfirmada: entregueFloat // Adicionar quantidade confirmada
+      };
+
+      // Atualizar o status do pedido e salvar foto_confirmacao
+      await pool.query(
+        `UPDATE orders
+         SET status = 'Entregue', foto_confirmacao = $1
+         WHERE id = $2`,
+        [JSON.stringify(fotoConfirmacao), pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Confirmou entrega de pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Entrega do pedido ${pedido.order_id} (${pedido.product_name}) confirmada. Quantidade recebida: ${entregueFloat}. Foto salva no Object Storage.`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Entrega confirmada com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao confirmar entrega:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao confirmar a entrega."
+      });
+    }
+  });
+
+  // Rota para confirmar entrega de pedido SEM FOTO (legado)
+  app.post("/api/pedidos/:id/confirmar-entrega", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { quantidadeEntregue } = req.body;
+
+      console.log(`✅ Recebida confirmação de entrega para pedido:`, {
+        pedidoId,
+        quantidadeEntregue
+      });
+
+      // Validações
+      if (quantidadeEntregue === undefined || isNaN(parseFloat(quantidadeEntregue))) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Quantidade entregue inválida."
+        });
+      }
+
+      const entregueFloat = parseFloat(quantidadeEntregue);
+
+      // Buscar informações do pedido original para histórico e validação de saldo
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name, p.confirmation_type, ioc.quantidade as quantidade_ordem_compra
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         LEFT JOIN itens_ordem_compra ioc ON o.purchase_order_id = ioc.ordem_compra_id AND o.product_id = ioc.produto_id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Verificar se o usuário tem permissão para confirmar entrega
+      const hasConfirmPermission = req.user.canConfirmDelivery || req.user.isKeyUser;
+      if (!hasConfirmPermission) {
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Você não tem permissão para confirmar entregas."
+        });
+      }
+
+      // Validar se a quantidade entregue excede a quantidade pedida (se houver item na OC)
+      if (pedido.quantidade_ordem_compra !== null && entregueFloat > parseFloat(pedido.quantidade_ordem_compra)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `A quantidade entregue (${entregueFloat}) excede a quantidade pedida na ordem de compra (${parseFloat(pedido.quantidade_ordem_compra)}).`
+        });
+      }
+
+      // Atualizar o status do pedido e a quantidade entregue
+      await pool.query(
+        `UPDATE orders
+         SET status = 'Entregue', delivered_quantity = $1
+         WHERE id = $2`,
+        [entregueFloat, pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Confirmou entrega de pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Entrega do pedido ${pedido.order_id} (${pedido.product_name}) confirmada. Quantidade: ${entregueFloat}.`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Entrega confirmada com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao confirmar entrega:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao confirmar a entrega."
       });
     }
   });
