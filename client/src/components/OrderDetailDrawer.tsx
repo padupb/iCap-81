@@ -1111,41 +1111,20 @@ export function OrderDetailDrawer({
 
     try {
       console.log(`📥 Iniciando download de ${docType} para pedido ${orderId}`);
-      const response = await fetch(`/api/pedidos/${orderId}/documentos/${docType}`);
-
-      if (!response.ok) {
-        throw new Error(`Erro ao baixar documento: ${response.statusText}`);
-      }
-
-      // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = defaultFilename;
-
-      if (contentDisposition) {
-        const matches = contentDisposition.match(/filename="(.+)"/);
-        if (matches && matches[1]) {
-          filename = matches[1];
-        }
-      }
-
-      // Converter resposta para blob
-      const blob = await response.blob();
-
-      // Criar URL temporária e baixar
-      const url = window.URL.createObjectURL(blob);
+      
+      // Criar um link direto para download
+      const downloadUrl = `/api/pedidos/${orderId}/documentos/${docType}`;
       const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
+      link.href = downloadUrl;
+      link.download = defaultFilename;
+      link.target = '_blank';
       document.body.appendChild(link);
       link.click();
-
-      // Limpar
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
 
       toast({
-        title: "Download concluído",
-        description: `Arquivo ${filename} baixado com sucesso`,
+        title: "Download iniciado",
+        description: `Baixando ${defaultFilename}...`,
       });
 
     } catch (error) {
@@ -2120,49 +2099,55 @@ export function OrderDetailDrawer({
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                            <div className="p-4 border rounded-lg flex flex-col items-center">
+                            <div className="p-4 border rounded-lg flex flex-col items-center space-y-2">
+                              <FileText className="w-8 h-8 text-primary" />
+                              <p className="font-medium text-center">
+                                Nota Fiscal (PDF)
+                              </p>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDownloadDocument('nota_pdf', 'Nota_Fiscal.pdf')}
+                                className="w-full"
                                 title="Clique para baixar a Nota Fiscal (PDF)"
                               >
                                 <Download className="w-4 h-4 mr-2" />
                                 Baixar PDF
                               </Button>
-                              <p className="font-medium text-center mt-2">
-                                Nota Fiscal (PDF)
-                              </p>
                             </div>
 
-                            <div className="p-4 border rounded-lg flex flex-col items-center">
+                            <div className="p-4 border rounded-lg flex flex-col items-center space-y-2">
+                              <FileText className="w-8 h-8 text-green-600" />
+                              <p className="font-medium text-center">
+                                Nota Fiscal (XML)
+                              </p>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDownloadDocument('nota_xml', 'Nota_Fiscal.xml')}
+                                className="w-full"
                                 title="Clique para baixar a Nota Fiscal (XML)"
                               >
                                 <Download className="w-4 h-4 mr-2" />
                                 Baixar XML
                               </Button>
-                              <p className="font-medium text-center mt-2">
-                                Nota Fiscal (XML)
-                              </p>
                             </div>
 
-                            <div className="p-4 border rounded-lg flex flex-col items-center">
+                            <div className="p-4 border rounded-lg flex flex-col items-center space-y-2">
+                              <FileCheck className="w-8 h-8 text-blue-600" />
+                              <p className="font-medium text-center">
+                                Certificado (PDF)
+                              </p>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDownloadDocument('certificado_pdf', 'Certificado.pdf')}
+                                className="w-full"
                                 title="Clique para baixar o Certificado (PDF)"
                               >
                                 <Download className="w-4 h-4 mr-2" />
                                 Baixar PDF
                               </Button>
-                              <p className="font-medium text-center mt-2">
-                                Certificado (PDF)
-                              </p>
                             </div>
                           </div>
                         </div>
