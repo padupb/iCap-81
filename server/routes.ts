@@ -3817,218 +3817,9 @@ Status: Teste em progresso...`;
       let logMessage: string;
 
       if (aprovado) {
-        novoStatus = "Aguardando Envio"; // Ou outro status apropriado após aprovação
+        novoStatus = "Aguardando Envio";
         logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) aprovada.`;
         console.log(`✅ Reprogramação do pedido ${pedidoId} aprovada.`);
-
-  // Rota específica para download da foto de confirmação
-  app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "ID de pedido inválido"
-        });
-      }
-
-      console.log(`📸 Solicitação de download da foto de confirmação - Pedido ${id}`);
-
-      // Buscar informações do pedido incluindo foto_confirmacao
-      const pedidoResult = await pool.query(
-        "SELECT order_id, foto_confirmacao, status FROM orders WHERE id = $1",
-        [id]
-      );
-
-      if (!pedidoResult.rows.length) {
-        console.log(`❌ Pedido ${id} não encontrado`);
-        return res.status(404).json({
-          success: false,
-          message: "Pedido não encontrado",
-          hasFoto: false
-        });
-      }
-
-      const pedido = pedidoResult.rows[0];
-      console.log(`📋 Pedido ${pedido.order_id} - Status: ${pedido.status}`);
-
-      if (!pedido.foto_confirmacao) {
-        console.log(`⚠️ Pedido ${pedido.order_id} não possui foto de confirmação`);
-        return res.status(404).json({
-          success: false,
-          message: "Este pedido ainda não possui foto de confirmação de entrega",
-          hasFoto: false
-        });
-      }
-
-      // Parse do JSON da foto_confirmacao
-      const fotoInfo = typeof pedido.foto_confirmacao === 'string'
-        ? JSON.parse(pedido.foto_confirmacao)
-        : pedido.foto_confirmacao;
-
-      if (!fotoInfo || !fotoInfo.storageKey) {
-        console.log(`⚠️ Informações incompletas da foto do pedido ${pedido.order_id}`);
-        return res.status(404).json({
-          success: false,
-          message: "Informações da foto de confirmação incompletas",
-          hasFoto: false
-        });
-      }
-
-      const { storageKey, originalName, mimetype } = fotoInfo;
-      console.log(`🔍 Buscando foto: ${storageKey}`);
-
-      // Download direto do Object Storage para imagens
-      if (!objectStorageAvailable || !objectStorage) {
-        console.log(`❌ Object Storage não disponível`);
-        return res.status(500).json({
-          success: false,
-          message: "Object Storage não disponível"
-        });
-      }
-
-      let imageBuffer = null;
-
-      try {
-        console.log(`📥 Fazendo download do Object Storage: ${storageKey}`);
-        const downloadResult = await objectStorage.downloadAsBytes(storageKey);
-
-        console.log(`📊 Resultado do download:`, {
-          tipo: typeof downloadResult,
-          isBuffer: downloadResult instanceof Buffer,
-          isUint8Array: downloadResult instanceof Uint8Array,
-          isArray: Array.isArray(downloadResult),
-          hasOk: downloadResult && typeof downloadResult === 'object' && 'ok' in downloadResult,
-          hasValue: downloadResult && typeof downloadResult === 'object' && 'value' in downloadResult,
-          keys: downloadResult && typeof downloadResult === 'object' ? Object.keys(downloadResult) : []
-        });
-
-        // Processar resultado do Replit Object Storage
-        if (downloadResult && typeof downloadResult === 'object' && 'ok' in downloadResult) {
-          // Result wrapper do Replit
-          console.log(`🎯 Result wrapper detectado - Status: ${downloadResult.ok}`);
-
-          if (!downloadResult.ok) {
-            console.log(`❌ Download falhou: ${downloadResult.error || 'erro desconhecido'}`);
-            throw new Error(`Download falhou: ${downloadResult.error || 'erro desconhecido'}`);
-          }
-
-          const valueData = downloadResult.value;
-
-          console.log(`🔍 Tipo de valueData:`, {
-            tipo: typeof valueData,
-            isBuffer: valueData instanceof Buffer,
-            isUint8Array: valueData instanceof Uint8Array,
-            isArray: Array.isArray(valueData),
-            length: valueData?.length,
-            arrayLength: Array.isArray(valueData) ? valueData.length : 'N/A',
-            firstElementType: Array.isArray(valueData) && valueData.length > 0 ? typeof valueData[0] : 'N/A',
-            firstElementIsBuffer: Array.isArray(valueData) && valueData.length > 0 ? valueData[0] instanceof Buffer : false,
-            firstElementIsUint8Array: Array.isArray(valueData) && valueData.length > 0 ? valueData[0] instanceof Uint8Array : false,
-            firstElementLength: Array.isArray(valueData) && valueData.length > 0 && valueData[0]?.length ? valueData[0].length : 'N/A'
-          });
-
-          if (!valueData) {
-            console.log(`❌ Result.value está vazio`);
-            throw new Error("Dados vazios no download");
-          }
-
-          // Converter value para Buffer
-          if (valueData instanceof Uint8Array) {
-            imageBuffer = Buffer.from(valueData);
-            console.log(`✅ Uint8Array convertido para Buffer: ${imageBuffer.length} bytes`);
-          } else if (valueData instanceof Buffer) {
-            imageBuffer = valueData;
-            console.log(`✅ Buffer direto: ${imageBuffer.length} bytes`);
-          } else if (Array.isArray(valueData)) {
-            console.log(`📦 valueData é um array com ${valueData.length} elementos`);
-            
-            // CORREÇÃO: valueData pode ser um array contendo Uint8Array/Buffer no primeiro elemento
-            if (valueData.length > 0) {
-              const firstElement = valueData[0];
-              console.log(`🔍 Primeiro elemento:`, {
-                tipo: typeof firstElement,
-                isBuffer: firstElement instanceof Buffer,
-                isUint8Array: firstElement instanceof Uint8Array,
-                length: firstElement?.length
-              });
-              
-              if (firstElement instanceof Uint8Array) {
-                imageBuffer = Buffer.from(firstElement);
-                console.log(`✅ Array[0] Uint8Array convertido para Buffer: ${imageBuffer.length} bytes`);
-              } else if (firstElement instanceof Buffer) {
-                imageBuffer = firstElement;
-                console.log(`✅ Array[0] Buffer direto: ${imageBuffer.length} bytes`);
-              } else if (typeof firstElement === 'number') {
-                // Se for array de números (bytes)
-                imageBuffer = Buffer.from(valueData);
-                console.log(`✅ Array de bytes convertido para Buffer: ${imageBuffer.length} bytes`);
-              } else {
-                console.log(`❌ Tipo de Array[0] não suportado: ${typeof firstElement}`);
-                console.log(`❌ Primeiro elemento:`, firstElement);
-                throw new Error(`Tipo de dados no array não suportado: ${typeof firstElement}`);
-              }
-            } else {
-              console.log(`❌ Array vazio`);
-              throw new Error("Array de dados está vazio");
-            }
-          } else {
-            console.log(`❌ Tipo de value não suportado: ${typeof valueData}`);
-            throw new Error(`Tipo de dados não suportado: ${typeof valueData}`);
-          }
-        } else if (downloadResult instanceof Uint8Array) {
-          imageBuffer = Buffer.from(downloadResult);
-          console.log(`✅ Uint8Array direto convertido: ${imageBuffer.length} bytes`);
-        } else if (downloadResult instanceof Buffer) {
-          imageBuffer = downloadResult;
-          console.log(`✅ Buffer direto: ${imageBuffer.length} bytes`);
-        } else if (Array.isArray(downloadResult)) {
-          imageBuffer = Buffer.from(downloadResult);
-          console.log(`✅ Array direto convertido: ${imageBuffer.length} bytes`);
-        } else {
-          console.log(`❌ Tipo de resultado não suportado: ${typeof downloadResult}`);
-          throw new Error(`Tipo de resultado não suportado: ${typeof downloadResult}`);
-        }
-
-        // Verificar tamanho mínimo
-        if (!imageBuffer || imageBuffer.length < 100) {
-          console.log(`❌ Buffer muito pequeno: ${imageBuffer?.length || 0} bytes`);
-          throw new Error(`Arquivo corrompido ou muito pequeno: ${imageBuffer?.length || 0} bytes`);
-        }
-
-        console.log(`✅ Foto carregada com sucesso: ${imageBuffer.length} bytes`);
-
-        // Determinar Content-Type
-        const contentType = mimetype || (originalName.endsWith('.png') ? 'image/png' : 'image/jpeg');
-
-        // Configurar headers para download
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-        res.setHeader('Content-Length', imageBuffer.length);
-        res.setHeader('Cache-Control', 'no-cache');
-
-        // Enviar o arquivo
-        res.end(imageBuffer);
-
-      } catch (downloadError) {
-        const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
-        console.error(`❌ Erro no download da foto:`, error);
-        return res.status(500).json({
-          success: false,
-          message: `Erro ao baixar foto: ${error.message}`
-        });
-      }
-
-    } catch (error) {
-      console.error("❌ Erro ao buscar foto de confirmação:", error);
-      res.status(500).json({
-        success: false,
-        message: "Erro ao buscar foto de confirmação",
-        hasFoto: false
-      });
-    }
-  });
-
       } else {
         novoStatus = "Pendente"; // Ou um status que indique que a reprogramação foi recusada e o pedido voltou ao estado anterior
         logMessage = `Reprogramação do pedido ${pedido.order_id} (${pedido.product_name}) recusada. Motivo: ${motivoRecusa || 'N/A'}.`;
@@ -4062,6 +3853,121 @@ Status: Teste em progresso...`;
       res.status(500).json({
         sucesso: false,
         mensagem: "Erro ao processar a aprovação/recusa da reprogramação."
+      });
+    }
+  });
+
+  // Rota para download da foto de confirmação
+  app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`📸 Download foto de confirmação - Pedido ${id}`);
+
+      // Buscar informações do pedido incluindo foto_confirmacao
+      const pedidoResult = await pool.query(
+        "SELECT order_id, foto_confirmacao, status FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!pedidoResult.rows.length) {
+        console.log(`❌ Pedido ${id} não encontrado`);
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado",
+          hasFoto: false
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      if (!pedido.foto_confirmacao) {
+        console.log(`⚠️ Pedido ${pedido.order_id} não possui foto de confirmação`);
+        return res.status(404).json({
+          success: false,
+          message: "Este pedido ainda não possui foto de confirmação de entrega",
+          hasFoto: false
+        });
+      }
+
+      // Parse do JSON da foto_confirmacao
+      const fotoInfo = typeof pedido.foto_confirmacao === 'string'
+        ? JSON.parse(pedido.foto_confirmacao)
+        : pedido.foto_confirmacao;
+
+      if (!fotoInfo || !fotoInfo.storageKey) {
+        console.log(`⚠️ Informações incompletas da foto`);
+        return res.status(404).json({
+          success: false,
+          message: "Informações da foto incompletas",
+          hasFoto: false
+        });
+      }
+
+      const { storageKey, originalName, mimetype } = fotoInfo;
+      console.log(`🔍 Buscando foto: ${storageKey} (${originalName})`);
+
+      // USAR A MESMA ABORDAGEM DOS DOCUMENTOS QUE FUNCIONA
+      const fileResult = await readFileFromStorage(
+        storageKey,
+        id.toString(),
+        originalName
+      );
+
+      if (!fileResult) {
+        console.log(`❌ Foto não encontrada no storage`);
+        return res.status(404).json({
+          success: false,
+          message: "Foto não encontrada",
+          hasFoto: false
+        });
+      }
+
+      const { data: fileBuffer, originalName: fileName } = fileResult;
+
+      // Verificar se é redirect para Google Drive
+      if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+        const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+        console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+        return res.redirect(302, driveLink);
+      }
+
+      // Verificar tamanho mínimo
+      if (fileBuffer.length <= 1) {
+        console.log(`❌ Arquivo muito pequeno: ${fileBuffer.length} bytes`);
+        return res.status(404).json({
+          success: false,
+          message: "Arquivo corrompido",
+          hasFoto: false
+        });
+      }
+
+      console.log(`✅ Foto recuperada: ${fileBuffer.length} bytes - ${fileName}`);
+
+      // Determinar Content-Type
+      const contentType = mimetype || (fileName.endsWith('.png') ? 'image/png' : 'image/jpeg');
+
+      // Configurar headers para download
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache');
+
+      // Enviar o arquivo
+      return res.end(fileBuffer);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar foto de confirmação:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar foto de confirmação",
+        hasFoto: false
       });
     }
   });
