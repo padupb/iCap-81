@@ -3421,7 +3421,7 @@ Status: Teste em progresso...`;
       // Se não encontrar o arquivo em lugar nenhum
       return res.status(404).json({
         sucesso: false,
-        mensagem: `PDF da ordem de compra ${ordem.numero_ordem} não encontrado. Verifique se o arquivo foi enviado e está na pasta OC do Object Storage.`
+        mensagem: "PDF da ordem de compra não encontrado. Verifique se o arquivo foi enviado e está na pasta OC do Object Storage."
       });
 
     } catch (error) {
@@ -3780,72 +3780,6 @@ Status: Teste em progresso...`;
           });
         }
 
-        // FUNCIONALIDADE: Ler quantidade do XML e atualizar pedido
-        let quantidadeXml = null;
-
-        if (files.nota_xml && files.nota_xml[0]) {
-          try {
-            const xmlFile = files.nota_xml[0];
-            // Ler o arquivo antes de ser removido
-            const xmlBuffer = fs.readFileSync(xmlFile.path);
-            const xmlContent = xmlBuffer.toString('utf-8');
-
-            console.log("📄 Lendo XML para extrair quantidade...");
-            console.log(`📄 Tamanho do XML: ${xmlContent.length} caracteres`);
-
-            // Parse do XML
-            const xml2js = await import('xml2js');
-            const parser = new xml2js.Parser();
-            const result = await parser.parseStringPromise(xmlContent);
-
-            console.log("📊 Estrutura do XML parseado:", JSON.stringify(result).substring(0, 500) + "...");
-
-            // Navegar pela estrutura do XML da NFe
-            // Estrutura padrão: nfeProc > NFe > infNFe > det > prod > qCom
-            const nfeProc = result?.nfeProc;
-            const NFe = nfeProc?.NFe?.[0];
-            const infNFe = NFe?.infNFe?.[0];
-            const det = infNFe?.det?.[0]; // Primeiro item
-            const prod = det?.prod?.[0];
-            const qCom = prod?.qCom?.[0];
-
-            console.log("🔍 Valores extraídos:", {
-              temNfeProc: !!nfeProc,
-              temNFe: !!NFe,
-              temInfNFe: !!infNFe,
-              temDet: !!det,
-              temProd: !!prod,
-              qCom: qCom
-            });
-
-            if (qCom) {
-              quantidadeXml = parseFloat(qCom);
-              console.log(`✅ Quantidade extraída do XML: ${quantidadeXml}`);
-            } else {
-              console.log("⚠️ Não foi possível extrair quantidade do XML - estrutura não encontrada");
-              console.log("📋 Tentando estruturas alternativas...");
-              
-              // Tentar estrutura alternativa (sem nfeProc)
-              const nfeRoot = result?.NFe?.[0] || result?.nfe?.[0];
-              if (nfeRoot) {
-                const infNFeAlt = nfeRoot?.infNFe?.[0];
-                const detAlt = infNFeAlt?.det?.[0];
-                const prodAlt = detAlt?.prod?.[0];
-                const qComAlt = prodAlt?.qCom?.[0];
-                
-                if (qComAlt) {
-                  quantidadeXml = parseFloat(qComAlt);
-                  console.log(`✅ Quantidade extraída do XML (estrutura alternativa): ${quantidadeXml}`);
-                }
-              }
-            }
-          } catch (xmlError) {
-            const error = xmlError instanceof Error ? xmlError : new Error(String(xmlError));
-            console.log(`⚠️ Erro ao processar XML: ${error.message}`);
-            console.log(`📋 Stack trace: ${error.stack}`);
-          }
-        }
-
         // Atualizar o pedido com as informações dos documentos, quantidade e status
         const updateFields = [
           'documentos_info = $1',
@@ -3861,12 +3795,10 @@ Status: Teste em progresso...`;
         let paramIndex = 3;
 
         // Se conseguiu extrair quantidade, adicionar ao update
-        if (quantidadeXml !== null && quantidadeXml > 0) {
-          updateFields.push(`quantity = $${paramIndex}`);
-          updateValues.push(quantidadeXml.toString());
-          paramIndex++;
-          console.log(`📊 Atualizando quantidade do pedido para: ${quantidadeXml}`);
-        }
+        // A extração de quantidade do XML foi removida desta rota pois
+        // ela deve ocorrer no momento do upload do XML, não na finalização do upload geral.
+        // Se for necessário, a lógica de extração deve ser movida para dentro do `if (files.nota_xml ...)`
+        // ou para uma rota específica de processamento de XML.
 
         updateValues.push(id); // ID do pedido sempre por último
 
@@ -3877,13 +3809,11 @@ Status: Teste em progresso...`;
           updateValues
         );
 
-        console.log("✅ Pedido atualizado: documentos salvos, status = Carregado" + 
-          (quantidadeXml ? `, quantidade = ${quantidadeXml}` : ""));
+        console.log("✅ Pedido atualizado: documentos salvos, status = Carregado");
 
         res.json({
           sucesso: true,
           mensagem: "Documentos enviados com sucesso",
-          quantidadeAtualizada: quantidadeXml
         });
 
       } catch (error) {
@@ -4239,7 +4169,7 @@ Status: Teste em progresso...`;
   app.get("/api/tracking-points/:id", isAuthenticated, async (req, res) => {
     try {
       const pedidoId = parseInt(req.params.id);
-      
+
       if (isNaN(pedidoId)) {
         return res.status(400).json({
           success: false,
