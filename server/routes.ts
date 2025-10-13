@@ -5110,7 +5110,7 @@ Status: Teste em progresso...`;
 
       // Verificar se o pedido existe e tem reprogramação pendente
       const orderResult = await pool.query(
-        "SELECT * FROM orders WHERE id = $1 AND status = 'Suspenso'",
+        "SELECT * FROM orders WHERE id = $1 AND status = 'Aguardando Aprovação'",
         [orderId]
       );
 
@@ -5124,7 +5124,7 @@ Status: Teste em progresso...`;
       const order = orderResult.rows[0];
 
       // Verificar se há nova data de entrega
-      if (!order.new_delivery_date) {
+      if (!order.nova_data_entrega) {
         return res.status(400).json({
           success: false,
           message: "Data de reprogramação não encontrada"
@@ -5134,10 +5134,12 @@ Status: Teste em progresso...`;
       // Aprovar: atualizar delivery_date com a nova data e mudar status
       await pool.query(
         `UPDATE orders 
-         SET delivery_date = new_delivery_date,
-             status = 'Registrado',
-             new_delivery_date = NULL,
-             rescheduling_comment = NULL
+         SET delivery_date = nova_data_entrega,
+             status = 'Aprovado',
+             nova_data_entrega = NULL,
+             justificativa_reprogramacao = NULL,
+             data_solicitacao_reprogramacao = NULL,
+             usuario_reprogramacao = NULL
          WHERE id = $1`,
         [orderId]
       );
@@ -5148,7 +5150,7 @@ Status: Teste em progresso...`;
         action: "Aprovou reprogramação de entrega",
         itemType: "order",
         itemId: orderId.toString(),
-        details: `Nova data aprovada: ${new Date(order.new_delivery_date).toLocaleDateString('pt-BR')}`
+        details: `Nova data aprovada: ${new Date(order.nova_data_entrega).toLocaleDateString('pt-BR')}`
       });
 
       res.json({
@@ -5171,7 +5173,7 @@ Status: Teste em progresso...`;
 
       // Verificar se o pedido existe e tem reprogramação pendente
       const orderResult = await pool.query(
-        "SELECT * FROM orders WHERE id = $1 AND status = 'Suspenso'",
+        "SELECT * FROM orders WHERE id = $1 AND status = 'Aguardando Aprovação'",
         [orderId]
       );
 
@@ -5186,9 +5188,10 @@ Status: Teste em progresso...`;
       await pool.query(
         `UPDATE orders 
          SET status = 'Cancelado',
-             new_delivery_date = NULL,
-             rescheduling_comment = NULL,
-             quantidade = 0
+             nova_data_entrega = NULL,
+             justificativa_reprogramacao = NULL,
+             data_solicitacao_reprogramacao = NULL,
+             usuario_reprogramacao = NULL
          WHERE id = $1`,
         [orderId]
       );
