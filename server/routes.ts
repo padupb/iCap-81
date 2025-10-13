@@ -1460,66 +1460,16 @@ Status: Teste em progresso...`;
 
       console.log(`📥 Tentando download de: ${storageKey}`);
 
-      // Fazer download do arquivo usando a mesma lógica robusta da função readFileFromStorage
+      // Fazer download do arquivo usando a função auxiliar
       let fileBuffer = null;
       let originalName = storageKey.split('/').pop() || 'keyuser-test.txt';
 
       try {
-        const downloadedData = await objectStorage.downloadAsBytes(storageKey);
+        const downloadResult = await objectStorage.downloadAsBytes(storageKey);
+        fileBuffer = extractBufferFromStorageResult(downloadResult);
 
-        console.log(`UserProgressing Downloaded data:`, {
-          tipo: typeof downloadedData,
-          isBuffer: downloadedData instanceof Buffer,
-          isUint8Array: downloadedData instanceof Uint8Array,
-          hasValue: downloadedData && downloadedData.value !== undefined,
-          hasOk: downloadedData && downloadedData.ok !== undefined,
-          length: downloadedData?.length || downloadedData?.value?.length
-        });
-
-        // ESTRATÉGIA 1: Dados diretos como Buffer ou Uint8Array
-        if (downloadedData instanceof Buffer) {
-          fileBuffer = downloadedData;
-          console.log(`✅ Direct Buffer - ${fileBuffer.length} bytes`);
-        } else if (downloadedData instanceof Uint8Array) {
-          fileBuffer = Buffer.from(downloadedData);
-          console.log(`✅ Uint8Array to Buffer - ${fileBuffer.length} bytes`);
-        }
-        // ESTRATÉGIA 2: Result wrapper do Replit
-        else if (downloadedData && typeof downloadedData === 'object' && downloadedData.ok !== undefined) {
-          console.log(`UserProgressing Result wrapper detected - Status: ${downloadedData.ok ? 'OK' : 'ERROR'}`);
-
-          if (!downloadedData.ok || downloadedData.error) {
-            console.log(`❌ Download failed: ${downloadedData.error || 'download failed'}`);
-            throw new Error(`Object Storage error: ${downloadedData.error || 'download failed'}`);
-          }
-
-          const valueData = downloadedData.value;
-          if (valueData instanceof Buffer) {
-            fileBuffer = valueData;
-            console.log(`✅ Buffer from Result wrapper - ${fileBuffer.length} bytes`);
-          } else if (valueData instanceof Uint8Array) {
-            fileBuffer = Buffer.from(valueData);
-            console.log(`✅ Uint8Array from Result wrapper to Buffer - ${fileBuffer.length} bytes`);
-          } else if (Array.isArray(valueData) && valueData.length > 0) {
-            // Verificar se é array de bytes válido
-            const isValidByteArray = valueData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
-            if (isValidByteArray) {
-              fileBuffer = Buffer.from(valueData);
-              console.log(`✅ Byte array from Result wrapper converted - ${fileBuffer.length} bytes`);
-            } else {
-              console.log(`❌ Byte array from Result wrapper does not contain valid bytes`);
-            }
-          }
-        }
-        // ESTRATÉGIA 3: Array direto de bytes
-        else if (Array.isArray(downloadedData) && downloadedData.length > 0) {
-          const isValidByteArray = downloadedData.every(v => typeof v === 'number' && v >= 0 && v <= 255);
-          if (isValidByteArray) {
-            fileBuffer = Buffer.from(downloadedData);
-            console.log(`✅ Direct array converted - ${fileBuffer.length} bytes`);
-          } else {
-            console.log(`❌ Direct array does not contain valid bytes`);
-          }
+        if (fileBuffer) {
+          console.log(`✅ Arquivo baixado com sucesso: ${fileBuffer.length} bytes`);
         }
 
       } catch (downloadError) {
@@ -2947,9 +2897,10 @@ Status: Teste em progresso...`;
         console.log(`UserProgressing Attempting to retrieve from OC folder: ${ocKey}`);
 
         try {
-          const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
-          if (downloadedBytes && downloadedBytes.length > 1) { // Verificar se o arquivo não está vazio ou corrompido
-            const buffer = Buffer.from(downloadedBytes);
+          const downloadResult = await objectStorage.downloadAsBytes(ocKey);
+          const buffer = extractBufferFromStorageResult(downloadResult);
+          
+          if (buffer && buffer.length > 1) { // Verificar se o arquivo não está vazio ou corrompido
             console.log(`✅ PDF retrieved from OC folder: ${ocKey} (${buffer.length} bytes)`);
 
             // USAR O NOME ORIGINAL DO ARQUIVO NO STORAGE
@@ -2962,7 +2913,7 @@ Status: Teste em progresso...`;
 
             return res.end(buffer);
           } else {
-            console.log(`UserProgressing PDF in OC folder is too small (${downloadedBytes?.length || 0} bytes) - potential corruption.`);
+            console.log(`UserProgressing PDF in OC folder is too small (${buffer?.length || 0} bytes) - potential corruption.`);
           }
         } catch (ocError) {
           const error = ocError instanceof Error ? ocError : new Error(String(ocError));
@@ -3476,59 +3427,7 @@ Status: Teste em progresso...`;
       try {
         console.log(`UserProgressing Downloading from Object Storage: ${storageKey}`);
         const downloadResult = await objectStorage.downloadAsBytes(storageKey);
-
-        console.log(`UserProgressing Download result:`, {
-          tipo: typeof downloadResult,
-          isBuffer: downloadResult instanceof Buffer,
-          isUint8Array: downloadResult instanceof Uint8Array,
-          hasOk: downloadResult && typeof downloadResult === 'object' && 'ok' in downloadResult,
-          hasValue: downloadResult && typeof downloadResult === 'object' && 'value' in downloadResult
-        });
-
-        // Processar resultado do Replit Object Storage
-        if (downloadResult && typeof downloadResult === 'object' && 'ok' in downloadResult) {
-          // Result wrapper do Replit
-          console.log(`UserProgressing Result wrapper detected - Status: ${downloadResult.ok}`);
-
-          if (!downloadResult.ok) {
-            console.log(`UserProgressing Download failed: ${downloadResult.error || 'unknown error'}`);
-            throw new Error(`Download failed: ${downloadResult.error || 'unknown error'}`);
-          }
-
-          const valueData = downloadResult.value;
-
-          if (!valueData) {
-            console.log(`UserProgressing Result.value is empty`);
-            throw new Error("Dados vazios no download");
-          }
-
-          // Converter value para Buffer
-          if (valueData instanceof Uint8Array) {
-            imageBuffer = Buffer.from(valueData);
-            console.log(`✅ Uint8Array converted to Buffer: ${imageBuffer.length} bytes`);
-          } else if (valueData instanceof Buffer) {
-            imageBuffer = valueData;
-            console.log(`✅ Direct Buffer: ${imageBuffer.length} bytes`);
-          } else if (Array.isArray(valueData)) {
-            imageBuffer = Buffer.from(valueData);
-            console.log(`✅ Array converted to Buffer: ${imageBuffer.length} bytes`);
-          } else {
-            console.log(`UserProgressing Unsupported value type: ${typeof valueData}`);
-            throw new Error(`Unsupported data type: ${typeof valueData}`);
-          }
-        } else if (downloadResult instanceof Uint8Array) {
-          imageBuffer = Buffer.from(downloadResult);
-          console.log(`✅ Direct Uint8Array converted: ${imageBuffer.length} bytes`);
-        } else if (downloadResult instanceof Buffer) {
-          imageBuffer = downloadResult;
-          console.log(`✅ Direct Buffer: ${imageBuffer.length} bytes`);
-        } else if (Array.isArray(downloadResult)) {
-          imageBuffer = Buffer.from(downloadResult);
-          console.log(`✅ Direct Array converted: ${imageBuffer.length} bytes`);
-        } else {
-          console.log(`UserProgressing Unsupported result type: ${typeof downloadResult}`);
-          throw new Error(`Unsupported result type: ${typeof downloadResult}`);
-        }
+        imageBuffer = extractBufferFromStorageResult(downloadResult);
 
         // Verificar tamanho mínimo
         if (!imageBuffer || imageBuffer.length < 100) {
