@@ -184,37 +184,9 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         console.log(`📥 Tentando: ${storageKey}`);
 
         const result = await objectStorage.downloadAsBytes(storageKey);
-        console.log(`📊 Tipo retornado:`, typeof result);
-        console.log(`📊 É Buffer:`, result instanceof Buffer);
-        console.log(`📊 É Uint8Array:`, result instanceof Uint8Array);
-        console.log(`📊 Tem ok:`, result && typeof result === 'object' && 'ok' in result);
-        console.log(`📊 Tem value:`, result && typeof result === 'object' && 'value' in result);
-
-        let buffer: Buffer | null = null;
-
-        // ESTRATÉGIA 1: Resultado direto como Buffer ou Uint8Array
-        if (result instanceof Buffer) {
-          buffer = result;
-          console.log(`✅ Buffer direto: ${buffer.length} bytes`);
-        } else if (result instanceof Uint8Array) {
-          buffer = Buffer.from(result);
-          console.log(`✅ Uint8Array convertido para Buffer: ${buffer.length} bytes`);
-        }
-        // ESTRATÉGIA 2: Result wrapper do Replit { ok: true, value: ... }
-        else if (result && typeof result === 'object' && 'ok' in result && result.ok) {
-          const value = result.value;
-          
-          if (value instanceof Buffer) {
-            buffer = value;
-            console.log(`✅ Buffer do wrapper: ${buffer.length} bytes`);
-          } else if (value instanceof Uint8Array) {
-            buffer = Buffer.from(value);
-            console.log(`✅ Uint8Array do wrapper convertido: ${buffer.length} bytes`);
-          } else if (Array.isArray(value)) {
-            buffer = Buffer.from(value);
-            console.log(`✅ Array do wrapper convertido: ${buffer.length} bytes`);
-          }
-        }
+        
+        // Usar a função auxiliar para extrair o buffer
+        const buffer = extractBufferFromStorageResult(result);
 
         if (buffer && buffer.length > 0) {
           console.log(`✅ Arquivo baixado: ${storageKey} (${buffer.length} bytes)`);
@@ -222,6 +194,8 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             data: buffer,
             originalName: filename
           };
+        } else {
+          console.log(`⚠️ Buffer vazio ou nulo para: ${storageKey}`);
         }
       } catch (error) {
         console.log(`❌ Erro em ${storageKey}:`, error);
@@ -1404,22 +1378,35 @@ Status: Teste em progresso...`;
       // Adicionar cada documento ao ZIP
       for (const [docType, docInfo] of Object.entries(documentosInfo)) {
         try {
-          console.log(`📥 Adicionando ${docType} ao ZIP...`);
+          console.log(`📥 ZIP: Processando ${docType}...`);
+          console.log(`   StorageKey: ${docInfo.storageKey}`);
           
-          const fileData = await readFileFromStorage(
-            docInfo.storageKey,
-            order.order_id,
-            docInfo.filename
-          );
-
-          if (fileData && fileData.data) {
-            archive.append(fileData.data, { name: fileData.originalName });
-            console.log(`✅ ${docType} adicionado: ${fileData.originalName} (${fileData.data.length} bytes)`);
+          // Usar Object Storage diretamente com a mesma lógica robusta
+          if (objectStorageAvailable && objectStorage && !docInfo.storageKey.startsWith('gdrive:')) {
+            const result = await objectStorage.downloadAsBytes(docInfo.storageKey);
+            
+            // Extrair buffer usando a função auxiliar
+            const buffer = extractBufferFromStorageResult(result);
+            
+            if (buffer && buffer.length > 0) {
+              archive.append(buffer, { name: docInfo.filename });
+              console.log(`✅ ZIP: ${docType} adicionado: ${docInfo.filename} (${buffer.length} bytes)`);
+            } else {
+              console.log(`⚠️ ZIP: Buffer vazio para ${docType}`);
+            }
           } else {
-            console.log(`⚠️ Não foi possível adicionar ${docType}`);
+            // Fallback para sistema local
+            const localPath = path.join(process.cwd(), "uploads", order.order_id, docInfo.filename);
+            if (fs.existsSync(localPath)) {
+              const buffer = fs.readFileSync(localPath);
+              archive.append(buffer, { name: docInfo.filename });
+              console.log(`✅ ZIP: ${docType} adicionado do local: ${docInfo.filename} (${buffer.length} bytes)`);
+            } else {
+              console.log(`⚠️ ZIP: Arquivo local não encontrado: ${localPath}`);
+            }
           }
         } catch (error) {
-          console.error(`❌ Erro ao adicionar ${docType}:`, error);
+          console.error(`❌ ZIP: Erro ao adicionar ${docType}:`, error);
         }
       }
 
