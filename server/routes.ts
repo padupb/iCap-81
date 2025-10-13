@@ -3218,7 +3218,9 @@ Status: Teste em progresso...`;
         console.log(`UserProgressing Uploading ${fieldName}: ${file.originalname} (${file.size} bytes)`);
 
         try {
-          const buffer = file.buffer; // Multer armazena em memória por padrão se storage não for diskStorage
+          // O arquivo já foi salvo no disco pelo multer.diskStorage
+          // Precisamos ler o arquivo do disco para fazer upload no Object Storage
+          const buffer = fs.readFileSync(file.path);
           const filename = file.filename; // Nome gerado pelo Multer
           const storageKey = await saveFileToStorage(buffer, filename, orderId); // Salva no Object Storage, Google Drive ou local
           console.log(`✅ ${fieldName} saved with key: ${storageKey}`);
