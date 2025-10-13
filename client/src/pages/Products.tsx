@@ -422,11 +422,11 @@ export default function Products() {
                       <TableCell>
                         {unit ? (
                           <Badge variant="secondary">
-                            {unit.name} ({unit.abbreviation})
+                            {unit.abbreviation}
                           </Badge>
                         ) : product.unitId ? (
                           <Badge variant="outline" className="text-yellow-600">
-                            ID: {product.unitId}
+                            Unidade ID: {product.unitId}
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground text-sm">Sem unidade</span>
