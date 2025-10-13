@@ -1728,6 +1728,26 @@ export function OrderDetailDrawer({
                                 return null;
                               }
 
+                              // Verificar permissão: apenas KeyUsers ou usuários da obra de destino podem cancelar
+                              const isKeyUser = (user?.id >= 1 && user?.id <= 5) || user?.isKeyUser;
+                              let canUserCancel = isKeyUser;
+
+                              if (!isKeyUser && user?.companyId) {
+                                // Verificar se o usuário pertence à obra de destino
+                                const workDestination = (orderDetails as any)?.workDestination;
+                                if (workDestination) {
+                                  const userCompany = companies.find(c => c.id === user.companyId);
+                                  if (userCompany) {
+                                    canUserCancel = userCompany.cnpj === workDestination.cnpj;
+                                  }
+                                }
+                              }
+
+                              // Se o usuário não tem permissão, não mostrar botão
+                              if (!canUserCancel) {
+                                return null;
+                              }
+
                               // Verificar antecedência mínima de 3 dias
                               const deliveryDate = new Date(orderDetails.deliveryDate);
                               deliveryDate.setHours(0, 0, 0, 0);
@@ -1745,7 +1765,11 @@ export function OrderDetailDrawer({
                                 today: today.toISOString(),
                                 diffDays,
                                 canCancel,
-                                hasDocuments
+                                hasDocuments,
+                                isKeyUser,
+                                canUserCancel,
+                                userId: user?.id,
+                                userCompanyId: user?.companyId
                               });
 
                               // Permitir cancelar se tiver 3 ou mais dias COMPLETOS de antecedência
