@@ -605,37 +605,48 @@ export function OrderDetailDrawer({
       }
 
       try {
+        console.log(`📤 Iniciando upload de documentos para pedido ${orderId}`);
+        
         const response = await fetch(`/api/pedidos/${orderId}/documentos`, {
           method: "POST",
           body: formData,
         });
 
+        console.log(`📥 Resposta recebida: ${response.status} ${response.statusText}`);
+        console.log(`📋 Content-Type: ${response.headers.get('content-type')}`);
+
         if (!response.ok) {
-          // Clonar a resposta para poder ler o corpo múltiplas vezes
-          const responseClone = response.clone();
+          // Tentar ler como texto primeiro
+          const responseText = await response.text();
+          console.error(`❌ Erro do servidor (${response.status}):`, responseText);
+          
+          // Tentar interpretar como JSON se possível
           try {
-            const errorData = await response.json();
+            const errorData = JSON.parse(responseText);
             throw new Error(
-              errorData.mensagem || "Falha ao fazer upload dos documentos",
+              errorData.mensagem || errorData.message || "Falha ao fazer upload dos documentos",
             );
           } catch (jsonError) {
-            // Se não conseguir interpretar como JSON, use o texto da resposta clonada
-            try {
-              const errorText = await responseClone.text();
-              throw new Error(
-                errorText || `Erro no servidor: ${response.status}`,
-              );
-            } catch (textError) {
-              throw new Error(`Erro no servidor: ${response.status}`);
-            }
+            // Se não for JSON válido, usar o texto da resposta
+            throw new Error(
+              responseText.substring(0, 200) || `Erro no servidor: ${response.status}`,
+            );
           }
         }
 
+        // Verificar se a resposta é JSON antes de tentar fazer parse
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const responseText = await response.text();
+          console.error(`❌ Resposta não é JSON:`, responseText.substring(0, 200));
+          throw new Error(`Servidor retornou resposta inválida: ${responseText.substring(0, 100)}`);
+        }
+
         const data = await response.json();
-        console.log("Resposta do servidor:", data);
+        console.log("✅ Resposta do servidor:", data);
         return data;
       } catch (error) {
-        console.error("Erro no upload:", error);
+        console.error("❌ Erro no upload:", error);
         throw error;
       }
     },

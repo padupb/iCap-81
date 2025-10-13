@@ -783,7 +783,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
           companyId: user.companyId,
           roleId: user.roleId,
           permissions: user.role ? user.role.permissions || [] : [],
-          isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
+          isKeyUser: user.id === 1, // Assumendo que o usuário com ID 1 é o KeyUser
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
           canCreatePurchaseOrder: user.canCreatePurchaseOrder
@@ -2849,7 +2849,7 @@ Status: Teste em progresso...`;
 
       // Buscar quantidade total na ordem de compra
       const itemResult = await pool.query(`
-        SELECT 
+        SELECT
           ioc.quantidade,
           p.name as produto_nome,
           u.abbreviation as unidade
@@ -2873,8 +2873,8 @@ Status: Teste em progresso...`;
       const pedidosResult = await pool.query(`
         SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
         FROM orders
-        WHERE purchase_order_id = $1 
-          AND product_id = $2 
+        WHERE purchase_order_id = $1
+          AND product_id = $2
           AND status != 'Cancelado'
       `, [ordemId, produtoId]);
 
@@ -2922,8 +2922,8 @@ Status: Teste em progresso...`;
       const result = await pool.query(`
         SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as quantidade_entregue
         FROM orders
-        WHERE purchase_order_id = $1 
-          AND product_id = $2 
+        WHERE purchase_order_id = $1
+          AND product_id = $2
           AND status = 'Entregue'
       `, [ordemId, produtoId]);
 
@@ -2962,7 +2962,7 @@ Status: Teste em progresso...`;
       // Buscar itens da ordem de compra com informações do produto
       // CORREÇÃO: usar tabela itens_ordem_compra em vez de purchase_order_items
       const result = await pool.query(`
-        SELECT 
+        SELECT
           ioc.id,
           ioc.ordem_compra_id,
           ioc.produto_id,
@@ -3305,7 +3305,7 @@ Status: Teste em progresso...`;
 
               const downloadResult = await objectStorage.downloadAsBytes(key);
 
-              // Replit Object Storage retorna {ok, value: [Buffer]} 
+              // Replit Object Storage retorna {ok, value: [Buffer]}
               // O value é um array contendo o buffer no primeiro elemento
               let downloadedBytes = null;
               if (downloadResult && typeof downloadResult === 'object' && 'value' in downloadResult) {
@@ -3495,6 +3495,16 @@ Status: Teste em progresso...`;
           mensagem: "Erro ao fazer upload do PDF",
           erro: error instanceof Error ? error.message : "Erro desconhecido"
         });
+      } finally {
+        // Limpar arquivo temporário após o processamento
+        if (req.file) {
+          try {
+            fs.unlinkSync(req.file.path);
+            console.log(`🧹 Arquivo temporário ${req.file.path} removido com sucesso.`);
+          } catch (unlinkError) {
+            console.log(`⚠️ Falha ao remover arquivo temporário ${req.file.path}:`, unlinkError instanceof Error ? unlinkError.message : unlinkError);
+          }
+        }
       }
     }
   );
@@ -3527,7 +3537,7 @@ Status: Teste em progresso...`;
 
       // Atualizar o pedido
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET numero_pedido = $1, status = 'Em Rota'
          WHERE id = $2`,
         [numeroPedido.trim(), pedidoId]
@@ -3607,7 +3617,7 @@ Status: Teste em progresso...`;
 
       // Atualizar o pedido com a nova data e status "Aguardando Aprovação"
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET delivery_date = $1, status = 'Aguardando Aprovação'
          WHERE id = $2`,
         [dataEntrega, pedidoId]
@@ -3848,7 +3858,7 @@ Status: Teste em progresso...`;
 
       // Atualizar o status do pedido
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET status = $1
          WHERE id = $2`,
         [novoStatus, pedidoId]
@@ -3981,7 +3991,7 @@ Status: Teste em progresso...`;
 
       // Atualizar o status do pedido e salvar foto_confirmacao
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET status = 'Entregue', foto_confirmacao = $1
          WHERE id = $2`,
         [JSON.stringify(fotoConfirmacao), pedidoId]
@@ -4122,7 +4132,7 @@ Status: Teste em progresso...`;
 
       // Atualizar o status do pedido e a quantidade entregue
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET status = 'Entregue', delivered_quantity = $1
          WHERE id = $2`,
         [entregueFloat, pedidoId]
@@ -4190,7 +4200,7 @@ Status: Teste em progresso...`;
 
       // Atualizar o status do pedido para 'Cancelado'
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET status = 'Cancelado'
          WHERE id = $1`,
         [pedidoId]
@@ -4270,7 +4280,7 @@ Status: Teste em progresso...`;
 
       // Atualizar o pedido com as informações da nota fiscal
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET invoice_number = $1, invoice_date = $2, invoice_total = $3
          WHERE id = $4`,
         [numeroNota, emissao, valor, pedidoId]
@@ -4314,7 +4324,7 @@ Status: Teste em progresso...`;
 
       // Buscar detalhes do pedido principal
       const pedidoResult = await pool.query(`
-        SELECT 
+        SELECT
           o.*,
           p.name as product_name,
           p.confirmation_type,
@@ -4428,7 +4438,7 @@ Status: Teste em progresso...`;
       });
 
       let query = `
-        SELECT 
+        SELECT
           o.*,
           p.name as product_name,
           p.confirmation_type,
@@ -4444,7 +4454,7 @@ Status: Teste em progresso...`;
         LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
         LEFT JOIN companies c_supplier ON o.supplier_id = c_supplier.id
         LEFT JOIN companies c_work ON oc.cnpj = c_work.cnpj
-        WHERE 1=1 
+        WHERE 1=1
       `; // Start with 1=1 for easy AND conditions
 
       const queryParams: any[] = [];
@@ -4545,7 +4555,7 @@ Status: Teste em progresso...`;
       // Verificar se a tabela tracking_points existe
       const tableCheck = await pool.query(`
         SELECT EXISTS (
-          SELECT FROM information_schema.tables 
+          SELECT FROM information_schema.tables
           WHERE table_name = 'tracking_points'
         );
       `);
@@ -4570,7 +4580,7 @@ Status: Teste em progresso...`;
 
       // Buscar pontos de rastreamento usando o código do pedido
       const result = await pool.query(`
-        SELECT 
+        SELECT
           tp.*,
           u.name as user_name
         FROM tracking_points tp
@@ -4673,7 +4683,7 @@ Status: Teste em progresso...`;
       console.log(`🔍 Buscando comentários do pedido ID: ${pedidoId}`);
 
       const comentariosResult = await pool.query(`
-        SELECT 
+        SELECT
           oc.*,
           u.name as user_name,
           u.email as user_email
