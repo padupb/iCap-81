@@ -237,8 +237,25 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
             buffer = valueData;
             console.log(`✅ Buffer direto do Result: ${buffer.length} bytes`);
           } else if (Array.isArray(valueData)) {
-            buffer = Buffer.from(valueData);
-            console.log(`✅ Array convertido para Buffer: ${buffer.length} bytes`);
+            // CORREÇÃO CRÍTICA: Verificar se o array contém um Buffer/Uint8Array como primeiro elemento
+            if (valueData.length > 0) {
+              const firstElement = valueData[0];
+              if (firstElement instanceof Uint8Array) {
+                buffer = Buffer.from(firstElement);
+                console.log(`✅ Array[0] Uint8Array convertido para Buffer: ${buffer.length} bytes`);
+              } else if (firstElement instanceof Buffer) {
+                buffer = firstElement;
+                console.log(`✅ Array[0] Buffer usado diretamente: ${buffer.length} bytes`);
+              } else if (typeof firstElement === 'number') {
+                // Array de bytes numéricos
+                buffer = Buffer.from(valueData);
+                console.log(`✅ Array de bytes convertido para Buffer: ${buffer.length} bytes`);
+              } else {
+                console.log(`❌ Tipo de Array[0] não suportado: ${typeof firstElement}`);
+              }
+            } else {
+              console.log(`❌ Array vazio`);
+            }
           } else if (typeof valueData === 'object' && valueData !== null) {
             // Pode ser um objeto array-like {0: byte1, 1: byte2, ...}
             try {
