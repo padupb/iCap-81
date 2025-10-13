@@ -921,7 +921,7 @@ export function OrderDetailDrawer({
         },
         body: JSON.stringify({
           novaDataEntrega: selectedDate.toISOString(),
-          motivo: justificativa.trim(),
+          justificativa: justificativa.trim(),
         }),
       });
 

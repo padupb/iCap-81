@@ -369,32 +369,110 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
         }
       }
 
-      // Fallback para sistema local
-      const localPaths = [
-        path.join(process.cwd(), "uploads", orderId, filename),
-        path.join(process.cwd(), "uploads", filename)
-      ];
+      // Se não encontrou, listar arquivos para debug
+      try {
+        console.log(`🔍 Listando arquivos no Object Storage para debug...`);
+        const listResult = await objectStorage.list();
+        let objects = [];
 
-      for (const filePath of localPaths) {
-        try {
-          if (fs.existsSync(filePath)) {
-            const buffer = fs.readFileSync(filePath);
-            if (buffer.length > 1) {
-              console.log(`✅ Arquivo local encontrado: ${filePath} (${buffer.length} bytes)`);
-              return {
-                data: buffer,
-                originalName: filename
-              };
+        if (listResult && typeof listResult === 'object' && listResult.ok && listResult.value) {
+          objects = listResult.value;
+        } else if (Array.isArray(listResult)) {
+          objects = listResult;
+        }
+
+        console.log(`📊 Total de objetos: ${objects.length}`);
+
+        // Mostrar arquivos relacionados ao pedido
+        const relatedFiles = objects.filter((obj: any) => {
+          const objKey = obj.key || obj.name || String(obj);
+          return objKey.includes(orderId) || objKey.includes(filename.split('-')[0]);
+        });
+
+        if (relatedFiles.length > 0) {
+          console.log(`📋 Arquivos relacionados encontrados:`);
+          relatedFiles.forEach((obj: any) => {
+            const objKey = obj.key || obj.name || String(obj);
+            console.log(`   • ${objKey}`);
+          });
+
+          // Tentar o primeiro arquivo relacionado
+          if (relatedFiles[0]) {
+            const firstKey = relatedFiles[0].key || relatedFiles[0].name || String(relatedFiles[0]);
+            console.log(`🎯 Tentando download do primeiro arquivo relacionado: ${firstKey}`);
+
+            try {
+              const result = await objectStorage.downloadAsBytes(firstKey);
+              let buffer = null;
+
+              if (result && typeof result === 'object' && result.ok && result.value) {
+                if (result.value instanceof Uint8Array) {
+                  buffer = Buffer.from(result.value);
+                } else if (result.value instanceof Buffer) {
+                  buffer = result.value;
+                } else if (Array.isArray(result.value)) {
+                  buffer = Buffer.from(result.value);
+                }
+              } else if (result instanceof Uint8Array) {
+                buffer = Buffer.from(result);
+              } else if (result instanceof Buffer) {
+                buffer = result;
+              }
+
+              if (buffer && buffer.length > 1) {
+                console.log(`✅ Download bem-sucedido do arquivo relacionado: ${firstKey} (${buffer.length} bytes)`);
+                return {
+                  data: buffer,
+                  originalName: filename
+                };
+              }
+            } catch (downloadError) {
+              const error = downloadError instanceof Error ? downloadError : new Error(String(downloadError));
+              console.log(`❌ Erro no download do arquivo relacionado: ${error.message}`);
             }
           }
-        } catch (error) {
-          const err = error instanceof Error ? error : new Error(String(error));
-          console.log(`⚠️ Erro no arquivo local ${filePath}: ${err.message}`);
+        } else {
+          console.log(`📋 Nenhum arquivo relacionado encontrado`);
+          // Mostrar alguns arquivos para referência
+          const sampleFiles = objects.slice(0, 10);
+          console.log(`📋 Primeiros 10 arquivos no storage:`);
+          sampleFiles.forEach((obj: any) => {
+            const objKey = obj.key || obj.name || String(obj);
+            console.log(`   • ${objKey}`);
+          });
         }
+      } catch (listError) {
+        const error = listError instanceof Error ? listError : new Error(String(listError));
+        console.log(`⚠️ Erro ao listar arquivos: ${error.message}`);
       }
+    }
 
-    console.log(`❌ Arquivo ${filename} não encontrado`);
-    return null;
+    // Fallback para sistema local
+    const localPaths = [
+      path.join(process.cwd(), "uploads", orderId, filename),
+      path.join(process.cwd(), "uploads", filename)
+    ];
+
+    for (const filePath of localPaths) {
+      try {
+        if (fs.existsSync(filePath)) {
+          const buffer = fs.readFileSync(filePath);
+          if (buffer.length > 1) {
+            console.log(`✅ Arquivo local encontrado: ${filePath} (${buffer.length} bytes)`);
+            return {
+              data: buffer,
+              originalName: filename
+            };
+          }
+        }
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.log(`⚠️ Erro no arquivo local ${filePath}: ${err.message}`);
+      }
+    }
+
+  console.log(`❌ Arquivo ${filename} não encontrado`);
+  return null;
 }
 
 // Função utilitária para salvar arquivo no Object Storage, Google Drive ou sistema local
@@ -724,7 +802,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
           companyId: user.companyId,
           roleId: user.roleId,
           permissions: user.role ? user.role.permissions || [] : [],
-          isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
+          isKeyUser: user.id === 1, // Assumendo que o usuário com ID 1 é o KeyUser
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
           canCreatePurchaseOrder: user.canCreatePurchaseOrder
@@ -1202,7 +1280,7 @@ Status: Teste em progresso...`;
             log.push(`🔍 Tipo do value: ${typeof downloadedData.value}`);
             log.push(`🔍 Value é Buffer: ${downloadedData.value instanceof Buffer}`);
             log.push(`🔍 Value é Uint8Array: ${downloadedData.value instanceof Uint8Array}`);
-            log.push(`🔍 Value é Array: ${downloadedData.value instanceof Array}`);
+            log.push(`🔍 Value é Array: ${Array.isArray(downloadedData.value)}`);
             log.push(`🔍 Tamanho do value: ${downloadedData.value?.length || 'indefinido'}`);
           }
         }
@@ -1683,17 +1761,6 @@ Status: Teste em progresso...`;
         message: "Erro interno do servidor",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
-    }
-  });
-
-  // User Roles routes
-  app.get("/api/user-roles", isAuthenticated, async (req, res) => {
-    try {
-      const roles = await storage.getAllUserRoles();
-      res.json(roles);
-    } catch (error) {
-      console.error("Erro ao buscar funções de usuário:", error);
-      res.status(500).json({ message: "Erro ao buscar funções de usuário" });
     }
   });
 
@@ -2855,7 +2922,7 @@ Status: Teste em progresso...`;
     }
   });
 
-  // Rota para buscar quantidade entregue de um produto em uma ordem de compra
+  // Rota para verificar quantidade entregue de um produto em uma ordem de compra
   app.get("/api/ordens-compra/:ordemId/produtos/:produtoId/entregue", async (req, res) => {
     try {
       const ordemId = parseInt(req.params.ordemId);
@@ -3279,7 +3346,7 @@ Status: Teste em progresso...`;
                   contentType = 'image/jpeg';
                 }
 
-                const filename = key.split('/').pop() || `${tipo}.${tipo.includes('xml') ? 'xml' : tipo.includes('pdf') ? 'pdf' : 'jpg'}`;
+                const filename = key.split('/').pop() || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`;
 
                 res.setHeader("Content-Type", contentType);
                 res.setHeader("Content-Length", buffer.length);
@@ -3660,22 +3727,14 @@ Status: Teste em progresso...`;
       console.log(`🔄 Reprogramação de pedido recebida:`, {
         pedidoId,
         novaDataEntrega,
-        motivo,
-        requestBody: req.body
+        motivo
       });
 
       // Validações
-      if (!novaDataEntrega) {
+      if (!novaDataEntrega || !motivo || !motivo.trim()) {
         return res.status(400).json({
           sucesso: false,
-          mensagem: "Nova data de entrega é obrigatória"
-        });
-      }
-
-      if (!motivo || !motivo.trim()) {
-        return res.status(400).json({
-          sucesso: false,
-          mensagem: "Motivo da reprogramação é obrigatório"
+          mensagem: "Nova data de entrega e motivo são obrigatórios"
         });
       }
 
@@ -3711,9 +3770,9 @@ Status: Teste em progresso...`;
       // Atualizar o pedido com a nova data e status "Aguardando Aprovação"
       await pool.query(
         `UPDATE orders
-         SET delivery_date = $1, status = 'Aguardando Aprovação', reprogramacao_justificativa = $2
-         WHERE id = $3`,
-        [dataEntrega, motivo.trim(), pedidoId]
+         SET delivery_date = $1, status = 'Aguardando Aprovação'
+         WHERE id = $2`,
+        [dataEntrega, pedidoId]
       );
 
       res.json({
@@ -3960,7 +4019,7 @@ Status: Teste em progresso...`;
 
       const entregueFloat = parseFloat(quantidadeRecebida);
 
-      // Buscar informações do pedido original para histórico e validação de saldo
+      // Buscar informações do pedido original
       const pedidoResult = await pool.query(
         `SELECT o.*, p.name as product_name, p.confirmation_type, ioc.quantidade as quantidade_ordem_compra
          FROM orders o
@@ -4399,7 +4458,7 @@ Status: Teste em progresso...`;
 
       // Buscar informações do aprovador (se aplicável)
       let approverInfo = null;
-      if (pedido.status === 'Registrado' && pedido.purchaseOrderId) {
+      if (pedido.status === 'Registrado' && pedido.purchase_order_id) {
         const approverResult = await pool.query(`
           SELECT u.name as approver_name, u.email as approver_email
           FROM orders o
