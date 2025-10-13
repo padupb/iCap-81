@@ -802,7 +802,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
           companyId: user.companyId,
           roleId: user.roleId,
           permissions: user.role ? user.role.permissions || [] : [],
-          isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
+          isKeyUser: user.id === 1, // Assumendo que o usuário com ID 1 é o KeyUser
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
           canCreatePurchaseOrder: user.canCreatePurchaseOrder
@@ -1106,7 +1106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("✅ Usando userId:", finalUserId);
 
-      if (!newPassword || !newPassword.trim()) {
+      if (!newPassword || newPassword.trim() === "") {
         console.log("❌ Nova senha não fornecida");
         return res.status(400).json({
           success: false,
@@ -1114,7 +1114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (!confirmPassword || !confirmPassword.trim()) {
+      if (!confirmPassword || confirmPassword.trim() === "") {
         console.log("❌ Confirmação de senha não fornecida");
         return res.status(400).json({
           success: false,
@@ -2865,7 +2865,6 @@ Status: Teste em progresso...`;
       `;
 
       let queryParams: any[] = [];
-      let whereConditions: string[] = [];
 
       // Aplicar restrição baseada nos critérios da empresa do usuário
       if (req.user && req.user.companyId) {
@@ -2886,7 +2885,7 @@ Status: Teste em progresso...`;
               // Filtrar ordens de compra onde:
               // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
               // 2. OU a empresa é a obra de destino (cnpj corresponde ao CNPJ da empresa do usuário)
-              whereConditions.push(`(oc.empresa_id = $${queryParams.length + 1} OR oc.cnpj = $${queryParams.length + 2})`);
+              query += ` WHERE (oc.empresa_id = $1 OR oc.cnpj = $2)`;
               queryParams.push(req.user.companyId, userCompany.cnpj);
               console.log(`🔒 Ordens de compra - visualização restrita à empresa ${userCompany.name} (fornecedora ou obra)`);
             } else {
@@ -2894,10 +2893,6 @@ Status: Teste em progresso...`;
             }
           }
         }
-      }
-
-      if (whereConditions.length > 0) {
-        query += ` WHERE ` + whereConditions.join(' AND ');
       }
 
       query += ` ORDER BY oc.data_criacao DESC`;
@@ -2987,7 +2982,7 @@ Status: Teste em progresso...`;
               // Filtrar ordens de compra onde:
               // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
               // 2. OU a empresa é a obra de destino (cnpj corresponde ao CNPJ da empresa do usuário)
-              whereConditions.push(`(oc.empresa_id = $${queryParams.length + 1} OR oc.cnpj = $${queryParams.length + 2})`);
+              whereConditions.push("(oc.empresa_id = $" + (queryParams.length + 1) + " OR oc.cnpj = $" + (queryParams.length + 2) + ")");
               queryParams.push(req.user.companyId, userCompany.cnpj);
               console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name} (fornecedora ou obra) e apenas válidas`);
             }
@@ -3421,7 +3416,7 @@ Status: Teste em progresso...`;
       // Se não encontrar o arquivo em lugar nenhum
       return res.status(404).json({
         sucesso: false,
-        mensagem: "PDF da ordem de compra não encontrado. Verifique se o arquivo foi enviado e está na pasta OC do Object Storage."
+        mensagem: `PDF da ordem de compra ${ordem.numero_ordem} não encontrado. Verifique se o arquivo foi enviado e está na pasta OC do Object Storage.`
       });
 
     } catch (error) {
@@ -3459,7 +3454,7 @@ Status: Teste em progresso...`;
 
       // Buscar informações do pedido incluindo documentos_info
       const pedidoResult = await pool.query(
-        "SELECT order_id FROM orders WHERE id = $1",
+        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
         [id]
       );
 
@@ -3475,34 +3470,26 @@ Status: Teste em progresso...`;
       console.log(`🔍 Buscando documento ${tipo} para pedido: ${orderId}`);
 
       // PRIORIDADE 1: Tentar buscar do documentos_info (Object Storage)
-      // Esta rota parece estar desvinculada do upload de documentos.
-      // A informação de documentos está em `documentos_info` (JSONB)
-      // Precisamos buscar essa informação primeiro.
-      // Assumindo que a informação está diretamente no pedido ou precisa ser buscada separadamente.
-      // Se a informação está em `documentos_info`, a lógica abaixo está correta.
-      const docInfoResult = await pool.query(`SELECT documentos_info FROM orders WHERE id = $1`, [id]);
-      const documentos_info = docInfoResult.rows.length > 0 ? docInfoResult.rows[0].documentos_info : null;
-
-      if (documentos_info) {
+      if (pedido.documentos_info) {
         try {
-          const docInfo = typeof documentos_info === 'string'
-            ? JSON.parse(documentos_info)
-            : documentos_info;
+          const documentosInfo = typeof pedido.documentos_info === 'string'
+            ? JSON.parse(pedido.documentos_info)
+            : pedido.documentos_info;
 
-          console.log(`📊 Informações de documentos encontradas:`, docInfo);
+          console.log(`📊 Informações de documentos encontradas:`, documentosInfo);
 
-          const docDetail = docInfo[tipo]; // docDetail pode ser a string da storageKey ou um objeto { storageKey, filename }
-          if (docDetail) {
+          const docInfo = documentosInfo[tipo];
+          if (docInfo) {
             // Suportar tanto o formato antigo (string) quanto o novo (objeto)
-            const storageKey = typeof docDetail === 'string' ? docDetail : docDetail.storageKey;
-            const filename = typeof docDetail === 'string' ? null : docDetail.filename;
+            const storageKey = typeof docInfo === 'string' ? docInfo : docInfo.storageKey;
+            const filename = typeof docInfo === 'string' ? null : docInfo.filename;
 
             if (storageKey) {
               console.log(`📂 Tentando acessar documento usando storageKey: ${storageKey}`);
 
               const fileResult = await readFileFromStorage(
                 storageKey,
-                id.toString(), // Usando o ID do pedido em `orders` como orderId
+                id.toString(),
                 filename || `${tipo}.${tipo.includes('xml') ? 'xml' : tipo.includes('pdf') ? 'pdf' : 'jpg'}`
               );
 
@@ -3529,8 +3516,7 @@ Status: Teste em progresso...`;
                   } else if (tipo.includes('xml')) {
                     contentType = 'application/xml';
                   } else if (tipo.includes('foto')) {
-                    // Tentar obter mimetype do docDetail se disponível, senão usar um padrão
-                    contentType = docDetail.mimetype || (originalName.endsWith('.png') ? 'image/png' : 'image/jpeg');
+                    contentType = docInfo.mimetype || 'image/jpeg';
                   }
 
                   res.setHeader("Content-Type", contentType);
@@ -3780,48 +3766,35 @@ Status: Teste em progresso...`;
           });
         }
 
-        // Atualizar o pedido com as informações dos documentos, quantidade e status
-        const updateFields = [
-          'documentos_info = $1',
-          'documentos_carregados = true',
-          'status = $2'
-        ];
-
-        const updateValues: any[] = [
-          JSON.stringify(documentosInfo),
-          'Carregado' // Novo status após upload
-        ];
-
-        let paramIndex = 3;
-
-        // Se conseguiu extrair quantidade, adicionar ao update
-        // A extração de quantidade do XML foi removida desta rota pois
-        // ela deve ocorrer no momento do upload do XML, não na finalização do upload geral.
-        // Se for necessário, a lógica de extração deve ser movida para dentro do `if (files.nota_xml ...)`
-        // ou para uma rota específica de processamento de XML.
-
-        updateValues.push(id); // ID do pedido sempre por último
-
+        // Atualizar o pedido no banco de dados
         await pool.query(
-          `UPDATE orders 
-           SET ${updateFields.join(', ')}
-           WHERE id = $${paramIndex}`,
-          updateValues
+          'UPDATE orders SET status = $1, documentoscarregados = $2, documentos_info = $3 WHERE id = $4',
+          ['Carregado', true, JSON.stringify(documentosInfo), id]
         );
 
-        console.log("✅ Pedido atualizado: documentos salvos, status = Carregado");
+        console.log(`✅ Pedido ${orderId} atualizado com documentos carregados`);
 
-        res.json({
-          sucesso: true,
-          mensagem: "Documentos enviados com sucesso",
+        // Registrar no log do sistema
+        await storage.createLog({
+          userId: req.session.userId || 0,
+          action: "Upload de documentos",
+          itemType: "order",
+          itemId: id.toString(),
+          details: `Documentos carregados para o pedido ${orderId}: ${Object.keys(documentosInfo).join(', ')}`
+        });
+
+        res.status(200).json({
+          success: true,
+          message: "Documentos enviados com sucesso",
+          documentos: documentosInfo
         });
 
       } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        console.error("Erro ao fazer upload de documentos:", err);
+        console.error("❌ Erro no upload de documentos:", error);
         res.status(500).json({
-          sucesso: false,
-          mensagem: `Erro ao fazer upload: ${err.message}`
+          success: false,
+          message: "Erro ao processar o upload de documentos",
+          error: error instanceof Error ? error.message : "Erro desconhecido"
         });
       }
     }
@@ -4048,7 +4021,7 @@ Status: Teste em progresso...`;
       // Atualizar pedido com nova data e justificativa (usando nomes corretos das colunas em português)
       await pool.query(
         `UPDATE orders 
-         SET nova_data_entrega = $1,
+         SET nova_data_entrega = $1, 
              justificativa_reprogramacao = $2,
              data_solicitacao_reprogramacao = NOW(),
              usuario_reprogramacao = $3,
@@ -4165,55 +4138,6 @@ Status: Teste em progresso...`;
     }
   });
 
-  // Rota para buscar pontos de rastreamento de um pedido
-  app.get("/api/tracking-points/:id", isAuthenticated, async (req, res) => {
-    try {
-      const pedidoId = parseInt(req.params.id);
-
-      if (isNaN(pedidoId)) {
-        return res.status(400).json({
-          success: false,
-          message: "ID de pedido inválido"
-        });
-      }
-
-      console.log(`🗺️ Buscando tracking points para pedido ${pedidoId}`);
-
-      // Buscar tracking points do banco de dados
-      const trackingResult = await pool.query(
-        `SELECT * FROM tracking_points WHERE order_id = $1 ORDER BY timestamp DESC`,
-        [pedidoId]
-      );
-
-      // Retornar array vazio se não houver pontos
-      if (trackingResult.rows.length === 0) {
-        console.log(`📍 Nenhum tracking point encontrado para pedido ${pedidoId}`);
-        return res.json([]);
-      }
-
-      const trackingPoints = trackingResult.rows.map(row => ({
-        id: row.id,
-        orderId: row.order_id,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        timestamp: row.timestamp,
-        status: row.status,
-        description: row.description
-      }));
-
-      console.log(`✅ ${trackingPoints.length} tracking points encontrados para pedido ${pedidoId}`);
-      res.json(trackingPoints);
-
-    } catch (error) {
-      console.error("❌ Erro ao buscar tracking points:", error);
-      res.status(500).json({
-        success: false,
-        message: "Erro ao buscar pontos de rastreamento",
-        error: error instanceof Error ? error.message : "Erro desconhecido"
-      });
-    }
-  });
-
   // Rota para download da foto de confirmação
   app.get("/api/pedidos/:id/foto-confirmacao", isAuthenticated, async (req, res) => {
     try {
@@ -4270,103 +4194,54 @@ Status: Teste em progresso...`;
       const { storageKey, originalName, mimetype } = fotoInfo;
       console.log(`🔍 Buscando foto: ${storageKey} (${originalName})`);
 
-      // Calcular a chave correta para o Object Storage
-      // A chave deve ser baseada no order_id (código do pedido), não no ID interno
-      const orderId = pedido.order_id;
-      const correctStorageKey = storageKey.replace(/^[^/]+\//, `${orderId}/`); // Substitui o primeiro segmento da chave se não for orderId/
-
-      // Tentar ler do Object Storage usando a chave corrigida
+      // USAR A MESMA ABORDAGEM DOS DOCUMENTOS QUE FUNCIONA
       const fileResult = await readFileFromStorage(
-        correctStorageKey,
-        orderId, // Passar o order_id para a função
+        storageKey,
+        id.toString(),
         originalName
       );
 
       if (!fileResult) {
-        console.log(`❌ Foto não encontrada no storage com a chave ${correctStorageKey}`);
-        // Tentar com a chave original caso a correção tenha falhado
-        const originalFileResult = await readFileFromStorage(
-          storageKey,
-          id.toString(), // Usar o ID interno aqui se a chave original for diferente
-          originalName
-        );
-        if (!originalFileResult) {
-          console.log(`❌ Foto não encontrada no storage com a chave original também.`);
-          return res.status(404).json({
-            success: false,
-            message: "Foto não encontrada no storage",
-            hasFoto: false
-          });
-        }
-        // Se encontrou com a chave original, usar esse resultado
-        const { data: fileBuffer, originalName: fileName } = originalFileResult;
-        console.log(`✅ Foto recuperada com a chave original: ${storageKey} (${fileBuffer.length} bytes)`);
-
-        // Verificar se é redirect para Google Drive
-        if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
-          const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-          console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-          return res.redirect(302, driveLink);
-        }
-
-        // Verificar tamanho mínimo
-        if (fileBuffer.length <= 1) {
-          console.log(`❌ Arquivo muito pequeno: ${fileBuffer.length} bytes`);
-          return res.status(404).json({
-            success: false,
-            message: "Arquivo corrompido",
-            hasFoto: false
-          });
-        }
-
-        console.log(`✅ Foto recuperada: ${fileBuffer.length} bytes - ${fileName}`);
-
-        // Determinar Content-Type
-        const contentType = mimetype || (fileName.endsWith('.png') ? 'image/png' : 'image/jpeg');
-
-        // Configurar headers para download
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        res.setHeader('Content-Length', fileBuffer.length);
-        res.setHeader('Cache-Control', 'no-cache');
-
-        // Enviar o arquivo
-        return res.end(fileBuffer);
-
-      } else {
-        const { data: fileBuffer, originalName: fileName } = fileResult;
-
-        // Verificar se é redirect para Google Drive
-        if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
-          const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-          console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-          return res.redirect(302, driveLink);
-        }
-
-        // Verificar tamanho mínimo
-        if (fileBuffer.length <= 1) {
-          console.log(`❌ Arquivo muito pequeno: ${fileBuffer.length} bytes`);
-          return res.status(404).json({
-            success: false,
-            message: "Arquivo corrompido",
-            hasFoto: false
-          });
-        }
-
-        console.log(`✅ Foto recuperada: ${fileBuffer.length} bytes - ${fileName}`);
-
-        // Determinar Content-Type
-        const contentType = mimetype || (fileName.endsWith('.png') ? 'image/png' : 'image/jpeg');
-
-        // Configurar headers para download
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        res.setHeader('Content-Length', fileBuffer.length);
-        res.setHeader('Cache-Control', 'no-cache');
-
-        // Enviar o arquivo
-        return res.end(fileBuffer);
+        console.log(`❌ Foto não encontrada no storage`);
+        return res.status(404).json({
+          success: false,
+          message: "Foto não encontrada",
+          hasFoto: false
+        });
       }
+
+      const { data: fileBuffer, originalName: fileName } = fileResult;
+
+      // Verificar se é redirect para Google Drive
+      if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
+        const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
+        console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
+        return res.redirect(302, driveLink);
+      }
+
+      // Verificar tamanho mínimo
+      if (fileBuffer.length <= 1) {
+        console.log(`❌ Arquivo muito pequeno: ${fileBuffer.length} bytes`);
+        return res.status(404).json({
+          success: false,
+          message: "Arquivo corrompido",
+          hasFoto: false
+        });
+      }
+
+      console.log(`✅ Foto recuperada: ${fileBuffer.length} bytes - ${fileName}`);
+
+      // Determinar Content-Type
+      const contentType = mimetype || (fileName.endsWith('.png') ? 'image/png' : 'image/jpeg');
+
+      // Configurar headers para download
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache');
+
+      // Enviar o arquivo
+      return res.end(fileBuffer);
 
     } catch (error) {
       console.error("❌ Erro ao buscar foto de confirmação:", error);
@@ -4511,6 +4386,59 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para buscar quantidade confirmada de um pedido
+  app.get("/api/pedidos/:id/quantidade-confirmada", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID inválido"
+        });
+      }
+
+      const pedidoResult = await pool.query(
+        "SELECT foto_confirmacao FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const fotoConfirmacao = pedidoResult.rows[0].foto_confirmacao;
+
+      if (!fotoConfirmacao) {
+        return res.json({
+          success: true,
+          quantidadeConfirmada: null,
+          message: "Pedido ainda não foi confirmado"
+        });
+      }
+
+      const confirmacao = typeof fotoConfirmacao === 'string'
+        ? JSON.parse(fotoConfirmacao)
+        : fotoConfirmacao;
+
+      res.json({
+        success: true,
+        quantidadeConfirmada: confirmacao.quantidadeConfirmada || null,
+        uploadDate: confirmacao.uploadDate || null
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar quantidade confirmada:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar quantidade confirmada"
+      });
+    }
+  });
+
   // Rota para confirmar entrega de pedido SEM FOTO (legado)
   app.post("/api/pedidos/:id/confirmar-entrega", isAuthenticated, async (req, res) => {
     try {
@@ -4595,6 +4523,786 @@ Status: Teste em progresso...`;
       res.status(500).json({
         sucesso: false,
         mensagem: "Erro ao confirmar a entrega."
+      });
+    }
+  });
+
+  // Rota para cancelar pedido (somente KeyUser)
+  app.post("/api/pedidos/:id/cancelar", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { motivo } = req.body;
+
+      console.log(`🚫 Cancelamento de pedido solicitado:`, {
+        pedidoId,
+        motivo
+      });
+
+      // Validações
+      if (!motivo || !motivo.trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Motivo do cancelamento é obrigatório."
+        });
+      }
+
+      // Buscar informações do pedido original para histórico
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Atualizar o status do pedido para 'Cancelado'
+      await pool.query(
+        `UPDATE orders
+         SET status = 'Cancelado'
+         WHERE id = $1`,
+        [pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Cancelou pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Pedido ${pedido.order_id} (${pedido.product_name}) cancelado. Motivo: ${motivo}.`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Pedido cancelado com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao cancelar pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao cancelar o pedido."
+      });
+    }
+  });
+
+  // Rota para adicionar nota fiscal a um pedido
+  app.post("/api/pedidos/:id/adicionar-nota", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { numeroNota, dataEmissao, valorTotal } = req.body;
+
+      console.log(`📝 Adicionando nota fiscal ao pedido:`, {
+        pedidoId,
+        numeroNota,
+        dataEmissao,
+        valorTotal
+      });
+
+      // Validações
+      if (!numeroNota || !dataEmissao || !valorTotal) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Número da nota, data de emissão e valor total são obrigatórios."
+        });
+      }
+
+      const emissao = convertToLocalDate(dataEmissao);
+      const valor = parseFloat(valorTotal);
+
+      if (isNaN(valor) || valor <= 0) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Valor total inválido."
+        });
+      }
+
+      // Buscar informações do pedido para log
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Atualizar o pedido com as informações da nota fiscal
+      await pool.query(
+        `UPDATE orders
+         SET invoice_number = $1, invoice_date = $2, invoice_total = $3
+         WHERE id = $4`,
+        [numeroNota, emissao, valor, pedidoId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Adicionou nota fiscal a pedido",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Nota fiscal ${numeroNota} adicionada ao pedido ${pedido.order_id} (${pedido.product_name}). Valor: R$ ${valor.toFixed(2)}.`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Nota fiscal adicionada com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao adicionar nota fiscal:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao adicionar nota fiscal."
+      });
+    }
+  });
+
+  // Rota para buscar detalhes de um pedido específico
+  app.get("/api/pedidos/:id", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido."
+        });
+      }
+
+      console.log(`🔍 Buscando detalhes do pedido ID: ${pedidoId}`);
+
+      // Buscar detalhes do pedido principal
+      const pedidoResult = await pool.query(`
+        SELECT
+          o.*,
+          p.name as product_name,
+          p.confirmation_type,
+          u.abbreviation as unit_abbreviation,
+          oc.numero_ordem as purchase_order_number,
+          c_supplier.name as supplier_name,
+          c_work.name as work_location_name,
+          COALESCE(SUM(CASE WHEN o.status = 'Entregue' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
+          COALESCE(SUM(CASE WHEN o.status != 'Cancelado' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
+        FROM orders o
+        JOIN products p ON o.product_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+        LEFT JOIN companies c_supplier ON o.supplier_id = c_supplier.id
+        LEFT JOIN companies c_work ON oc.cnpj = c_work.cnpj
+        WHERE o.id = $1
+        GROUP BY o.id, p.name, p.confirmation_type, u.abbreviation, oc.numero_ordem, c_supplier.name, c_work.name
+      `, [pedidoId]);
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+      console.log(`✅ Pedido encontrado: ${pedido.order_id}`);
+
+      // Buscar informações do aprovador (se aplicável)
+      let approverInfo = null;
+      if (pedido.status === 'Registrado' && pedido.purchase_order_id) {
+        const approverResult = await pool.query(`
+          SELECT u.name as approver_name, u.email as approver_email
+          FROM orders o
+          JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+          JOIN companies c ON oc.cnpj = c.cnpj
+          JOIN users u ON c.approver_id = u.id
+          WHERE o.id = $1 AND c.approver_id IS NOT NULL
+        `, [pedidoId]);
+
+        if (approverResult.rows.length > 0) {
+          approverInfo = {
+            name: approverResult.rows[0].approver_name,
+            email: approverResult.rows[0].approver_email
+          };
+        }
+      }
+
+      res.json({
+        sucesso: true,
+        pedido: {
+          ...pedido,
+          approverInfo: approverInfo
+        }
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar detalhes do pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar detalhes do pedido."
+      });
+    }
+  });
+
+  // Rota para obter a chave da API do Google Maps dos Secrets
+  app.get("/api/google-maps-key", async (req, res) => {
+    try {
+      const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+      if (!googleMapsApiKey) {
+        console.error('❌ GOOGLE_MAPS_API_KEY não encontrada nos secrets');
+        return res.status(500).json({
+          error: 'Chave da API do Google Maps não configurada',
+          apiKey: null
+        });
+      }
+
+      console.log('✅ Google Maps API Key carregada dos secrets');
+      console.log('   • Tamanho:', googleMapsApiKey.length);
+      console.log('   • Preview:', `${googleMapsApiKey.substring(0, 20)}...`);
+
+      res.json({
+        apiKey: googleMapsApiKey
+      });
+    } catch (error) {
+      console.error("❌ Erro ao buscar chave do Google Maps:", error);
+      res.status(500).json({
+        error: 'Erro ao carregar chave da API',
+        apiKey: null
+      });
+    }
+  });
+
+  // Rota para buscar todos os pedidos com filtros
+  app.get("/api/pedidos", isAuthenticated, async (req, res) => {
+    try {
+      const { status, supplierId, productId, purchaseOrderId, startDate, endDate, workLocation } = req.query;
+
+      console.log("🔍 Buscando pedidos com filtros:", {
+        status,
+        supplierId,
+        productId,
+        purchaseOrderId,
+        startDate,
+        endDate,
+        workLocation,
+        userCompanyId: req.user.companyId,
+        userIsKeyUser: req.user.isKeyUser
+      });
+
+      let query = `
+        SELECT
+          o.*,
+          p.name as product_name,
+          p.confirmation_type,
+          u.abbreviation as unit_abbreviation,
+          oc.numero_ordem as purchase_order_number,
+          c_supplier.name as supplier_name,
+          c_work.name as work_location_name,
+          COALESCE(SUM(CASE WHEN o.status = 'Entregue' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
+          COALESCE(SUM(CASE WHEN o.status != 'Cancelado' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
+        FROM orders o
+        JOIN products p ON o.product_id = p.id
+        LEFT JOIN units u ON p.unit_id = u.id
+        LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+        LEFT JOIN companies c_supplier ON o.supplier_id = c_supplier.id
+        LEFT JOIN companies c_work ON oc.cnpj = c_work.cnpj
+        WHERE 1=1
+      `; // Start with 1=1 for easy AND conditions
+
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+
+      // --- FILTRO BASEADO NA EMPRESA DO USUÁRIO ---
+      // Se o usuário pertence a uma empresa com critérios e não é KeyUser/Admin
+      if (req.user && req.user.companyId && !req.user.isKeyUser && req.user.id !== 1) {
+        const userCompany = await storage.getCompany(req.user.companyId);
+        if (userCompany) {
+          const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+          if (companyCategory && (companyCategory.requiresApprover || companyCategory.requiresContract || companyCategory.receivesPurchaseOrders)) {
+            // Incluir pedidos onde a empresa é fornecedora OU obra de destino
+            query += ` AND (o.supplier_id = $${paramIndex} OR oc.cnpj = $${paramIndex + 1})`;
+            queryParams.push(req.user.companyId, userCompany.cnpj);
+            paramIndex += 2;
+            console.log(`🔒 Filtro de empresa aplicado: Fornecedor=${req.user.companyId}, Obra CNPJ=${userCompany.cnpj}`);
+          }
+        }
+      }
+
+      // --- FILTRO DE STATUS ---
+      if (status) {
+        query += ` AND o.status = $${paramIndex++}`;
+        queryParams.push(status);
+      }
+
+      // --- FILTRO POR FORNECEDOR ---
+      if (supplierId) {
+        query += ` AND o.supplier_id = $${paramIndex++}`;
+        queryParams.push(supplierId);
+      }
+
+      // --- FILTRO POR PRODUTO ---
+      if (productId) {
+        query += ` AND o.product_id = $${paramIndex++}`;
+        queryParams.push(productId);
+      }
+
+      // --- FILTRO POR ORDEM DE COMPRA ---
+      if (purchaseOrderId) {
+        query += ` AND o.purchase_order_id = $${paramIndex++}`;
+        queryParams.push(purchaseOrderId);
+      }
+
+      // --- FILTRO POR LOCAL DE OBRA ---
+      if (workLocation) {
+        query += ` AND c_work.name ILIKE $${paramIndex++}`; // ILIKE para case-insensitive search
+        queryParams.push(`%${workLocation}%`);
+      }
+
+      // --- FILTRO POR PERÍODO ---
+      if (startDate) {
+        query += ` AND o.delivery_date >= $${paramIndex++}`;
+        queryParams.push(convertToLocalDate(startDate as string)); // Convert to local date
+      }
+      if (endDate) {
+        // Add 1 day to endDate to include the entire day
+        const adjustedEndDate = new Date(endDate as string);
+        adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
+        query += ` AND o.delivery_date < $${paramIndex++}`;
+        queryParams.push(adjustedEndDate);
+      }
+
+      // --- GROUP BY ---
+      query += `
+        GROUP BY o.id, p.name, p.confirmation_type, u.abbreviation, oc.numero_ordem, c_supplier.name, c_work.name
+        ORDER BY o.created_at DESC
+      `;
+
+      const result = await pool.query(query, queryParams);
+
+      res.json(result.rows);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar pedidos com filtros:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar pedidos."
+      });
+    }
+  });
+
+
+  // Rota para buscar pontos de rastreamento de um pedido
+  app.get("/api/tracking-points/:orderId", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`📍 Buscando pontos de rastreamento para pedido ID: ${orderId}`);
+
+      // Verificar se a tabela tracking_points existe
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_name = 'tracking_points'
+        );
+      `);
+
+      if (!tableCheck.rows[0].exists) {
+        console.log(`⚠️ Tabela tracking_points não existe - retornando array vazio`);
+        return res.json([]);
+      }
+
+      // Primeiro, buscar o código (order_id) do pedido
+      const orderResult = await pool.query(`
+        SELECT order_id FROM orders WHERE id = $1
+      `, [orderId]);
+
+      if (!orderResult.rows.length) {
+        console.log(`⚠️ Pedido ${orderId} não encontrado`);
+        return res.json([]);
+      }
+
+      const orderCode = orderResult.rows[0].order_id;
+      console.log(`📋 Código do pedido: ${orderCode}`);
+
+      // Buscar pontos de rastreamento usando o código do pedido
+      const result = await pool.query(`
+        SELECT
+          tp.*,
+          u.name as user_name
+        FROM tracking_points tp
+        LEFT JOIN users u ON tp.user_id = u.id
+        WHERE tp.order_id = $1
+        ORDER BY tp.created_at ASC
+      `, [orderCode]);
+
+      console.log(`✅ ${result.rows.length} pontos encontrados para pedido ${orderCode}`);
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("❌ Erro ao buscar pontos de rastreamento:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar pontos de rastreamento",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  // Rota para adicionar comentário a um pedido
+  app.post("/api/pedidos/:id/comentar", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { comentario } = req.body;
+
+      console.log(`💬 Adicionando comentário ao pedido:`, {
+        pedidoId,
+        comentario
+      });
+
+      // Validações
+      if (!comentario || !comentario.trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Comentário é obrigatório."
+        });
+      }
+
+      // Buscar informações do pedido para log
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Adicionar o comentário ao histórico do pedido
+      await pool.query(
+        `INSERT INTO order_comments (order_id, user_id, comment, created_at)
+         VALUES ($1, $2, $3, $4)`,
+        [pedidoId, req.user.id, comentario.trim(), new Date()]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Adicionou comentário a pedido",
+        itemType: "order_comment",
+        itemId: pedidoId.toString(),
+        details: `Comentário adicionado ao pedido ${pedido.order_id} (${pedido.product_name}).`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Comentário adicionado com sucesso."
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao adicionar comentário:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao adicionar comentário."
+      });
+    }
+  });
+
+  // Rota para buscar comentários de um pedido
+  app.get("/api/pedidos/:id/comentarios", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID de pedido inválido."
+        });
+      }
+
+      console.log(`🔍 Buscando comentários do pedido ID: ${pedidoId}`);
+
+      const comentariosResult = await pool.query(`
+        SELECT
+          oc.*,
+          u.name as user_name,
+          u.email as user_email
+        FROM order_comments oc
+        JOIN users u ON oc.user_id = u.id
+        WHERE oc.order_id = $1
+        ORDER BY oc.created_at ASC
+      `, [pedidoId]);
+
+      res.json(comentariosResult.rows);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar comentários do pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao buscar comentários do pedido."
+      });
+    }
+  });
+
+  // Rota para aprovar pedido urgente
+  app.put("/api/orders/:id/approve", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`✅ Aprovando pedido urgente ID: ${orderId}`);
+
+      // Buscar informações do pedido
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [orderId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Atualizar status para Aprovado
+      await pool.query(
+        `UPDATE orders SET status = 'Aprovado' WHERE id = $1`,
+        [orderId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Aprovou pedido urgente",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: `Pedido ${pedido.order_id} (${pedido.product_name}) aprovado`
+      });
+
+      res.json({
+        success: true,
+        message: "Pedido aprovado com sucesso"
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao aprovar pedido:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao aprovar pedido"
+      });
+    }
+  });
+
+  // Rota para rejeitar pedido urgente
+  app.put("/api/orders/:id/reject", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`❌ Rejeitando pedido urgente ID: ${orderId}`);
+
+      // Buscar informações do pedido
+      const pedidoResult = await pool.query(
+        `SELECT o.*, p.name as product_name
+         FROM orders o
+         JOIN products p ON o.product_id = p.id
+         WHERE o.id = $1`,
+        [orderId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Atualizar status para Cancelado
+      await pool.query(
+        `UPDATE orders SET status = 'Cancelado' WHERE id = $1`,
+        [orderId]
+      );
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Rejeitou pedido urgente",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: `Pedido ${pedido.order_id} (${pedido.product_name}) rejeitado/cancelado`
+      });
+
+      res.json({
+        success: true,
+        message: "Pedido rejeitado com sucesso"
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao rejeitar pedido:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao rejeitar pedido"
+      });
+    }
+  });
+
+  // Rota para aprovar reprogramação
+  app.put("/api/orders/:id/reprogramacao/aprovar", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+
+      // Verificar se o pedido existe e tem reprogramação pendente
+      const orderResult = await pool.query(
+        "SELECT * FROM orders WHERE id = $1 AND status = 'Aguardando Aprovação'",
+        [orderId]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado ou não está aguardando aprovação"
+        });
+      }
+
+      const order = orderResult.rows[0];
+
+      // Verificar se há nova data de entrega
+      if (!order.nova_data_entrega) {
+        return res.status(400).json({
+          success: false,
+          message: "Data de reprogramação não encontrada"
+        });
+      }
+
+      // Aprovar: atualizar delivery_date com a nova data e mudar status
+      await pool.query(
+        `UPDATE orders 
+         SET delivery_date = nova_data_entrega,
+             status = 'Aprovado',
+             nova_data_entrega = NULL,
+             justificativa_reprogramacao = NULL,
+             data_solicitacao_reprogramacao = NULL,
+             usuario_reprogramacao = NULL
+         WHERE id = $1`,
+        [orderId]
+      );
+
+      // Registrar log
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Aprovou reprogramação de entrega",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: `Nova data aprovada: ${new Date(order.nova_data_entrega).toLocaleDateString('pt-BR')}`
+      });
+
+      res.json({
+        success: true,
+        message: "Reprogramação aprovada com sucesso"
+      });
+    } catch (error) {
+      console.error("Erro ao aprovar reprogramação:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao aprovar reprogramação"
+      });
+    }
+  });
+
+  // Rota para rejeitar reprogramação (cancela o pedido)
+  app.put("/api/orders/:id/reprogramacao/rejeitar", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+
+      // Verificar se o pedido existe e tem reprogramação pendente
+      const orderResult = await pool.query(
+        "SELECT * FROM orders WHERE id = $1 AND status = 'Aguardando Aprovação'",
+        [orderId]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado ou não está aguardando aprovação"
+        });
+      }
+
+      // Rejeitar: cancelar o pedido
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Cancelado',
+             nova_data_entrega = NULL,
+             justificativa_reprogramacao = NULL,
+             data_solicitacao_reprogramacao = NULL,
+             usuario_reprogramacao = NULL
+         WHERE id = $1`,
+        [orderId]
+      );
+
+      // Registrar log
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Rejeitou reprogramação de entrega",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: "Pedido cancelado por rejeição da reprogramação"
+      });
+
+      res.json({
+        success: true,
+        message: "Reprogramação rejeitada, pedido cancelado"
+      });
+    } catch (error) {
+      console.error("Erro ao rejeitar reprogramação:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao rejeitar reprogramação"
       });
     }
   });
