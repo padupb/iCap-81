@@ -1347,6 +1347,106 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para download de ZIP com todos os documentos do pedido
+  app.get("/api/pedidos/:id/documentos/download-zip", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do pedido inválido"
+        });
+      }
+
+      console.log(`📦 Criando ZIP para pedido ${orderId}...`);
+
+      // Buscar pedido
+      const orderResult = await pool.query(
+        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+        [orderId]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const order = orderResult.rows[0];
+      const documentosInfo = order.documentos_info;
+
+      if (!documentosInfo) {
+        return res.status(404).json({
+          success: false,
+          message: "Nenhum documento encontrado para este pedido"
+        });
+      }
+
+      console.log(`📄 Documentos do pedido ${order.order_id}:`, Object.keys(documentosInfo));
+
+      // Importar archiver para criar ZIP
+      const archiver = await import('archiver');
+      const archive = archiver.default('zip', {
+        zlib: { level: 9 } // Máxima compressão
+      });
+
+      // Configurar headers para download do ZIP
+      const zipFileName = `Pedido_${order.order_id}_Documentos.zip`;
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+      res.setHeader('Cache-Control', 'no-cache');
+
+      // Pipe do arquivo para a resposta
+      archive.pipe(res);
+
+      // Adicionar cada documento ao ZIP
+      for (const [docType, docInfo] of Object.entries(documentosInfo)) {
+        try {
+          console.log(`📥 Adicionando ${docType} ao ZIP...`);
+          
+          const fileData = await readFileFromStorage(
+            docInfo.storageKey,
+            order.order_id,
+            docInfo.filename
+          );
+
+          if (fileData && fileData.data) {
+            archive.append(fileData.data, { name: fileData.originalName });
+            console.log(`✅ ${docType} adicionado: ${fileData.originalName} (${fileData.data.length} bytes)`);
+          } else {
+            console.log(`⚠️ Não foi possível adicionar ${docType}`);
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao adicionar ${docType}:`, error);
+        }
+      }
+
+      // Finalizar o ZIP
+      await archive.finalize();
+
+      console.log(`✅ ZIP criado com sucesso: ${zipFileName}`);
+
+      // Log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Download de ZIP de documentos",
+        itemType: "order",
+        itemId: orderId.toString(),
+        details: `Download do ZIP com documentos do pedido ${order.order_id}`
+      });
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("❌ Erro ao criar ZIP:", err);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao criar ZIP: ${err.message}`
+      });
+    }
+  });
+
   // Rota para download do arquivo de teste do Object Storage
   app.post("/api/keyuser/download-test-file", isAuthenticated, isKeyUser, async (req, res) => {
     try {

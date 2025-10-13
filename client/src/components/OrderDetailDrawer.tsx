@@ -2123,57 +2123,53 @@ export function OrderDetailDrawer({
                             </p>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                            <div className="p-4 border rounded-lg flex flex-col items-center space-y-2">
-                              <FileText className="w-8 h-8 text-primary" />
-                              <p className="font-medium text-center">
-                                Nota Fiscal (PDF)
-                              </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownloadDocument('nota_pdf', 'Nota_Fiscal.pdf')}
-                                className="w-full"
-                                title="Clique para baixar a Nota Fiscal (PDF)"
-                              >
-                                <Download className="w-4 h-4 mr-2" />
-                                Baixar PDF
-                              </Button>
-                            </div>
+                          <div className="mt-4">
+                            <Button
+                              variant="default"
+                              size="lg"
+                              onClick={async () => {
+                                try {
+                                  console.log(`📦 Iniciando download do ZIP para pedido ${orderDetails.id}`);
+                                  
+                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/documentos/download-zip`);
+                                  
+                                  if (!response.ok) {
+                                    throw new Error(`Erro: ${response.status}`);
+                                  }
 
-                            <div className="p-4 border rounded-lg flex flex-col items-center space-y-2">
-                              <FileText className="w-8 h-8 text-green-600" />
-                              <p className="font-medium text-center">
-                                Nota Fiscal (XML)
-                              </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownloadDocument('nota_xml', 'Nota_Fiscal.xml')}
-                                className="w-full"
-                                title="Clique para baixar a Nota Fiscal (XML)"
-                              >
-                                <Download className="w-4 h-4 mr-2" />
-                                Baixar XML
-                              </Button>
-                            </div>
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `Pedido_${orderDetails.orderId}_Documentos.zip`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  window.URL.revokeObjectURL(url);
+                                  a.remove();
 
-                            <div className="p-4 border rounded-lg flex flex-col items-center space-y-2">
-                              <FileCheck className="w-8 h-8 text-blue-600" />
-                              <p className="font-medium text-center">
-                                Certificado (PDF)
-                              </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownloadDocument('certificado_pdf', 'Certificado.pdf')}
-                                className="w-full"
-                                title="Clique para baixar o Certificado (PDF)"
-                              >
-                                <Download className="w-4 h-4 mr-2" />
-                                Baixar PDF
-                              </Button>
-                            </div>
+                                  toast({
+                                    title: "Download concluído",
+                                    description: `ZIP com todos os documentos do pedido ${orderDetails.orderId} baixado com sucesso`,
+                                  });
+                                } catch (error) {
+                                  console.error("Erro ao baixar ZIP:", error);
+                                  toast({
+                                    title: "Erro no download",
+                                    description: error instanceof Error ? error.message : "Erro ao baixar ZIP",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                              className="w-full"
+                              title="Baixar todos os documentos em um arquivo ZIP"
+                            >
+                              <Download className="w-5 h-5 mr-2" />
+                              Baixar Todos os Documentos (ZIP)
+                            </Button>
+                            
+                            <p className="text-xs text-muted-foreground text-center mt-2">
+                              O arquivo ZIP contém: Nota Fiscal (PDF e XML) e Certificado (PDF)
+                            </p>
                           </div>
                         </div>
                           );
