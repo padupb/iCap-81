@@ -819,7 +819,7 @@ const uploadFotoConfirmacao = multer({
     if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
       cb(null, true);
     } else {
-      cb(new Error('Apenas arquivos JPG e PNG são permitidos'), false);
+      cb(new Error('Apenas arquivos JPG e PNG são permitidos'));
     }
   }
 });
@@ -3397,6 +3397,139 @@ Status: Teste em progresso...`;
       });
     }
   });
+
+  // Rota para upload de documentos do pedido (nota_pdf, nota_xml, certificado_pdf)
+  app.post(
+    "/api/pedidos/:id/documentos",
+    isAuthenticated,
+    upload.fields([
+      { name: 'nota_pdf', maxCount: 1 },
+      { name: 'nota_xml', maxCount: 1 },
+      { name: 'certificado_pdf', maxCount: 1 }
+    ]),
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          return res.status(400).json({
+            success: false,
+            message: "ID de pedido inválido"
+          });
+        }
+
+        console.log(`📤 Iniciando upload de documentos para pedido ID: ${id}`);
+
+        // Buscar informações do pedido
+        const pedidoResult = await pool.query(
+          "SELECT order_id FROM orders WHERE id = $1",
+          [id]
+        );
+
+        if (!pedidoResult.rows.length) {
+          return res.status(404).json({
+            success: false,
+            message: "Pedido não encontrado"
+          });
+        }
+
+        const orderId = pedidoResult.rows[0].order_id;
+        console.log(`📋 Order ID encontrado: ${orderId}`);
+
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        console.log("📂 Arquivos recebidos:", Object.keys(files || {}));
+
+        if (!files || Object.keys(files).length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: "É necessário enviar pelo menos um documento"
+          });
+        }
+
+        const documentosInfo: Record<string, any> = {};
+
+        // Processar cada arquivo recebido
+        for (const [fieldName, fileArray] of Object.entries(files)) {
+          if (fileArray && fileArray.length > 0) {
+            const file = fileArray[0];
+            console.log(`📄 Processando ${fieldName}: ${file.originalname} (${file.size} bytes)`);
+
+            try {
+              // Ler o arquivo do disco
+              const fileBuffer = fs.readFileSync(file.path);
+
+              // Salvar no Object Storage
+              const storageKey = await saveFileToStorage(
+                fileBuffer,
+                file.filename,
+                orderId
+              );
+
+              console.log(`✅ ${fieldName} salvo: ${storageKey}`);
+
+              // Registrar informações do documento
+              documentosInfo[fieldName] = {
+                name: file.originalname,
+                filename: file.filename,
+                size: file.size,
+                storageKey: storageKey,
+                mimetype: file.mimetype,
+                date: new Date().toISOString()
+              };
+
+              // Remover arquivo temporário
+              try {
+                fs.unlinkSync(file.path);
+              } catch (unlinkError) {
+                console.log(`⚠️ Não foi possível remover arquivo temporário: ${file.path}`);
+              }
+            } catch (uploadError) {
+              const error = uploadError instanceof Error ? uploadError : new Error(String(uploadError));
+              console.error(`❌ Erro ao processar ${fieldName}:`, error);
+              throw new Error(`Falha ao salvar ${fieldName}: ${error.message}`);
+            }
+          }
+        }
+
+        if (Object.keys(documentosInfo).length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Nenhum arquivo foi processado corretamente"
+          });
+        }
+
+        // Atualizar o pedido no banco de dados
+        await pool.query(
+          'UPDATE orders SET status = $1, documentoscarregados = $2, documentos_info = $3 WHERE id = $4',
+          ['Carregado', true, JSON.stringify(documentosInfo), id]
+        );
+
+        console.log(`✅ Pedido ${orderId} atualizado com documentos carregados`);
+
+        // Registrar no log do sistema
+        await storage.createLog({
+          userId: req.session.userId || 0,
+          action: "Upload de documentos",
+          itemType: "order",
+          itemId: id.toString(),
+          details: `Documentos carregados para o pedido ${orderId}: ${Object.keys(documentosInfo).join(', ')}`
+        });
+
+        res.status(200).json({
+          success: true,
+          message: "Documentos enviados com sucesso",
+          documentos: documentosInfo
+        });
+
+      } catch (error) {
+        console.error("❌ Erro no upload de documentos:", error);
+        res.status(500).json({
+          success: false,
+          message: "Erro ao processar o upload de documentos",
+          error: error instanceof Error ? error.message : "Erro desconhecido"
+        });
+      }
+    }
+  );
 
   // Rota para upload de PDF da ordem de compra
   app.post(
