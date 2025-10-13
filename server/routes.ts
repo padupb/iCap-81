@@ -2745,15 +2745,15 @@ Status: Teste em progresso...`;
         });
       }
 
-      // Verificar se tem pelo menos 3 dias de antecedência
+      // Verificar se tem mais de 3 dias de antecedência (não permite quando ≤ 3)
       const deliveryDate = new Date(order.delivery_date);
       const today = new Date();
       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
 
-      if (daysDiff < 3) {
+      if (daysDiff <= 3) {
         return res.status(400).json({
           sucesso: false,
-          mensagem: `Pedidos só podem ser cancelados com pelo menos 3 dias de antecedência. Faltam ${daysDiff} dia(s) para a entrega.`
+          mensagem: `Pedidos só podem ser cancelados com mais de 3 dias de antecedência. Faltam ${daysDiff} dia(s) para a entrega.`
         });
       }
 

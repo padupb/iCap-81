@@ -1744,7 +1744,7 @@ export function OrderDetailDrawer({
                               const deliveryDate = new Date(orderDetails.deliveryDate);
                               const today = new Date();
                               const diffDays = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                              const hasMinimumAdvance = diffDays >= 3;
+                              const hasMinimumAdvance = diffDays > 3; // MUDANÇA: Agora exige MAIS de 3 dias (não permite quando ≤ 3)
 
                               // Verificar se já tem documentos
                               const hasDocuments = documentsLoaded || orderDetails.status === "Carregado" || orderDetails.status === "Em Rota" || orderDetails.status === "Em transporte";
@@ -1849,14 +1849,14 @@ export function OrderDetailDrawer({
                           orderDetails.status !== "Entregue" &&
                           orderDetails.quantidade !== 0;
 
-                        // Verificar antecedência e documentos
-                        const threeDaysBeforeDelivery = new Date(orderDetails.deliveryDate);
-                        threeDaysBeforeDelivery.setDate(threeDaysBeforeDelivery.getDate() - 3);
+                        // Verificar antecedência (mais de 3 dias)
+                        const deliveryDate = new Date(orderDetails.deliveryDate);
                         const now = new Date();
-                        const isBeforeThreeDays = now < threeDaysBeforeDelivery;
+                        const diffDays = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+                        const hasMinimumAdvance = diffDays > 3; // MUDANÇA: Exige MAIS de 3 dias
                         const hasDocuments = documentsLoaded || orderDetails.status === "Carregado";
 
-                        if (canCancel && !isBeforeThreeDays && !hasDocuments) {
+                        if (canCancel && hasMinimumAdvance && !hasDocuments) {
                           return (
                             <Button
                               variant="destructive"
