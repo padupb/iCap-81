@@ -1759,7 +1759,8 @@ export function OrderDetailDrawer({
                               today.setHours(0, 0, 0, 0);
                               
                               const diffTime = deliveryDate.getTime() - today.getTime();
-                              const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+                              // Usar Math.floor para contar apenas dias completos
+                              const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
                               
                               console.log('🔍 Validação de cancelamento:', {
                                 orderId: orderDetails.orderId,
@@ -1770,7 +1771,7 @@ export function OrderDetailDrawer({
                                 hasDocuments
                               });
 
-                              // Permitir cancelar SOMENTE se tiver 3 ou mais dias de antecedência
+                              // Permitir cancelar se tiver 3 ou mais dias COMPLETOS de antecedência
                               if (canCancel && diffDays >= 3) {
                                 return (
                                   <Button
@@ -1887,9 +1888,10 @@ export function OrderDetailDrawer({
                         now.setHours(0, 0, 0, 0);
                         
                         const diffTime = deliveryDate.getTime() - now.getTime();
-                        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+                        // Usar Math.floor para contar apenas dias completos
+                        const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
 
-                        // Permitir cancelar SOMENTE se tiver 3 ou mais dias de antecedência
+                        // Permitir cancelar se tiver 3 ou mais dias COMPLETOS de antecedência
                         if (canCancel && diffDays >= 3) {
                           return (
                             <Button
