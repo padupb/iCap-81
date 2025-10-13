@@ -5,9 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: string | Date) {
-  const d = new Date(date);
-  return d.toLocaleDateString("pt-BR");
+export function formatDate(date: string | Date): string {
+  // Extrair a data diretamente da string ISO sem conversão de timezone
+  const dateStr = typeof date === 'string' ? date : date.toISOString();
+  const [datePart] = dateStr.split('T');
+  const [year, month, day] = datePart.split('-');
+  return `${day}/${month}/${year}`;
 }
 
 export function formatDateTime(date: string | Date) {
@@ -41,6 +44,6 @@ export function getStatusColor(status: string) {
     "Expirado": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
     "Pendente": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
   };
-  
+
   return statusColors[status] || "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
 }
