@@ -3786,15 +3786,19 @@ Status: Teste em progresso...`;
         if (files.nota_xml && files.nota_xml[0]) {
           try {
             const xmlFile = files.nota_xml[0];
+            // Ler o arquivo antes de ser removido
             const xmlBuffer = fs.readFileSync(xmlFile.path);
             const xmlContent = xmlBuffer.toString('utf-8');
 
             console.log("📄 Lendo XML para extrair quantidade...");
+            console.log(`📄 Tamanho do XML: ${xmlContent.length} caracteres`);
 
             // Parse do XML
             const xml2js = await import('xml2js');
             const parser = new xml2js.Parser();
             const result = await parser.parseStringPromise(xmlContent);
+
+            console.log("📊 Estrutura do XML parseado:", JSON.stringify(result).substring(0, 500) + "...");
 
             // Navegar pela estrutura do XML da NFe
             // Estrutura padrão: nfeProc > NFe > infNFe > det > prod > qCom
@@ -3805,15 +3809,40 @@ Status: Teste em progresso...`;
             const prod = det?.prod?.[0];
             const qCom = prod?.qCom?.[0];
 
+            console.log("🔍 Valores extraídos:", {
+              temNfeProc: !!nfeProc,
+              temNFe: !!NFe,
+              temInfNFe: !!infNFe,
+              temDet: !!det,
+              temProd: !!prod,
+              qCom: qCom
+            });
+
             if (qCom) {
               quantidadeXml = parseFloat(qCom);
               console.log(`✅ Quantidade extraída do XML: ${quantidadeXml}`);
             } else {
               console.log("⚠️ Não foi possível extrair quantidade do XML - estrutura não encontrada");
+              console.log("📋 Tentando estruturas alternativas...");
+              
+              // Tentar estrutura alternativa (sem nfeProc)
+              const nfeRoot = result?.NFe?.[0] || result?.nfe?.[0];
+              if (nfeRoot) {
+                const infNFeAlt = nfeRoot?.infNFe?.[0];
+                const detAlt = infNFeAlt?.det?.[0];
+                const prodAlt = detAlt?.prod?.[0];
+                const qComAlt = prodAlt?.qCom?.[0];
+                
+                if (qComAlt) {
+                  quantidadeXml = parseFloat(qComAlt);
+                  console.log(`✅ Quantidade extraída do XML (estrutura alternativa): ${quantidadeXml}`);
+                }
+              }
             }
           } catch (xmlError) {
             const error = xmlError instanceof Error ? xmlError : new Error(String(xmlError));
             console.log(`⚠️ Erro ao processar XML: ${error.message}`);
+            console.log(`📋 Stack trace: ${error.stack}`);
           }
         }
 
