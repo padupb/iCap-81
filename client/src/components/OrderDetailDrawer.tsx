@@ -205,8 +205,8 @@ function SimpleTracker({
         {/* Seção do Mapa */}
         <div className="space-y-2">
           <div className="border rounded-lg overflow-hidden" style={{ height: '400px' }}>
-            <MapComponent 
-              lat={coordinates.lat} 
+            <MapComponent
+              lat={coordinates.lat}
               lng={coordinates.lng}
               zoom={trackingPoints.length > 0 ? 15 : 12}
             />
@@ -291,6 +291,10 @@ export function OrderDetailDrawer({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [justificativa, setJustificativa] = useState("");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+  // Estados para cancelamento
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelJustification, setCancelJustification] = useState("");
 
   // Estado para número do pedido
   const [numeroPedido, setNumeroPedido] = useState("");
@@ -606,7 +610,7 @@ export function OrderDetailDrawer({
 
       try {
         console.log(`📤 Iniciando upload de documentos para pedido ${orderId}`);
-        
+
         const response = await fetch(`/api/pedidos/${orderId}/documentos`, {
           method: "POST",
           body: formData,
@@ -619,7 +623,7 @@ export function OrderDetailDrawer({
           // Tentar ler como texto primeiro
           const responseText = await response.text();
           console.error(`❌ Erro do servidor (${response.status}):`, responseText);
-          
+
           // Tentar interpretar como JSON se possível
           try {
             const errorData = JSON.parse(responseText);
@@ -957,6 +961,81 @@ export function OrderDetailDrawer({
     }
   };
 
+  // Função para cancelar pedido
+  const handleCancelOrder = async () => {
+    if (!orderDetails || !cancelJustification.trim()) {
+      toast({
+        title: "Erro",
+        description: "Informe o motivo do cancelamento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Regra: Pedido não pode ser cancelado com menos de 3 dias de antecedência
+    const threeDaysBeforeDelivery = new Date(orderDetails.deliveryDate);
+    threeDaysBeforeDelivery.setDate(threeDaysBeforeDelivery.getDate() - 3);
+    const now = new Date();
+
+    if (now < threeDaysBeforeDelivery) {
+      toast({
+        title: "Atenção",
+        description: "Não é possível cancelar pedidos com menos de 3 dias de antecedência da entrega.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Regra: Pedido não pode ser cancelado após documentos fiscais terem sido carregados
+    if (documentsLoaded || orderDetails.status === "Carregado") {
+      toast({
+        title: "Atenção",
+        description: "Não é possível cancelar um pedido após o upload dos documentos fiscais.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/pedidos/${orderDetails.id}/cancelar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          motivoCancelamento: cancelJustification.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.sucesso) {
+        toast({
+          title: "Sucesso",
+          description: "Pedido cancelado com sucesso",
+        });
+
+        // Atualizar a lista de pedidos
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+
+        // Fechar o drawer
+        onOpenChange(false);
+      } else {
+        toast({
+          title: "Erro",
+          description: result.mensagem || "Erro desconhecido ao cancelar pedido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao cancelar pedido:", error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao cancelar pedido",
+        variant: "destructive",
+      });
+    }
+  };
 
 
   // Função para confirmar entrega
@@ -1685,13 +1764,13 @@ export function OrderDetailDrawer({
                       </div>
                     </div>
 
-                    {/* Coluna 2 - QR Code */}
-                    <div className="flex justify-center items-start">
+                    {/* Coluna 2 - QR Code e Ações */}
+                    <div className="flex flex-col justify-between items-center">
                       {(() => {
                         // Verificar se o pedido foi cancelado
-                        if (orderDetails.quantidade === 0) {
+                        if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado") {
                           return (
-                            <div className="flex flex-col items-center justify-center p-6 border border-red-200 rounded-lg bg-red-50 mt-4">
+                            <div className="flex flex-col items-center justify-center p-6 border border-red-200 rounded-lg bg-red-50 w-full">
                               <AlertCircle className="h-12 w-12 text-red-600 mb-2" />
                               <h3 className="text-lg font-medium text-red-800 text-center">
                                 Pedido Cancelado
@@ -1703,16 +1782,15 @@ export function OrderDetailDrawer({
                           );
                         }
 
-                        // 3. Verificar se é pedido urgente e não foi aprovado
+                        // Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = new Date(orderDetails.deliveryDate);
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
 
-                        // Se é urgente e ainda está "Registrado", não mostrar QR Code
                         if (isUrgent && orderDetails.status === "Registrado") {
                           return (
-                            <div className="flex flex-col items-center justify-center p-6 border border-yellow-200 rounded-lg bg-yellow-50 mt-4">
+                            <div className="flex flex-col items-center justify-center p-6 border border-yellow-200 rounded-lg bg-yellow-50 w-full">
                               <AlertCircle className="h-12 w-12 text-yellow-600 mb-2" />
                               <h3 className="text-lg font-medium text-yellow-800 text-center">
                                 Pedido Urgente
@@ -1724,7 +1802,6 @@ export function OrderDetailDrawer({
                           );
                         }
 
-                        // Para pedidos normais ou já aprovados, mostrar QR Code
                         return (
                           <QRCodeComponent
                             value={orderDetails.orderId}
@@ -1732,6 +1809,36 @@ export function OrderDetailDrawer({
                             className="mt-4"
                           />
                         );
+                      })()}
+
+                      {/* Botão de Cancelamento (somente se permitido) */}
+                      {(() => {
+                        const canCancel =
+                          orderDetails.status !== "Cancelado" &&
+                          orderDetails.status !== "Entregue" &&
+                          orderDetails.quantidade !== 0;
+
+                        // Verificar antecedência e documentos
+                        const threeDaysBeforeDelivery = new Date(orderDetails.deliveryDate);
+                        threeDaysBeforeDelivery.setDate(threeDaysBeforeDelivery.getDate() - 3);
+                        const now = new Date();
+                        const isBeforeThreeDays = now < threeDaysBeforeDelivery;
+                        const hasDocuments = documentsLoaded || orderDetails.status === "Carregado";
+
+                        if (canCancel && !isBeforeThreeDays && !hasDocuments) {
+                          return (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setIsCancelDialogOpen(true)}
+                              className="mt-6 w-full"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Cancelar Pedido
+                            </Button>
+                          );
+                        }
+                        return null;
                       })()}
                     </div>
                   </div>
@@ -2513,7 +2620,7 @@ export function OrderDetailDrawer({
                                   if (!response.ok) {
                                     throw new Error('Erro ao baixar foto');
                                   }
-                                  
+
                                   const blob = await response.blob();
                                   const url = window.URL.createObjectURL(blob);
                                   const a = document.createElement('a');
@@ -2524,7 +2631,7 @@ export function OrderDetailDrawer({
                                   a.click();
                                   window.URL.revokeObjectURL(url);
                                   document.body.removeChild(a);
-                                  
+
                                   toast({
                                     title: "Download Concluído",
                                     description: "Foto baixada com sucesso",
@@ -2835,14 +2942,18 @@ export function OrderDetailDrawer({
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
 
-                      // Usar a data de validade da ordem de compra como limite máximo
-                      const maxDate = orderDetails?.purchaseOrder?.validUntil
-                        ? new Date(orderDetails.purchaseOrder.validUntil)
-                        : new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000)); // fallback para 7 dias
+                      // Desabilitar datas passadas
+                      if (date < today) return true;
 
-                      maxDate.setHours(23, 59, 59, 999);
+                      // Se houver ordem de compra com validade, verificar
+                      const validUntil = orderDetails?.purchaseOrder?.validUntil;
+                      if (validUntil) {
+                        const maxDate = new Date(validUntil);
+                        maxDate.setHours(23, 59, 59, 999);
+                        if (date > maxDate) return true;
+                      }
 
-                      return date <= today || date > maxDate;
+                      return false;
                     }}
                     initialFocus
                   />
@@ -2851,16 +2962,17 @@ export function OrderDetailDrawer({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Justificativa ({justificativa.length}/100)
-              </label>
+              <label className="text-sm font-medium">Justificativa (máx. 100 caracteres)</label>
               <Textarea
-                placeholder="Informe o motivo da reprogramação..."
+                placeholder="Digite o motivo da reprogramação"
                 value={justificativa}
                 onChange={(e) => setJustificativa(e.target.value)}
                 maxLength={100}
                 rows={3}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {justificativa.length}/100 caracteres
+              </p>
             </div>
           </div>
 
@@ -2880,6 +2992,68 @@ export function OrderDetailDrawer({
               disabled={!selectedDate || !justificativa.trim()}
             >
               Solicitar Reprogramação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Cancelamento */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <XCircle className="h-5 w-5" />
+              Cancelar Pedido
+            </DialogTitle>
+            <DialogDescription>
+              Esta ação cancelará permanentemente o pedido {orderDetails?.orderId}.
+              Informe o motivo do cancelamento.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-800">
+                <strong>Atenção:</strong> Pedidos só podem ser cancelados com pelo menos 3 dias de antecedência
+                e antes do upload dos documentos fiscais.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Justificativa (máx. 200 caracteres)
+              </label>
+              <Textarea
+                placeholder="Digite o motivo do cancelamento do pedido"
+                value={cancelJustification}
+                onChange={(e) => setCancelJustification(e.target.value)}
+                maxLength={200}
+                rows={4}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {cancelJustification.length}/200 caracteres
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCancelDialogOpen(false);
+                setCancelJustification("");
+              }}
+            >
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelOrder}
+              disabled={!cancelJustification.trim()}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Cancelar Pedido
             </Button>
           </DialogFooter>
         </DialogContent>

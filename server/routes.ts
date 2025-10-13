@@ -2694,6 +2694,105 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Cancelar pedido
+  app.post("/api/pedidos/:id/cancelar", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { motivo } = req.body;
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID inválido"
+        });
+      }
+
+      if (!motivo || !motivo.trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Motivo do cancelamento é obrigatório"
+        });
+      }
+
+      // Buscar o pedido
+      const orderResult = await pool.query(
+        "SELECT * FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!orderResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado"
+        });
+      }
+
+      const order = orderResult.rows[0];
+
+      // Validar se o pedido pode ser cancelado
+      if (["Cancelado", "Entregue", "Em Rota", "Em transporte"].includes(order.status)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `Pedidos com status "${order.status}" não podem ser cancelados`
+        });
+      }
+
+      // Verificar se já tem documentos carregados
+      if (order.documentos_carregados || order.status === "Carregado") {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Pedidos com documentos fiscais carregados não podem ser cancelados"
+        });
+      }
+
+      // Verificar se tem pelo menos 3 dias de antecedência
+      const deliveryDate = new Date(order.delivery_date);
+      const today = new Date();
+      const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+
+      if (daysDiff < 3) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `Pedidos só podem ser cancelados com pelo menos 3 dias de antecedência. Faltam ${daysDiff} dia(s) para a entrega.`
+        });
+      }
+
+      // Atualizar o pedido para status Cancelado e zerar quantidade
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Cancelado', 
+             quantity = 0,
+             rescheduling_comment = $1
+         WHERE id = $2`,
+        [motivo.trim(), id]
+      );
+
+      // Registrar log
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Cancelou pedido",
+          itemType: "order",
+          itemId: id.toString(),
+          details: `Pedido ${order.order_id} cancelado. Motivo: ${motivo.trim()}`
+        });
+      }
+
+      res.json({
+        sucesso: true,
+        mensagem: "Pedido cancelado com sucesso"
+      });
+
+    } catch (error) {
+      console.error("Erro ao cancelar pedido:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao cancelar pedido",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Excluir pedido (somente KeyUser)
   app.delete("/api/orders/:id", isAuthenticated, isKeyUser, async (req, res) => {
     try {
