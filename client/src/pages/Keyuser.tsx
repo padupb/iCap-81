@@ -72,7 +72,8 @@ import { z } from "zod";
 
 // Esquemas para as entidades do sistema
 const companyCategoryFormSchema = insertCompanyCategorySchema.extend({
-  receivesPurchaseOrders: z.boolean().default(false)
+  receivesPurchaseOrders: z.boolean().default(false),
+  canEditPurchaseOrders: z.boolean().default(false) // Adicionado para refletir a nova coluna
 });
 
 const userRoleFormSchema = insertUserRoleSchema.extend({
@@ -149,6 +150,7 @@ export default function Keyuser() {
   const [activeCategoryDialog, setActiveCategoryDialog] = useState(false);
   const [activeRoleDialog, setActiveRoleDialog] = useState(false);
   const [activeUnitDialog, setActiveUnitDialog] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false); // Novo estado para o diálogo de categoria
 
   // Estados para edição
   const [editingCategory, setEditingCategory] = useState<CompanyCategory | null>(null);
@@ -242,7 +244,8 @@ export default function Keyuser() {
     mutationFn: async (data: CompanyCategoryFormData) => {
       const categoryWithContract = {
         ...data,
-        requiresContract: data.requiresContract === true
+        requiresContract: data.requiresContract === true,
+        canEditPurchaseOrders: data.canEditPurchaseOrders === true // Adicionado para refletir a nova coluna
       };
       return apiRequest("POST", "/api/company-categories", categoryWithContract);
     },
@@ -268,7 +271,8 @@ export default function Keyuser() {
     mutationFn: async (data: { id: number; category: CompanyCategoryFormData }) => {
       const categoryWithContract = {
         ...data.category,
-        requiresContract: data.category.requiresContract === true
+        requiresContract: data.category.requiresContract === true,
+        canEditPurchaseOrders: data.category.canEditPurchaseOrders === true // Adicionado para refletir a nova coluna
       };
       return apiRequest("PUT", `/api/company-categories/${data.id}`, categoryWithContract);
     },
@@ -482,6 +486,7 @@ export default function Keyuser() {
       requiresApprover: false,
       requiresContract: false,
       receivesPurchaseOrders: false,
+      canEditPurchaseOrders: false // Adicionado para o formulário
     },
   });
 
@@ -528,6 +533,7 @@ export default function Keyuser() {
       requiresApprover: false,
       requiresContract: false,
       receivesPurchaseOrders: false,
+      canEditPurchaseOrders: false // Resetar novo campo
     });
     setEditingCategory(null);
   };
@@ -586,8 +592,9 @@ export default function Keyuser() {
       requiresApprover: category.requiresApprover || false,
       requiresContract: category.requiresContract || false,
       receivesPurchaseOrders: category.receivesPurchaseOrders || false,
+      canEditPurchaseOrders: category.canEditPurchaseOrders || false // Preencher novo campo
     });
-    setActiveCategoryDialog(true);
+    setActiveCategoryDialog(true); // Manter o diálogo ativo
   };
 
   const handleDeleteCategory = (id: number) => {
@@ -967,7 +974,7 @@ export default function Keyuser() {
     try {
       // Buscar o pedido pelo número
       const response = await fetch(`/api/orders?orderId=${numeroPedidoDownload}`);
-      
+
       if (!response.ok) {
         throw new Error("Erro ao buscar pedido");
       }
@@ -1029,7 +1036,7 @@ export default function Keyuser() {
     try {
       // Verificar se temos informações de teste bem-sucedido
       let storageKey = null;
-      
+
       // Verificar primeiro no resultado do teste da API
       if (objectStorageAPITestResult?.success && objectStorageAPITestResult?.storageKey) {
         storageKey = objectStorageAPITestResult.storageKey;
@@ -1051,7 +1058,7 @@ export default function Keyuser() {
         console.log("❌ Nenhuma storageKey encontrada");
         console.log("Debug objectStorageAPITestResult:", objectStorageAPITestResult);
         console.log("Debug objectStorageTestResult:", objectStorageTestResult);
-        
+
         toast({
           title: "Nenhum Arquivo",
           description: "Execute um teste bem-sucedido primeiro para ter um arquivo disponível para download",
@@ -1244,6 +1251,27 @@ export default function Keyuser() {
                             </FormItem>
                           )}
                         />
+
+                        <FormField
+                          control={categoryForm.control}
+                          name="canEditPurchaseOrders"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value || false}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel>Edita Ordens de Compra</FormLabel>
+                                <FormDescription>
+                                  Empresas desta categoria podem editar ordens de compra
+                                </FormDescription>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
                       </div>
 
                       <div className="flex justify-end gap-2">
@@ -1267,6 +1295,7 @@ export default function Keyuser() {
                     <TableHead>Aprovador</TableHead>
                     <TableHead>Contrato</TableHead>
                     <TableHead>Ordens de Compra</TableHead>
+                    <TableHead>Edita OC</TableHead> {/* Nova coluna */}
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1304,6 +1333,19 @@ export default function Keyuser() {
                         {category.receivesPurchaseOrders ? (
                           <Badge variant="default">
                             <ShoppingCart className="w-3 h-3 mr-1" />
+                            Sim
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Não
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {category.canEditPurchaseOrders ? (
+                          <Badge variant="default">
+                            <Edit className="w-3 h-3 mr-1" />
                             Sim
                           </Badge>
                         ) : (
@@ -1353,7 +1395,8 @@ export default function Keyuser() {
                     resetRoleForm();
                     setActiveRoleDialog(true);
                   }}>
-                    <Plus className="w-4 h-4 mr-2" />Correcting the JSX syntax error by wrapping the TabsContent components within a React Fragment.                    Nova Função
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Função
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
@@ -1438,7 +1481,7 @@ export default function Keyuser() {
                                   <IconComponent className="w-4 h-4 text-gray-600" />
 
                                   {/* Nome do menu */}
-                                  <label 
+                                  <label
                                     htmlFor={`permission-${menu.id}`}
                                     className="flex-1 text-sm font-medium cursor-pointer"
                                   >
@@ -1940,7 +1983,7 @@ export default function Keyuser() {
                   {/* Seção de Download de Nota Fiscal */}
                   <div className="space-y-4 pt-6 border-t border-border">
                     <h3 className="text-lg font-medium text-foreground">Download de Nota Fiscal</h3>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                       <div className="md:col-span-2">
                         <Label htmlFor="numero-pedido-download">Número do Pedido</Label>
@@ -1959,7 +2002,7 @@ export default function Keyuser() {
                         />
                       </div>
 
-                      <Button 
+                      <Button
                         onClick={handleDownloadNotaFiscal}
                         disabled={isDownloadingNotaFiscal || !numeroPedidoDownload.trim()}
                         className="w-full"
@@ -1982,9 +2025,9 @@ export default function Keyuser() {
                   {/* Seção de Testes do Sistema */}
                   <div className="space-y-4 pt-6 border-t border-border">
                     <h3 className="text-lg font-medium text-foreground">Testes do Sistema</h3>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Button 
+                      <Button
                         onClick={handleTestObjectStorage}
                         disabled={isTestingObjectStorage}
                         className="w-full"
@@ -2003,7 +2046,7 @@ export default function Keyuser() {
                         )}
                       </Button>
 
-                      <Button 
+                      <Button
                         onClick={handleTestObjectStorageAPI}
                         disabled={isTestingObjectStorageAPI}
                         className="w-full"
@@ -2022,7 +2065,7 @@ export default function Keyuser() {
                         )}
                       </Button>
 
-                      <Button 
+                      <Button
                         onClick={handleDownloadTestFile}
                         disabled={!objectStorageTestResult?.success && !objectStorageAPITestResult?.success}
                         className="w-full"
@@ -2035,8 +2078,8 @@ export default function Keyuser() {
 
                     {objectStorageTestResult && (
                       <div className={`p-4 rounded-lg border ${
-                        objectStorageTestResult.success 
-                          ? 'bg-green-50 border-green-200 text-green-800' 
+                        objectStorageTestResult.success
+                          ? 'bg-green-50 border-green-200 text-green-800'
                           : 'bg-red-50 border-red-200 text-red-800'
                       }`}>
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
@@ -2061,8 +2104,8 @@ export default function Keyuser() {
 
                     {objectStorageAPITestResult && (
                       <div className={`p-4 rounded-lg border ${
-                        objectStorageAPITestResult.success 
-                          ? 'bg-green-50 border-green-200 text-green-800' 
+                        objectStorageAPITestResult.success
+                          ? 'bg-green-50 border-green-200 text-green-800'
                           : 'bg-red-50 border-red-200 text-red-800'
                       }`}>
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
@@ -2074,7 +2117,7 @@ export default function Keyuser() {
                           Resultado do Teste da API
                         </h4>
                         <p className="text-sm mb-2">{objectStorageAPITestResult.message}</p>
-                        
+
                         {/* Mostrar estatísticas do teste */}
                         {objectStorageAPITestResult.stats && (
                           <div className="grid grid-cols-2 gap-2 text-xs mt-2">
@@ -2160,7 +2203,7 @@ export default function Keyuser() {
                         className="bg-input border-border"
                       />
                     </div>
-                    <Button 
+                    <Button
                       onClick={handleUploadAPK}
                       disabled={uploadingAPK}
                       className="w-full"
@@ -2193,7 +2236,7 @@ export default function Keyuser() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Data:</span>
                       <span className="font-medium">
-                        {currentVersion?.date 
+                        {currentVersion?.date
                           ? new Date(currentVersion.date).toLocaleDateString('pt-BR')
                           : "Não disponível"
                         }
@@ -2219,7 +2262,7 @@ export default function Keyuser() {
                     <div className="flex justify-center">
                       <div className="p-4 bg-white rounded-lg">
                         {currentVersion?.hasAPK ? (
-                          <QRCodeComponent 
+                          <QRCodeComponent
                             value={`${window.location.origin}/icapmob/icapmob.apk`}
                             size={128}
                           />
@@ -2280,8 +2323,7 @@ export default function Keyuser() {
           </Card>
         </TabsContent>
 
-        
-              </Tabs>
-            </div>
-          );
-        }
+      </Tabs>
+    </div>
+  );
+}

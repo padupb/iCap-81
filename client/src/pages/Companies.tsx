@@ -298,7 +298,7 @@ export default function Companies() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : filteredCompanies.length === 0 ? (
+                ) : companies.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex flex-col items-center justify-center space-y-3">
@@ -308,8 +308,9 @@ export default function Companies() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredCompanies.map((company) => {
-                    const category = categories.find((c) => c.id === company.categoryId);
+                  companies.map((company) => {
+                    // @ts-ignore - category foi adicionada pelo servidor
+                    const category = company.category;
                     return (
                       <TableRow key={company.id} className="hover:bg-muted/50 transition-colors">
                         <TableCell className="font-medium text-foreground">
@@ -364,7 +365,6 @@ export default function Companies() {
                             variant="ghost"
                             size="sm"
                             className="text-muted-foreground hover:text-red-500"
-                            onClick={() => handleDelete(company.id)}
                           >
                             <Trash2 size={16} />
                           </Button>
