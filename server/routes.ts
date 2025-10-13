@@ -185,16 +185,35 @@ async function readFileFromStorage(key: string, orderId: string, filename: strin
 
         const result = await objectStorage.downloadAsBytes(storageKey);
         console.log(`📊 Tipo retornado:`, typeof result);
+        console.log(`📊 É Buffer:`, result instanceof Buffer);
+        console.log(`📊 É Uint8Array:`, result instanceof Uint8Array);
         console.log(`📊 Tem ok:`, result && typeof result === 'object' && 'ok' in result);
         console.log(`📊 Tem value:`, result && typeof result === 'object' && 'value' in result);
 
-        // SIMPLIFICADO: O Replit retorna { ok: true, value: Uint8Array }
         let buffer: Buffer | null = null;
 
-        if (result && typeof result === 'object' && 'ok' in result && result.ok && result.value) {
-          // Formato padrão do Replit: { ok: true, value: Uint8Array }
-          buffer = Buffer.from(result.value);
-          console.log(`✅ Buffer extraído do wrapper Replit: ${buffer.length} bytes`);
+        // ESTRATÉGIA 1: Resultado direto como Buffer ou Uint8Array
+        if (result instanceof Buffer) {
+          buffer = result;
+          console.log(`✅ Buffer direto: ${buffer.length} bytes`);
+        } else if (result instanceof Uint8Array) {
+          buffer = Buffer.from(result);
+          console.log(`✅ Uint8Array convertido para Buffer: ${buffer.length} bytes`);
+        }
+        // ESTRATÉGIA 2: Result wrapper do Replit { ok: true, value: ... }
+        else if (result && typeof result === 'object' && 'ok' in result && result.ok) {
+          const value = result.value;
+          
+          if (value instanceof Buffer) {
+            buffer = value;
+            console.log(`✅ Buffer do wrapper: ${buffer.length} bytes`);
+          } else if (value instanceof Uint8Array) {
+            buffer = Buffer.from(value);
+            console.log(`✅ Uint8Array do wrapper convertido: ${buffer.length} bytes`);
+          } else if (Array.isArray(value)) {
+            buffer = Buffer.from(value);
+            console.log(`✅ Array do wrapper convertido: ${buffer.length} bytes`);
+          }
         }
 
         if (buffer && buffer.length > 0) {
@@ -1433,14 +1452,27 @@ Status: Teste em progresso...`;
 
       console.log(`✅ Arquivo processado com sucesso: ${fileBuffer.length} bytes`);
 
-      // Configurar headers para download
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-      res.setHeader('Content-Length', fileBuffer.length);
-      res.setHeader('Cache-Control', 'no-cache');
+      // Determinar o tipo MIME correto
+      let contentType = 'application/octet-stream';
+      if (originalName.endsWith('.pdf')) {
+        contentType = 'application/pdf';
+      } else if (originalName.endsWith('.xml')) {
+        contentType = 'text/xml';
+      } else if (originalName.endsWith('.png')) {
+        contentType = 'image/png';
+      } else if (originalName.endsWith('.jpg') || originalName.endsWith('.jpeg')) {
+        contentType = 'image/jpeg';
+      }
 
-      // Enviar o arquivo
-      res.end(fileBuffer);
+      // Configurar headers para download
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+      res.setHeader('Content-Length', fileBuffer.length.toString());
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      // Enviar o arquivo como buffer binário
+      res.send(fileBuffer);
 
       // Log da ação
       await storage.createLog({
