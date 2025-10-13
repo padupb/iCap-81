@@ -15,11 +15,11 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 40593
+localPort = 35729
 externalPort = 3000
 
 [workflows]
-runButton = "Start server"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
@@ -29,6 +29,10 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Server"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -47,6 +51,18 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-fbeb22e6-fccf-4b1c-92bc-eb3a0e56bd49"

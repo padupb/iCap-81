@@ -164,7 +164,45 @@ npm run db:push --force  # Força sincronização (com warnings)
 - KeyUser baseado apenas em ID (1-5)
 - Necessário implementar validação JWT adequada
 
+### 6. Extração Automática de Quantidade do XML da NF-e (IMPLEMENTADO ✅)
+**Funcionalidade**: Ao fazer upload do XML da nota fiscal, o sistema automaticamente extrai a quantidade e atualiza o pedido.
+
+**Implementação**:
+1. Biblioteca `fast-xml-parser` instalada para parsing de XML
+2. Função `extractQuantityFromXML()` criada (server/routes.ts linhas 30-124)
+   - Extrai quantidade do campo `<qCom>` (quantidade comercial) ou `<qTrib>` (tributária)
+   - Suporta múltiplos itens na NF-e (soma todas as quantidades)
+   - Trata diferentes estruturas de XML (nfeProc, NFe, infNFe)
+3. Integração no endpoint `/api/pedidos/:id/documentos` (linhas 3831-3841)
+   - Detecta quando nota_xml é enviada
+   - Processa XML automaticamente
+   - Extrai quantidade e informações do produto
+4. Atualização automática do pedido (linhas 3891-3941)
+   - Busca quantidade atual do pedido
+   - Atualiza com quantidade do XML
+   - Registra log de auditoria com detalhes da correção
+5. Log detalhado com:
+   - Quantidade anterior vs nova quantidade
+   - Diferença entre valores
+   - Nome e código do produto do XML
+   - Rastreabilidade completa da alteração
+
+**Comportamento**:
+- ✅ Processa XML automaticamente após upload
+- ✅ Atualiza quantidade do pedido
+- ✅ Registra log de auditoria
+- ✅ Não falha upload se extração falhar (apenas avisa)
+- ✅ Retorna informações da quantidade extraída na resposta
+
 ## Mudanças Recentes
+
+### 13/10/2025 - Noite
+- ✅ Implementado extração automática de quantidade do XML da NF-e
+- ✅ Instalada biblioteca fast-xml-parser para parsing de XML
+- ✅ Criada função extractQuantityFromXML() para processar NF-e
+- ✅ Integração automática no endpoint de upload de documentos
+- ✅ Atualização automática da quantidade do pedido baseado no XML
+- ✅ Log de auditoria detalhado para rastrear correções de quantidade
 
 ### 09/10/2025 - Noite
 - ✅ Corrigido endpoint de confirmação de entrega com upload de foto
