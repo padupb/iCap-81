@@ -1,3 +1,4 @@
+replit_final_file>
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1718,9 +1719,9 @@ export function OrderDetailDrawer({
                                 orderDetails.quantidade !== 0;
 
                               // Verificar se já tem documentos (bloqueia cancelamento)
-                              const hasDocuments = documentsLoaded || 
-                                orderDetails.status === "Carregado" || 
-                                orderDetails.status === "Em Rota" || 
+                              const hasDocuments = documentsLoaded ||
+                                orderDetails.status === "Carregado" ||
+                                orderDetails.status === "Em Rota" ||
                                 orderDetails.status === "Em transporte";
 
                               // Se já tem documentos, não pode cancelar
@@ -1731,14 +1732,14 @@ export function OrderDetailDrawer({
                               // Verificar antecedência mínima de 3 dias
                               const deliveryDate = new Date(orderDetails.deliveryDate);
                               deliveryDate.setHours(0, 0, 0, 0);
-                              
+
                               const today = new Date();
                               today.setHours(0, 0, 0, 0);
-                              
+
                               const diffTime = deliveryDate.getTime() - today.getTime();
                               // Usar Math.floor para contar apenas dias completos
                               const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
-                              
+
                               console.log('🔍 Validação de cancelamento:', {
                                 orderId: orderDetails.orderId,
                                 deliveryDate: deliveryDate.toISOString(),
@@ -1860,10 +1861,10 @@ export function OrderDetailDrawer({
                         // Verificar antecedência (pelo menos 3 dias)
                         const deliveryDate = new Date(orderDetails.deliveryDate);
                         deliveryDate.setHours(0, 0, 0, 0);
-                        
+
                         const now = new Date();
                         now.setHours(0, 0, 0, 0);
-                        
+
                         const diffTime = deliveryDate.getTime() - now.getTime();
                         // Usar Math.floor para contar apenas dias completos
                         const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
@@ -3122,3 +3123,4 @@ export function OrderDetailDrawer({
     </Drawer>
   );
 }
+</replit_final_file>
