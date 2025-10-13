@@ -1112,19 +1112,44 @@ export function OrderDetailDrawer({
     try {
       console.log(`📥 Iniciando download de ${docType} para pedido ${orderId}`);
       
-      // Criar um link direto para download
-      const downloadUrl = `/api/pedidos/${orderId}/documentos/${docType}`;
+      // Fazer requisição para obter o blob
+      const response = await fetch(`/api/pedidos/${orderId}/documentos/${docType}`);
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao carregar documento: ${response.statusText}`);
+      }
+
+      // Obter o blob da resposta
+      const blob = await response.blob();
+      console.log(`📊 Blob recebido: ${blob.size} bytes, tipo: ${blob.type}`);
+      
+      // Verificar se o blob não está vazio
+      if (blob.size === 0) {
+        throw new Error("Arquivo vazio recebido do servidor");
+      }
+
+      // Criar URL do blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Criar link para download
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = url;
       link.download = defaultFilename;
-      link.target = '_blank';
+      link.style.display = 'none';
+      
+      // Adicionar ao DOM, clicar e remover
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // Limpar URL do blob após um delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
 
       toast({
-        title: "Download iniciado",
-        description: `Baixando ${defaultFilename}...`,
+        title: "Download concluído",
+        description: `${defaultFilename} baixado com sucesso (${(blob.size / 1024).toFixed(2)} KB)`,
       });
 
     } catch (error) {

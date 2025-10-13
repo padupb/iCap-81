@@ -1479,8 +1479,9 @@ Status: Teste em progresso...`;
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Accept-Ranges', 'bytes');
 
-      // Enviar o arquivo como buffer binário
-      res.send(fileBuffer);
+      // CRÍTICO: Enviar como Buffer binário, não como JSON
+      // Usar res.end() em vez de res.send() para garantir dados binários
+      res.end(fileBuffer, 'binary');
 
       // Log da ação
       await storage.createLog({
