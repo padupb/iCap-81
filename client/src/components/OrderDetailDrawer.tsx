@@ -205,8 +205,8 @@ function SimpleTracker({
         {/* Seção do Mapa */}
         <div className="space-y-2">
           <div className="border rounded-lg overflow-hidden" style={{ height: '400px' }}>
-            <MapComponent
-              lat={coordinates.lat}
+            <MapComponent 
+              lat={coordinates.lat} 
               lng={coordinates.lng}
               zoom={trackingPoints.length > 0 ? 15 : 12}
             />
@@ -674,7 +674,7 @@ export function OrderDetailDrawer({
     }
   }, [orderDetails?.documentosCarregados]);
 
-  // Função para upload de todos os documentos
+  // Função para fazer upload de todos os documentos
   const handleUploadDocuments = () => {
     console.log("Iniciando upload de documentos para pedido:", orderId);
 
@@ -909,7 +909,7 @@ export function OrderDetailDrawer({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          deliveryDate: selectedDate.toISOString(),
+          novaDataEntrega: selectedDate.toISOString(),
           justificativa: justificativa.trim(),
         }),
       });
@@ -1101,67 +1101,6 @@ export function OrderDetailDrawer({
       });
     }
   };
-
-  // Função para baixar documentos diretamente
-  const handleDownloadDocument = async (docType: string, defaultFilename: string) => {
-    if (!orderId) {
-      toast({ title: "Erro", description: "ID do pedido não encontrado", variant: "destructive" });
-      return;
-    }
-
-    try {
-      console.log(`📥 Iniciando download de ${docType} para pedido ${orderId}`);
-
-      // Fazer requisição para obter o blob
-      const response = await fetch(`/api/pedidos/${orderId}/documentos/${docType}`);
-
-      if (!response.ok) {
-        throw new Error(`Erro ao carregar documento: ${response.statusText}`);
-      }
-
-      // Obter o blob da resposta
-      const blob = await response.blob();
-      console.log(`📊 Blob recebido: ${blob.size} bytes, tipo: ${blob.type}`);
-
-      // Verificar se o blob não está vazio
-      if (blob.size === 0) {
-        throw new Error("Arquivo vazio recebido do servidor");
-      }
-
-      // Criar URL do blob
-      const url = window.URL.createObjectURL(blob);
-
-      // Criar link para download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = defaultFilename;
-      link.style.display = 'none';
-
-      // Adicionar ao DOM, clicar e remover
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Limpar URL do blob após um delay
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 100);
-
-      toast({
-        title: "Download concluído",
-        description: `${defaultFilename} baixado com sucesso (${(blob.size / 1024).toFixed(2)} KB)`,
-      });
-
-    } catch (error) {
-      console.error(`Erro ao baixar ${docType}:`, error);
-      toast({
-        title: "Erro no download",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
-        variant: "destructive",
-      });
-    }
-  };
-
 
   // Função para imprimir o pedido
   const handlePrintOrder = () => {
@@ -1484,7 +1423,7 @@ export function OrderDetailDrawer({
     });
   };
 
-  // Analysis: After uploading documents, the order status is updated and the page is reloaded to reflect the changes.
+  // Analysis: Removed the status badge from the header of the drawer.
   if (!orderId) return null;
 
   return (
@@ -2123,99 +2062,201 @@ export function OrderDetailDrawer({
                             </p>
                           </div>
 
-                          <div className="mt-4 space-y-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/documentos/nota_pdf`);
-                                  if (!response.ok) throw new Error('Arquivo não encontrado');
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                            <div className="p-4 border rounded-lg flex flex-col items-center">
+                              <button
+                                className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
+                                onClick={async () => {
+                                  try {
+                                    console.log(`📥 Iniciando download de nota_pdf para pedido ${orderId}`);
 
-                                  const blob = await response.blob();
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `${orderDetails.orderId}_nota.pdf`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  window.URL.revokeObjectURL(url);
-                                } catch (error) {
-                                  toast({
-                                    title: "Erro",
-                                    description: "Não foi possível baixar o arquivo",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
-                              className="w-full"
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Baixar Nota Fiscal (PDF)
-                            </Button>
+                                    const response = await fetch(`/api/pedidos/${orderId}/documentos/nota_pdf`);
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/documentos/nota_xml`);
-                                  if (!response.ok) throw new Error('Arquivo não encontrado');
+                                    if (!response.ok) {
+                                      throw new Error(`Erro ao baixar documento: ${response.statusText}`);
+                                    }
 
-                                  const blob = await response.blob();
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `${orderDetails.orderId}_nota.xml`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  window.URL.revokeObjectURL(url);
-                                } catch (error) {
-                                  toast({
-                                    title: "Erro",
-                                    description: "Não foi possível baixar o arquivo",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
-                              className="w-full"
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Baixar Nota Fiscal (XML)
-                            </Button>
+                                    // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
+                                    const contentDisposition = response.headers.get('Content-Disposition');
+                                    let filename = `nota_pdf_${orderDetails?.orderId || orderId}.pdf`;
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/documentos/certificado_pdf`);
-                                  if (!response.ok) throw new Error('Arquivo não encontrado');
+                                    if (contentDisposition) {
+                                      const matches = contentDisposition.match(/filename="(.+)"/);
+                                      if (matches && matches[1]) {
+                                        filename = matches[1];
+                                      }
+                                    }
 
-                                  const blob = await response.blob();
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `${orderDetails.orderId}_certificado.pdf`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  window.URL.revokeObjectURL(url);
-                                } catch (error) {
-                                  toast({
-                                    title: "Erro",
-                                    description: "Não foi possível baixar o arquivo",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
-                              className="w-full"
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Baixar Certificado (PDF)
-                            </Button>
+                                    // Converter resposta para blob
+                                    const blob = await response.blob();
+
+                                    // Criar URL temporária e baixar
+                                    const url = window.URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = filename;
+                                    document.body.appendChild(link);
+                                    link.click();
+
+                                    // Limpar
+                                    document.body.removeChild(link);
+                                    window.URL.revokeObjectURL(url);
+
+                                    toast({
+                                      title: "Download concluído",
+                                      description: `Arquivo ${filename} baixado com sucesso`,
+                                    });
+
+                                  } catch (error) {
+                                    console.error(`Erro ao baixar nota_pdf:`, error);
+                                    toast({
+                                      title: "Erro no download",
+                                      description: error instanceof Error ? error.message : "Erro desconhecido",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                title="Clique para baixar a Nota Fiscal (PDF)"
+                              >
+                                <FileText size={32} />
+                              </button>
+                              <p className="font-medium text-center">
+                                Nota Fiscal (PDF)
+                              </p>
+                              <p className="text-xs text-muted-foreground text-center mt-1">
+                                Clique no ícone para baixar
+                              </p>
+                            </div>
+
+                            <div className="p-4 border rounded-lg flex flex-col items-center">
+                              <button
+                                className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
+                                onClick={async () => {
+                                  try {
+                                    console.log(`📥 Iniciando download de nota_xml para pedido ${orderId}`);
+
+                                    const response = await fetch(`/api/pedidos/${orderId}/documentos/nota_xml`);
+
+                                    if (!response.ok) {
+                                      throw new Error(`Erro ao baixar documento: ${response.statusText}`);
+                                    }
+
+                                    // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
+                                    const contentDisposition = response.headers.get('Content-Disposition');
+                                    let filename = `nota_xml_${orderDetails?.orderId || orderId}.xml`;
+
+                                    if (contentDisposition) {
+                                      const matches = contentDisposition.match(/filename="(.+)"/);
+                                      if (matches && matches[1]) {
+                                        filename = matches[1];
+                                      }
+                                    }
+
+                                    // Converter resposta para blob
+                                    const blob = await response.blob();
+
+                                    // Criar URL temporária e baixar
+                                    const url = window.URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = filename;
+                                    document.body.appendChild(link);
+                                    link.click();
+
+                                    // Limpar
+                                    document.body.removeChild(link);
+                                    window.URL.revokeObjectURL(url);
+
+                                    toast({
+                                      title: "Download concluído",
+                                      description: `Arquivo ${filename} baixado com sucesso`,
+                                    });
+
+                                  } catch (error) {
+                                    console.error(`Erro ao baixar nota_xml:`, error);
+                                    toast({
+                                      title: "Erro no download",
+                                      description: error instanceof Error ? error.message : "Erro desconhecido",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                title="Clique para baixar a Nota Fiscal (XML)"
+                              >
+                                <FileText size={32} />
+                              </button>
+                              <p className="font-medium text-center">
+                                Nota Fiscal (XML)
+                              </p>
+                              <p className="text-xs text-muted-foreground text-center mt-1">
+                                Clique no ícone para baixar
+                              </p>
+                            </div>
+
+                            <div className="p-4 border rounded-lg flex flex-col items-center">
+                              <button
+                                className="w-16 h-16 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
+                                onClick={async () => {
+                                  try {
+                                    console.log(`📥 Iniciando download de certificado_pdf para pedido ${orderId}`);
+
+                                    const response = await fetch(`/api/pedidos/${orderId}/documentos/certificado_pdf`);
+
+                                    if (!response.ok) {
+                                      throw new Error(`Erro ao baixar documento: ${response.statusText}`);
+                                    }
+
+                                    // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
+                                    const contentDisposition = response.headers.get('Content-Disposition');
+                                    let filename = `certificado_pdf_${orderDetails?.orderId || orderId}.pdf`;
+
+                                    if (contentDisposition) {
+                                      const matches = contentDisposition.match(/filename="(.+)"/);
+                                      if (matches && matches[1]) {
+                                        filename = matches[1];
+                                      }
+                                    }
+
+                                    // Converter resposta para blob
+                                    const blob = await response.blob();
+
+                                    // Criar URL temporária e baixar
+                                    const url = window.URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = filename;
+                                    document.body.appendChild(link);
+                                    link.click();
+
+                                    // Limpar
+                                    document.body.removeChild(link);
+                                    window.URL.revokeObjectURL(url);
+
+                                    toast({
+                                      title: "Download concluído",
+                                      description: `Arquivo ${filename} baixado com sucesso`,
+                                    });
+
+                                  } catch (error) {
+                                    console.error(`Erro ao baixar certificado_pdf:`, error);
+                                    toast({
+                                      title: "Erro no download",
+                                      description: error instanceof Error ? error.message : "Erro desconhecido",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                title="Clique para baixar o Certificado (PDF)"
+                              >
+                                <FileText size={32} />
+                              </button>
+                              <p className="font-medium text-center">
+                                Certificado (PDF)
+                              </p>
+                              <p className="text-xs text-muted-foreground text-center mt-1">
+                                Clique no ícone para baixar
+                              </p>
+                            </div>
                           </div>
                         </div>
                           );
@@ -2461,7 +2502,7 @@ export function OrderDetailDrawer({
                                   if (!response.ok) {
                                     throw new Error('Erro ao baixar foto');
                                   }
-
+                                  
                                   const blob = await response.blob();
                                   const url = window.URL.createObjectURL(blob);
                                   const a = document.createElement('a');
@@ -2472,7 +2513,7 @@ export function OrderDetailDrawer({
                                   a.click();
                                   window.URL.revokeObjectURL(url);
                                   document.body.removeChild(a);
-
+                                  
                                   toast({
                                     title: "Download Concluído",
                                     description: "Foto baixada com sucesso",

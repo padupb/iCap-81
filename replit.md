@@ -159,31 +159,12 @@ npm run db:push --force  # Força sincronização (com warnings)
 5. Validações de permissão, quantidade vs ordem de compra, e foto obrigatória
 6. Endpoint legado `/api/pedidos/:id/confirmar-entrega` mantido para compatibilidade
 
-### 5. Endpoint de Download Individual Inexistente (RESOLVIDO ✅)
-**Problema**: Downloads de documentos geravam arquivos corrompidos de 42,7 KB.
-- Frontend chamava `/api/pedidos/:id/documentos/:tipo` (nota_pdf, nota_xml, etc)
-- Esse endpoint NÃO EXISTIA no backend
-- Retornava HTTP 200 mas com conteúdo incorreto (provavelmente HTML de erro)
-
-**Solução**:
-1. Criado endpoint `GET /api/pedidos/:id/documentos/:tipo` (server/routes.ts linha 1328)
-2. Faz download direto do Object Storage usando `extractBufferFromStorageResult()`
-3. Define Content-Type correto baseado no tipo de documento
-4. Envia arquivo com headers apropriados (Content-Disposition, Content-Length, Cache-Control)
-5. Suporta tipos: nota_pdf, nota_xml, certificado_pdf, foto_nota
-
-### 6. Segurança (PENDENTE ⚠️)
+### 5. Segurança (PENDENTE ⚠️)
 - Mobile auth aceita qualquer Bearer token
 - KeyUser baseado apenas em ID (1-5)
 - Necessário implementar validação JWT adequada
 
 ## Mudanças Recentes
-
-### 13/10/2025 - Tarde
-- ✅ **CRÍTICO**: Criado endpoint inexistente `/api/pedidos/:id/documentos/:tipo`
-- ✅ Corrigido bug de downloads gerando arquivos corrompidos de 42,7 KB
-- ✅ Download individual de documentos agora funciona corretamente
-- ✅ Endpoint usa `extractBufferFromStorageResult()` para garantir integridade
 
 ### 09/10/2025 - Noite
 - ✅ Corrigido endpoint de confirmação de entrega com upload de foto
