@@ -1464,6 +1464,14 @@ Status: Teste em progresso...`;
         contentType = 'image/jpeg';
       }
 
+      // Log de verificação de integridade
+      console.log(`📊 Verificação de integridade:`);
+      console.log(`   • Arquivo: ${originalName}`);
+      console.log(`   • Tipo: ${contentType}`);
+      console.log(`   • Tamanho: ${fileBuffer.length} bytes (${(fileBuffer.length / 1024).toFixed(2)} KB)`);
+      console.log(`   • Pedido: ${orderId}`);
+      console.log(`   • Storage Key: ${key || 'N/A'}`);
+
       // Configurar headers para download
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
