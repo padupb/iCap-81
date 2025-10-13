@@ -2323,6 +2323,119 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para buscar reprogramações (pedidos aguardando aprovação)
+  app.get("/api/orders/reprogramacoes", isAuthenticated, async (req, res) => {
+    try {
+      // Buscar todos os pedidos com status "Aguardando Aprovação"
+      let reprogramacoes = await storage.getAllOrders();
+      reprogramacoes = reprogramacoes.filter(order => order.status === "Aguardando Aprovação");
+
+      console.log(`📋 Total de reprogramações encontradas: ${reprogramacoes.length}`);
+
+      // APLICAR MESMA LÓGICA DE FILTRO DA ROTA /api/orders
+
+      // REGRA 1: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
+      const isApprover = await pool.query(`
+        SELECT COUNT(*) as total
+        FROM companies
+        WHERE approver_id = $1
+      `, [req.user.id]);
+
+      const userIsApprover = parseInt(isApprover.rows[0].total) > 0;
+
+      if (userIsApprover && req.user.id !== 1 && !req.user.isKeyUser) {
+        console.log(`🔒 Usuário ${req.user.name} (ID: ${req.user.id}) é aprovador - filtrando reprogramações`);
+
+        const filteredReprogramacoes = [];
+
+        for (const order of reprogramacoes) {
+          if (order.purchaseOrderId) {
+            try {
+              const approverCheck = await pool.query(`
+                SELECT c.id, c.name, c.approver_id
+                FROM orders o
+                LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+                LEFT JOIN companies c ON oc.cnpj = c.cnpj
+                WHERE o.id = $1 AND c.approver_id = $2
+              `, [order.id, req.user.id]);
+
+              if (approverCheck.rows.length > 0) {
+                filteredReprogramacoes.push(order);
+              }
+            } catch (error) {
+              console.error(`Erro ao verificar aprovação da reprogramação ${order.orderId}:`, error);
+            }
+          }
+        }
+
+        reprogramacoes = filteredReprogramacoes;
+        console.log(`🔒 Aprovador ${req.user.name} - ${reprogramacoes.length} reprogramações onde é aprovador`);
+
+      } else {
+        // Aplicar restrição baseada nos critérios da empresa do usuário
+        if (req.user && req.user.companyId && req.user.id !== 1 && !req.user.isKeyUser) {
+          const userCompany = await storage.getCompany(req.user.companyId);
+
+          if (userCompany) {
+            const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+
+            if (companyCategory) {
+              const hasAnyCriteria = companyCategory.requiresApprover ||
+                                   companyCategory.requiresContract ||
+                                   companyCategory.receivesPurchaseOrders;
+
+              if (hasAnyCriteria) {
+                // Filtrar reprogramações onde a empresa é fornecedora OU obra de destino
+                const filteredReprogramacoes = [];
+
+                for (const order of reprogramacoes) {
+                  // 1. Incluir reprogramações criadas pela empresa (fornecedor)
+                  if (order.supplierId === req.user.companyId) {
+                    filteredReprogramacoes.push(order);
+                    continue;
+                  }
+
+                  // 2. Incluir reprogramações destinadas à empresa (obra de destino)
+                  if (order.purchaseOrderId) {
+                    try {
+                      const ordemCompraResult = await pool.query(
+                        "SELECT cnpj FROM ordens_compra WHERE id = $1",
+                        [order.purchaseOrderId]
+                      );
+
+                      if (ordemCompraResult.rows.length > 0) {
+                        const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+
+                        if (cnpjDestino === userCompany.cnpj) {
+                          filteredReprogramacoes.push(order);
+                        }
+                      }
+                    } catch (error) {
+                      console.error(`Erro ao verificar destino da reprogramação ${order.orderId}:`, error);
+                    }
+                  }
+                }
+
+                reprogramacoes = filteredReprogramacoes;
+                console.log(`🔒 Usuário da empresa ${userCompany.name} - ${reprogramacoes.length} reprogramações (próprias ou destinadas à empresa)`);
+              } else {
+                console.log(`🔓 Usuário da empresa ${userCompany.name} - visualização irrestrita de reprogramações (empresa sem critérios)`);
+              }
+            }
+          }
+        } else {
+          console.log(`🔓 Usuário ${req.user.name} (ID: ${req.user.id}) - visualização irrestrita de reprogramações (KeyUser ou não tem empresa)`);
+        }
+      }
+
+      console.log(`📋 Retornando ${reprogramacoes.length} reprogramações após filtros`);
+      res.json(reprogramacoes);
+    } catch (error) {
+      console.error("Erro ao buscar reprogramações:", error);
+      res.status(500).json({ message: "Erro ao buscar reprogramações" });
+    }
+  });
+
   app.get("/api/orders/urgent", isAuthenticated, async (req, res) => {
     try {
       // CONTROLE DE ACESSO PARA PEDIDOS URGENTES
