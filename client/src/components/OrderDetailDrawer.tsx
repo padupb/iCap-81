@@ -1740,27 +1740,45 @@ export function OrderDetailDrawer({
                                 orderDetails.status !== "Entregue" &&
                                 orderDetails.quantidade !== 0;
 
-                              // Verificar antecedência mínima de 3 dias - NORMALIZAR DATAS
+                              // Verificar se já tem documentos (bloqueia cancelamento)
+                              const hasDocuments = documentsLoaded || 
+                                orderDetails.status === "Carregado" || 
+                                orderDetails.status === "Em Rota" || 
+                                orderDetails.status === "Em transporte";
+
+                              // Se já tem documentos, não pode cancelar
+                              if (hasDocuments) {
+                                return null;
+                              }
+
+                              // Verificar antecedência mínima de 3 dias
                               const deliveryDate = new Date(orderDetails.deliveryDate);
-                              deliveryDate.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+                              deliveryDate.setHours(0, 0, 0, 0);
                               
                               const today = new Date();
-                              today.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+                              today.setHours(0, 0, 0, 0);
                               
-                              const diffDays = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                              const hasMinimumAdvance = diffDays >= 3; // Exige pelo menos 3 dias
+                              const diffTime = deliveryDate.getTime() - today.getTime();
+                              const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+                              
+                              console.log('🔍 Validação de cancelamento:', {
+                                orderId: orderDetails.orderId,
+                                deliveryDate: deliveryDate.toISOString(),
+                                today: today.toISOString(),
+                                diffDays,
+                                canCancel,
+                                hasDocuments
+                              });
 
-                              // Verificar se já tem documentos
-                              const hasDocuments = documentsLoaded || orderDetails.status === "Carregado" || orderDetails.status === "Em Rota" || orderDetails.status === "Em transporte";
-
-                              if (canCancel && hasMinimumAdvance && !hasDocuments) {
+                              // Permitir cancelar SOMENTE se tiver 3 ou mais dias de antecedência
+                              if (canCancel && diffDays >= 3) {
                                 return (
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setIsCancelDialogOpen(true)}
                                     className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    title="Cancelar pedido"
+                                    title={`Cancelar pedido (${diffDays} dias de antecedência)`}
                                   >
                                     <XCircle className="h-4 w-4" />
                                   </Button>
@@ -1853,18 +1871,26 @@ export function OrderDetailDrawer({
                           orderDetails.status !== "Entregue" &&
                           orderDetails.quantidade !== 0;
 
-                        // Verificar antecedência (pelo menos 3 dias) - NORMALIZAR DATAS
-                        const deliveryDate = new Date(orderDetails.deliveryDate);
-                        deliveryDate.setHours(0, 0, 0, 0); // Normalizar para meia-noite
-                        
-                        const now = new Date();
-                        now.setHours(0, 0, 0, 0); // Normalizar para meia-noite
-                        
-                        const diffDays = Math.ceil((deliveryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
-                        const hasMinimumAdvance = diffDays >= 3; // Exige pelo menos 3 dias
+                        // Verificar se já tem documentos
                         const hasDocuments = documentsLoaded || orderDetails.status === "Carregado";
 
-                        if (canCancel && hasMinimumAdvance && !hasDocuments) {
+                        // Se já tem documentos, não pode cancelar
+                        if (hasDocuments) {
+                          return null;
+                        }
+
+                        // Verificar antecedência (pelo menos 3 dias)
+                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        deliveryDate.setHours(0, 0, 0, 0);
+                        
+                        const now = new Date();
+                        now.setHours(0, 0, 0, 0);
+                        
+                        const diffTime = deliveryDate.getTime() - now.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+
+                        // Permitir cancelar SOMENTE se tiver 3 ou mais dias de antecedência
+                        if (canCancel && diffDays >= 3) {
                           return (
                             <Button
                               variant="destructive"
@@ -1873,7 +1899,7 @@ export function OrderDetailDrawer({
                               className="mt-6 w-full"
                             >
                               <XCircle className="h-4 w-4 mr-2" />
-                              Cancelar Pedido
+                              Cancelar Pedido ({diffDays} dias de antecedência)
                             </Button>
                           );
                         }

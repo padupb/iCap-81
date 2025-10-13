@@ -2747,24 +2747,27 @@ Status: Teste em progresso...`;
 
       // Verificar se tem pelo menos 3 dias de antecedência
       const deliveryDate = new Date(order.delivery_date);
-      deliveryDate.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+      deliveryDate.setHours(0, 0, 0, 0);
       
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Normalizar para meia-noite
+      today.setHours(0, 0, 0, 0);
       
-      const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+      const diffTime = deliveryDate.getTime() - today.getTime();
+      const daysDiff = Math.ceil(diffTime / (1000 * 3600 * 24));
 
       console.log(`📅 Validação de cancelamento - Pedido ${order.order_id}:`, {
         dataEntrega: deliveryDate.toISOString().split('T')[0],
         dataHoje: today.toISOString().split('T')[0],
+        diffTime,
         diasRestantes: daysDiff,
-        permiteCanelamento: daysDiff >= 3
+        permiteCancelamento: daysDiff >= 3
       });
 
+      // Permitir cancelamento SOMENTE se tiver 3 ou mais dias de antecedência
       if (daysDiff < 3) {
         return res.status(400).json({
           sucesso: false,
-          mensagem: `Pedidos só podem ser cancelados com pelo menos 3 dias de antecedência. Faltam ${daysDiff} dia(s) para a entrega.`
+          mensagem: `Pedidos só podem ser cancelados com pelo menos 3 dias de antecedência. Este pedido tem apenas ${daysDiff} dia(s) até a entrega.`
         });
       }
 
