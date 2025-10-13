@@ -3897,8 +3897,10 @@ Status: Teste em progresso...`;
           tipo: typeof downloadResult,
           isBuffer: downloadResult instanceof Buffer,
           isUint8Array: downloadResult instanceof Uint8Array,
+          isArray: Array.isArray(downloadResult),
           hasOk: downloadResult && typeof downloadResult === 'object' && 'ok' in downloadResult,
-          hasValue: downloadResult && typeof downloadResult === 'object' && 'value' in downloadResult
+          hasValue: downloadResult && typeof downloadResult === 'object' && 'value' in downloadResult,
+          keys: downloadResult && typeof downloadResult === 'object' ? Object.keys(downloadResult) : []
         });
 
         // Processar resultado do Replit Object Storage
@@ -3913,6 +3915,19 @@ Status: Teste em progresso...`;
 
           const valueData = downloadResult.value;
 
+          console.log(`🔍 Tipo de valueData:`, {
+            tipo: typeof valueData,
+            isBuffer: valueData instanceof Buffer,
+            isUint8Array: valueData instanceof Uint8Array,
+            isArray: Array.isArray(valueData),
+            length: valueData?.length,
+            arrayLength: Array.isArray(valueData) ? valueData.length : 'N/A',
+            firstElementType: Array.isArray(valueData) && valueData.length > 0 ? typeof valueData[0] : 'N/A',
+            firstElementIsBuffer: Array.isArray(valueData) && valueData.length > 0 ? valueData[0] instanceof Buffer : false,
+            firstElementIsUint8Array: Array.isArray(valueData) && valueData.length > 0 ? valueData[0] instanceof Uint8Array : false,
+            firstElementLength: Array.isArray(valueData) && valueData.length > 0 && valueData[0]?.length ? valueData[0].length : 'N/A'
+          });
+
           if (!valueData) {
             console.log(`❌ Result.value está vazio`);
             throw new Error("Dados vazios no download");
@@ -3926,9 +3941,18 @@ Status: Teste em progresso...`;
             imageBuffer = valueData;
             console.log(`✅ Buffer direto: ${imageBuffer.length} bytes`);
           } else if (Array.isArray(valueData)) {
+            console.log(`📦 valueData é um array com ${valueData.length} elementos`);
+            
             // CORREÇÃO: valueData pode ser um array contendo Uint8Array/Buffer no primeiro elemento
             if (valueData.length > 0) {
               const firstElement = valueData[0];
+              console.log(`🔍 Primeiro elemento:`, {
+                tipo: typeof firstElement,
+                isBuffer: firstElement instanceof Buffer,
+                isUint8Array: firstElement instanceof Uint8Array,
+                length: firstElement?.length
+              });
+              
               if (firstElement instanceof Uint8Array) {
                 imageBuffer = Buffer.from(firstElement);
                 console.log(`✅ Array[0] Uint8Array convertido para Buffer: ${imageBuffer.length} bytes`);
@@ -3941,6 +3965,7 @@ Status: Teste em progresso...`;
                 console.log(`✅ Array de bytes convertido para Buffer: ${imageBuffer.length} bytes`);
               } else {
                 console.log(`❌ Tipo de Array[0] não suportado: ${typeof firstElement}`);
+                console.log(`❌ Primeiro elemento:`, firstElement);
                 throw new Error(`Tipo de dados no array não suportado: ${typeof firstElement}`);
               }
             } else {
