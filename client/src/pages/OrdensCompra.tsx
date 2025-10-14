@@ -680,19 +680,11 @@ export default function OrdensCompra() {
   };
 
   // Filtrar empresas para ordens de compra - fornecedores
-  // Para o campo "Fornecedor", incluir todas as empresas que NÃO recebem ordens de compra
-  // ou que não exigem contrato (são fornecedoras)
+  // Para o campo "Fornecedor", incluir TODAS as empresas disponíveis
+  // A validação de categoria será feita no backend se necessário
   const filteredCompanies = companies.filter(company => {
-    // Se não tem categoria, incluir
-    if (!company.category) return true;
-
-    // Se a categoria indica que é fornecedor (não recebe ordens)
-    // ou se recebe mas não exige contrato
-    const isSupplier = company.category.receivesPurchaseOrders === false;
-    const noContractRequired = company.category.requiresContract !== true;
-
-    // Incluir se for fornecedor ou se não exige contrato
-    return isSupplier || noContractRequired;
+    // Incluir todas as empresas por padrão
+    return true;
   });
 
   // Filtrar apenas empresas com contrato preenchido para o campo de Obra
@@ -701,8 +693,15 @@ export default function OrdensCompra() {
     company.contractNumber && company.contractNumber.trim() !== ''
   );
 
+  console.log('🏢 Total de empresas carregadas:', companies.length);
   console.log('🏢 Fornecedores disponíveis:', filteredCompanies.length);
   console.log('🏗️ Obras disponíveis:', filteredObras.length);
+  console.log('📋 Amostra de empresas:', companies.slice(0, 3).map(c => ({ 
+    id: c.id, 
+    name: c.name, 
+    category: c.category?.name,
+    contractNumber: c.contractNumber 
+  })));
 
   // Verificar se há empresas disponíveis para seleção
   const hasAvailableCompanies = filteredCompanies.length > 0;
