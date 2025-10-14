@@ -34,7 +34,10 @@ Sistema completo de gestão logística desenvolvido em React + Node.js/Express, 
 2. **Ordens de Compra**
    - Gerenciamento de OCs com itens
    - Controle de validade e status
-   - Endpoint: `GET /api/ordem-compra/:id/itens`
+   - Endpoints principais:
+     - `GET /api/ordem-compra/:id/itens` - Buscar itens
+     - `PUT /api/ordem-compra/:id` - Editar ordem de compra
+     - `POST /api/ordem-compra-nova` - Criar ordem de compra
 
 3. **Documentos**
    - Upload/download de documentos (NF-e PDF/XML, certificados, fotos)
@@ -202,6 +205,13 @@ npm run db:push --force  # Força sincronização (com warnings)
 - ✅ Retorna informações da quantidade extraída na resposta
 
 ## Mudanças Recentes
+
+### 14/10/2025 - Tarde
+- ✅ Corrigido erro ao editar ordem de compra
+- ✅ Criado endpoint `PUT /api/ordem-compra/:id` que estava faltando
+- ✅ Endpoint retorna JSON corretamente (antes retornava HTML causando erro de parse)
+- ✅ Implementada validação de dados, autenticação e log de auditoria
+- ✅ Documentação atualizada com endpoints de ordens de compra
 
 ### 13/10/2025 - Noite (Parte 2)
 - ✅ Criados endpoints CRUD para Categorias: `/api/company-categories` (GET/POST/PUT/DELETE)

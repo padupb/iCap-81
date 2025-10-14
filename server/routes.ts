@@ -3605,6 +3605,95 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Editar ordem de compra existente
+  app.put("/api/ordem-compra/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID inválido"
+        });
+      }
+
+      const { numeroOrdem, empresaId, cnpj, validoAte, items } = req.body;
+
+      if (!numeroOrdem || !empresaId || !validoAte) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Dados incompletos para editar ordem de compra"
+        });
+      }
+
+      // Verificar se a ordem de compra existe
+      const ordemExistente = await pool.query(
+        `SELECT * FROM ordens_compra WHERE id = $1`,
+        [id]
+      );
+
+      if (ordemExistente.rows.length === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Ordem de compra não encontrada"
+        });
+      }
+
+      // Atualizar a ordem de compra (sem alterar produtos/quantidades que afetam pedidos existentes)
+      await pool.query(
+        `UPDATE ordens_compra
+         SET numero_ordem = $1,
+             empresa_id = $2,
+             cnpj = $3,
+             valido_ate = $4
+         WHERE id = $5`,
+        [numeroOrdem, empresaId, cnpj, validoAte, id]
+      );
+
+      // Atualizar itens se fornecidos
+      if (items && items.length > 0) {
+        // Deletar itens antigos
+        await pool.query(
+          `DELETE FROM itens_ordem_compra WHERE ordem_compra_id = $1`,
+          [id]
+        );
+
+        // Inserir novos itens
+        for (const item of items) {
+          await pool.query(
+            `INSERT INTO itens_ordem_compra
+             (ordem_compra_id, produto_id, quantidade)
+             VALUES ($1, $2, $3)`,
+            [id, item.productId, item.quantity.toString()]
+          );
+        }
+      }
+
+      // Registrar log de edição
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Editou ordem de compra",
+          itemType: "purchase_order",
+          itemId: id.toString(),
+          details: `Ordem de compra ${numeroOrdem} atualizada`
+        });
+      }
+
+      res.json({
+        sucesso: true,
+        mensagem: "Ordem de compra atualizada com sucesso"
+      });
+
+    } catch (error) {
+      console.error("Erro ao editar ordem de compra:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao editar ordem de compra",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Rota para verificar saldo disponível de um produto em uma ordem de compra
   app.get("/api/ordens-compra/:ordemId/produtos/:produtoId/saldo", async (req, res) => {
     try {
