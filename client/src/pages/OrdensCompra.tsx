@@ -549,13 +549,20 @@ export default function OrdensCompra() {
         throw new Error("Obra selecionada não encontrada");
       }
 
+      // Corrigir datas para evitar mudança de dia devido ao timezone
+      const [yearFrom, monthFrom, dayFrom] = data.validFrom.split('-');
+      const correctedValidFrom = new Date(Date.UTC(parseInt(yearFrom), parseInt(monthFrom) - 1, parseInt(dayFrom), 12, 0, 0));
+
+      const [yearUntil, monthUntil, dayUntil] = data.validUntil.split('-');
+      const correctedValidUntil = new Date(Date.UTC(parseInt(yearUntil), parseInt(monthUntil) - 1, parseInt(dayUntil), 12, 0, 0));
+
       // Formatar dados para envio
       const formattedData = {
         numeroOrdem: data.orderNumber,
         empresaId: parseInt(data.companyId),
         cnpj: obraSelecionada.cnpj, // CNPJ da obra de destino
-        validoDesde: new Date(data.validFrom).toISOString(),
-        validoAte: new Date(data.validUntil).toISOString(),
+        validoDesde: correctedValidFrom.toISOString(),
+        validoAte: correctedValidUntil.toISOString(),
         produtos: data.items.map(item => ({
           id: parseInt(item.productId),
           qtd: parseInt(item.quantity)
@@ -696,13 +703,13 @@ export default function OrdensCompra() {
             </DialogHeader>
 
             <Form {...editForm}>
-              <form 
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  
+
                   const handleSaveChanges = async () => {
                     console.log('🔥 Botão Salvar Alterações clicado!');
-                    
+
                     if (!selectedOrderForEdit) {
                       console.error('❌ Nenhuma ordem selecionada para edição');
                       toast({
@@ -802,7 +809,7 @@ export default function OrdensCompra() {
                   };
 
                   handleSaveChanges();
-                }} 
+                }}
                 className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
@@ -1001,7 +1008,7 @@ export default function OrdensCompra() {
                       "Salvar Alterações"
                     )}
                   </Button>
-                  
+
                 </div>
               </form>
             </Form>
@@ -1587,26 +1594,27 @@ export default function OrdensCompra() {
                         {(() => {
                           // Verificação mais robusta para keyuser
                           const userIsKeyUser = user?.id === 1 || user?.isKeyUser === true || user?.isDeveloper === true || isKeyUser;
-                          
+
                           // Verificar permissão específica do usuário para editar ordens de compra
                           const hasEditPermission = user?.canEditPurchaseOrders === true;
-                          
+
                           // Verificar contexto de autorização
-                          const contextCanEdit = contextCanEditPurchaseOrders;
-                          
-                          const canEdit = userIsKeyUser || hasEditPermission || contextCanEdit;
+                          const canEdit = contextCanEditPurchaseOrders;
+
+                          const isAuthorizedToEdit = userIsKeyUser || hasEditPermission || canEdit;
+
 
                           console.log(`🔧 Botão de edição para ordem ${ordem.numero_ordem}:`, {
                             userIsKeyUser,
                             hasEditPermission,
-                            contextCanEdit,
-                            canEdit,
+                            contextCanEdit: canEdit,
+                            isAuthorizedToEdit,
                             userId: user?.id,
                             userCanEditPurchaseOrders: user?.canEditPurchaseOrders,
                             companyId: user?.companyId
                           });
 
-                          return canEdit && (
+                          return isAuthorizedToEdit && (
                             <Button
                               variant="ghost"
                               size="icon"

@@ -98,12 +98,16 @@ export default function PurchaseOrdersNovo() {
           throw new Error("Obra selecionada não encontrada");
         }
 
+        // Corrigir data para evitar mudança de dia devido ao timezone
+        const [year, month, day] = data.validUntil.split('-');
+        const correctedDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0));
+
         // NOVO FORMATO SIMPLIFICADO
         const dadosFormatados = {
           numeroOrdem: purchaseOrderData.orderNumber.trim(),
           empresaId: parseInt(purchaseOrderData.companyId.toString()),
           cnpj: obraSelecionada.cnpj, // CNPJ da obra de destino
-          validoAte: new Date(data.validUntil).toISOString(),
+          validoAte: correctedDate.toISOString(),
           produtos: items
             .filter(item => item.productId && item.quantity)
             .map(item => ({
