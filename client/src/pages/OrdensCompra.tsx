@@ -383,6 +383,7 @@ export default function OrdensCompra() {
         orderNumber: ordemDetalhes.numero_ordem || '',
         companyId: String(ordemDetalhes.empresa_id || ''),
         obraId: String(obraId || ''),
+        validFrom: ordemDetalhes.valido_desde ? new Date(ordemDetalhes.valido_desde).toISOString().split('T')[0] : '',
         validUntil: ordemDetalhes.valido_ate ? new Date(ordemDetalhes.valido_ate).toISOString().split('T')[0] : '',
         items: validItems.length > 0 ? validItems : [{ productId: '', quantity: '' }]
       };
@@ -399,6 +400,7 @@ export default function OrdensCompra() {
         if (formData.orderNumber) editForm.setValue('orderNumber', formData.orderNumber);
         if (formData.companyId) editForm.setValue('companyId', formData.companyId);
         if (formData.obraId) editForm.setValue('obraId', formData.obraId);
+        if (formData.validFrom) editForm.setValue('validFrom', formData.validFrom);
         if (formData.validUntil) editForm.setValue('validUntil', formData.validUntil);
 
         // Definir os itens um por um
@@ -786,12 +788,13 @@ export default function OrdensCompra() {
                         numeroOrdem: formData.orderNumber,
                         empresaId: parseInt(formData.companyId),
                         cnpj: obraSelecionada.cnpj,
+                        validoDesde: new Date(formData.validFrom).toISOString(),
                         validoAte: new Date(formData.validUntil).toISOString(),
                         items: formData.items
                           .filter(item => item.productId && item.quantity)
                           .map(item => ({
                             productId: parseInt(item.productId),
-                            quantity: item.quantity.toString()
+                            quantity: item.quantity
                           }))
                       };
 
@@ -863,7 +866,7 @@ export default function OrdensCompra() {
                       <FormItem>
                         <FormLabel>Fornecedor</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => field.onChange(value)}
                           value={field.value}
                           key={field.value}
                         >
@@ -891,10 +894,10 @@ export default function OrdensCompra() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={editForm.control}
-                    name="validUntil"
+                    name="validFrom"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Válido Até</FormLabel>
+                        <FormLabel>Válido Desde</FormLabel>
                         <FormControl>
                           <Input
                             type="date"
@@ -909,30 +912,17 @@ export default function OrdensCompra() {
 
                   <FormField
                     control={editForm.control}
-                    name="obraId"
+                    name="validUntil"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Obra de Destino</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          key={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione uma obra">
-                                {field.value && obras.find(o => o.id.toString() === field.value)?.name}
-                              </SelectValue>
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {obras.map((obra) => (
-                              <SelectItem key={obra.id} value={obra.id.toString()}>
-                                {obra.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Válido Até</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            className="bg-input border-border"
+                            {...field}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1072,6 +1062,7 @@ export default function OrdensCompra() {
                     numeroOrdem: data.orderNumber,
                     empresaId: parseInt(data.companyId),
                     obraId: parseInt(data.obraId),
+                    validoDesde: new Date(data.validFrom).toISOString(),
                     validoAte: new Date(data.validUntil).toISOString(),
                     items: data.items.map(item => ({
                       productId: parseInt(item.productId),
@@ -1189,6 +1180,25 @@ export default function OrdensCompra() {
 
                   <FormField
                     control={editForm.control}
+                    name="validFrom"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Válido Desde</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            min={getTodayFormatted()}
+                            {...field}
+                            className="bg-input border-border"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
                     name="validUntil"
                     render={({ field }) => (
                       <FormItem>
@@ -1196,7 +1206,7 @@ export default function OrdensCompra() {
                         <FormControl>
                           <Input
                             type="date"
-                            min={getTodayFormatted()}
+                            min={form.watch("validFrom") || getTodayFormatted()}
                             {...field}
                             className="bg-input border-border"
                           />
