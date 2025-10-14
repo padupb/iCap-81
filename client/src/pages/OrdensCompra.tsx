@@ -334,20 +334,26 @@ export default function OrdensCompra() {
           console.log('🔍 Detalhes da ordem para edição:', ordemDetalhes);
 
           // Buscar a obra pelo CNPJ se disponível
-          if (ordemDetalhes.cnpj && obras.length > 0) {
-            const obraEncontrada = obras.find(obra => obra.cnpj === ordemDetalhes.cnpj);
+          if (ordemDetalhes.cnpj && companies.length > 0) {
+            // Buscar nas companies que têm contrato (obras)
+            const obrasDisponiveis = companies.filter(company =>
+              company.contractNumber && company.contractNumber.trim() !== ''
+            );
+            
+            console.log('🏗️ Obras disponíveis:', obrasDisponiveis.map(o => ({ id: o.id, name: o.name, cnpj: o.cnpj })));
+            
+            const obraEncontrada = obrasDisponiveis.find(obra => obra.cnpj === ordemDetalhes.cnpj);
             if (obraEncontrada) {
               obraId = obraEncontrada.id.toString();
-              console.log('🏗️ Obra encontrada para edição:', obraEncontrada.name, 'ID:', obraId);
+              console.log('✅ Obra encontrada para edição:', obraEncontrada.name, 'ID:', obraId);
             } else {
               console.log('⚠️ Obra não encontrada para CNPJ:', ordemDetalhes.cnpj);
               console.log('🔍 CNPJ procurado:', ordemDetalhes.cnpj);
-              console.log('🔍 Obras disponíveis:', obras.map(o => ({ id: o.id, name: o.name, cnpj: o.cnpj })));
             }
           } else {
-            console.log('⚠️ CNPJ não disponível ou lista de obras vazia');
+            console.log('⚠️ CNPJ não disponível ou lista de companies vazia');
             console.log('📊 Detalhes da ordem:', ordemDetalhes);
-            console.log('📊 Quantidade de obras:', obras.length);
+            console.log('📊 Quantidade de companies:', companies.length);
           }
         }
 
@@ -357,16 +363,18 @@ export default function OrdensCompra() {
           quantity: item.quantidade?.toString() || ''
         }));
 
-        // Configurar valores do formulário - CORREÇÃO: remover validFrom
+        // Configurar valores do formulário com fornecedor e obra
         const formData = {
-          orderNumber: ordem.numero_ordem || '',
-          companyId: ordem.empresa_id?.toString() || '',
+          orderNumber: ordemDetalhes.numero_ordem || '',
+          companyId: ordemDetalhes.empresa_id?.toString() || '',
           obraId: obraId || '',
-          validUntil: ordem.valido_ate ? new Date(ordem.valido_ate).toISOString().split('T')[0] : '',
+          validUntil: ordemDetalhes.valido_ate ? new Date(ordemDetalhes.valido_ate).toISOString().split('T')[0] : '',
           items: validItems.length > 0 ? validItems : [{ productId: '', quantity: '' }]
         };
 
         console.log('📝 Dados para preencher o formulário:', formData);
+        console.log('🏢 Fornecedor ID:', formData.companyId);
+        console.log('🏗️ Obra ID:', formData.obraId);
 
         // Reset do formulário com dados corretos
         editForm.reset(formData);
@@ -385,6 +393,8 @@ export default function OrdensCompra() {
           });
 
           console.log('✅ Formulário preenchido com sucesso');
+          console.log('✅ Fornecedor definido:', editForm.getValues('companyId'));
+          console.log('✅ Obra definida:', editForm.getValues('obraId'));
         }, 100);
       }
     } catch (error) {
