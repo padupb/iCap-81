@@ -319,89 +319,104 @@ export default function OrdensCompra() {
     try {
       console.log('🔧 Iniciando edição da ordem:', ordem.numero_ordem);
 
+      // Primeiro, buscar detalhes completos da ordem
+      const ordemResponse = await fetch(`/api/ordem-compra/${ordem.id}`);
+      if (!ordemResponse.ok) {
+        throw new Error('Falha ao buscar detalhes da ordem');
+      }
+
+      const ordemDetalhes = await ordemResponse.json();
+      console.log('🔍 Detalhes da ordem para edição:', ordemDetalhes);
+
+      // Buscar itens da ordem
       const itensResponse = await fetch(`/api/ordem-compra/${ordem.id}/itens`);
-      if (itensResponse.ok) {
-        const itens = await itensResponse.json();
-        setOrderItems(itens);
-        console.log('📦 Itens carregados:', itens);
+      if (!itensResponse.ok) {
+        throw new Error('Falha ao buscar itens da ordem');
+      }
 
-        // Buscar detalhes completos da ordem para obter o CNPJ
-        const ordemResponse = await fetch(`/api/ordem-compra/${ordem.id}`);
-        let obraId = "";
+      const itens = await itensResponse.json();
+      setOrderItems(itens);
+      console.log('📦 Itens carregados:', itens);
 
-        if (ordemResponse.ok) {
-          const ordemDetalhes = await ordemResponse.json();
-          console.log('🔍 Detalhes da ordem para edição:', ordemDetalhes);
+      // Buscar a obra pelo CNPJ usando a API de empresas
+      let obraId = "";
+      
+      if (ordemDetalhes.cnpj) {
+        try {
+          const companiesResponse = await fetch('/api/companies');
+          if (companiesResponse.ok) {
+            const allCompanies = await companiesResponse.json();
+            console.log('🏢 Total de empresas carregadas:', allCompanies.length);
 
-          // Buscar a obra pelo CNPJ se disponível
-          if (ordemDetalhes.cnpj && companies.length > 0) {
-            // Buscar nas companies que têm contrato (obras)
-            const obrasDisponiveis = companies.filter(company =>
+            // Buscar nas empresas que têm contrato (obras)
+            const obrasDisponiveis = allCompanies.filter((company: any) =>
               company.contractNumber && company.contractNumber.trim() !== ''
             );
             
-            console.log('🏗️ Obras disponíveis:', obrasDisponiveis.map(o => ({ id: o.id, name: o.name, cnpj: o.cnpj })));
+            console.log('🏗️ Obras disponíveis:', obrasDisponiveis.map((o: any) => ({ 
+              id: o.id, 
+              name: o.name, 
+              cnpj: o.cnpj 
+            })));
             
-            const obraEncontrada = obrasDisponiveis.find(obra => obra.cnpj === ordemDetalhes.cnpj);
+            const obraEncontrada = obrasDisponiveis.find((obra: any) => obra.cnpj === ordemDetalhes.cnpj);
             if (obraEncontrada) {
               obraId = obraEncontrada.id.toString();
               console.log('✅ Obra encontrada para edição:', obraEncontrada.name, 'ID:', obraId);
             } else {
               console.log('⚠️ Obra não encontrada para CNPJ:', ordemDetalhes.cnpj);
-              console.log('🔍 CNPJ procurado:', ordemDetalhes.cnpj);
             }
-          } else {
-            console.log('⚠️ CNPJ não disponível ou lista de companies vazia');
-            console.log('📊 Detalhes da ordem:', ordemDetalhes);
-            console.log('📊 Quantidade de companies:', companies.length);
           }
+        } catch (companiesError) {
+          console.error('Erro ao buscar companies:', companiesError);
         }
+      }
 
         // Garantir que todos os itens tenham valores válidos
-        const validItems = itens.map((item: any) => ({
-          productId: item.produto_id?.toString() || '',
-          quantity: item.quantidade?.toString() || ''
-        }));
+      const validItems = itens.map((item: any) => ({
+        productId: item.produto_id?.toString() || '',
+        quantity: item.quantidade?.toString() || ''
+      }));
 
-        // Configurar valores do formulário com fornecedor e obra
-        const formData = {
-          orderNumber: ordemDetalhes.numero_ordem || '',
-          companyId: ordemDetalhes.empresa_id?.toString() || '',
-          obraId: obraId || '',
-          validUntil: ordemDetalhes.valido_ate ? new Date(ordemDetalhes.valido_ate).toISOString().split('T')[0] : '',
-          items: validItems.length > 0 ? validItems : [{ productId: '', quantity: '' }]
-        };
+      // Configurar valores do formulário com fornecedor e obra
+      const formData = {
+        orderNumber: ordemDetalhes.numero_ordem || '',
+        companyId: ordemDetalhes.empresa_id?.toString() || '',
+        obraId: obraId || '',
+        validUntil: ordemDetalhes.valido_ate ? new Date(ordemDetalhes.valido_ate).toISOString().split('T')[0] : '',
+        items: validItems.length > 0 ? validItems : [{ productId: '', quantity: '' }]
+      };
 
-        console.log('📝 Dados para preencher o formulário:', formData);
-        console.log('🏢 Fornecedor ID:', formData.companyId);
-        console.log('🏗️ Obra ID:', formData.obraId);
+      console.log('📝 Dados para preencher o formulário:', formData);
+      console.log('🏢 Fornecedor ID:', formData.companyId);
+      console.log('🏗️ Obra ID:', formData.obraId);
 
-        // Reset do formulário com dados corretos
-        editForm.reset(formData);
+      // Reset do formulário com dados corretos
+      editForm.reset(formData);
 
-        // Forçar atualização dos campos com timeout para garantir renderização
-        setTimeout(() => {
-          editForm.setValue('orderNumber', formData.orderNumber);
-          editForm.setValue('companyId', formData.companyId);
-          editForm.setValue('obraId', formData.obraId);
-          editForm.setValue('validUntil', formData.validUntil);
+      // Forçar atualização dos campos com timeout para garantir renderização
+      setTimeout(() => {
+        editForm.setValue('orderNumber', formData.orderNumber);
+        editForm.setValue('companyId', formData.companyId);
+        editForm.setValue('obraId', formData.obraId);
+        editForm.setValue('validUntil', formData.validUntil);
 
-          // Definir os itens um por um
-          validItems.forEach((item: any, index: number) => {
-            editForm.setValue(`items.${index}.productId`, item.productId);
-            editForm.setValue(`items.${index}.quantity`, item.quantity);
-          });
+        // Definir os itens um por um
+        validItems.forEach((item: any, index: number) => {
+          editForm.setValue(`items.${index}.productId`, item.productId);
+          editForm.setValue(`items.${index}.quantity`, item.quantity);
+        });
 
-          console.log('✅ Formulário preenchido com sucesso');
-          console.log('✅ Fornecedor definido:', editForm.getValues('companyId'));
-          console.log('✅ Obra definida:', editForm.getValues('obraId'));
-        }, 100);
-      }
+        console.log('✅ Formulário preenchido com sucesso');
+        console.log('✅ Fornecedor definido:', editForm.getValues('companyId'));
+        console.log('✅ Obra definida:', editForm.getValues('obraId'));
+      }, 100);
+
     } catch (error) {
       console.error("Erro ao carregar dados da ordem:", error);
       toast({
         title: "Erro",
-        description: "Erro ao carregar dados da ordem para edição",
+        description: error instanceof Error ? error.message : "Erro ao carregar dados da ordem para edição",
         variant: "destructive",
       });
     }
