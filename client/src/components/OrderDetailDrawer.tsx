@@ -2215,14 +2215,15 @@ export function OrderDetailDrawer({
                                         </p>
                                         <p className="text-sm text-blue-700 mb-1">
                                           A aba de documentos estará disponível a partir de:
-                                    </p>
-                                    <p className="text-lg font-bold text-blue-800">
-                                      {availableFromDate.toLocaleDateString('pt-BR')}
-                                    </p>
-                                    <p className="text-xs text-blue-600 mt-1">
-                                      (1 dia antes do início da validade)
-                                    </p>
-                                  </div>
+                                        </p>
+                                        <p className="text-lg font-bold text-blue-800">
+                                          {availableFromDate.toLocaleDateString('pt-BR')}
+                                        </p>
+                                        <p className="text-xs text-blue-600 mt-1">
+                                          (1 dia antes do início da validade)
+                                        </p>
+                                      </div>
+                                    </div>
                                 </div>
                               );
                             }
