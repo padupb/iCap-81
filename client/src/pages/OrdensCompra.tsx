@@ -864,10 +864,13 @@ export default function OrdensCompra() {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
+                          key={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione um fornecedor" />
+                              <SelectValue placeholder="Selecione um fornecedor">
+                                {field.value && companies.find(c => c.id.toString() === field.value)?.name}
+                              </SelectValue>
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -914,10 +917,13 @@ export default function OrdensCompra() {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
+                          key={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione uma obra" />
+                              <SelectValue placeholder="Selecione uma obra">
+                                {field.value && obras.find(o => o.id.toString() === field.value)?.name}
+                              </SelectValue>
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -1129,10 +1135,13 @@ export default function OrdensCompra() {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
+                          key={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione um fornecedor" />
+                              <SelectValue placeholder="Selecione um fornecedor">
+                                {field.value && companies.find(c => c.id.toString() === field.value)?.name}
+                              </SelectValue>
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -1157,10 +1166,13 @@ export default function OrdensCompra() {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
+                          key={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione uma obra" />
+                              <SelectValue placeholder="Selecione uma obra">
+                                {field.value && obras.find(o => o.id.toString() === field.value)?.name}
+                              </SelectValue>
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
