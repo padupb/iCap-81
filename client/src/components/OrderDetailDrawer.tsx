@@ -1567,7 +1567,46 @@ export function OrderDetailDrawer({
                         return true;
                       }
 
-                      // 3. Verificar se o usuário não é fornecedor e não há documentos carregados
+                      // 3. NOVA REGRA: Para produtos com confirmação por nota fiscal, verificar período de validade
+                      const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
+                      
+                      if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
+                        const purchaseOrder = orderDetails.purchaseOrder;
+                        
+                        // Obter data de início da validade da ordem de compra
+                        let validFromDate: Date | null = null;
+                        
+                        if ((purchaseOrder as any).valido_desde) {
+                          const validFromParts = (purchaseOrder as any).valido_desde.split('T')[0].split('-').map(Number);
+                          validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
+                        } else if ((purchaseOrder as any).validFrom) {
+                          const validFromParts = (purchaseOrder as any).validFrom.split('T')[0].split('-').map(Number);
+                          validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
+                        }
+                        
+                        if (validFromDate) {
+                          validFromDate.setHours(0, 0, 0, 0);
+                          
+                          // Calcular data de disponibilidade (1 dia antes da validade)
+                          const availableFromDate = new Date(validFromDate);
+                          availableFromDate.setDate(availableFromDate.getDate() - 1);
+                          availableFromDate.setHours(0, 0, 0, 0);
+                          
+                          const todayDate = new Date();
+                          todayDate.setHours(0, 0, 0, 0);
+                          
+                          // Se hoje é antes da data de disponibilidade e não há documentos carregados
+                          if (todayDate < availableFromDate && !documentsLoaded &&
+                              orderDetails.status !== "Carregado" &&
+                              orderDetails.status !== "Em Rota" &&
+                              orderDetails.status !== "Em transporte" &&
+                              orderDetails.status !== "Entregue") {
+                            return true;
+                          }
+                        }
+                      }
+
+                      // 4. Verificar se o usuário não é fornecedor e não há documentos carregados
                       if (!canUploadDocuments() && !documentsLoaded &&
                           orderDetails.status !== "Carregado" &&
                           orderDetails.status !== "Em Rota" &&
@@ -2114,6 +2153,60 @@ export function OrderDetailDrawer({
                         // Se é urgente e não aprovado, não mostrar o conteúdo normal
                         if (isUrgent && orderDetails.status === "Registrado") {
                           return null;
+                        }
+
+                        // NOVA REGRA: Verificar período de validade para nota fiscal
+                        const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
+                        
+                        if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
+                          const purchaseOrder = orderDetails.purchaseOrder;
+                          
+                          let validFromDate: Date | null = null;
+                          
+                          if ((purchaseOrder as any).valido_desde) {
+                            const validFromParts = (purchaseOrder as any).valido_desde.split('T')[0].split('-').map(Number);
+                            validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
+                          } else if ((purchaseOrder as any).validFrom) {
+                            const validFromParts = (purchaseOrder as any).validFrom.split('T')[0].split('-').map(Number);
+                            validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
+                          }
+                          
+                          if (validFromDate) {
+                            validFromDate.setHours(0, 0, 0, 0);
+                            
+                            const availableFromDate = new Date(validFromDate);
+                            availableFromDate.setDate(availableFromDate.getDate() - 1);
+                            availableFromDate.setHours(0, 0, 0, 0);
+                            
+                            const todayDate = new Date();
+                            todayDate.setHours(0, 0, 0, 0);
+                            
+                            if (todayDate < availableFromDate && !documentsLoaded &&
+                                orderDetails.status !== "Carregado" &&
+                                orderDetails.status !== "Em Rota" &&
+                                orderDetails.status !== "Em transporte" &&
+                                orderDetails.status !== "Entregue") {
+                              return (
+                                <div className="flex flex-col items-center justify-center p-8 border border-blue-200 rounded-lg bg-blue-50">
+                                  <AlertCircle className="h-16 w-16 text-blue-600 mb-4" />
+                                  <h3 className="text-xl font-medium text-blue-800 mb-2">
+                                    Aba Documentos Bloqueada
+                                  </h3>
+                                  <div className="text-center space-y-2">
+                                    <p className="text-sm text-blue-700">
+                                      O upload de documentos estará disponível a partir de:
+                                    </p>
+                                    <p className="text-lg font-bold text-blue-800">
+                                      {availableFromDate.toLocaleDateString('pt-BR')}
+                                    </p>
+                                    <p className="text-xs text-blue-600 mt-3">
+                                      (1 dia antes do início da validade da ordem de compra)
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            }
+                          }
                         }
 
                         // Verificar o tipo de confirmação do produto
