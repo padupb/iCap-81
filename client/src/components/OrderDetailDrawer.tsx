@@ -433,6 +433,7 @@ export function OrderDetailDrawer({
           createdAt: ordemCompra.data_criacao
             ? new Date(ordemCompra.data_criacao)
             : new Date(),
+          validFrom: ordemCompra.valido_desde, // Mapeia valido_desde para validFrom
         } as PurchaseOrder;
 
         // Buscar a empresa da ordem de compra
@@ -1578,17 +1579,13 @@ export function OrderDetailDrawer({
                         // Obter data de início da validade da ordem de compra
                         let validFromDate: Date | null = null;
 
-                        // Tentar obter de valido_desde ou validFrom
-                        const validFromRaw = (purchaseOrder as any).valido_desde || (purchaseOrder as any).validFrom;
-                        
+                        // Obter validFromDate - testar primeiro validFrom, depois valido_desde
+                        const validFromRaw = purchaseOrder.validFrom || (purchaseOrder as any).valido_desde;
                         if (validFromRaw) {
-                          // Criar data a partir do valor recebido
                           validFromDate = new Date(validFromRaw);
                           validFromDate.setHours(0, 0, 0, 0);
-                          
-                          console.log("📅 DEBUG - validFromRaw:", validFromRaw);
-                          console.log("📅 DEBUG - validFromDate criada:", validFromDate.toISOString());
                         }
+
 
                         if (validFromDate) {
                           validFromDate.setHours(0, 0, 0, 0);
@@ -2194,12 +2191,13 @@ export function OrderDetailDrawer({
                           let validFromDate: Date | null = null;
                           let validUntilDate: Date | null = null;
 
-                          // Obter validFromDate
-                          const validFromRaw = (purchaseOrder as any).valido_desde || (purchaseOrder as any).validFrom;
+                          // Obter validFromDate - testar primeiro validFrom, depois valido_desde
+                          const validFromRaw = purchaseOrder.validFrom || (purchaseOrder as any).valido_desde;
                           if (validFromRaw) {
                             validFromDate = new Date(validFromRaw);
                             validFromDate.setHours(0, 0, 0, 0);
                           }
+
 
                           // Obter validUntilDate
                           const validUntilRaw = (purchaseOrder as any).valido_ate || (purchaseOrder as any).validUntil;
@@ -2276,12 +2274,12 @@ export function OrderDetailDrawer({
                         )) {
                           return (
                             <div className="space-y-4">
-                              <div className="flex flex-col items-center justify-center p-8 border border-green-200 rounded-lg bg-[#2f2f37]">
-                                <FileCheck size={64} className="text-green-500 mb-4" />
-                                <h3 className="text-2xl font-bold text-green-800 mb-2">
-                                  Número do Pedido Confirmado
-                                </h3>
-                                <div className="text-center space-y-3">
+                              <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
+                                <div className="text-center">
+                                  <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+                                  <h3 className="text-xl font-medium text-green-700 mb-2">
+                                    Número do Pedido Confirmado
+                                  </h3>
                                   <div className="p-4 bg-green-50 rounded-lg border border-green-300">
                                     <p className="text-sm text-green-700 font-medium mb-1">
                                       Número do Pedido:
