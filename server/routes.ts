@@ -2046,18 +2046,51 @@ Status: Teste em progresso...`;
   // Companies routes
   app.get("/api/companies", async (req, res) => {
     try {
-      const companies = await storage.getAllCompanies();
+      console.log("📋 Buscando todas as empresas...");
       
-      // Buscar categorias para cada empresa
-      const companiesWithCategory = await Promise.all(
-        companies.map(async (company) => {
-          const category = await storage.getCompanyCategory(company.categoryId);
-          return {
-            ...company,
-            category: category || null
-          };
-        })
-      );
+      // Buscar diretamente do banco de dados
+      const result = await pool.query(`
+        SELECT 
+          c.id,
+          c.name,
+          c.cnpj,
+          c.address,
+          c.category_id as "categoryId",
+          c.approver_id as "approverId",
+          c.contract_number as "contractNumber",
+          c.created_at as "createdAt",
+          cc.id as category_id,
+          cc.name as category_name,
+          cc.requires_approver as category_requires_approver,
+          cc.receives_purchase_orders as category_receives_purchase_orders,
+          cc.requires_contract as category_requires_contract,
+          cc.can_edit_purchase_orders as category_can_edit_purchase_orders
+        FROM companies c
+        LEFT JOIN company_categories cc ON c.category_id = cc.id
+        ORDER BY c.name
+      `);
+      
+      console.log(`✅ ${result.rows.length} empresas encontradas`);
+      
+      // Mapear resultados para incluir categoria como objeto
+      const companiesWithCategory = result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        cnpj: row.cnpj,
+        address: row.address,
+        categoryId: row.categoryId,
+        approverId: row.approverId,
+        contractNumber: row.contractNumber,
+        createdAt: row.createdAt,
+        category: row.category_id ? {
+          id: row.category_id,
+          name: row.category_name,
+          requiresApprover: row.category_requires_approver,
+          receivesPurchaseOrders: row.category_receives_purchase_orders,
+          requiresContract: row.category_requires_contract,
+          canEditPurchaseOrders: row.category_can_edit_purchase_orders
+        } : null
+      }));
       
       res.json(companiesWithCategory);
     } catch (error) {
@@ -3340,6 +3373,62 @@ Status: Teste em progresso...`;
     } catch (error) {
       console.error("Erro ao buscar ordens de compra:", error);
       res.status(500).json({ message: "Erro ao buscar ordens de compra" });
+    }
+  });
+
+  // Rota específica para buscar empresas para ordens de compra
+  app.get("/api/empresas-para-ordens-compra", async (req, res) => {
+    try {
+      console.log("📋 Buscando empresas para ordens de compra...");
+      
+      // Buscar todas as empresas com suas categorias
+      const result = await pool.query(`
+        SELECT 
+          c.id,
+          c.name,
+          c.cnpj,
+          c.address,
+          c.category_id as "categoryId",
+          c.approver_id as "approverId",
+          c.contract_number as "contractNumber",
+          c.created_at as "createdAt",
+          cc.id as category_id,
+          cc.name as category_name,
+          cc.requires_approver as category_requires_approver,
+          cc.receives_purchase_orders as category_receives_purchase_orders,
+          cc.requires_contract as category_requires_contract,
+          cc.can_edit_purchase_orders as category_can_edit_purchase_orders
+        FROM companies c
+        LEFT JOIN company_categories cc ON c.category_id = cc.id
+        ORDER BY c.name
+      `);
+      
+      console.log(`✅ ${result.rows.length} empresas encontradas para ordens de compra`);
+      
+      // Mapear resultados
+      const companies = result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        cnpj: row.cnpj,
+        address: row.address,
+        categoryId: row.categoryId,
+        approverId: row.approverId,
+        contractNumber: row.contractNumber,
+        createdAt: row.createdAt,
+        category: row.category_id ? {
+          id: row.category_id,
+          name: row.category_name,
+          requiresApprover: row.category_requires_approver,
+          receivesPurchaseOrders: row.category_receives_purchase_orders,
+          requiresContract: row.category_requires_contract,
+          canEditPurchaseOrders: row.category_can_edit_purchase_orders
+        } : null
+      }));
+      
+      res.json(companies);
+    } catch (error) {
+      console.error("Erro ao buscar empresas para ordens de compra:", error);
+      res.status(500).json({ message: "Erro ao buscar empresas" });
     }
   });
 
