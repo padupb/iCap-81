@@ -351,33 +351,37 @@ export default function OrdensCompra() {
           }
         }
 
-        // Configurar valores do formulário
+        // Garantir que todos os itens tenham valores válidos
+        const validItems = itens.map((item: any) => ({
+          productId: item.produto_id?.toString() || '',
+          quantity: item.quantidade?.toString() || ''
+        }));
+
+        // Configurar valores do formulário - CORREÇÃO: remover validFrom
         const formData = {
-          orderNumber: ordem.numero_ordem,
-          companyId: ordem.empresa_id.toString(),
-          obraId: obraId, // Preenchido com base no CNPJ encontrado
-          validUntil: new Date(ordem.valido_ate).toISOString().split('T')[0],
-          items: itens.map((item: any) => ({
-            productId: item.produto_id.toString(),
-            quantity: item.quantidade.toString()
-          }))
+          orderNumber: ordem.numero_ordem || '',
+          companyId: ordem.empresa_id?.toString() || '',
+          obraId: obraId || '',
+          validUntil: ordem.valido_ate ? new Date(ordem.valido_ate).toISOString().split('T')[0] : '',
+          items: validItems.length > 0 ? validItems : [{ productId: '', quantity: '' }]
         };
 
         console.log('📝 Dados para preencher o formulário:', formData);
 
+        // Reset do formulário com dados corretos
         editForm.reset(formData);
 
-        // Forçar atualização dos campos
+        // Forçar atualização dos campos com timeout para garantir renderização
         setTimeout(() => {
-          editForm.setValue('orderNumber', ordem.numero_ordem);
-          editForm.setValue('companyId', ordem.empresa_id.toString());
-          editForm.setValue('obraId', obraId);
-          editForm.setValue('validUntil', new Date(ordem.valido_ate).toISOString().split('T')[0]);
+          editForm.setValue('orderNumber', formData.orderNumber);
+          editForm.setValue('companyId', formData.companyId);
+          editForm.setValue('obraId', formData.obraId);
+          editForm.setValue('validUntil', formData.validUntil);
 
           // Definir os itens um por um
-          itens.forEach((item: any, index: number) => {
-            editForm.setValue(`items.${index}.productId`, item.produto_id.toString());
-            editForm.setValue(`items.${index}.quantity`, item.quantidade.toString());
+          validItems.forEach((item: any, index: number) => {
+            editForm.setValue(`items.${index}.productId`, item.productId);
+            editForm.setValue(`items.${index}.quantity`, item.quantity);
           });
 
           console.log('✅ Formulário preenchido com sucesso');
