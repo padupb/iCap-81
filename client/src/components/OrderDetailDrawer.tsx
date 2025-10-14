@@ -2193,8 +2193,8 @@ export function OrderDetailDrawer({
                             const todayDate = new Date();
                             todayDate.setHours(0, 0, 0, 0);
 
-                            // Verifica se a data de hoje é anterior à data de início da validade
-                            if (todayDate < validFromDate && !documentsLoaded &&
+                            // Verifica se a data de hoje é anterior à data disponível (1 dia antes do início da validade)
+                            if (todayDate < availableFromDate && !documentsLoaded &&
                                 orderDetails.status !== "Carregado" &&
                                 orderDetails.status !== "Em Rota" &&
                                 orderDetails.status !== "Em transporte" &&
