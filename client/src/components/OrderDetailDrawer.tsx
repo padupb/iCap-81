@@ -2158,8 +2158,12 @@ export function OrderDetailDrawer({
 
                         // NOVA REGRA: Verificar período de validade para nota fiscal
                         const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
+                        console.log("🔍 DEBUG - confirmationType:", confirmationType);
+                        console.log("🔍 DEBUG - orderDetails.purchaseOrder:", orderDetails.purchaseOrder);
+                        console.log("🔍 DEBUG - documentsLoaded:", documentsLoaded);
 
                         if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
+                          console.log("✅ DEBUG - Entrando na validação de validade");
                           const purchaseOrder = orderDetails.purchaseOrder;
 
                           let validFromDate: Date | null = null;
@@ -2182,6 +2186,9 @@ export function OrderDetailDrawer({
                           }
 
 
+                          console.log("🔍 DEBUG - validFromDate:", validFromDate);
+                          console.log("🔍 DEBUG - validUntilDate:", validUntilDate);
+
                           if (validFromDate && validUntilDate) {
                             validFromDate.setHours(0, 0, 0, 0);
                             validUntilDate.setHours(0, 0, 0, 0);
@@ -2192,6 +2199,12 @@ export function OrderDetailDrawer({
 
                             const todayDate = new Date();
                             todayDate.setHours(0, 0, 0, 0);
+
+                            console.log("📅 DEBUG - availableFromDate:", availableFromDate.toLocaleDateString('pt-BR'));
+                            console.log("📅 DEBUG - todayDate:", todayDate.toLocaleDateString('pt-BR'));
+                            console.log("📅 DEBUG - todayDate < availableFromDate:", todayDate < availableFromDate);
+                            console.log("📅 DEBUG - !documentsLoaded:", !documentsLoaded);
+                            console.log("📅 DEBUG - orderDetails.status:", orderDetails.status);
 
                             // Verifica se a data de hoje é anterior à data disponível (1 dia antes do início da validade)
                             if (todayDate < availableFromDate && !documentsLoaded &&
