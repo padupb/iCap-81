@@ -2811,7 +2811,34 @@ Status: Teste em progresso...`;
 
       // APLICAR MESMA LÓGICA DE FILTRO DA ROTA /api/orders
 
-      // REGRA 1: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
+      // NOVA REGRA: KeyUsers (IDs 1-5) veem todas as reprogramações
+      const isKeyUserCheck = req.user.id >= 1 && req.user.id <= 5;
+
+      if (isKeyUserCheck) {
+        console.log(`🔑 KeyUser ${req.user.name} (ID: ${req.user.id}) - visualização total de reprogramações`);
+        console.log(`📋 Retornando ${reprogramacoes.length} reprogramações para KeyUser`);
+        
+        const mappedReprogramacoes = reprogramacoes.map((r: any) => ({
+          id: r.id,
+          orderId: r.orderId,
+          productName: r.productName,
+          unit: r.unit,
+          quantity: r.quantity,
+          supplierName: r.supplierName,
+          purchaseOrderNumber: r.purchaseOrderNumber,
+          purchaseOrderCompanyName: r.purchaseOrderCompanyName,
+          destinationCompanyName: r.destinationCompanyName,
+          originalDeliveryDate: r.deliveryDate,
+          newDeliveryDate: r.newDeliveryDate,
+          justification: r.reschedulingComment,
+          requestDate: r.createdAt,
+          requesterName: r.requesterName
+        }));
+
+        return res.json(mappedReprogramacoes);
+      }
+
+      // REGRA 2: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
       const isApprover = await pool.query(`
         SELECT COUNT(*) as total
         FROM companies
@@ -2820,7 +2847,7 @@ Status: Teste em progresso...`;
 
       const userIsApprover = parseInt(isApprover.rows[0].total) > 0;
 
-      if (userIsApprover && req.user.id !== 1 && !req.user.isKeyUser) {
+      if (userIsApprover) {
         console.log(`🔒 Usuário ${req.user.name} (ID: ${req.user.id}) é aprovador - filtrando reprogramações`);
 
         const filteredReprogramacoes = [];
@@ -2938,7 +2965,9 @@ Status: Teste em progresso...`;
       // Apenas usuários com perfil específico podem visualizar pedidos urgentes
 
       // 1. Verificar se é KeyUser (IDs 1-5)
-      if ((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser === true) {
+      const isKeyUserCheck = req.user.id >= 1 && req.user.id <= 5;
+      
+      if (isKeyUserCheck || req.user.isKeyUser === true) {
         console.log(`🔑 Acesso liberado para pedidos urgentes - KeyUser (ID ${req.user.id}): ${req.user.name}`);
 
         // KeyUser vê todos os pedidos urgentes
