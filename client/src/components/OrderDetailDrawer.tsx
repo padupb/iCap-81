@@ -1552,8 +1552,8 @@ export function OrderDetailDrawer({
                     value="documents"
                     className="flex items-center gap-1"
                     disabled={(() => {
-                      // 1. Se o pedido for cancelado ou suspenso, bloquear acesso à aba documentos
-                      if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado" || orderDetails.status === "Suspenso") {
+                      // 1. Se o pedido for cancelado, suspenso ou não iniciado, bloquear acesso à aba documentos
+                      if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado" || orderDetails.status === "Suspenso" || orderDetails.status === "Não iniciado") {
                         return true;
                       }
 
@@ -1877,6 +1877,21 @@ export function OrderDetailDrawer({
                           );
                         }
 
+                        // Verificar se o pedido está "Não iniciado"
+                        if (orderDetails.status === "Não iniciado") {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-lg bg-slate-50 w-full">
+                              <Clock className="h-12 w-12 text-slate-600 mb-2" />
+                              <h3 className="text-lg font-medium text-slate-800 text-center">
+                                Pedido Não Iniciado
+                              </h3>
+                              <p className="text-sm text-slate-700 text-center mt-2">
+                                Este pedido aguarda o início do período de validade da ordem de compra para ser processado.
+                              </p>
+                            </div>
+                          );
+                        }
+
                         // Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = new Date(orderDetails.deliveryDate);
                         const today = new Date();
@@ -2083,6 +2098,11 @@ export function OrderDetailDrawer({
                         // 2. Se o pedido estiver suspenso, informar sobre a reprogramação
                         if (orderDetails.status === "Suspenso") {
                           return "Este pedido está suspenso aguardando aprovação de reprogramação de entrega.";
+                        }
+
+                        // 3. Se o pedido não foi iniciado, informar sobre o período de validade
+                        if (orderDetails.status === "Não iniciado") {
+                          return "Este pedido aguarda o início do período de validade da ordem de compra para permitir o envio de documentos.";
                         }
 
                         // 3. Verificar se é pedido urgente e não foi aprovado

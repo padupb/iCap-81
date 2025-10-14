@@ -32,18 +32,30 @@ export function formatCNPJ(cnpj: string) {
 }
 
 export function getStatusColor(status: string) {
-  const statusColors: Record<string, string> = {
-    "Criado": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    "Em Aprovação": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    "Aprovado": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    "Em Trânsito": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    "Concluído": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    "Cancelado": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-    "Ativo": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    "Inativo": "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
-    "Expirado": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-    "Pendente": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-  };
-
-  return statusColors[status] || "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
+  switch (status.toLowerCase()) {
+    case "registrado":
+      return "bg-blue-500 hover:bg-blue-600";
+    case "aprovado":
+      return "bg-green-500 hover:bg-green-600";
+    case "recusado":
+      return "bg-red-500 hover:bg-red-600";
+    case "pendente":
+    case "aguardando aprovação":
+      return "bg-yellow-500 hover:bg-yellow-600";
+    case "cancelado":
+      return "bg-gray-500 hover:bg-gray-600";
+    case "não iniciado":
+      return "bg-slate-400 hover:bg-slate-500";
+    case "carregado":
+      return "bg-purple-500 hover:bg-purple-600";
+    case "em rota":
+    case "em transporte":
+      return "bg-orange-500 hover:bg-orange-600";
+    case "entregue":
+      return "bg-emerald-500 hover:bg-emerald-600";
+    case "suspenso":
+      return "bg-amber-500 hover:bg-amber-600";
+    default:
+      return "bg-gray-500 hover:bg-gray-600";
+  }
 }

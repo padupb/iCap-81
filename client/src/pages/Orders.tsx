@@ -141,6 +141,7 @@ type OrderFormData = z.infer<typeof orderFormSchema>;
 // Lista de status possíveis para filtro
 const statusOptions = [
   "Registrado",
+  "Não iniciado",
   "Carregado",
   "Em Rota",
   "Entregue",

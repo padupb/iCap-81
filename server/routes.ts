@@ -2662,6 +2662,53 @@ Status: Teste em progresso...`;
     try {
       let orders = await storage.getAllOrders();
 
+      // Atualizar status dos pedidos baseado na validade da ordem de compra
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (const order of orders) {
+        if (order.purchaseOrderId && order.status === "Registrado") {
+          try {
+            // Buscar a ordem de compra
+            const ordemCompraResult = await pool.query(
+              "SELECT valido_desde FROM ordens_compra WHERE id = $1",
+              [order.purchaseOrderId]
+            );
+
+            if (ordemCompraResult.rows.length > 0 && ordemCompraResult.rows[0].valido_desde) {
+              const validFromParts = ordemCompraResult.rows[0].valido_desde.split('T')[0].split('-').map(Number);
+              const validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
+              validFromDate.setHours(0, 0, 0, 0);
+
+              // Calcular data de disponibilidade (1 dia antes do início da validade)
+              const availableFromDate = new Date(validFromDate);
+              availableFromDate.setDate(availableFromDate.getDate() - 1);
+              availableFromDate.setHours(0, 0, 0, 0);
+
+              // Se hoje é antes da data de disponibilidade, marcar como "Não iniciado"
+              if (today < availableFromDate) {
+                // Atualizar status no banco de dados
+                await pool.query(
+                  "UPDATE orders SET status = $1 WHERE id = $2",
+                  ["Não iniciado", order.id]
+                );
+                order.status = "Não iniciado";
+              }
+              // Se hoje é >= data de disponibilidade e status é "Não iniciado", voltar para "Registrado"
+              else if (today >= availableFromDate && order.status === "Não iniciado") {
+                await pool.query(
+                  "UPDATE orders SET status = $1 WHERE id = $2",
+                  ["Registrado", order.id]
+                );
+                order.status = "Registrado";
+              }
+            }
+          } catch (error) {
+            console.error(`Erro ao verificar validade da ordem de compra para pedido ${order.orderId}:`, error);
+          }
+        }
+      }
+
       // NOVA REGRA: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
       const isApprover = await pool.query(`
         SELECT COUNT(*) as total
