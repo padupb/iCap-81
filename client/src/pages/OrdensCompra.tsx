@@ -706,8 +706,9 @@ export default function OrdensCompra() {
   // Verificar se há empresas disponíveis para seleção
   const hasAvailableCompanies = filteredCompanies.length > 0;
 
-  // Verificar se o usuário pode criar ordens de compra (autorização + empresas disponíveis)
-  const canShowNovaOrdemButton = canCreatePurchaseOrders() && hasAvailableCompanies;
+  // Verificar se o usuário pode criar ordens de compra
+  // KeyUsers sempre podem criar, outros usuários precisam de autorização + empresas disponíveis
+  const canShowNovaOrdemButton = isKeyUser || (canCreatePurchaseOrders() && hasAvailableCompanies);
 
   return (
     <div className="space-y-6">
