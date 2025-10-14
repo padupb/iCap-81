@@ -840,7 +840,7 @@ export default function OrdensCompra() {
                   handleSaveChanges();
                 }}
                 className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={editForm.control}
                     name="orderNumber"
@@ -863,7 +863,7 @@ export default function OrdensCompra() {
                         <FormLabel>Fornecedor</FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          value={field.value || ""}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
@@ -884,35 +884,7 @@ export default function OrdensCompra() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="obraId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Obra</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value || ""}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="bg-input border-border">
-                              <SelectValue placeholder="Selecione uma obra" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {obras.map((obra) => (
-                              <SelectItem key={obra.id} value={obra.id.toString()}>
-                                {obra.name} {obra.contractNumber ? `(${obra.contractNumber})` : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={editForm.control}
                     name="validUntil"
@@ -922,10 +894,40 @@ export default function OrdensCompra() {
                         <FormControl>
                           <Input
                             type="date"
-                            {...field}
                             className="bg-input border-border"
+                            {...field}
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  <FormField
+                    control={editForm.control}
+                    name="obraId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Obra de Destino</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione uma obra" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {obras.map((obra) => (
+                              <SelectItem key={obra.id} value={obra.id.toString()}>
+                                {obra.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
