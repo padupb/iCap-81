@@ -787,10 +787,18 @@ export class DatabaseStorage implements IStorage {
           isUrgent: orders.isUrgent,
           userId: orders.userId,
           createdAt: orders.createdAt,
-          numeroPedido: orders.numeroPedido
+          numeroPedido: orders.numeroPedido,
+          // Campos da ordem de compra
+          purchaseOrderNumber: purchaseOrders.numero_ordem,
+          purchaseOrderCompanyId: purchaseOrders.empresa_id,
+          purchaseOrderValidFrom: purchaseOrders.valido_desde,
+          purchaseOrderValidUntil: purchaseOrders.valido_ate,
+          purchaseOrderStatus: purchaseOrders.status,
+          purchaseOrderCreatedAt: purchaseOrders.data_criacao
         })
         .from(orders)
         .leftJoin(products, eq(orders.productId, products.id))
+        .leftJoin(purchaseOrders, eq(orders.purchaseOrderId, purchaseOrders.id))
         .orderBy(desc(orders.createdAt));
 
       console.log(`📊 Total de pedidos retornados: ${result.length}`);
@@ -809,7 +817,17 @@ export class DatabaseStorage implements IStorage {
         isUrgent: row.isUrgent,
         userId: row.userId,
         createdAt: row.createdAt,
-        numeroPedido: row.numeroPedido
+        numeroPedido: row.numeroPedido,
+        // Incluir purchaseOrder se existir
+        purchaseOrder: row.purchaseOrderId ? {
+          id: row.purchaseOrderId,
+          orderNumber: row.purchaseOrderNumber,
+          companyId: row.purchaseOrderCompanyId,
+          validFrom: row.purchaseOrderValidFrom,
+          validUntil: row.purchaseOrderValidUntil,
+          status: row.purchaseOrderStatus,
+          createdAt: row.purchaseOrderCreatedAt
+        } : undefined
       })) as Order[];
     } catch (error) {
       console.error('Erro ao buscar ordens:', error);
