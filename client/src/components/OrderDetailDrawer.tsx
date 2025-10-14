@@ -56,6 +56,7 @@ import {
   XCircle,
   Edit,
   Calendar as CalendarIcon,
+  Info,
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder, Unit } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -1569,13 +1570,13 @@ export function OrderDetailDrawer({
 
                       // 3. NOVA REGRA: Para produtos com confirmação por nota fiscal, verificar período de validade
                       const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
-                      
+
                       if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
                         const purchaseOrder = orderDetails.purchaseOrder;
-                        
+
                         // Obter data de início da validade da ordem de compra
                         let validFromDate: Date | null = null;
-                        
+
                         if ((purchaseOrder as any).valido_desde) {
                           const validFromParts = (purchaseOrder as any).valido_desde.split('T')[0].split('-').map(Number);
                           validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
@@ -1583,18 +1584,18 @@ export function OrderDetailDrawer({
                           const validFromParts = (purchaseOrder as any).validFrom.split('T')[0].split('-').map(Number);
                           validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
                         }
-                        
+
                         if (validFromDate) {
                           validFromDate.setHours(0, 0, 0, 0);
-                          
+
                           // Calcular data de disponibilidade (1 dia antes da validade)
                           const availableFromDate = new Date(validFromDate);
                           availableFromDate.setDate(availableFromDate.getDate() - 1);
                           availableFromDate.setHours(0, 0, 0, 0);
-                          
+
                           const todayDate = new Date();
                           todayDate.setHours(0, 0, 0, 0);
-                          
+
                           // Se hoje é antes da data de disponibilidade e não há documentos carregados
                           if (todayDate < availableFromDate && !documentsLoaded &&
                               orderDetails.status !== "Carregado" &&
@@ -1905,7 +1906,7 @@ export function OrderDetailDrawer({
                         );
                       })()}
 
-                      
+
                     </div>
                   </div>
 
@@ -2157,12 +2158,13 @@ export function OrderDetailDrawer({
 
                         // NOVA REGRA: Verificar período de validade para nota fiscal
                         const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
-                        
+
                         if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
                           const purchaseOrder = orderDetails.purchaseOrder;
-                          
+
                           let validFromDate: Date | null = null;
-                          
+                          let validUntilDate: Date | null = null;
+
                           if ((purchaseOrder as any).valido_desde) {
                             const validFromParts = (purchaseOrder as any).valido_desde.split('T')[0].split('-').map(Number);
                             validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
@@ -2170,37 +2172,55 @@ export function OrderDetailDrawer({
                             const validFromParts = (purchaseOrder as any).validFrom.split('T')[0].split('-').map(Number);
                             validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
                           }
-                          
-                          if (validFromDate) {
+
+                          if ((purchaseOrder as any).valido_ate) {
+                            const validUntilParts = (purchaseOrder as any).valido_ate.split('T')[0].split('-').map(Number);
+                            validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
+                          } else if ((purchaseOrder as any).validUntil) {
+                            const validUntilParts = (purchaseOrder as any).validUntil.split('T')[0].split('-').map(Number);
+                            validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
+                          }
+
+
+                          if (validFromDate && validUntilDate) {
                             validFromDate.setHours(0, 0, 0, 0);
-                            
+                            validUntilDate.setHours(0, 0, 0, 0);
+
                             const availableFromDate = new Date(validFromDate);
                             availableFromDate.setDate(availableFromDate.getDate() - 1);
                             availableFromDate.setHours(0, 0, 0, 0);
-                            
+
                             const todayDate = new Date();
                             todayDate.setHours(0, 0, 0, 0);
-                            
-                            if (todayDate < availableFromDate && !documentsLoaded &&
+
+                            // Verifica se a data de hoje é anterior à data de início da validade
+                            if (todayDate < validFromDate && !documentsLoaded &&
                                 orderDetails.status !== "Carregado" &&
                                 orderDetails.status !== "Em Rota" &&
                                 orderDetails.status !== "Em transporte" &&
                                 orderDetails.status !== "Entregue") {
                               return (
-                                <div className="flex flex-col items-center justify-center p-8 border border-blue-200 rounded-lg bg-blue-50">
-                                  <AlertCircle className="h-16 w-16 text-blue-600 mb-4" />
-                                  <h3 className="text-xl font-medium text-blue-800 mb-2">
-                                    Aba Documentos Bloqueada
-                                  </h3>
-                                  <div className="text-center space-y-2">
-                                    <p className="text-sm text-blue-700">
-                                      O upload de documentos estará disponível a partir de:
+                                <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div className="flex items-start gap-3">
+                                      <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                                      <div>
+                                        <p className="text-sm font-medium text-blue-900 mb-2">
+                                          Upload de documentos ainda não disponível
+                                        </p>
+                                        <p className="text-sm text-blue-700 mb-1">
+                                          Esta ordem de compra ainda não iniciou sua validade.
+                                        </p>
+                                        <p className="text-sm text-blue-700 mb-1">
+                                          Período de validade: <strong>{validFromDate.toLocaleDateString('pt-BR')}</strong> até <strong>{validUntilDate.toLocaleDateString('pt-BR')}</strong>
+                                        </p>
+                                        <p className="text-sm text-blue-700 mb-1">
+                                          A aba de documentos estará disponível a partir de:
                                     </p>
                                     <p className="text-lg font-bold text-blue-800">
                                       {availableFromDate.toLocaleDateString('pt-BR')}
                                     </p>
-                                    <p className="text-xs text-blue-600 mt-3">
-                                      (1 dia antes do início da validade da ordem de compra)
+                                    <p className="text-xs text-blue-600 mt-1">
+                                      (1 dia antes do início da validade)
                                     </p>
                                   </div>
                                 </div>
@@ -2208,9 +2228,6 @@ export function OrderDetailDrawer({
                             }
                           }
                         }
-
-                        // Verificar o tipo de confirmação do produto
-                        // (já declarado acima, reutilizando a variável)
 
                         // Se o tipo é número_pedido e já foi confirmado
                         if (confirmationType === "numero_pedido" && (
