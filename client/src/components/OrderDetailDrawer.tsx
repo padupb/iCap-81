@@ -2302,7 +2302,7 @@ export function OrderDetailDrawer({
                             orderDetails.status === "Em transporte" ||
                             orderDetails.status === "Entregue") {
                           return (
-                        <div className="space-y-4">
+                            <div className="space-y-4">
                           <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
                             <FileCheck
                               size={48}
