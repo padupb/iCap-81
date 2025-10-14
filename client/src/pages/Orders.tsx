@@ -481,7 +481,9 @@ export default function Orders() {
     const deliveryDate = form.watch("deliveryDate");
 
     if (deliveryDate) {
-      const selectedDate = new Date(deliveryDate);
+      // Criar data a partir da string no formato YYYY-MM-DD
+      const [year, month, day] = deliveryDate.split('-').map(Number);
+      const selectedDate = new Date(year, month - 1, day);
       selectedDate.setHours(0, 0, 0, 0);
       
       const today = new Date();
@@ -495,11 +497,23 @@ export default function Orders() {
       // Validar se a data de entrega está dentro do período de validade da ordem de compra
       const purchaseOrderId = form.watch("purchaseOrderId");
       if (purchaseOrderId && selectedPurchaseOrder) {
-        const validFromDate = new Date(selectedPurchaseOrder.valido_desde);
+        // Criar datas de validade a partir das strings ISO
+        const validFromParts = selectedPurchaseOrder.valido_desde.split('T')[0].split('-').map(Number);
+        const validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
         validFromDate.setHours(0, 0, 0, 0);
         
-        const validUntilDate = new Date(selectedPurchaseOrder.valido_ate);
+        const validUntilParts = selectedPurchaseOrder.valido_ate.split('T')[0].split('-').map(Number);
+        const validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
         validUntilDate.setHours(0, 0, 0, 0);
+        
+        console.log('🔍 Debug validação de data:', {
+          deliveryDate,
+          selectedDate: selectedDate.toISOString(),
+          validFrom: validFromDate.toISOString(),
+          validUntil: validUntilDate.toISOString(),
+          isBeforeValidFrom: selectedDate < validFromDate,
+          isAfterValidUntil: selectedDate > validUntilDate
+        });
         
         if (selectedDate < validFromDate) {
           form.setError("deliveryDate", {
@@ -820,14 +834,27 @@ export default function Orders() {
 
     // Validar se a data de entrega está dentro do período de validade da ordem de compra
     if (selectedPurchaseOrder) {
-      const deliveryDate = new Date(data.deliveryDate);
+      // Criar data de entrega a partir da string YYYY-MM-DD
+      const [year, month, day] = data.deliveryDate.split('-').map(Number);
+      const deliveryDate = new Date(year, month - 1, day);
       deliveryDate.setHours(0, 0, 0, 0);
       
-      const validFromDate = new Date(selectedPurchaseOrder.valido_desde);
+      // Criar datas de validade a partir das strings ISO
+      const validFromParts = selectedPurchaseOrder.valido_desde.split('T')[0].split('-').map(Number);
+      const validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
       validFromDate.setHours(0, 0, 0, 0);
       
-      const validUntilDate = new Date(selectedPurchaseOrder.valido_ate);
+      const validUntilParts = selectedPurchaseOrder.valido_ate.split('T')[0].split('-').map(Number);
+      const validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
       validUntilDate.setHours(0, 0, 0, 0);
+      
+      console.log('🔍 Debug onSubmit validação de data:', {
+        deliveryDate: deliveryDate.toISOString(),
+        validFrom: validFromDate.toISOString(),
+        validUntil: validUntilDate.toISOString(),
+        isBeforeValidFrom: deliveryDate < validFromDate,
+        isAfterValidUntil: deliveryDate > validUntilDate
+      });
       
       if (deliveryDate < validFromDate) {
         toast({
