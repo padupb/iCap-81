@@ -340,7 +340,7 @@ export default function OrdensCompra() {
 
       // Buscar a obra pelo CNPJ usando a API de empresas
       let obraId = "";
-      
+
       if (ordemDetalhes.cnpj) {
         try {
           const companiesResponse = await fetch('/api/companies');
@@ -352,13 +352,13 @@ export default function OrdensCompra() {
             const obrasDisponiveis = allCompanies.filter((company: any) =>
               company.contractNumber && company.contractNumber.trim() !== ''
             );
-            
-            console.log('🏗️ Obras disponíveis:', obrasDisponiveis.map((o: any) => ({ 
-              id: o.id, 
-              name: o.name, 
-              cnpj: o.cnpj 
+
+            console.log('🏗️ Obras disponíveis:', obrasDisponiveis.map((o: any) => ({
+              id: o.id,
+              name: o.name,
+              cnpj: o.cnpj
             })));
-            
+
             const obraEncontrada = obrasDisponiveis.find((obra: any) => obra.cnpj === ordemDetalhes.cnpj);
             if (obraEncontrada) {
               obraId = obraEncontrada.id.toString();
@@ -863,7 +863,7 @@ export default function OrdensCompra() {
                         <FormLabel>Fornecedor</FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
@@ -893,7 +893,7 @@ export default function OrdensCompra() {
                         <FormLabel>Obra</FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
@@ -1126,7 +1126,7 @@ export default function OrdensCompra() {
                         <FormLabel>Fornecedor</FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
@@ -1154,7 +1154,7 @@ export default function OrdensCompra() {
                         <FormLabel>Obra</FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
