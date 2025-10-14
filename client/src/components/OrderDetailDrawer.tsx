@@ -1578,12 +1578,16 @@ export function OrderDetailDrawer({
                         // Obter data de início da validade da ordem de compra
                         let validFromDate: Date | null = null;
 
-                        if ((purchaseOrder as any).valido_desde) {
-                          const validFromParts = (purchaseOrder as any).valido_desde.split('T')[0].split('-').map(Number);
-                          validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
-                        } else if ((purchaseOrder as any).validFrom) {
-                          const validFromParts = (purchaseOrder as any).validFrom.split('T')[0].split('-').map(Number);
-                          validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
+                        // Tentar obter de valido_desde ou validFrom
+                        const validFromRaw = (purchaseOrder as any).valido_desde || (purchaseOrder as any).validFrom;
+                        
+                        if (validFromRaw) {
+                          // Criar data a partir do valor recebido
+                          validFromDate = new Date(validFromRaw);
+                          validFromDate.setHours(0, 0, 0, 0);
+                          
+                          console.log("📅 DEBUG - validFromRaw:", validFromRaw);
+                          console.log("📅 DEBUG - validFromDate criada:", validFromDate.toISOString());
                         }
 
                         if (validFromDate) {
@@ -2190,25 +2194,24 @@ export function OrderDetailDrawer({
                           let validFromDate: Date | null = null;
                           let validUntilDate: Date | null = null;
 
-                          if ((purchaseOrder as any).valido_desde) {
-                            const validFromParts = (purchaseOrder as any).valido_desde.split('T')[0].split('-').map(Number);
-                            validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
-                          } else if ((purchaseOrder as any).validFrom) {
-                            const validFromParts = (purchaseOrder as any).validFrom.split('T')[0].split('-').map(Number);
-                            validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
+                          // Obter validFromDate
+                          const validFromRaw = (purchaseOrder as any).valido_desde || (purchaseOrder as any).validFrom;
+                          if (validFromRaw) {
+                            validFromDate = new Date(validFromRaw);
+                            validFromDate.setHours(0, 0, 0, 0);
                           }
 
-                          if ((purchaseOrder as any).valido_ate) {
-                            const validUntilParts = (purchaseOrder as any).valido_ate.split('T')[0].split('-').map(Number);
-                            validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
-                          } else if ((purchaseOrder as any).validUntil) {
-                            const validUntilParts = (purchaseOrder as any).validUntil.split('T')[0].split('-').map(Number);
-                            validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
+                          // Obter validUntilDate
+                          const validUntilRaw = (purchaseOrder as any).valido_ate || (purchaseOrder as any).validUntil;
+                          if (validUntilRaw) {
+                            validUntilDate = new Date(validUntilRaw);
+                            validUntilDate.setHours(0, 0, 0, 0);
                           }
 
-
-                          console.log("🔍 DEBUG - validFromDate:", validFromDate);
-                          console.log("🔍 DEBUG - validUntilDate:", validUntilDate);
+                          console.log("🔍 DEBUG - validFromRaw:", validFromRaw);
+                          console.log("🔍 DEBUG - validFromDate:", validFromDate?.toISOString());
+                          console.log("🔍 DEBUG - validUntilRaw:", validUntilRaw);
+                          console.log("🔍 DEBUG - validUntilDate:", validUntilDate?.toISOString());
 
                           if (validFromDate && validUntilDate) {
                             validFromDate.setHours(0, 0, 0, 0);
