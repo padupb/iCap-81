@@ -381,8 +381,8 @@ export default function OrdensCompra() {
       // Configurar valores do formulário com fornecedor e obra
       const formData = {
         orderNumber: ordemDetalhes.numero_ordem || '',
-        companyId: ordemDetalhes.empresa_id?.toString() || '',
-        obraId: obraId || '',
+        companyId: String(ordemDetalhes.empresa_id || ''),
+        obraId: String(obraId || ''),
         validUntil: ordemDetalhes.valido_ate ? new Date(ordemDetalhes.valido_ate).toISOString().split('T')[0] : '',
         items: validItems.length > 0 ? validItems : [{ productId: '', quantity: '' }]
       };
@@ -396,21 +396,21 @@ export default function OrdensCompra() {
 
       // Forçar atualização dos campos com timeout para garantir renderização
       setTimeout(() => {
-        editForm.setValue('orderNumber', formData.orderNumber);
-        editForm.setValue('companyId', formData.companyId);
-        editForm.setValue('obraId', formData.obraId);
-        editForm.setValue('validUntil', formData.validUntil);
+        if (formData.orderNumber) editForm.setValue('orderNumber', formData.orderNumber);
+        if (formData.companyId) editForm.setValue('companyId', formData.companyId);
+        if (formData.obraId) editForm.setValue('obraId', formData.obraId);
+        if (formData.validUntil) editForm.setValue('validUntil', formData.validUntil);
 
         // Definir os itens um por um
         validItems.forEach((item: any, index: number) => {
-          editForm.setValue(`items.${index}.productId`, item.productId);
-          editForm.setValue(`items.${index}.quantity`, item.quantity);
+          if (item.productId) editForm.setValue(`items.${index}.productId`, item.productId);
+          if (item.quantity) editForm.setValue(`items.${index}.quantity`, item.quantity);
         });
 
         console.log('✅ Formulário preenchido com sucesso');
         console.log('✅ Fornecedor definido:', editForm.getValues('companyId'));
         console.log('✅ Obra definida:', editForm.getValues('obraId'));
-      }, 100);
+      }, 150);
 
     } catch (error) {
       console.error("Erro ao carregar dados da ordem:", error);
@@ -863,7 +863,7 @@ export default function OrdensCompra() {
                         <FormLabel>Fornecedor</FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          value={field.value}
+                          value={field.value || ""}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
@@ -893,7 +893,7 @@ export default function OrdensCompra() {
                         <FormLabel>Obra</FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          value={field.value}
+                          value={field.value || ""}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
