@@ -2210,7 +2210,7 @@ export function OrderDetailDrawer({
                         }
 
                         // Verificar o tipo de confirmação do produto
-                        const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
+                        // (já declarado acima, reutilizando a variável)
 
                         // Se o tipo é número_pedido e já foi confirmado
                         if (confirmationType === "numero_pedido" && (
