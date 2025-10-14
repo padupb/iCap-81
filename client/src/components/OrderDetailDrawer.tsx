@@ -2303,21 +2303,21 @@ export function OrderDetailDrawer({
                             orderDetails.status === "Entregue") {
                           return (
                             <div className="space-y-4">
-                          <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
-                            <FileCheck
-                              size={48}
-                              className="text-green-500 mb-2"
-                            />
-                            <h3 className="text-lg font-medium text-green-700">
-                              Documentos Carregados
-                            </h3>
-                            <p className="text-sm text-green-600 text-center mt-2">
-                              Todos os documentos necessários foram enviados e
-                              processados com sucesso.
-                            </p>
-                          </div>
+                              <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
+                                <FileCheck
+                                  size={48}
+                                  className="text-green-500 mb-2"
+                                />
+                                <h3 className="text-lg font-medium text-green-700">
+                                  Documentos Carregados
+                                </h3>
+                                <p className="text-sm text-green-600 text-center mt-2">
+                                  Todos os documentos necessários foram enviados e
+                                  processados com sucesso.
+                                </p>
+                              </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                             <div className="p-4 border rounded-lg flex flex-col items-center">
                               <button
                                 className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
@@ -2513,7 +2513,7 @@ export function OrderDetailDrawer({
                               </p>
                             </div>
                           </div>
-                        </div>
+                            </div>
                           );
                         } else {
                           return canUploadDocuments() ? (
