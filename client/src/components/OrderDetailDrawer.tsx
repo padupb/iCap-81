@@ -1554,6 +1554,7 @@ export function OrderDetailDrawer({
                     disabled={(() => {
                       // 1. Se o pedido for cancelado, suspenso ou não iniciado, bloquear acesso à aba documentos
                       if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado" || orderDetails.status === "Suspenso" || orderDetails.status === "Não iniciado") {
+                        console.log(`🚫 Aba de documentos bloqueada - Status: ${orderDetails.status}`);
                         return true;
                       }
 
@@ -1886,7 +1887,7 @@ export function OrderDetailDrawer({
                                 Pedido Não Iniciado
                               </h3>
                               <p className="text-sm text-slate-700 text-center mt-2">
-                                Este pedido aguarda o início do período de validade da ordem de compra para ser processado.
+                                Este pedido aguarda o início do período de validade da ordem de compra.
                               </p>
                             </div>
                           );
