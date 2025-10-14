@@ -894,6 +894,39 @@ export default function OrdensCompra() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={editForm.control}
+                    name="obraId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Obra de Destino</FormLabel>
+                        <Select
+                          onValueChange={(value) => field.onChange(value)}
+                          value={field.value}
+                          key={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-input border-border">
+                              <SelectValue placeholder="Selecione uma obra">
+                                {field.value && obras.find(o => o.id.toString() === field.value)?.name}
+                              </SelectValue>
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {obras.map((obra) => (
+                              <SelectItem key={obra.id} value={obra.id.toString()}>
+                                {obra.name} {obra.contractNumber ? `(${obra.contractNumber})` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={editForm.control}
                     name="validFrom"
                     render={({ field }) => (
                       <FormItem>

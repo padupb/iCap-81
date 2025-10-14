@@ -3657,12 +3657,12 @@ Status: Teste em progresso...`;
         });
       }
 
-      const { numeroOrdem, empresaId, cnpj, validoAte, items } = req.body;
+      const { numeroOrdem, empresaId, cnpj, validoDesde, validoAte, items } = req.body;
 
-      if (!numeroOrdem || !empresaId || !validoAte) {
+      if (!numeroOrdem || !empresaId || !validoDesde || !validoAte) {
         return res.status(400).json({
           sucesso: false,
-          mensagem: "Dados incompletos para editar ordem de compra"
+          mensagem: "Dados incompletos para editar ordem de compra. Início e fim da validade são obrigatórios."
         });
       }
 
@@ -3685,9 +3685,10 @@ Status: Teste em progresso...`;
          SET numero_ordem = $1,
              empresa_id = $2,
              cnpj = $3,
-             valido_ate = $4
-         WHERE id = $5`,
-        [numeroOrdem, empresaId, cnpj, validoAte, id]
+             valido_desde = $4,
+             valido_ate = $5
+         WHERE id = $6`,
+        [numeroOrdem, empresaId, cnpj, validoDesde, validoAte, id]
       );
 
       // Atualizar itens se fornecidos
