@@ -482,20 +482,34 @@ export default function Orders() {
 
     if (deliveryDate) {
       const selectedDate = new Date(deliveryDate);
+      selectedDate.setHours(0, 0, 0, 0);
+      
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const diffTime = selectedDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       setIsUrgentOrder(diffDays <= urgentDaysThreshold);
 
-      // Validar se a data de entrega não é posterior à validade da ordem de compra
+      // Validar se a data de entrega está dentro do período de validade da ordem de compra
       const purchaseOrderId = form.watch("purchaseOrderId");
       if (purchaseOrderId && selectedPurchaseOrder) {
+        const validFromDate = new Date(selectedPurchaseOrder.valido_desde);
+        validFromDate.setHours(0, 0, 0, 0);
+        
         const validUntilDate = new Date(selectedPurchaseOrder.valido_ate);
-        if (selectedDate > validUntilDate) {
+        validUntilDate.setHours(0, 0, 0, 0);
+        
+        if (selectedDate < validFromDate) {
           form.setError("deliveryDate", {
             type: "manual",
-            message: `Data de entrega não pode ser posterior à validade da ordem de compra (${validUntilDate.toLocaleDateString('pt-BR')})`
+            message: `Data de entrega não pode ser anterior ao início da validade (${validFromDate.toLocaleDateString('pt-BR')})`
+          });
+        } else if (selectedDate > validUntilDate) {
+          form.setError("deliveryDate", {
+            type: "manual",
+            message: `Data de entrega não pode ser posterior ao fim da validade (${validUntilDate.toLocaleDateString('pt-BR')})`
           });
         } else {
           form.clearErrors("deliveryDate");
@@ -804,15 +818,30 @@ export default function Orders() {
       return;
     }
 
-    // Validar se a data de entrega não é posterior à validade da ordem de compra
+    // Validar se a data de entrega está dentro do período de validade da ordem de compra
     if (selectedPurchaseOrder) {
       const deliveryDate = new Date(data.deliveryDate);
+      deliveryDate.setHours(0, 0, 0, 0);
+      
+      const validFromDate = new Date(selectedPurchaseOrder.valido_desde);
+      validFromDate.setHours(0, 0, 0, 0);
+      
       const validUntilDate = new Date(selectedPurchaseOrder.valido_ate);
+      validUntilDate.setHours(0, 0, 0, 0);
+      
+      if (deliveryDate < validFromDate) {
+        toast({
+          title: "Erro de validação",
+          description: `Data de entrega não pode ser anterior ao início da validade da ordem de compra (${validFromDate.toLocaleDateString('pt-BR')})`,
+          variant: "destructive",
+        });
+        return;
+      }
       
       if (deliveryDate > validUntilDate) {
         toast({
           title: "Erro de validação",
-          description: `Data de entrega não pode ser posterior à validade da ordem de compra (${validUntilDate.toLocaleDateString('pt-BR')})`,
+          description: `Data de entrega não pode ser posterior ao fim da validade da ordem de compra (${validUntilDate.toLocaleDateString('pt-BR')})`,
           variant: "destructive",
         });
         return;
@@ -1008,10 +1037,10 @@ export default function Orders() {
                         {selectedPurchaseOrder && (
                           <div className="text-xs text-muted-foreground mt-1 space-y-1">
                             <p>
-                              Período válido: {new Date(selectedPurchaseOrder.valido_desde || new Date()).toLocaleDateString('pt-BR')} até {new Date(selectedPurchaseOrder.valido_ate).toLocaleDateString('pt-BR')}
+                              <strong>Período válido:</strong> {new Date(selectedPurchaseOrder.valido_desde).toLocaleDateString('pt-BR')} até {new Date(selectedPurchaseOrder.valido_ate).toLocaleDateString('pt-BR')}
                             </p>
-                            <p className="text-amber-600">
-                              ⚠️ A data de entrega deve estar dentro do período de validade da ordem de compra
+                            <p className="text-blue-600">
+                              ℹ️ A data de entrega deve estar dentro deste período
                             </p>
                           </div>
                         )}
