@@ -3034,14 +3034,26 @@ Status: Teste em progresso...`;
       const ordemCompra = ordemCompraResult.rows[0];
 
       // Verificar se a ordem de compra está dentro do período de validade
-      const dataEntrega = convertToLocalDate(orderData.deliveryDate); // Conversão para fuso brasileiro
+      // CORREÇÃO: Criar data sem conversão de timezone para comparação correta
+      const dataEntregaStr = orderData.deliveryDate;
+      const dataEntregaParts = dataEntregaStr.split('T')[0].split('-');
+      const dataEntrega = new Date(parseInt(dataEntregaParts[0]), parseInt(dataEntregaParts[1]) - 1, parseInt(dataEntregaParts[2]));
+      dataEntrega.setHours(0, 0, 0, 0);
+      
       const validoDesde = new Date(ordemCompra.valido_desde);
+      validoDesde.setHours(0, 0, 0, 0);
+      
       const validoAte = new Date(ordemCompra.valido_ate);
+      validoAte.setHours(23, 59, 59, 999);
 
       console.log(`📅 Validação de período da ordem ${ordemCompra.numero_ordem}:`, {
-        dataEntrega: dataEntrega.toISOString().split('T')[0],
+        dataEntregaOriginal: dataEntregaStr,
+        dataEntregaComparar: dataEntrega.toISOString().split('T')[0],
         validoDesde: validoDesde.toISOString().split('T')[0],
-        validoAte: validoAte.toISOString().split('T')[0]
+        validoAte: validoAte.toISOString().split('T')[0],
+        dataEntregaTimestamp: dataEntrega.getTime(),
+        validoDesdeTimestamp: validoDesde.getTime(),
+        validoAteTimestamp: validoAte.getTime()
       });
 
       // Verificar se a data de entrega está dentro do período de validade
