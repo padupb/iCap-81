@@ -834,10 +834,10 @@ export default function Orders() {
 
     // Validar se a data de entrega está dentro do período de validade da ordem de compra
     if (selectedPurchaseOrder) {
-      // Criar data de entrega a partir da string YYYY-MM-DD
+      // Criar data de entrega a partir da string YYYY-MM-DD com horário 00:01
       const [year, month, day] = data.deliveryDate.split('-').map(Number);
       const deliveryDate = new Date(year, month - 1, day);
-      deliveryDate.setHours(0, 0, 0, 0);
+      deliveryDate.setHours(0, 1, 0, 0); // Definir para 00:01 AM
       
       // Criar datas de validade a partir das strings ISO
       const validFromParts = selectedPurchaseOrder.valido_desde.split('T')[0].split('-').map(Number);
@@ -846,7 +846,7 @@ export default function Orders() {
       
       const validUntilParts = selectedPurchaseOrder.valido_ate.split('T')[0].split('-').map(Number);
       const validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
-      validUntilDate.setHours(0, 0, 0, 0);
+      validUntilDate.setHours(23, 59, 59, 999); // Final do dia
       
       console.log('🔍 Debug onSubmit validação de data:', {
         deliveryDate: deliveryDate.toISOString(),
@@ -875,10 +875,9 @@ export default function Orders() {
       }
     }
 
-    // Corrigir data para evitar mudança de dia devido ao timezone
-    // Pegar a data selecionada e forçar horário meio-dia UTC para evitar problemas de fuso
-    const [year, month, day] = data.deliveryDate.split('-');
-    const correctedDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0));
+    // Definir data de entrega com horário 00:01 AM
+    const [year, month, day] = data.deliveryDate.split('-').map(Number);
+    const correctedDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 1, 0));
 
     // Adicionar campos adicionais necessários para o backend
     const orderData = {
