@@ -481,7 +481,7 @@ export class MemStorage implements IStorage {
 
   async createLog(insertLog: InsertSystemLog): Promise<SystemLog> {
     const id = this.currentId++;
-    const log: SystemLog = { ...insertLog, id, createdAt: new Date() };
+    const log: SystemLog = { ...insertLog, id, createdAt: getCuiabaDateTime() };
     this.systemLogs.set(id, log);
     return log;
   }
@@ -538,6 +538,7 @@ export class MemStorage implements IStorage {
 import { db } from "./db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import bcrypt from 'bcrypt';
+import { getCuiabaDateTime } from "./utils/timezone";
 
 // Implementação de armazenamento com banco de dados
 export class DatabaseStorage implements IStorage {
@@ -1547,7 +1548,7 @@ export class DatabaseStorage implements IStorage {
   async createLog(insertLog: InsertSystemLog): Promise<SystemLog> {
     const [log] = await db.insert(systemLogs).values({
       ...insertLog,
-      createdAt: new Date()
+      createdAt: getCuiabaDateTime()
     }).returning();
     return log;
   }

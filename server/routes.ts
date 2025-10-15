@@ -15,14 +15,7 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 import { XMLParser } from "fast-xml-parser";
-
-// Função utilitária para converter data para fuso horário local
-function convertToLocalDate(dateString: string): Date {
-  const date = new Date(dateString);
-  // Ajustar para o fuso horário de Brasília (GMT-3)
-  date.setHours(date.getHours() - 3);
-  return date;
-}
+import { getCuiabaDateTime, toCuiabaISOString, convertToLocalDate } from "./utils/timezone";
 
 // Função para extrair quantidade do XML da NF-e
 function extractQuantityFromXML(xmlBuffer: Buffer): { quantity: number; productInfo: any } | null {
@@ -1358,7 +1351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           message: "Object Storage não está disponível",
           log: log.join('\n'),
-          timestamp: new Date().toISOString()
+          timestamp: toCuiabaISOString(new Date())
         });
       }
 
@@ -1616,7 +1609,7 @@ Status: Teste em progresso...`;
           totalObjects: 'verificado'
         },
         log: log.join('\n'),
-        timestamp: new Date().toISOString()
+        timestamp: toCuiabaISOString(new Date())
       });
 
     } catch (error) {
@@ -1640,7 +1633,7 @@ Status: Teste em progresso...`;
         message: `Teste da API falhou: ${err.message}`,
         error: err.message,
         log: log.join('\n'),
-        timestamp: new Date().toISOString()
+        timestamp: toCuiabaISOString(new Date())
       });
     }
   });
@@ -3132,11 +3125,16 @@ Status: Teste em progresso...`;
       const ordemCompra = ordemCompraResult.rows[0];
 
       // Verificar se a ordem de compra está dentro do período de validade
-      // CORREÇÃO: Criar data sem conversão de timezone para comparação correta
+      // CORREÇÃO: Converter data para o fuso horário de Cuiabá (GMT-4)
       const dataEntregaStr = orderData.deliveryDate;
       const dataEntregaParts = dataEntregaStr.split('T')[0].split('-');
-      const dataEntrega = new Date(parseInt(dataEntregaParts[0]), parseInt(dataEntregaParts[1]) - 1, parseInt(dataEntregaParts[2]));
-      dataEntrega.setHours(0, 0, 0, 0);
+      // Criar data em Cuiabá (GMT-4)
+      const dataEntrega = new Date(Date.UTC(
+        parseInt(dataEntregaParts[0]), 
+        parseInt(dataEntregaParts[1]) - 1, 
+        parseInt(dataEntregaParts[2]),
+        4, 0, 0 // 04:00 UTC = 00:00 Cuiabá (GMT-4)
+      ));
       
       const validoDesde = new Date(ordemCompra.valido_desde);
       validoDesde.setHours(0, 0, 0, 0);
@@ -3502,10 +3500,10 @@ Status: Teste em progresso...`;
         cnpj: row.cnpj,
         empresa_nome: row.empresa_nome || "Empresa não encontrada",
         obra_nome: row.obra_nome || null,
-        valido_desde: row.valido_desde ? new Date(row.valido_desde).toISOString() : new Date().toISOString(),
-        valido_ate: row.valido_ate ? new Date(row.valido_ate).toISOString() : new Date().toISOString(),
+        valido_desde: row.valido_desde ? toCuiabaISOString(row.valido_desde) : toCuiabaISOString(new Date()),
+        valido_ate: row.valido_ate ? toCuiabaISOString(row.valido_ate) : toCuiabaISOString(new Date()),
         status: row.status || "Ativo",
-        data_criacao: row.data_criacao ? new Date(row.data_criacao).toISOString() : new Date().toISOString()
+        data_criacao: row.data_criacao ? toCuiabaISOString(row.data_criacao) : toCuiabaISOString(new Date())
       }));
 
       res.json(formattedOrders);
@@ -3649,16 +3647,16 @@ Status: Teste em progresso...`;
         cnpj: row.cnpj,
         empresa_nome: row.empresa_nome || "Empresa não encontrada",
         obra_nome: row.obra_nome || null,
-        valid_from: row.valid_from ? new Date(row.valid_from).toISOString() : new Date().toISOString(),
-        valid_until: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
+        valid_from: row.valid_from ? toCuiabaISOString(row.valid_from) : toCuiabaISOString(new Date()),
+        valid_until: row.valid_until ? toCuiabaISOString(row.valid_until) : toCuiabaISOString(new Date()),
         status: row.status || "Ativo",
-        created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+        created_at: row.created_at ? toCuiabaISOString(row.created_at) : toCuiabaISOString(new Date()),
         // Campos adicionais para compatibilidade
         numero_ordem: row.order_number,
         empresa_id: row.company_id,
-        valido_desde: row.valid_from ? new Date(row.valid_from).toISOString() : new Date().toISOString(),
-        valido_ate: row.valid_until ? new Date(row.valid_until).toISOString() : new Date().toISOString(),
-        data_criacao: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
+        valido_desde: row.valid_from ? toCuiabaISOString(row.valid_from) : toCuiabaISOString(new Date()),
+        valido_ate: row.valid_until ? toCuiabaISOString(row.valid_until) : toCuiabaISOString(new Date()),
+        data_criacao: row.created_at ? toCuiabaISOString(row.created_at) : toCuiabaISOString(new Date())
       }));
 
       console.log(`📋 Purchase orders para criação de pedidos: ${formattedOrders.length} ordens válidas retornadas`);
@@ -3698,11 +3696,16 @@ Status: Teste em progresso...`;
       // Criar a ordem de compra
       const userId = req.session.userId || 999; // Usar ID do usuário da sessão ou um padrão
 
+      // Converter datas para o fuso horário de Cuiabá (GMT-4)
+      const validoDesdeStr = typeof validoDesde === 'string' ? validoDesde : validoDesde.toISOString();
+      const validoAteStr = typeof validoAte === 'string' ? validoAte : validoAte.toISOString();
+      const dataAtualCuiaba = getCuiabaDateTime();
+
       const ordemResult = await pool.query(
         `INSERT INTO ordens_compra
          (numero_ordem, empresa_id, cnpj, usuario_id, valido_desde, valido_ate, status, data_criacao)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [numeroOrdem, empresaId, cnpj, userId, validoDesde, validoAte, "Ativo", new Date()]
+        [numeroOrdem, empresaId, cnpj, userId, validoDesdeStr, validoAteStr, "Ativo", dataAtualCuiaba]
       );
 
       const novaOrdem = ordemResult.rows[0];
@@ -3778,6 +3781,10 @@ Status: Teste em progresso...`;
       }
 
       // Atualizar a ordem de compra (sem alterar produtos/quantidades que afetam pedidos existentes)
+      // Converter datas para o fuso horário de Cuiabá (GMT-4)
+      const validoDesdeStr = typeof validoDesde === 'string' ? validoDesde : validoDesde.toISOString();
+      const validoAteStr = typeof validoAte === 'string' ? validoAte : validoAte.toISOString();
+      
       await pool.query(
         `UPDATE ordens_compra
          SET numero_ordem = $1,
@@ -3786,7 +3793,7 @@ Status: Teste em progresso...`;
              valido_desde = $4,
              valido_ate = $5
          WHERE id = $6`,
-        [numeroOrdem, empresaId, cnpj, validoDesde, validoAte, id]
+        [numeroOrdem, empresaId, cnpj, validoDesdeStr, validoAteStr, id]
       );
 
       // Atualizar itens se fornecidos
@@ -4451,7 +4458,7 @@ Status: Teste em progresso...`;
                 size: file.size,
                 storageKey: storageKey,
                 mimetype: file.mimetype,
-                date: new Date().toISOString()
+                date: toCuiabaISOString(new Date())
               };
 
               // Remover arquivo temporário
@@ -4627,7 +4634,7 @@ Status: Teste em progresso...`;
           size: req.file.size,
           path: req.file.path,
           storageKey: pdfKey,
-          date: new Date().toISOString()
+          date: toCuiabaISOString(new Date())
         };
 
         // Atualizar a tabela ordens_compra com as informações do PDF
@@ -5115,7 +5122,7 @@ Status: Teste em progresso...`;
         originalName: foto.originalname,
         size: foto.size,
         mimetype: foto.mimetype,
-        uploadDate: new Date().toISOString(),
+        uploadDate: toCuiabaISOString(new Date()),
         quantidadeConfirmada: entregueFloat // Adicionar quantidade confirmada
       };
 
