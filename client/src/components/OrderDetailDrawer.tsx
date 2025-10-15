@@ -552,10 +552,23 @@ export function OrderDetailDrawer({
   const canRequestReschedule = () => {
     if (!user || !orderDetails) return false;
 
-    // Só pode reprogramar se o pedido não estiver entregue, cancelado ou suspenso
-    if (["Entregue", "Cancelado", "Suspenso"].includes(orderDetails.status)) return false;
+    // Não pode reprogramar se o pedido estiver entregue, cancelado, suspenso ou em rota
+    if (["Entregue", "Cancelado", "Suspenso", "Em Rota", "Em transporte"].includes(orderDetails.status)) return false;
 
-    // KeyUsers (IDs 1-5) sempre podem reprogramar
+    // Verificar se faltam pelo menos 3 dias para a data de entrega
+    const deliveryDate = new Date(orderDetails.deliveryDate);
+    deliveryDate.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const diffTime = deliveryDate.getTime() - today.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+
+    // Se faltam menos de 3 dias, não pode reprogramar
+    if (diffDays < 3) return false;
+
+    // KeyUsers (IDs 1-5) sempre podem reprogramar (se passar as validações acima)
     if ((user.id >= 1 && user.id <= 5) || user.isKeyUser) {
       console.log(`🔑 KeyUser (ID ${user.id}) detectado - permitindo reprogramação do pedido ${orderDetails.orderId}`);
       return true;

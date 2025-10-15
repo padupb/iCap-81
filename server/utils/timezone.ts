@@ -31,3 +31,22 @@ export function convertToLocalDate(dateString: string): Date {
   // Criar data UTC à meia-noite de Cuiabá (meia-noite GMT-4 = 04:00 UTC)
   return new Date(Date.UTC(year, month, day, 4, 0, 0));
 }
+
+/**
+ * Calcula a diferença em dias entre duas datas.
+ * Retorna número positivo se targetDate é no futuro, negativo se no passado.
+ * Usa Math.floor para contar apenas dias completos.
+ */
+export function getDaysDifference(targetDate: Date, fromDate: Date = new Date()): number {
+  // Normalizar ambas as datas para meia-noite para comparação correta
+  const target = new Date(targetDate);
+  target.setHours(0, 0, 0, 0);
+  
+  const from = new Date(fromDate);
+  from.setHours(0, 0, 0, 0);
+  
+  const diffTime = target.getTime() - from.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+}

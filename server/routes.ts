@@ -15,7 +15,7 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 import { XMLParser } from "fast-xml-parser";
-import { getCuiabaDateTime, toCuiabaISOString, convertToLocalDate } from "./utils/timezone";
+import { getCuiabaDateTime, toCuiabaISOString, convertToLocalDate, getDaysDifference } from "./utils/timezone";
 
 // Função para extrair quantidade do XML da NF-e
 function extractQuantityFromXML(xmlBuffer: Buffer): { quantity: number; productInfo: any } | null {
@@ -3322,6 +3322,24 @@ Status: Teste em progresso...`;
         });
       }
 
+      // Verificar se há data de entrega definida
+      if (!order.delivery_date) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Pedido sem data de entrega não pode ser cancelado"
+        });
+      }
+
+      // Verificar se faltam pelo menos 3 dias para a data de entrega
+      const diasRestantes = getDaysDifference(new Date(order.delivery_date));
+      
+      if (diasRestantes < 3) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Cancelamentos devem ser feitos com pelo menos 3 dias de antecedência da data de entrega programada"
+        });
+      }
+
       // Verificar se já tem documentos carregados
       if (order.documentos_carregados || order.status === "Carregado") {
         return res.status(400).json({
@@ -4781,11 +4799,29 @@ Status: Teste em progresso...`;
 
       const pedido = pedidoResult.rows[0];
 
-      // Verificar se o pedido já foi entregue ou cancelado
-      if (pedido.status === "Entregue" || pedido.status === "Cancelado") {
+      // Verificar se o pedido já foi entregue, cancelado, em rota ou em transporte
+      if (["Entregue", "Cancelado", "Em Rota", "Em transporte"].includes(pedido.status)) {
         return res.status(400).json({
           sucesso: false,
           mensagem: `Não é possível reprogramar pedido com status ${pedido.status}`
+        });
+      }
+
+      // Verificar se há data de entrega definida
+      if (!pedido.delivery_date) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Pedido sem data de entrega não pode ser reprogramado"
+        });
+      }
+
+      // Verificar se faltam pelo menos 3 dias para a data de entrega
+      const diasRestantes = getDaysDifference(new Date(pedido.delivery_date));
+      
+      if (diasRestantes < 3) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Reagendamentos devem ser feitos com pelo menos 3 dias de antecedência da data de entrega programada"
         });
       }
 
@@ -5334,6 +5370,32 @@ Status: Teste em progresso...`;
       }
 
       const pedido = pedidoResult.rows[0];
+
+      // Validar se o pedido pode ser cancelado (status)
+      if (["Entregue", "Em Rota", "Em transporte"].includes(pedido.status)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `Pedidos com status "${pedido.status}" não podem ser cancelados`
+        });
+      }
+
+      // Verificar se há data de entrega definida
+      if (!pedido.delivery_date) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Pedido sem data de entrega não pode ser cancelado"
+        });
+      }
+
+      // Verificar se faltam pelo menos 3 dias para a data de entrega
+      const diasRestantes = getDaysDifference(new Date(pedido.delivery_date));
+      
+      if (diasRestantes < 3) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Cancelamentos devem ser feitos com pelo menos 3 dias de antecedência da data de entrega programada"
+        });
+      }
 
       // Atualizar o status do pedido para 'Cancelado'
       await pool.query(
