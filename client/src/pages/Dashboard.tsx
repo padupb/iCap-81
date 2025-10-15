@@ -241,45 +241,55 @@ function StatsCard({ title, value, icon: Icon, iconColor = "text-primary", chang
 function DashboardSkeleton() {
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[...Array(4)].map((_, i) => (
-          <Card key={i} className="rounded-lg border text-card-foreground shadow-sm bg-card border-border">
-            <CardContent className="p-6">
-              <Skeleton className="h-4 w-24 mb-2" />
-              <Skeleton className="h-8 w-16 mb-4" />
-              <Skeleton className="h-3 w-32" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Pending Approvals Skeleton */}
+      <Card className="bg-muted/20">
+        <CardContent className="p-6">
+          <Skeleton className="h-5 w-48 mb-3 bg-muted" />
+          <Skeleton className="h-4 w-64 mb-4 bg-muted" />
+          <Skeleton className="h-9 w-32 bg-muted" />
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <Card className="rounded-lg border text-card-foreground shadow-sm bg-card border-border">
-            <CardContent className="p-6">
-              <Skeleton className="h-6 w-48 mb-4" />
-              <div className="space-y-3">
+      {/* Recent Orders Table Skeleton */}
+      <Card>
+        <CardHeader className="border-b">
+          <Skeleton className="h-6 w-48 bg-muted" />
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted">
+                <TableRow>
+                  <TableHead><Skeleton className="h-4 w-12 bg-muted-foreground/20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-24 bg-muted-foreground/20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-20 bg-muted-foreground/20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-32 bg-muted-foreground/20" /></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-24 bg-muted" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32 bg-muted" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-28 bg-muted" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24 bg-muted" /></TableCell>
+                  </TableRow>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-        <div className="space-y-8">
-          <Card className="rounded-lg border text-card-foreground shadow-sm bg-card border-border">
-            <CardContent className="p-6">
-              <Skeleton className="h-6 w-32 mb-4" />
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {/* Map Skeleton */}
+      <Card>
+        <CardHeader className="border-b">
+          <Skeleton className="h-6 w-32 bg-muted" />
+        </CardHeader>
+        <CardContent className="p-6">
+          <Skeleton className="h-[400px] w-full bg-muted" />
+        </CardContent>
+      </Card>
     </div>
   );
 }
