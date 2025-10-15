@@ -3093,12 +3093,11 @@ export function OrderDetailDrawer({
             <DialogTitle>Reprogramar Entrega</DialogTitle>
             <DialogDescription>
               {(() => {
-                const validUntil = orderDetails?.purchaseOrder?.validUntil;
-                if (validUntil) {
-                  const maxDate = new Date(validUntil);
-                  return `Selecione a nova data de entrega (até ${formatDate(maxDate.toString())}, conforme validade da ordem de compra) e informe a justificativa.`;
-                }
-                return "Selecione a nova data de entrega e informe a justificativa.";
+                const validUntil = orderDetails?.purchaseOrder?.validUntil 
+                  ? new Date(orderDetails.purchaseOrder.validUntil).toLocaleDateString('pt-BR')
+                  : 'não definida';
+
+                return `Selecione uma nova data de entrega (até ${validUntil}, conforme validade da ordem de compra) e informe a justificativa.`;
               })()}
             </DialogDescription>
           </DialogHeader>
