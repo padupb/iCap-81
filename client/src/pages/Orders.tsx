@@ -709,7 +709,7 @@ export default function Orders() {
     }
   };
 
-  // Função para exportar notas fiscais (download individual)
+  // Função para exportar notas fiscais em arquivo ZIP
   const handleExportNotes = async () => {
     setIsExporting(true);
     try {
@@ -727,98 +727,57 @@ export default function Orders() {
         return;
       }
 
-      let downloadedFiles = 0;
+      console.log(`📦 Solicitando ZIP com documentos de ${ordersWithDocs.length} pedidos`);
 
-      // Processar cada pedido e fazer download individual
-      for (const order of ordersWithDocs) {
-        try {
-          // Tentar baixar nota PDF
-          try {
-            const pdfResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_pdf`);
-            if (pdfResponse.ok) {
-              const pdfBlob = await pdfResponse.blob();
-              const url = window.URL.createObjectURL(pdfBlob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `${order.orderId}_nota.pdf`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              window.URL.revokeObjectURL(url);
-              downloadedFiles++;
-            }
-          } catch (error) {
-            console.log(`Nota PDF não encontrada para ${order.orderId}`);
-          }
+      // Chamar endpoint para gerar ZIP
+      const response = await fetch('/api/pedidos/download-zip', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pedidoIds: ordersWithDocs.map(order => order.id)
+        }),
+      });
 
-          // Tentar baixar nota XML
-          try {
-            const xmlResponse = await fetch(`/api/pedidos/${order.id}/documentos/nota_xml`);
-            if (xmlResponse.ok) {
-              const xmlBlob = await xmlResponse.blob();
-              const url = window.URL.createObjectURL(xmlBlob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `${order.orderId}_nota.xml`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              window.URL.revokeObjectURL(url);
-              downloadedFiles++;
-            }
-          } catch (error) {
-            console.log(`Nota XML não encontrada para ${order.orderId}`);
-          }
-
-          // Tentar baixar certificado PDF
-          try {
-            const certResponse = await fetch(`/api/pedidos/${order.id}/documentos/certificado_pdf`);
-            if (certResponse.ok) {
-              const certBlob = await certResponse.blob();
-              const url = window.URL.createObjectURL(certBlob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `${order.orderId}_certificado.pdf`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              window.URL.revokeObjectURL(url);
-              downloadedFiles++;
-            }
-          } catch (error) {
-            console.log(`Certificado não encontrado para ${order.orderId}`);
-          }
-
-          // Pequeno delay para não sobrecarregar o servidor
-          await new Promise(resolve => setTimeout(resolve, 300));
-        } catch (error) {
-          console.log(`Erro ao processar documentos do pedido ${order.orderId}:`, error);
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Erro ao gerar arquivo ZIP');
       }
 
-      if (downloadedFiles === 0) {
-        toast({
-          title: "Nenhum documento encontrado",
-          description: "Não foi possível encontrar documentos para os pedidos filtrados",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Baixar o arquivo ZIP
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Extrair nome do arquivo do header ou usar padrão
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const fileName = contentDisposition
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+        : `documentos_pedidos_${new Date().toISOString().split('T')[0]}.zip`;
+      
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
       toast({
-        title: "Exportação concluída",
-        description: `${downloadedFiles} documentos baixados individualmente`,
+        title: "Download concluído",
+        description: `Arquivo ZIP com documentos de ${ordersWithDocs.length} pedidos baixado com sucesso`,
       });
+
+      setIsExportDialogOpen(false);
     } catch (error) {
       console.error('Erro ao exportar notas:', error);
       toast({
         title: "Erro na exportação",
-        description: "Falha ao baixar documentos",
+        description: error instanceof Error ? error.message : "Falha ao baixar documentos",
         variant: "destructive",
       });
     } finally {
       setIsExporting(false);
-      setIsExportDialogOpen(false);
     }
   };
 
@@ -1155,7 +1114,7 @@ export default function Orders() {
                   <div className="space-y-2">
                     <h4 className="font-medium">Exportar Notas Fiscais</h4>
                     <p className="text-sm text-muted-foreground">
-                      Baixar notas fiscais e certificados individualmente
+                      Baixar notas fiscais e certificados em arquivo ZIP
                     </p>
                     <Button
                       onClick={handleExportNotes}
@@ -1163,7 +1122,7 @@ export default function Orders() {
                       className="w-full"
                       variant="outline"
                     >
-                      {isExporting ? "Baixando..." : "Baixar Documentos"}
+                      {isExporting ? "Gerando ZIP..." : "Baixar ZIP"}
                     </Button>
                   </div>
                 </div>
