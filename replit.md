@@ -208,11 +208,13 @@ npm run db:push --force  # Força sincronização (com warnings)
 
 ### 15/10/2025 - Tarde
 - ✅ Corrigido botão de download de PDF das ordens de compra
-- ✅ Identificado problema: PDFs salvos em `orders/ordens_compra_...` mas download procurava em `OC/`
+- ✅ Identificado problema duplo:
+  1. PDFs salvos em `orders/ordens_compra_...` mas download procurava em `OC/`
+  2. Rota de download não usava `extractBufferFromStorageResult()` corretamente
 - ✅ Criada função `saveOrdemCompraPdfToStorage()` para salvar PDFs diretamente na pasta `OC/`
 - ✅ Atualizada rota de upload `/api/ordem-compra/:id/upload-pdf` para usar nova função
-- ✅ PDFs agora são salvos corretamente em `OC/${numeroOrdem}.pdf` no Object Storage
-- ⚠️ **Importante**: PDFs antigos (antes desta correção) não funcionarão - necessário re-upload
+- ✅ Corrigida rota de download `/api/ordem-compra/:id/pdf` para usar `extractBufferFromStorageResult()`
+- ✅ PDFs agora funcionam corretamente (upload e download) em `OC/${numeroOrdem}.pdf`
 
 ### 14/10/2025 - Tarde
 - ✅ Corrigido erro ao editar ordem de compra

@@ -4083,9 +4083,10 @@ Status: Teste em progresso...`;
         console.log(`📂 Tentando buscar na pasta OC: ${ocKey}`);
 
         try {
-          const downloadedBytes = await objectStorage.downloadAsBytes(ocKey);
-          if (downloadedBytes && downloadedBytes.length > 1) { // Verificar se o arquivo não está vazio ou corrompido
-            const buffer = Buffer.from(downloadedBytes);
+          const downloadResult = await objectStorage.downloadAsBytes(ocKey);
+          const buffer = extractBufferFromStorageResult(downloadResult);
+          
+          if (buffer && buffer.length > 1) { // Verificar se o arquivo não está vazio ou corrompido
             console.log(`✅ PDF recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
 
             // USAR O NOME ORIGINAL DO ARQUIVO NO STORAGE
@@ -4098,7 +4099,7 @@ Status: Teste em progresso...`;
 
             return res.end(buffer);
           } else {
-            console.log(`⚠️ PDF na pasta OC é muito pequeno (${downloadedBytes?.length || 0} bytes) - possível corrupção.`);
+            console.log(`⚠️ PDF na pasta OC é muito pequeno (${buffer?.length || 0} bytes) - possível corrupção.`);
           }
         } catch (ocError) {
           const error = ocError instanceof Error ? ocError : new Error(String(ocError));
