@@ -233,50 +233,6 @@ export default function OrdensCompra() {
     queryKey: ["/api/company-categories"],
   });
 
-  // Verificar se o usuário pode editar ordens de compra
-  const canEditPurchaseOrders = (): boolean => {
-    console.log('🔍 Verificando permissão para editar ordens de compra:', {
-      isKeyUser,
-      userId: user?.id,
-      userIsKeyUser: user?.isKeyUser,
-      userIsDeveloper: user?.isDeveloper,
-      userCanEditPurchaseOrders: user?.canEditPurchaseOrders,
-      companyId: user?.companyId,
-      companiesLoaded: companies.length,
-      categoriesLoaded: categories.length
-    });
-
-    // KeyUser sempre pode editar - verificação mais robusta
-    if (user?.id === 1 || user?.isKeyUser === true || user?.isDeveloper === true || isKeyUser) {
-      console.log('✅ KeyUser - permissão concedida para editar ordens de compra');
-      return true;
-    }
-
-    // Verificar permissão específica do usuário
-    if (user?.canEditPurchaseOrders === true) {
-      console.log('✅ Usuário tem permissão específica para editar ordens de compra');
-      return true;
-    }
-
-    // Verificar categoria da empresa do usuário
-    if (user?.companyId && companies.length > 0 && categories.length > 0) {
-      const userCompany = companies.find(c => c.id === user.companyId);
-      console.log('🏢 Empresa do usuário:', userCompany);
-
-      if (userCompany) {
-        const companyCategory = categories.find(cat => cat.id === userCompany.categoryId);
-        console.log('📂 Categoria da empresa:', companyCategory);
-
-        const canEditByCategory = companyCategory?.receivesPurchaseOrders === true;
-        console.log('✏️ Pode editar por categoria:', canEditByCategory);
-
-        return canEditByCategory;
-      }
-    }
-
-    console.log('❌ Permissão negada - dados insuficientes ou sem permissão');
-    return false;
-  };
   const [orderItems, setOrderItems] = useState<OrdemCompraItem[]>([]);
   const queryClient = useQueryClient();
 
