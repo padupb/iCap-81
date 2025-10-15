@@ -735,6 +735,7 @@ export default function Orders() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           pedidoIds: ordersWithDocs.map(order => order.id)
         }),
@@ -747,6 +748,8 @@ export default function Orders() {
 
       // Baixar o arquivo ZIP
       const blob = await response.blob();
+      console.log(`📥 Blob recebido: ${blob.size} bytes, tipo: ${blob.type}`);
+      
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -757,11 +760,17 @@ export default function Orders() {
         ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
         : `documentos_pedidos_${new Date().toISOString().split('T')[0]}.zip`;
       
+      console.log(`💾 Iniciando download: ${fileName}`);
       link.download = fileName;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      
+      // Cleanup com delay para garantir que o download inicie
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
 
       toast({
         title: "Download concluído",
