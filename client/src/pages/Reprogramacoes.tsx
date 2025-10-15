@@ -192,17 +192,17 @@ export default function Reprogramacoes() {
                       <TableCell>{order.destinationCompanyName}</TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          {formatDate(order.originalDeliveryDate)}
+                          {new Date(order.originalDeliveryDate).toLocaleDateString('pt-BR')}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm font-medium text-blue-600">
-                          {formatDate(order.newDeliveryDate)}
+                          {new Date(order.newDeliveryDate).toLocaleDateString('pt-BR')}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <p>{formatDate(order.requestDate)}</p>
+                          <p>{new Date(order.requestDate).toLocaleDateString('pt-BR')}</p>
                           <p className="text-muted-foreground">por {order.requesterName}</p>
                         </div>
                       </TableCell>
