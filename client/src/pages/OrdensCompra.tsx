@@ -216,7 +216,7 @@ type PurchaseOrderFormData = z.infer<typeof purchaseOrderSchema>;
 
 export default function OrdensCompra() {
   const { user } = useAuth();
-  const { canCreatePurchaseOrders, canEdit, canEditPurchaseOrders: contextCanEditPurchaseOrders } = useAuthorization();
+  const { canCreatePurchaseOrders, canEdit, canEditPurchaseOrders } = useAuthorization();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -1683,16 +1683,15 @@ export default function OrdensCompra() {
                           // Verificar permissão específica do usuário para editar ordens de compra
                           const hasEditPermission = user?.canEditPurchaseOrders === true;
 
-                          // Verificar contexto de autorização
-                          const canEdit = contextCanEditPurchaseOrders;
+                          // Verificar contexto de autorização - chamar a função corretamente
+                          const canEditFromContext = canEditPurchaseOrders();
 
-                          const isAuthorizedToEdit = userIsKeyUser || hasEditPermission || canEdit;
-
+                          const isAuthorizedToEdit = userIsKeyUser || hasEditPermission || canEditFromContext;
 
                           console.log(`🔧 Botão de edição para ordem ${ordem.numero_ordem}:`, {
                             userIsKeyUser,
                             hasEditPermission,
-                            contextCanEdit: canEdit,
+                            canEditFromContext,
                             isAuthorizedToEdit,
                             userId: user?.id,
                             userCanEditPurchaseOrders: user?.canEditPurchaseOrders,
