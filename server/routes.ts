@@ -4604,20 +4604,19 @@ Status: Teste em progresso...`;
         const numeroOrdem = ordemResult.rows[0].numero_ordem;
         console.log(`📋 Ordem encontrada: ${numeroOrdem}`);
 
-        // Salvar PDF usando a função simplificada
+        // Salvar PDF na pasta OC/ do Object Storage
         let pdfKey;
         try {
-          pdfKey = await saveFileToStorage(
+          pdfKey = await saveOrdemCompraPdfToStorage(
             fs.readFileSync(req.file.path),
-            req.file.filename,
-            `ordens_compra_${numeroOrdem}`
+            numeroOrdem
           );
 
-          console.log(`✅ PDF salvo com a chave: ${pdfKey}`);
+          console.log(`✅ PDF salvo na pasta OC com a chave: ${pdfKey}`);
         } catch (saveError) {
           const error = saveError instanceof Error ? saveError : new Error(String(saveError));
-          console.error(`❌ Erro ao salvar PDF:`, error);
-          throw new Error(`Falha ao salvar PDF: ${error.message}`);
+          console.error(`❌ Erro ao salvar PDF na pasta OC:`, error);
+          throw new Error(`Falha ao salvar PDF na pasta OC: ${error.message}`);
         }
 
         // Construir informações do PDF para armazenar no banco
