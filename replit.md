@@ -64,13 +64,15 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
   - Installed `jszip` library for ZIP file generation
   - Created POST `/api/pedidos/download-zip` endpoint that:
     - Accepts array of order IDs
-    - Fetches all documents (nota_pdf, nota_xml, certificado_pdf) for each order
+    - Fetches all documents (nota_pdf, nota_xml, certificado_pdf, foto_confirmacao) for each order
     - Organizes files in folders by order ID within the ZIP
     - Returns a single ZIP file for download
   - Updated frontend "Download Documents" button to generate ZIP instead of individual downloads
   - ZIP file organization: `{orderId}/{filename}` for each order
   - ZIP filename format: `documentos_pedidos_YYYYMMDD.zip`
+  - Includes delivery confirmation photos when available
   - Improved user experience: single download instead of multiple files
+  - Fixed browser download trigger with credentials and DOM cleanup delay
 
 ### October 15, 2025 - Afternoon
 - ✅ **Order Rescheduling & Cancellation Business Rules**
