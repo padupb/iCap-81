@@ -1584,7 +1584,9 @@ export default function OrdensCompra() {
                   <TableHead>Fornecedor</TableHead>
                   <TableHead>Período de Validade</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  {(isKeyUser || canEditPurchaseOrders()) && (
+                    <TableHead className="text-right">Ações</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1629,103 +1631,105 @@ export default function OrdensCompra() {
                           );
                         })()}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                        {/* Botão de edição avançada para usuários autorizados */}
-                        {(() => {
-                          // Verificação mais robusta para keyuser
-                          const userIsKeyUser = user?.id === 1 || user?.isKeyUser === true || user?.isDeveloper === true || isKeyUser;
+                      {(isKeyUser || canEditPurchaseOrders()) && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                          {/* Botão de edição avançada para usuários autorizados */}
+                          {(() => {
+                            // Verificação mais robusta para keyuser
+                            const userIsKeyUser = user?.id === 1 || user?.isKeyUser === true || user?.isDeveloper === true || isKeyUser;
 
-                          // Verificar permissão específica do usuário para editar ordens de compra
-                          const hasEditPermission = user?.canEditPurchaseOrders === true;
+                            // Verificar permissão específica do usuário para editar ordens de compra
+                            const hasEditPermission = user?.canEditPurchaseOrders === true;
 
-                          // Verificar contexto de autorização - chamar a função corretamente
-                          const canEditFromContext = canEditPurchaseOrders();
+                            // Verificar contexto de autorização - chamar a função corretamente
+                            const canEditFromContext = canEditPurchaseOrders();
 
-                          const isAuthorizedToEdit = userIsKeyUser || hasEditPermission || canEditFromContext;
+                            const isAuthorizedToEdit = userIsKeyUser || hasEditPermission || canEditFromContext;
 
-                          console.log(`🔧 Botão de edição para ordem ${ordem.numero_ordem}:`, {
-                            userIsKeyUser,
-                            hasEditPermission,
-                            canEditFromContext,
-                            isAuthorizedToEdit,
-                            userId: user?.id,
-                            userCanEditPurchaseOrders: user?.canEditPurchaseOrders,
-                            companyId: user?.companyId
-                          });
+                            console.log(`🔧 Botão de edição para ordem ${ordem.numero_ordem}:`, {
+                              userIsKeyUser,
+                              hasEditPermission,
+                              canEditFromContext,
+                              isAuthorizedToEdit,
+                              userId: user?.id,
+                              userCanEditPurchaseOrders: user?.canEditPurchaseOrders,
+                              companyId: user?.companyId
+                            });
 
-                          return isAuthorizedToEdit && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Editar ordem de compra"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditOrder(ordem);
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          );
-                        })()}
-
-                        {/* Botão de exclusão apenas para keyuser */}
-                        {isKeyUser && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                            return isAuthorizedToEdit && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                title="Excluir ordem"
-                                onClick={(e) => e.stopPropagation()} // Evita que o clique abra o drawer
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir a ordem de compra {ordem.numero_ordem}?
-                                Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={async () => {
-                                  try {
-                                    const response = await fetch(`/api/ordem-compra/${ordem.id}`, {
-                                      method: 'DELETE'
-                                    });
-
-                                    if (!response.ok) {
-                                      throw new Error('Falha ao excluir ordem');
-                                    }
-
-                                    toast({
-                                      title: "Sucesso",
-                                      description: "Ordem excluída com sucesso",
-                                    });
-
-                                    queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
-                                  } catch (error) {
-                                    toast({
-                                      title: "Erro",
-                                      description: "Não foi possível excluir a ordem",
-                                      variant: "destructive"
-                                    });
-                                  }
+                                title="Editar ordem de compra"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditOrder(ordem);
                                 }}
                               >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                        )}
-                      </div>
-                    </TableCell>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            );
+                          })()}
+
+                          {/* Botão de exclusão apenas para keyuser */}
+                          {isKeyUser && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Excluir ordem"
+                                  onClick={(e) => e.stopPropagation()} // Evita que o clique abra o drawer
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir a ordem de compra {ordem.numero_ordem}?
+                                  Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={async () => {
+                                    try {
+                                      const response = await fetch(`/api/ordem-compra/${ordem.id}`, {
+                                        method: 'DELETE'
+                                      });
+
+                                      if (!response.ok) {
+                                        throw new Error('Falha ao excluir ordem');
+                                      }
+
+                                      toast({
+                                        title: "Sucesso",
+                                        description: "Ordem excluída com sucesso",
+                                      });
+
+                                      queryClient.invalidateQueries({ queryKey: ["/api/ordens-compra"] });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Erro",
+                                        description: "Não foi possível excluir a ordem",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                          )}
+                        </div>
+                      </TableCell>
+                      )}
                   </TableRow>
                 ))}
               </TableBody>
