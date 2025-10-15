@@ -15,6 +15,7 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 import { XMLParser } from "fast-xml-parser";
+import JSZip from "jszip";
 import { getCuiabaDateTime, toCuiabaISOString, convertToLocalDate, getDaysDifference } from "./utils/timezone";
 
 // Função para extrair quantidade do XML da NF-e
@@ -4383,6 +4384,166 @@ Status: Teste em progresso...`;
       res.status(500).json({
         success: false,
         message: "Erro interno do servidor"
+      });
+    }
+  });
+
+  // Rota para baixar ZIP com documentos de múltiplos pedidos
+  app.post("/api/pedidos/download-zip", isAuthenticated, async (req, res) => {
+    try {
+      const { pedidoIds } = req.body;
+
+      if (!Array.isArray(pedidoIds) || pedidoIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Lista de IDs de pedidos inválida"
+        });
+      }
+
+      console.log(`📦 Iniciando criação de ZIP para ${pedidoIds.length} pedidos`);
+
+      const zip = new JSZip();
+      let filesAdded = 0;
+
+      // Processar cada pedido
+      for (const id of pedidoIds) {
+        const pedidoId = parseInt(id);
+        if (isNaN(pedidoId)) continue;
+
+        // Buscar informações do pedido
+        const pedidoResult = await pool.query(
+          "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+          [pedidoId]
+        );
+
+        if (!pedidoResult.rows.length) continue;
+
+        const pedido = pedidoResult.rows[0];
+        const orderId = pedido.order_id;
+
+        console.log(`📂 Processando documentos do pedido ${orderId}`);
+
+        // Tipos de documentos a buscar
+        const tiposDocumentos = ['nota_pdf', 'nota_xml', 'certificado_pdf'];
+
+        for (const tipo of tiposDocumentos) {
+          try {
+            // Tentar buscar do documentos_info primeiro
+            let fileBuffer: Buffer | null = null;
+            let fileName = `${orderId}_${tipo.replace('_', '.')}`;
+
+            if (pedido.documentos_info) {
+              const documentosInfo = typeof pedido.documentos_info === 'string'
+                ? JSON.parse(pedido.documentos_info)
+                : pedido.documentos_info;
+
+              const docInfo = documentosInfo[tipo];
+              if (docInfo) {
+                const storageKey = typeof docInfo === 'string' ? docInfo : docInfo.storageKey;
+                const filename = typeof docInfo === 'string' ? null : docInfo.filename;
+
+                if (storageKey) {
+                  const fileResult = await readFileFromStorage(
+                    storageKey,
+                    pedidoId.toString(),
+                    filename || `${tipo}.${tipo.includes('xml') ? 'xml' : 'pdf'}`
+                  );
+
+                  if (fileResult && fileResult.data.length > 1) {
+                    fileBuffer = fileResult.data;
+                    fileName = fileResult.originalName || fileName;
+                  }
+                }
+              }
+            }
+
+            // Se não encontrou via documentos_info, tentar buscar diretamente no Object Storage
+            if (!fileBuffer && objectStorageAvailable && objectStorage && orderId) {
+              try {
+                const listResult = await objectStorage.list();
+                let objects = [];
+
+                if (listResult && typeof listResult === 'object') {
+                  if (listResult.ok && listResult.value) {
+                    objects = Array.isArray(listResult.value) ? listResult.value : [];
+                  } else if (Array.isArray(listResult)) {
+                    objects = listResult;
+                  }
+                }
+
+                const matchingKey = objects.find((obj: any) => {
+                  const name = obj.name || obj.key || '';
+                  return (
+                    name.includes(orderId) &&
+                    name.includes(tipo)
+                  );
+                });
+
+                if (matchingKey) {
+                  const key = matchingKey.name || matchingKey.key;
+                  const downloadResult = await objectStorage.downloadAsBytes(key);
+                  const buffer = extractBufferFromStorageResult(downloadResult);
+
+                  if (buffer && buffer.length > 1) {
+                    fileBuffer = buffer;
+                    fileName = key.split('/').pop() || fileName;
+                  }
+                }
+              } catch (error) {
+                console.log(`⚠️ Erro ao buscar ${tipo} para ${orderId}:`, error);
+              }
+            }
+
+            // Se encontrou o arquivo, adicionar ao ZIP
+            if (fileBuffer) {
+              // Criar pasta do pedido no ZIP
+              const folderName = orderId;
+              zip.file(`${folderName}/${fileName}`, fileBuffer);
+              filesAdded++;
+              console.log(`✅ Adicionado ao ZIP: ${folderName}/${fileName} (${fileBuffer.length} bytes)`);
+            }
+          } catch (error) {
+            console.log(`⚠️ Erro ao processar ${tipo} do pedido ${orderId}:`, error);
+          }
+        }
+      }
+
+      if (filesAdded === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Nenhum documento encontrado para os pedidos selecionados"
+        });
+      }
+
+      console.log(`📦 Gerando arquivo ZIP com ${filesAdded} documentos`);
+
+      // Gerar o ZIP
+      const zipBuffer = await zip.generateAsync({ 
+        type: 'nodebuffer',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      });
+
+      // Criar nome do arquivo com data
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+      const zipFileName = `documentos_pedidos_${dateStr}.zip`;
+
+      console.log(`✅ ZIP gerado com sucesso: ${zipFileName} (${zipBuffer.length} bytes)`);
+
+      // Enviar ZIP como resposta
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+      res.setHeader('Content-Length', zipBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache');
+      
+      return res.end(zipBuffer);
+
+    } catch (error) {
+      console.error("Erro ao gerar ZIP de documentos:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao gerar arquivo ZIP"
       });
     }
   });
