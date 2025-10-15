@@ -209,13 +209,8 @@ export function OrderCompraDetailDrawer({
                   </CardHeader>
                 <CardContent>
                   <div className="flex justify-between items-start gap-6">
-                    {/* Informações à esquerda */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-muted-foreground">ID da Ordem</h4>
-                        <p className="text-base font-medium">#{ordemAtual.id}</p>
-                      </div>
-
+                    {/* Coluna da esquerda */}
+                    <div className="flex-1 space-y-4">
                       <div className="space-y-2">
                         <h4 className="text-sm font-medium text-muted-foreground">Número da Ordem</h4>
                         <p className="text-base font-medium">{ordemAtual.numero_ordem}</p>
@@ -230,13 +225,16 @@ export function OrderCompraDetailDrawer({
                       </div>
 
                       <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-muted-foreground">Válido Até</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground">Válido Desde</h4>
                         <p className="text-base font-medium flex items-center gap-2">
                           <Calendar size={16} className="text-muted-foreground" />
-                          {formatDate(ordemAtual.valido_ate)}
+                          {formatDate(ordemAtual.valido_desde)}
                         </p>
                       </div>
+                    </div>
 
+                    {/* Coluna da direita */}
+                    <div className="flex-1 space-y-4">
                       <div className="space-y-2">
                         <h4 className="text-sm font-medium text-muted-foreground">Data de Criação</h4>
                         <p className="text-base font-medium">
@@ -251,9 +249,17 @@ export function OrderCompraDetailDrawer({
                           {ordemAtual.obra_nome || "Obra não especificada"}
                         </p>
                       </div>
+
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">Válido Até</h4>
+                        <p className="text-base font-medium flex items-center gap-2">
+                          <Calendar size={16} className="text-muted-foreground" />
+                          {formatDate(ordemAtual.valido_ate)}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Botão à direita */}
+                    {/* Botão de PDF à direita */}
                     <div className="flex flex-col items-end space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Documentos</h4>
                       <Button
