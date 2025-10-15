@@ -4412,7 +4412,7 @@ Status: Teste em progresso...`;
 
         // Buscar informações do pedido
         const pedidoResult = await pool.query(
-          "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+          "SELECT order_id, documentos_info, foto_confirmacao FROM orders WHERE id = $1",
           [pedidoId]
         );
 
@@ -4424,7 +4424,7 @@ Status: Teste em progresso...`;
         console.log(`📂 Processando documentos do pedido ${orderId}`);
 
         // Tipos de documentos a buscar
-        const tiposDocumentos = ['nota_pdf', 'nota_xml', 'certificado_pdf'];
+        const tiposDocumentos = ['nota_pdf', 'nota_xml', 'certificado_pdf', 'foto_confirmacao'];
 
         for (const tipo of tiposDocumentos) {
           try {
@@ -4432,7 +4432,27 @@ Status: Teste em progresso...`;
             let fileBuffer: Buffer | null = null;
             let fileName = `${orderId}_${tipo.replace('_', '.')}`;
 
-            if (pedido.documentos_info) {
+            // Foto de confirmação está em campo separado
+            if (tipo === 'foto_confirmacao') {
+              if (pedido.foto_confirmacao) {
+                const fotoInfo = typeof pedido.foto_confirmacao === 'string'
+                  ? JSON.parse(pedido.foto_confirmacao)
+                  : pedido.foto_confirmacao;
+
+                if (fotoInfo && fotoInfo.storageKey) {
+                  const fileResult = await readFileFromStorage(
+                    fotoInfo.storageKey,
+                    pedidoId.toString(),
+                    fotoInfo.originalName || 'foto_confirmacao.jpg'
+                  );
+
+                  if (fileResult && fileResult.data.length > 1) {
+                    fileBuffer = fileResult.data;
+                    fileName = fileResult.originalName || 'foto_confirmacao.jpg';
+                  }
+                }
+              }
+            } else if (pedido.documentos_info) {
               const documentosInfo = typeof pedido.documentos_info === 'string'
                 ? JSON.parse(pedido.documentos_info)
                 : pedido.documentos_info;
@@ -4457,7 +4477,7 @@ Status: Teste em progresso...`;
               }
             }
 
-            // Se não encontrou via documentos_info, tentar buscar diretamente no Object Storage
+            // Se não encontrou via documentos_info/foto_confirmacao, tentar buscar diretamente no Object Storage
             if (!fileBuffer && objectStorageAvailable && objectStorage && orderId) {
               try {
                 const listResult = await objectStorage.list();
@@ -4473,6 +4493,10 @@ Status: Teste em progresso...`;
 
                 const matchingKey = objects.find((obj: any) => {
                   const name = obj.name || obj.key || '';
+                  // Para foto_confirmacao, buscar por 'foto' ou 'confirmacao'
+                  if (tipo === 'foto_confirmacao') {
+                    return name.includes(orderId) && (name.includes('foto') || name.includes('confirmacao'));
+                  }
                   return (
                     name.includes(orderId) &&
                     name.includes(tipo)
