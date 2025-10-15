@@ -694,6 +694,57 @@ async function saveFileToStorage(buffer: Buffer, filename: string, orderId: stri
   }
 }
 
+async function saveOrdemCompraPdfToStorage(buffer: Buffer, numeroOrdem: string): Promise<string> {
+  if (objectStorageAvailable && objectStorage) {
+    try {
+      const storageKey = `OC/${numeroOrdem}.pdf`;
+      console.log(`📤 Salvando PDF da ordem de compra na pasta OC: ${storageKey}`);
+      console.log(`📊 Tamanho do buffer: ${buffer.length} bytes`);
+
+      if (!buffer || buffer.length === 0) {
+        throw new Error("Buffer vazio ou inválido para upload");
+      }
+
+      const uint8Array = new Uint8Array(buffer);
+      console.log(`📤 Convertido para Uint8Array: ${uint8Array.length} bytes`);
+
+      await objectStorage.uploadFromBytes(storageKey, uint8Array);
+      console.log("✅ Upload realizado com uploadFromBytes na pasta OC");
+
+      console.log(`🔍 Verificando integridade do arquivo após upload...`);
+      const downloadTest = await objectStorage.downloadAsBytes(storageKey);
+      const testBuffer = extractBufferFromStorageResult(downloadTest);
+
+      if (!testBuffer || testBuffer.length === 0) {
+        console.error(`❌ Download de verificação retornou dados vazios ou nulos`);
+        throw new Error("Verificação falhou: dados vazios no download");
+      }
+
+      const downloadedSize = testBuffer.length;
+      const originalSize = buffer.length;
+
+      console.log(`📊 Verificação de integridade:`);
+      console.log(`   • Tamanho original: ${originalSize} bytes`);
+      console.log(`   • Tamanho baixado: ${downloadedSize} bytes`);
+
+      if (downloadedSize !== originalSize) {
+        console.error(`❌ VERIFICAÇÃO FALHOU: Tamanhos diferentes!`);
+        throw new Error(`Verificação de integridade falhou: esperado ${originalSize} bytes, obtido ${downloadedSize} bytes`);
+      }
+
+      console.log(`✅ Verificação de integridade passou! PDF salvo com sucesso na pasta OC`);
+      return storageKey;
+
+    } catch (storageError) {
+      const error = storageError instanceof Error ? storageError : new Error(String(storageError));
+      console.error("❌ Erro ao salvar PDF no Object Storage (pasta OC):", error);
+      throw new Error(`Falha ao salvar PDF na pasta OC: ${error.message}`);
+    }
+  } else {
+    throw new Error("Object Storage não disponível");
+  }
+}
+
 // Configuração avançada do multer para upload de arquivos
 const storage_upload = multer.diskStorage({
   destination: async function (req, file, cb) {
