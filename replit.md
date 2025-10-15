@@ -204,9 +204,55 @@ npm run db:push --force  # Força sincronização (com warnings)
 - ✅ Não falha upload se extração falhar (apenas avisa)
 - ✅ Retorna informações da quantidade extraída na resposta
 
+## Regras de Negócio
+
+### Reagendamento e Cancelamento de Pedidos
+**Implementado**: 15/10/2025 - Tarde
+
+**Regra**: Pedidos só podem ser reprogramados ou cancelados com pelo menos 3 dias de antecedência da data de entrega, e não podem estar nos status "Em Rota" ou "Em transporte".
+
+**Implementação**:
+
+1. **Backend** (`server/routes.ts`):
+   - Função `getDaysDifference()` em `server/utils/timezone.ts` calcula dias entre datas usando `Math.floor` para contar apenas dias completos
+   - Endpoint `/api/pedidos/:id/reprogramar` (linhas ~4800-4823):
+     - Valida status: bloqueia "Entregue", "Cancelado", "Em Rota", "Em transporte"
+     - Valida delivery_date: retorna erro 400 se null
+     - Valida antecedência: requer `diffDays >= 3`
+   - Endpoints de cancelamento `/api/pedidos/:id/cancelar` (linhas ~3320-3344 e ~5377-5401):
+     - Mesmas validações de status, data e antecedência
+     - Proteção adicional: bloqueia se já tem documentos carregados
+
+2. **Frontend** (`client/src/components/OrderDetailDrawer.tsx`):
+   - Função `canRequestReschedule()` (linhas ~555-592):
+     - Esconde botão de reprogramação se status for "Entregue", "Cancelado", "Suspenso", "Em Rota" ou "Em transporte"
+     - Calcula dias restantes com `Math.floor` (linha 569)
+     - Esconde botão se `diffDays < 3`
+     - Verifica permissões do usuário (KeyUser ou da obra de destino)
+   - Botão de cancelamento (linhas ~1755-1832):
+     - Validação similar: status, documentos, 3 dias de antecedência
+     - Usa `Math.floor` para calcular dias (linha 1802)
+     - Tooltip mostra dias de antecedência (linha 1825)
+
+**Comportamento**:
+- ✅ Validação dupla: backend e frontend
+- ✅ Exatamente 72 horas (3 dias) é permitido
+- ✅ Mensagens de erro claras e específicas
+- ✅ Botões escondidos quando não permitido
+- ✅ Proteção contra bypass com delivery_date null
+
 ## Mudanças Recentes
 
-### 15/10/2025 - Tarde
+### 15/10/2025 - Tarde (Parte 2)
+- ✅ Implementada regra de reagendamento e cancelamento com 3 dias de antecedência
+- ✅ Criada função `getDaysDifference()` em `server/utils/timezone.ts` com Math.floor
+- ✅ Validações adicionadas em ambos endpoints de cancelamento e reprogramação
+- ✅ Frontend atualizado para esconder botões quando não permitido
+- ✅ Correção após review: Math.floor ao invés de Math.ceil para boundary correto
+- ✅ Adicionado status "Em transporte" às validações
+- ✅ Proteção contra bypass com delivery_date null
+
+### 15/10/2025 - Tarde (Parte 1)
 - ✅ Corrigido botão de download de PDF das ordens de compra
 - ✅ Identificado problema duplo:
   1. PDFs salvos em `orders/ordens_compra_...` mas download procurava em `OC/`
