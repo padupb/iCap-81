@@ -415,13 +415,21 @@ export default function OrdensCompra() {
     const startDate = new Date(validFrom);
     const endDate = new Date(validUntil);
     const today = new Date();
+    
+    // Normalizar todas as datas para meia-noite
     today.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
 
+    // Se hoje é ANTES da data de início (excluindo o próprio dia)
     if (today < startDate) {
       return "Não Iniciado";
-    } else if (today > endDate) {
+    } 
+    // Se hoje é DEPOIS da data de fim
+    else if (today > endDate) {
       return "Expirado";
     }
+    // Caso contrário, está ativo (incluindo quando hoje = data de início)
     return "Ativo";
   };
 
