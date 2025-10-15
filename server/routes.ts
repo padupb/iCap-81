@@ -4010,9 +4010,9 @@ Status: Teste em progresso...`;
         });
       }
 
-      // Buscar informações da ordem de compra incluindo pdf_info
+      // Buscar informações da ordem de compra
       const ordemResult = await pool.query(
-        "SELECT numero_ordem, pdf_info FROM ordens_compra WHERE id = $1",
+        "SELECT numero_ordem FROM ordens_compra WHERE id = $1",
         [id]
       );
 
@@ -4026,7 +4026,7 @@ Status: Teste em progresso...`;
       const ordem = ordemResult.rows[0];
       console.log(`🔍 Buscando PDF para ordem: ${ordem.numero_ordem}`);
 
-      // PRIORIDADE 1: Tentar buscar do Object Storage na pasta OC primeiro
+      // Tentar buscar do Object Storage na pasta OC
       if (objectStorageAvailable && objectStorage) {
         const ocKey = `OC/${ordem.numero_ordem}.pdf`;
         console.log(`📂 Tentando buscar na pasta OC: ${ocKey}`);
@@ -4057,109 +4057,16 @@ Status: Teste em progresso...`;
         console.log(`⚠️ Object Storage não disponível para busca na pasta OC`);
       }
 
-      // PRIORIDADE 2: Se tem pdf_info, tentar usar as informações armazenadas
-      if (ordem.pdf_info) {
-        try {
-          const pdfInfo = typeof ordem.pdf_info === 'string'
-            ? JSON.parse(ordem.pdf_info)
-            : ordem.pdf_info;
-
-          console.log(`📊 Informações do PDF encontradas:`, pdfInfo);
-
-          const storageKey = pdfInfo.storageKey;
-          const filename = pdfInfo.filename;
-
-          if (storageKey) {
-            console.log(`📂 Tentando acessar PDF usando storageKey: ${storageKey}`);
-
-            const fileResult = await readFileFromStorage(
-              storageKey,
-              `ordens_compra_${ordem.numero_ordem}`,
-              filename || `${ordem.numero_ordem}.pdf`
-            );
-
-            if (fileResult) {
-              const { data: fileBuffer, originalName } = fileResult;
-
-              // Verificar se é um redirect para Google Drive
-              if (Buffer.isBuffer(fileBuffer) && fileBuffer.toString('utf-8').startsWith('REDIRECT:')) {
-                const driveLink = fileBuffer.toString('utf-8').replace('REDIRECT:', '');
-                console.log(`🔗 Redirecionando para Google Drive: ${driveLink}`);
-                return res.redirect(302, driveLink);
-              }
-
-              // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
-              if (fileBuffer.length <= 1) {
-                console.log(`⚠️ PDF encontrado via pdf_info é muito pequeno (${fileBuffer.length} byte) - ignorado`);
-                return res.status(404).json({
-                  sucesso: false,
-                  mensagem: `Arquivo encontrado mas parece estar corrompido (${fileBuffer.length} byte).`
-                });
-              }
-
-              console.log(`✅ PDF recuperado usando pdf_info (${fileBuffer.length} bytes) - Nome original: ${originalName}`);
-
-              res.setHeader("Content-Type", "application/pdf");
-              res.setHeader("Content-Length", fileBuffer.length);
-              res.setHeader("Content-Disposition", `attachment; filename="${originalName}"`);
-              res.setHeader("Cache-Control", "no-cache");
-
-              return res.end(fileBuffer);
-            }
-          }
-        } catch (error) {
-          console.log(`❌ Erro ao processar pdf_info:`, error);
-        }
-      }
-
-      // PRIORIDADE 3: FALLBACK - Tentar buscar o arquivo na pasta uploads usando o número da ordem
-      const uploadsPath = path.join(process.cwd(), "uploads", `${ordem.numero_ordem}.pdf`);
-      console.log(`📁 Tentando PDF em uploads: ${uploadsPath}`);
-
-      if (fs.existsSync(uploadsPath)) {
-        const buffer = fs.readFileSync(uploadsPath);
-        // VERIFICAÇÃO CRÍTICA: Arquivos de 1 byte não são válidos
-        if (buffer.length > 1) {
-          console.log(`✅ PDF encontrado em uploads: ${uploadsPath} (${buffer.length} bytes)`);
-          res.setHeader("Content-Type", "application/pdf");
-          res.setHeader("Content-Disposition", `attachment; filename="ordem_compra_${ordem.numero_ordem}.pdf"`);
-          res.setHeader("Content-Length", buffer.length);
-          return res.end(buffer);
-        } else {
-          console.log(`⚠️ PDF local em uploads é muito pequeno (${buffer.length} byte) - ignorado`);
-        }
-      }
-
-      // Debug: Listar arquivos disponíveis para troubleshooting
-      const uploadsDir = path.join(process.cwd(), "uploads");
-      if (fs.existsSync(uploadsDir)) {
-        const files = fs.readdirSync(uploadsDir).filter(f => f.endsWith('.pdf'));
-        console.log(`📋 PDFs disponíveis em uploads:`, files);
-      }
-
-      // Verificar também se há arquivos no Object Storage para debug
-      if (objectStorageAvailable && objectStorage) {
-        try {
-          const objects = await objectStorage.list();
-          const ocObjects = objects.filter((obj: any) => obj.key.startsWith('OC/'));
-          console.log(`📋 PDFs na pasta OC do Object Storage:`, ocObjects.map((obj: any) => obj.key));
-        } catch (listError) {
-          const error = listError instanceof Error ? listError : new Error(String(listError));
-          console.log(`❌ Erro ao listar objetos do Object Storage:`, error.message);
-        }
-      }
-
-      // Se não encontrar o arquivo em lugar nenhum
+      // Se não encontrou o PDF no Object Storage
       return res.status(404).json({
         sucesso: false,
-        mensagem: `PDF da ordem de compra ${ordem.numero_ordem} não encontrado. Verifique se o arquivo foi enviado e está na pasta OC do Object Storage.`
+        mensagem: "PDF não encontrado no Object Storage"
       });
-
     } catch (error) {
       console.error("Erro ao buscar PDF da ordem de compra:", error);
       res.status(500).json({
         sucesso: false,
-        mensagem: "Erro interno do servidor"
+        mensagem: "Erro interno ao buscar PDF"
       });
     }
   });
