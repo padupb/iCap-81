@@ -540,9 +540,9 @@ export default function Orders() {
   const filteredOrders = orders.filter((order: any) => {
     // Filtrar por texto de busca
     const searchMatch =
-      (order.orderId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(order.orderId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(order.productId || "").includes(searchTerm) ||
-      (order.workLocation || "").toLowerCase().includes(searchTerm.toLowerCase());
+      String(order.workLocation || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     // Filtrar por status
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
