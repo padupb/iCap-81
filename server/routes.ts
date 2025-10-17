@@ -2774,112 +2774,84 @@ Status: Teste em progresso...`;
         }
       }
 
-      // NOVA REGRA: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
-      const isApprover = await pool.query(`
-        SELECT COUNT(*) as total
-        FROM companies
-        WHERE approver_id = $1
-      `, [req.user.id]);
-
-      const userIsApprover = parseInt(isApprover.rows[0].total) > 0;
-
-      if (userIsApprover && req.user.id !== 1 && !req.user.isKeyUser) {
-        console.log(`🔒 Usuário ${req.user.name} (ID: ${req.user.id}) é aprovador - aplicando filtro restritivo`);
-
-        // Filtrar apenas pedidos onde o usuário é aprovador da obra de destino
-        const filteredOrders = [];
-
-        for (const order of orders) {
-          if (order.purchaseOrderId) {
-            try {
-              // Verificar se o usuário é aprovador da obra de destino
-              const approverCheck = await pool.query(`
-                SELECT c.id, c.name, c.approver_id
-                FROM orders o
-                LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
-                LEFT JOIN companies c ON oc.cnpj = c.cnpj
-                WHERE o.id = $1 AND c.approver_id = $2
-              `, [order.id, req.user.id]);
-
-              if (approverCheck.rows.length > 0) {
-                filteredOrders.push(order);
-                console.log(`✅ Pedido ${order.orderId} incluído - usuário é aprovador da obra ${approverCheck.rows[0].name}`);
-              }
-            } catch (error) {
-              console.error(`Erro ao verificar aprovação do pedido ${order.orderId}:`, error);
+      // LÓGICA DE AUTORIZAÇÃO UNIFICADA
+      // KeyUsers (ID 1 ou isKeyUser) veem tudo
+      if (req.user.id === 1 || req.user.isKeyUser) {
+        console.log(`🔓 Usuário ${req.user.name} (ID: ${req.user.id}) - visualização irrestrita (KeyUser)`);
+      } 
+      // Usuários com companyId aplicam filtros
+      else if (req.user && req.user.companyId) {
+        console.log(`🔒 Aplicando filtros de autorização para ${req.user.name} (Empresa ID: ${req.user.companyId})`);
+        
+        const userCompany = await storage.getCompany(req.user.companyId);
+        
+        if (userCompany) {
+          const filteredOrders = [];
+          
+          for (const order of orders) {
+            let includeOrder = false;
+            let reason = "";
+            
+            // Normalizar campos snake_case para camelCase
+            const supplierId = order.supplier_id || order.supplierId;
+            const purchaseOrderId = order.purchase_order_id || order.purchaseOrderId;
+            const orderId = order.order_id || order.orderId;
+            
+            // CONDIÇÃO 1: Empresa do usuário é o fornecedor do pedido
+            if (supplierId === req.user.companyId) {
+              includeOrder = true;
+              reason = "fornecedor";
             }
-          }
-        }
-
-        orders = filteredOrders;
-        console.log(`🔒 Aprovador ${req.user.name} - visualização restrita a ${orders.length} pedidos onde é aprovador`);
-
-      } else {
-        // Aplicar restrição baseada nos critérios da empresa do usuário
-        if (req.user && req.user.companyId && req.user.id !== 1 && !req.user.isKeyUser) {
-          // Buscar a empresa do usuário
-          const userCompany = await storage.getCompany(req.user.companyId);
-
-          if (userCompany) {
-            // Buscar a categoria da empresa
-            const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
-
-            if (companyCategory) {
-              // Verificar se a empresa tem pelo menos 1 critério ativo
-              const hasAnyCriteria = companyCategory.requiresApprover ||
-                                   companyCategory.requiresContract ||
-                                   companyCategory.receivesPurchaseOrders;
-
-              if (hasAnyCriteria) {
-                // Filtrar pedidos onde a empresa é fornecedora OU obra de destino
-                const filteredOrders = [];
-
-                for (const order of orders) {
-                  // 1. Incluir pedidos criados pela empresa (fornecedor)
-                  if (order.supplierId === req.user.companyId) {
-                    filteredOrders.push(order);
-                    continue;
+            
+            // CONDIÇÃO 2: Empresa do usuário é a obra de destino (via CNPJ ou ID da purchase order)
+            if (!includeOrder && purchaseOrderId) {
+              try {
+                const poResult = await pool.query(`
+                  SELECT oc.cnpj, c.id as obra_id, c.name as obra_nome, c.approver_id
+                  FROM ordens_compra oc
+                  LEFT JOIN companies c ON oc.cnpj = c.cnpj
+                  WHERE oc.id = $1
+                `, [purchaseOrderId]);
+                
+                if (poResult.rows.length > 0) {
+                  const poData = poResult.rows[0];
+                  
+                  // Verificar se o CNPJ da PO corresponde ao CNPJ da empresa do usuário
+                  if (poData.cnpj === userCompany.cnpj) {
+                    includeOrder = true;
+                    reason = "obra de destino (CNPJ)";
                   }
-
-                  // 2. Incluir pedidos destinados à empresa (obra de destino)
-                  if (order.purchaseOrderId) {
-                    try {
-                      // Buscar a ordem de compra para verificar o CNPJ de destino
-                      const ordemCompraResult = await pool.query(
-                        `SELECT oc.cnpj, c.id as obra_id, c.name as obra_nome 
-                         FROM ordens_compra oc
-                         LEFT JOIN companies c ON oc.cnpj = c.cnpj
-                         WHERE oc.id = $1`,
-                        [order.purchaseOrderId]
-                      );
-
-                      if (ordemCompraResult.rows.length > 0) {
-                        const cnpjDestino = ordemCompraResult.rows[0].cnpj;
-                        const obraId = ordemCompraResult.rows[0].obra_id;
-
-                        // Verificar se o CNPJ de destino corresponde à empresa do usuário
-                        // OU se a obra de destino é a empresa do usuário
-                        if (cnpjDestino === userCompany.cnpj || obraId === userCompany.id) {
-                          filteredOrders.push(order);
-                          console.log(`✅ Pedido ${order.orderId} incluído - destinado à obra ${userCompany.name}`);
-                        }
-                      }
-                    } catch (error) {
-                      console.error(`Erro ao verificar destino do pedido ${order.orderId}:`, error);
-                    }
+                  
+                  // Verificar se a obra de destino é a empresa do usuário
+                  if (!includeOrder && poData.obra_id === userCompany.id) {
+                    includeOrder = true;
+                    reason = "obra de destino (ID)";
+                  }
+                  
+                  // CONDIÇÃO 3: Usuário é aprovador da obra de destino
+                  if (!includeOrder && poData.approver_id === req.user.id) {
+                    includeOrder = true;
+                    reason = "aprovador da obra";
                   }
                 }
-
-                orders = filteredOrders;
-                console.log(`🔒 Usuário da empresa ${userCompany.name} - visualização restrita a pedidos próprios e destinados à empresa`);
-              } else {
-                console.log(`🔓 Usuário da empresa ${userCompany.name} - visualização irrestrita (empresa sem critérios)`);
+              } catch (error) {
+                console.error(`Erro ao verificar destino do pedido ${orderId}:`, error);
               }
             }
+            
+            if (includeOrder) {
+              filteredOrders.push(order);
+              console.log(`✅ Pedido ${orderId} incluído - ${reason}`);
+            }
           }
-        } else {
-          console.log(`🔓 Usuário ${req.user.name} (ID: ${req.user.id}) - visualização irrestrita (KeyUser ou não tem empresa)`);
+          
+          orders = filteredOrders;
+          console.log(`🔒 ${req.user.name} (${userCompany.name}) - visualização de ${orders.length} pedidos`);
         }
+      } 
+      // Usuários sem empresa veem tudo
+      else {
+        console.log(`🔓 Usuário ${req.user.name} - visualização irrestrita (sem empresa)`);
       }
 
       res.json(orders);
