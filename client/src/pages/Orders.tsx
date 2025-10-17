@@ -548,12 +548,12 @@ export default function Orders() {
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
 
     // Filtrar por produto
-    const productMatch = productFilter === "all" || order.productId === parseInt(productFilter);
+    const productMatch = productFilter === "all" || (order as any).product_id === parseInt(productFilter);
 
     // Filtrar por período
     let dateMatch = true;
     if (startDate || endDate) {
-      const orderDate = new Date(order.deliveryDate);
+      const orderDate = new Date((order as any).delivery_date);
 
       if (startDate && endDate) {
         const start = new Date(startDate);
@@ -588,12 +588,12 @@ export default function Orders() {
 
     switch (sortColumn) {
       case 'id':
-        aValue = a.orderId;
-        bValue = b.orderId;
+        aValue = (a as any).order_id || a.id;
+        bValue = (b as any).order_id || b.id;
         break;
       case 'product':
-        const productA = products.find(p => p.id === a.productId);
-        const productB = products.find(p => p.id === b.productId);
+        const productA = products.find(p => p.id === (a as any).product_id);
+        const productB = products.find(p => p.id === (b as any).product_id);
         aValue = productA?.name || "";
         bValue = productB?.name || "";
         break;
@@ -602,14 +602,14 @@ export default function Orders() {
         bValue = parseFloat(b.quantity);
         break;
       case 'supplier':
-        const companyA = companies.find(c => c.id === a.supplierId);
-        const companyB = companies.find(c => c.id === b.supplierId);
+        const companyA = companies.find(c => c.id === (a as any).supplier_id);
+        const companyB = companies.find(c => c.id === (b as any).supplier_id);
         aValue = companyA?.name || "";
         bValue = companyB?.name || "";
         break;
       case 'deliveryDate':
-        aValue = new Date(a.deliveryDate);
-        bValue = new Date(b.deliveryDate);
+        aValue = new Date((a as any).delivery_date || 0);
+        bValue = new Date((b as any).delivery_date || 0);
         break;
       case 'status':
         aValue = a.status;
@@ -651,17 +651,17 @@ export default function Orders() {
     setIsExporting(true);
     try {
       const dataToExport = filteredAndSortedOrders.map(order => {
-        const product = products.find(p => p.id === order.productId);
-        const company = companies.find(c => c.id === order.supplierId);
+        const product = products.find(p => p.id === (order as any).product_id);
+        const company = companies.find(c => c.id === (order as any).supplier_id);
         const unit = units.find(u => u.id === product?.unitId);
 
         return {
-          'ID': order.orderId,
+          'ID': (order as any).order_id || order.id,
           'Produto': product?.name || 'N/A',
           'Quantidade': formatNumber(order.quantity),
           'Unidade': unit?.abbreviation || '',
           'Fornecedor': company?.name || 'N/A',
-          'Data de Entrega': formatDate(order.deliveryDate),
+          'Data de Entrega': formatDate((order as any).delivery_date),
           'Status': order.status,
           'Local de Trabalho': order.workLocation,
           'Urgente': order.isUrgent ? 'Sim' : 'Não',
@@ -1343,10 +1343,10 @@ export default function Orders() {
                 <TableBody>
                   {filteredAndSortedOrders.map((order) => {
                     const product = products.find(
-                      (p) => p.id === order.productId,
+                      (p) => p.id === (order as any).product_id,
                     );
                     const company = companies.find(
-                      (c) => c.id === order.supplierId,
+                      (c) => c.id === (order as any).supplier_id,
                     );
                     const unit = units.find(
                       (u) => u.id === product?.unitId,
@@ -1359,14 +1359,14 @@ export default function Orders() {
                         onClick={() => handleOpenDetails(order)}
                       >
                         <TableCell className="font-medium">
-                          {order.orderId}
+                          {(order as any).order_id || "N/A"}
                         </TableCell>
                         <TableCell>{product?.name || "N/A"}</TableCell>
                         <TableCell>
                           {formatNumber(order.quantity)} {unit?.abbreviation || ""}
                         </TableCell>
                         <TableCell>{company?.name || "N/A"}</TableCell>
-                        <TableCell>{formatDate(order.deliveryDate)}</TableCell>
+                        <TableCell>{formatDate((order as any).delivery_date)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(order.status)}>
                             {order.status}
@@ -1395,7 +1395,7 @@ export default function Orders() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Tem certeza que deseja excluir o pedido {order.orderId}?
+                                    Tem certeza que deseja excluir o pedido {(order as any).order_id || order.id}?
                                     Esta ação não pode ser desfeita.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>

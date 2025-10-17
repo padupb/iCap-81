@@ -1759,8 +1759,10 @@ export function OrderDetailDrawer({
                                 <span className="text-orange-600">
                                   Reprogramação solicitada
                                 </span>
-                              ) : (
+                              ) : orderDetails.deliveryDate ? (
                                 formatDate(orderDetails.deliveryDate.toString())
+                              ) : (
+                                <span className="text-muted-foreground">Data não disponível</span>
                               )}
                             </p>
                             {canRequestReschedule() && (
