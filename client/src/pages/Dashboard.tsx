@@ -137,11 +137,11 @@ export default function Dashboard() {
                     </TableHeader>
                     <TableBody>
                       {recentOrders.map((order) => {
-                        // Mapear campos do banco de dados
+                        // Mapear campos do banco de dados - tentar order_id primeiro
                         const productId = order.productId || (order as any).product_id;
-                        const orderId = (order as any).order_id || order.orderId;
-                        const deliveryDate = (order as any).delivery_date || order.deliveryDate;
-                        const isUrgent = order.isUrgent || (order as any).is_urgent;
+                        const orderId = order.orderId || (order as any).order_id || `PED-${order.id}`;
+                        const deliveryDate = order.deliveryDate || (order as any).delivery_date;
+                        const isUrgent = order.isUrgent || (order as any).is_urgent || false;
                         
                         const product = products.find(
                           (p) => p.id === productId,
@@ -154,7 +154,7 @@ export default function Dashboard() {
                             onClick={() => handleOpenDetails(order)}
                           >
                             <TableCell className="font-mono text-sm text-foreground">
-                              {orderId || "N/A"}
+                              {orderId}
                             </TableCell>
                             <TableCell className="text-foreground">
                               {product?.name || `Produto ID: ${productId}`}
@@ -171,7 +171,7 @@ export default function Dashboard() {
                               )}
                             </TableCell>
                             <TableCell className="text-muted-foreground">
-                              {deliveryDate ? formatDate(deliveryDate) : "N/A"}
+                              {deliveryDate ? formatDate(deliveryDate) : "Data não disponível"}
                             </TableCell>
                           </TableRow>
                         );

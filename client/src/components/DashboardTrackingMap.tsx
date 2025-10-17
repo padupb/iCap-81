@@ -93,8 +93,8 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
             const trackingPoints: TrackingPoint[] = await response.json();
 
             // Pegar o último ponto de rastreamento
-            const lastPoint = trackingPoints.length > 0 
-              ? trackingPoints[trackingPoints.length - 1] 
+            const lastPoint = trackingPoints.length > 0
+              ? trackingPoints[trackingPoints.length - 1]
               : null;
 
             const product = products.find(p => p.id === order.productId);
@@ -160,10 +160,10 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
       // Converter para número de forma segura
       const latStr = String(data.lastTrackingPoint.latitude).trim();
       const lngStr = String(data.lastTrackingPoint.longitude).trim();
-      
+
       const lat = parseFloat(latStr);
       const lng = parseFloat(lngStr);
-      
+
       console.log(`📍 Processando marker para pedido ${data.order.orderId}:`, {
         latitudeOriginal: data.lastTrackingPoint.latitude,
         longitudeOriginal: data.lastTrackingPoint.longitude,
@@ -186,29 +186,33 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
         console.warn(`⚠️ Coordenadas fora do range válido para pedido ${data.order.orderId}: lat=${lat}, lng=${lng}`);
         return null;
       }
-      
+
+      // Extrair orderId corretamente do banco de dados
+      const displayOrderId = data.order.orderId ||
+                             (data.order as any).order_id ||
+                             `PED-${data.order.id}`;
+
       return {
         id: data.order.id,
         lat: Number(lat),
         lng: Number(lng),
-        title: `Pedido ${data.order.orderId}`,
-        content: `${data.product?.name || 'Produto'} - ${data.order.status}`,
-        orderId: data.order.orderId,
+        title: `Pedido ${displayOrderId}`,
+        orderId: data.order.orderId.toString(),
         status: data.order.status,
         color: data.color,
       };
     })
     .filter((marker): marker is NonNullable<typeof marker> => {
       if (marker === null) return false;
-      
-      const isValid = 
-        typeof marker.lat === 'number' && 
+
+      const isValid =
+        typeof marker.lat === 'number' &&
         typeof marker.lng === 'number' &&
-        !isNaN(marker.lat) && 
-        !isNaN(marker.lng) && 
-        isFinite(marker.lat) && 
+        !isNaN(marker.lat) &&
+        !isNaN(marker.lng) &&
+        isFinite(marker.lat) &&
         isFinite(marker.lng);
-      
+
       if (!isValid) {
         console.error(`❌ Marker inválido filtrado:`, marker);
       }
@@ -218,9 +222,9 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
   // Calcular centro e zoom do mapa baseado em todas as cargas
   const mapSettings = React.useMemo(() => {
     if (markers.length === 0) {
-      return { 
+      return {
         center: { lat: -14.235, lng: -51.9253 }, // Centro do Brasil como fallback
-        zoom: 6 
+        zoom: 6
       };
     }
 
@@ -278,16 +282,16 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
       console.log('🔍 DashboardTrackingMap - Buscando Google Maps API Key dos Secrets...');
       const response = await fetch('/api/google-maps-key');
       console.log('📡 DashboardTrackingMap - Response status:', response.status);
-      
+
       if (!response.ok) {
         console.error('❌ DashboardTrackingMap - Erro na resposta:', response.statusText);
         throw new Error('Falha ao carregar chave do Google Maps');
       }
-      
+
       const data = await response.json();
       console.log('📦 DashboardTrackingMap - Dados recebidos:', data);
       console.log('🔑 DashboardTrackingMap - API Key:', data.apiKey ? `${data.apiKey.substring(0, 20)}...` : 'VAZIA/NULL');
-      
+
       return data.apiKey || null;
     },
   });
@@ -317,7 +321,7 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
       </div>
     );
   }
-  
+
   console.log('✅ DashboardTrackingMap - API Key válida, carregando mapa...');
 
   if (isLoading) {
@@ -404,18 +408,18 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
           <h4 className="font-medium text-sm mb-2">Cargas em Trânsito</h4>
           <div className="space-y-1 max-h-32 overflow-y-auto">
             {trackingData.map((data) => (
-              <div 
-                key={data.order.id} 
+              <div
+                key={data.order.id}
                 className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 p-1 rounded"
                 onClick={() => onOrderClick?.(data.order.id)}
               >
                 <div className="flex items-center">
                   {/* Círculo colorido sem número */}
-                  <div 
+                  <div
                     className="w-6 h-6 rounded-full mr-2 border-2 border-white shadow-sm"
                     style={{ backgroundColor: data.color }}
                   ></div>
-                  <span className="font-medium">{data.order.orderId}</span>
+                  <span className="font-medium">{data.order.orderId || (data.order as any).order_id || `PED-${data.order.id}`}</span>
                 </div>
                 <span className="text-muted-foreground truncate ml-2">
                   {data.product?.name || 'Produto'} - {data.order.quantity}{data.unit?.abbreviation || ''}
