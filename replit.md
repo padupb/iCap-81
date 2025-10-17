@@ -59,6 +59,18 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### October 17, 2025 - Afternoon
+- ✅ **Critical Bug Fixes - Order Table & Settings**
+  - Fixed OrderDetailDrawer crash: added null/undefined check for deliveryDate before calling .toString()
+  - Corrected API data mapping from snake_case to camelCase across all order table operations:
+    - Table display (order_id, product_id, supplier_id, delivery_date)
+    - Column sorting (ID, product, supplier, deliveryDate)
+    - Filters (product, date range)
+    - Data export (CSV/XLSX)
+  - Added missing `/api/settings` endpoints (GET, GET/:key, POST, PUT) to resolve "Failed to fetch settings" error
+  - All endpoints tested and confirmed working (200/304 responses)
+  - Architect review: PASS - flows function correctly, suggested future improvements for typed normalization helpers
+
 ### October 15, 2025 - Evening
 - ✅ **Batch Document Download in ZIP Format**
   - Installed `jszip` library for ZIP file generation
