@@ -2716,7 +2716,16 @@ Status: Teste em progresso...`;
   // Orders routes (Pedidos)
   app.get("/api/orders", isAuthenticated, async (req, res) => {
     try {
-      let orders = await storage.getAllOrders();
+      // Buscar pedidos com quantidade_recebida do banco
+      const ordersResult = await pool.query(`
+        SELECT 
+          o.*,
+          o.quantidade_recebida as "quantidadeRecebida"
+        FROM orders o
+        ORDER BY o.created_at DESC
+      `);
+      
+      let orders = ordersResult.rows;
 
       // Atualizar status dos pedidos baseado na validade da ordem de compra
       const today = new Date();
