@@ -2794,7 +2794,7 @@ export function OrderDetailDrawer({
                                 Entrega Confirmada
                               </h3>
                               <p className="text-sm text-green-600">
-                                Quantidade recebida: {formatNumber(orderDetails.quantidadeRecebida || orderDetails.quantidade_recebida || orderDetails.quantity)} {orderDetails.unit?.abbreviation || ""}
+                                Quantidade recebida: {formatNumber(orderDetails.quantidade_recebida || orderDetails.quantidadeRecebida)} {orderDetails.unit?.abbreviation || ""}
                               </p>
                             </div>
                           </div>
