@@ -197,7 +197,7 @@ export function DashboardTrackingMap({ onOrderClick }: DashboardTrackingMapProps
         lat: Number(lat),
         lng: Number(lng),
         title: `Pedido ${displayOrderId}`,
-        orderId: data.order.orderId.toString(),
+        orderId: displayOrderId.toString(),
         status: data.order.status,
         color: data.color,
       };
