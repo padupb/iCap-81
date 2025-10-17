@@ -74,6 +74,7 @@ type OrderDetails = Order & {
   supplier?: Company;
   purchaseOrder?: PurchaseOrder;
   quantidadeRecebida?: string;
+  quantidade_recebida?: string; // Campo do banco de dados
   documentosCarregados?: boolean;
 };
 
@@ -90,9 +91,10 @@ type TrackingPoint = {
 };
 
 // Função para formatar números com vírgula (formato brasileiro)
-const formatNumber = (value: string | number): string => {
+const formatNumber = (value: string | number | undefined | null): string => {
+  if (value === undefined || value === null) return "0.00";
   const numValue = typeof value === "string" ? parseFloat(value) : value;
-  if (isNaN(numValue)) return value.toString();
+  if (isNaN(numValue)) return "0.00";
 
   // Usar toLocaleString com locale brasileiro para vírgula como separador decimal
   return numValue.toLocaleString("pt-BR", {
@@ -1038,7 +1040,7 @@ export function OrderDetailDrawer({
 
     if (action === "aprovado") {
       const quantityToConfirm = quantidadeRecebida || confirmedQuantity;
-      
+
       if (!quantityToConfirm || parseFloat(quantityToConfirm) <= 0) {
         toast({
           title: "Erro",
@@ -2294,7 +2296,7 @@ export function OrderDetailDrawer({
                             <div className="space-y-4">
                               <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
                                 <div className="text-center">
-                                  <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+                                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                                   <h3 className="text-xl font-medium text-green-700 mb-2">
                                     Número do Pedido Confirmado
                                   </h3>
@@ -2357,7 +2359,7 @@ export function OrderDetailDrawer({
                             orderDetails.status === "Entregue") {
                           return (
                             <div className="space-y-4">
-                              <div className="flex flex-col items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
+                              <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
                                 <FileCheck
                                   size={48}
                                   className="text-green-500 mb-2"
@@ -2792,7 +2794,7 @@ export function OrderDetailDrawer({
                                 Entrega Confirmada
                               </h3>
                               <p className="text-sm text-green-600">
-                                Quantidade recebida: {orderDetails.quantidadeRecebida || orderDetails.quantity} {orderDetails.unit?.abbreviation || ""}
+                                Quantidade recebida: {formatNumber(orderDetails.quantidadeRecebida || orderDetails.quantidade_recebida || orderDetails.quantity)} {orderDetails.unit?.abbreviation || ""}
                               </p>
                             </div>
                           </div>
@@ -3010,7 +3012,7 @@ export function OrderDetailDrawer({
                                 etapa: "Entrega Confirmada",
                                 data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
                                 usuario: getUserNameById(user?.id) || "Sistema",
-                                descricao: `Entrega confirmada com quantidade: ${orderDetails.quantidadeRecebida || orderDetails.quantity} ${orderDetails.unit?.abbreviation || ""}`,
+                                descricao: `Entrega confirmada com quantidade: ${orderDetails.quantidadeRecebida || orderDetails.quantidade_recebida || orderDetails.quantity} ${orderDetails.unit?.abbreviation || ""}`,
                                 icon: "CheckCircle"
                               });
                             }
