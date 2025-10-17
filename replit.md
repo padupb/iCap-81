@@ -74,6 +74,11 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
     - Added validation checks before all `new Date()` calls on deliveryDate
     - Protected all 6 locations where deliveryDate was used without validation
     - Fixed in: canRequestReschedule(), tab disable logic, QR code section, and document upload sections
+  - **Fixed date formatting across entire frontend**:
+    - Improved `formatDate()` function to handle multiple date formats from database
+    - Now correctly processes: "YYYY-MM-DD", "YYYY-MM-DD HH:MM:SS", and "YYYY-MM-DDTHH:MM:SSZ"
+    - Eliminates timezone conversion issues by extracting only date portion
+    - Ensures consistent DD/MM/YYYY display format throughout the app
   - Architect review: PASS - flows function correctly, suggested future improvements for typed normalization helpers
 
 ### October 15, 2025 - Evening

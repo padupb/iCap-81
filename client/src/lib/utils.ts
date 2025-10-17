@@ -9,13 +9,27 @@ export function formatDate(date: string | Date | undefined | null): string {
   // Validar entrada
   if (!date) return "Data não disponível";
 
-  // Extrair a data diretamente da string ISO sem conversão de timezone
-  const dateStr = typeof date === 'string' ? date : date.toISOString();
-  const [datePart] = dateStr.split('T');
-  const [year, month, day] = datePart.split('-');
+  let dateStr: string;
+  
+  if (typeof date === 'string') {
+    dateStr = date;
+  } else {
+    dateStr = date.toISOString();
+  }
 
+  // Extrair apenas a parte da data (YYYY-MM-DD)
+  // Aceita formatos: "YYYY-MM-DD", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DDTHH:MM:SSZ"
+  const datePart = dateStr.split(/[T\s]/)[0];
+  
+  // Validar formato
+  if (!datePart || !datePart.includes('-')) {
+    return "Data inválida";
+  }
+
+  const [year, month, day] = datePart.split('-');
+  
   // Retornar no formato DD/MM/YYYY
-  return `${day}/${month}/${year}`;
+  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
 }
 
 export function formatDateTime(date: string | Date) {
