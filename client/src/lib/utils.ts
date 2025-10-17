@@ -12,21 +12,38 @@ export function formatDate(date: string | Date | undefined | null): string {
   let dateStr: string;
   
   if (typeof date === 'string') {
-    dateStr = date;
+    dateStr = date.trim();
   } else {
-    dateStr = date.toISOString();
+    try {
+      dateStr = date.toISOString();
+    } catch {
+      return "Data inválida";
+    }
   }
 
   // Extrair apenas a parte da data (YYYY-MM-DD)
   // Aceita formatos: "YYYY-MM-DD", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DDTHH:MM:SSZ"
   const datePart = dateStr.split(/[T\s]/)[0];
   
-  // Validar formato
-  if (!datePart || !datePart.includes('-')) {
+  // Validar formato usando regex para garantir YYYY-MM-DD completo
+  const dateRegex = /^\d{4}-\d{1,2}-\d{1,2}$/;
+  if (!datePart || !dateRegex.test(datePart)) {
     return "Data inválida";
   }
 
-  const [year, month, day] = datePart.split('-');
+  const parts = datePart.split('-');
+  
+  // Garantir que temos todas as partes
+  if (parts.length !== 3) {
+    return "Data inválida";
+  }
+
+  const [year, month, day] = parts;
+  
+  // Validar que todas as partes existem
+  if (!year || !month || !day) {
+    return "Data inválida";
+  }
   
   // Retornar no formato DD/MM/YYYY
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
