@@ -1992,9 +1992,21 @@ export function OrderDetailDrawer({
                           );
                         }
 
+                        // Verificar se o orderId existe para gerar o QR code
+                        if (!orderDetails.orderId) {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-6 border border-gray-200 rounded-lg bg-gray-50 w-full">
+                              <AlertCircle className="h-12 w-12 text-gray-400 mb-2" />
+                              <p className="text-sm text-gray-600 text-center">
+                                QR Code não disponível
+                              </p>
+                            </div>
+                          );
+                        }
+
                         return (
                           <QRCodeComponent
-                            value={orderDetails.orderId}
+                            value={String(orderDetails.orderId)}
                             size={150}
                             className="mt-4"
                           />
