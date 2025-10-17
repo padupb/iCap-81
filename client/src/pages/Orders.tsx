@@ -88,6 +88,7 @@ type PurchaseOrderResponse = {
   status: string;
   valor_total: number;
   empresa_nome: string;
+  valido_desde: string; // Adicionado para validação de data
 };
 
 // Tipo para os itens de uma ordem de compra
@@ -247,19 +248,19 @@ export default function Orders() {
           throw new Error("Falha ao carregar ordens de compra");
         }
         const allOrders = await response.json();
-        
+
         // Filtrar apenas ordens válidas (não expiradas) para criação de pedidos
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const validOrders = allOrders.filter((order: any) => {
           const validDate = new Date(order.valido_ate);
           validDate.setHours(0, 0, 0, 0);
           return validDate >= today && order.status === 'Ativo';
         });
-        
+
         console.log(`📋 Ordens de compra filtradas para criação de pedidos: ${validOrders.length} válidas de ${allOrders.length} totais`);
-        
+
         return validOrders;
       },
       // Só executar a consulta se o usuário estiver autenticado
@@ -486,10 +487,10 @@ export default function Orders() {
       const [year, month, day] = deliveryDate.split('-').map(Number);
       const selectedDate = new Date(year, month - 1, day);
       selectedDate.setHours(0, 0, 0, 0);
-      
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const diffTime = selectedDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -502,11 +503,11 @@ export default function Orders() {
         const validFromParts = selectedPurchaseOrder.valido_desde.split('T')[0].split('-').map(Number);
         const validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
         validFromDate.setHours(0, 0, 0, 0);
-        
+
         const validUntilParts = selectedPurchaseOrder.valido_ate.split('T')[0].split('-').map(Number);
         const validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
         validUntilDate.setHours(0, 0, 0, 0);
-        
+
         console.log('🔍 Debug validação de data:', {
           deliveryDate,
           selectedDate: selectedDate.toISOString(),
@@ -515,7 +516,7 @@ export default function Orders() {
           isBeforeValidFrom: selectedDate < validFromDate,
           isAfterValidUntil: selectedDate > validUntilDate
         });
-        
+
         if (selectedDate < validFromDate) {
           form.setError("deliveryDate", {
             type: "manual",
@@ -536,12 +537,12 @@ export default function Orders() {
   }, [form.watch("deliveryDate"), urgentDaysThreshold, selectedPurchaseOrder]);
 
   // Aplicar filtros aos pedidos
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = orders.filter((order: any) => {
     // Filtrar por texto de busca
     const searchMatch =
-      order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(order.productId).includes(searchTerm) ||
-      order.workLocation.toLowerCase().includes(searchTerm.toLowerCase());
+      (order.orderId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(order.productId || "").includes(searchTerm) ||
+      (order.workLocation || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     // Filtrar por status
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
@@ -553,7 +554,7 @@ export default function Orders() {
     let dateMatch = true;
     if (startDate || endDate) {
       const orderDate = new Date(order.deliveryDate);
-      
+
       if (startDate && endDate) {
         const start = new Date(startDate);
         const end = new Date(endDate);
@@ -749,23 +750,23 @@ export default function Orders() {
       // Baixar o arquivo ZIP
       const blob = await response.blob();
       console.log(`📥 Blob recebido: ${blob.size} bytes, tipo: ${blob.type}`);
-      
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      
+
       // Extrair nome do arquivo do header ou usar padrão
       const contentDisposition = response.headers.get('Content-Disposition');
       const fileName = contentDisposition
         ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
         : `documentos_pedidos_${new Date().toISOString().split('T')[0]}.zip`;
-      
+
       console.log(`💾 Iniciando download: ${fileName}`);
       link.download = fileName;
       link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup com delay para garantir que o download inicie
       setTimeout(() => {
         document.body.removeChild(link);
@@ -807,16 +808,16 @@ export default function Orders() {
       const [year, month, day] = data.deliveryDate.split('-').map(Number);
       const deliveryDate = new Date(year, month - 1, day);
       deliveryDate.setHours(0, 1, 0, 0); // Definir para 00:01 AM
-      
+
       // Criar datas de validade a partir das strings ISO
       const validFromParts = selectedPurchaseOrder.valido_desde.split('T')[0].split('-').map(Number);
       const validFromDate = new Date(validFromParts[0], validFromParts[1] - 1, validFromParts[2]);
       validFromDate.setHours(0, 0, 0, 0);
-      
+
       const validUntilParts = selectedPurchaseOrder.valido_ate.split('T')[0].split('-').map(Number);
       const validUntilDate = new Date(validUntilParts[0], validUntilParts[1] - 1, validUntilParts[2]);
       validUntilDate.setHours(23, 59, 59, 999); // Final do dia
-      
+
       console.log('🔍 Debug onSubmit validação de data:', {
         deliveryDate: deliveryDate.toISOString(),
         validFrom: validFromDate.toISOString(),
@@ -824,7 +825,7 @@ export default function Orders() {
         isBeforeValidFrom: deliveryDate < validFromDate,
         isAfterValidUntil: deliveryDate > validUntilDate
       });
-      
+
       if (deliveryDate < validFromDate) {
         toast({
           title: "Erro de validação",
@@ -833,7 +834,7 @@ export default function Orders() {
         });
         return;
       }
-      
+
       if (deliveryDate > validUntilDate) {
         toast({
           title: "Erro de validação",
@@ -1095,7 +1096,7 @@ export default function Orders() {
                 <div className="text-sm text-muted-foreground">
                   Escolha o tipo de exportação desejada:
                 </div>
-                
+
                 <div className="grid gap-3">
                   <div className="space-y-2">
                     <h4 className="font-medium">Exportar Planilha</h4>
