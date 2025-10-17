@@ -411,11 +411,22 @@ export function OrderDetailDrawer({
       orderId: order.id,
       numeroPedido: order.numeroPedido,
       numero_pedido: order.numero_pedido,
-      status: order.status
+      status: order.status,
+      productId: order.productId,
+      product_id: (order as any).product_id,
+      supplierId: order.supplierId,
+      supplier_id: (order as any).supplier_id,
+      purchaseOrderId: order.purchaseOrderId,
+      purchase_order_id: (order as any).purchase_order_id
     });
 
-    const product = products.find((p) => p.id === order.productId);
-    const supplier = companies.find((c) => c.id === order.supplierId);
+    // Usar os campos corretos do banco de dados
+    const productId = order.productId || (order as any).product_id;
+    const supplierId = order.supplierId || (order as any).supplier_id;
+    const purchaseOrderId = order.purchaseOrderId || (order as any).purchase_order_id;
+
+    const product = products.find((p) => p.id === productId);
+    const supplier = companies.find((c) => c.id === supplierId);
     const unit = product ? units.find((u) => u.id === product.unitId) : null;
 
     // Buscar ordem de compra: primeiro na tabela ordens_compra, depois em purchase_orders
@@ -423,11 +434,11 @@ export function OrderDetailDrawer({
     let purchaseOrderCompany = null;
     let workDestination = null; // Nova variável para armazenar a obra de destino
 
-    if (order.purchaseOrderId) {
+    if (purchaseOrderId) {
       // Primeiro, verificar ordensCompra (tabela principal)
       const ordensArray = Array.isArray(ordensCompra) ? ordensCompra : [];
       const ordemCompra = ordensArray.find(
-        (oc: any) => oc.id === order.purchaseOrderId,
+        (oc: any) => oc.id === purchaseOrderId,
       );
 
       console.log("🔍 Debug ordem de compra encontrada:", ordemCompra);
@@ -462,7 +473,7 @@ export function OrderDetailDrawer({
       } else {
         // Se não encontrou em ordens_compra, buscar em purchase_orders
         const purchaseOrderFound = purchaseOrders.find(
-          (po) => po.id === order.purchaseOrderId,
+          (po) => po.id === purchaseOrderId,
         );
         if (purchaseOrderFound) {
           purchaseOrder = purchaseOrderFound;
@@ -471,6 +482,14 @@ export function OrderDetailDrawer({
         }
       }
     }
+
+    console.log('📋 Debug final orderDetails:', {
+      product: product?.name,
+      supplier: supplier?.name,
+      unit: unit?.abbreviation,
+      purchaseOrder: purchaseOrder?.orderNumber || purchaseOrder?.numero_ordem,
+      workDestination: workDestination?.name
+    });
 
     return {
       ...order,
