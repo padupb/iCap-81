@@ -105,6 +105,13 @@ const formatNumber = (value: string | number | undefined | null): string => {
   });
 };
 
+// Função helper para criar uma data válida
+const createValidDate = (dateValue: any): Date | null => {
+  if (!dateValue) return null;
+  const date = new Date(dateValue);
+  return isNaN(date.getTime()) ? null : date;
+};
+
 import MapComponent from "./MapComponent";
 
 // Componente de Rastreamento com Mapa
@@ -561,8 +568,15 @@ export function OrderDetailDrawer({
     // Não pode reprogramar se o pedido estiver entregue, cancelado, suspenso ou em rota
     if (["Entregue", "Cancelado", "Suspenso", "Em Rota", "Em transporte"].includes(orderDetails.status)) return false;
 
+    // Verificar se deliveryDate existe
+    if (!orderDetails.deliveryDate) return false;
+
     // Verificar se faltam pelo menos 3 dias para a data de entrega
     const deliveryDate = new Date(orderDetails.deliveryDate);
+    
+    // Verificar se a data é válida
+    if (isNaN(deliveryDate.getTime())) return false;
+    
     deliveryDate.setHours(0, 0, 0, 0);
 
     const today = new Date();
@@ -1582,7 +1596,9 @@ export function OrderDetailDrawer({
                       }
 
                       // 2. Verificar se é pedido urgente e não foi aprovado
-                      const deliveryDate = new Date(orderDetails.deliveryDate);
+                      const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                      if (!deliveryDate) return false;
+                      
                       const today = new Date();
                       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                       const isUrgent = daysDiff <= 7;
@@ -1814,8 +1830,19 @@ export function OrderDetailDrawer({
                                 return null;
                               }
 
+                              // Verificar se deliveryDate existe antes de validar
+                              if (!orderDetails.deliveryDate) {
+                                return null;
+                              }
+
                               // Verificar antecedência mínima de 3 dias
                               const deliveryDate = new Date(orderDetails.deliveryDate);
+                              
+                              // Verificar se a data é válida
+                              if (isNaN(deliveryDate.getTime())) {
+                                return null;
+                              }
+                              
                               deliveryDate.setHours(0, 0, 0, 0);
 
                               const today = new Date();
@@ -1919,7 +1946,9 @@ export function OrderDetailDrawer({
                         }
 
                         // Verificar se é pedido urgente e não foi aprovado
-                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                        if (!deliveryDate) return null;
+                        
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
@@ -2132,7 +2161,9 @@ export function OrderDetailDrawer({
                         }
 
                         // 3. Verificar se é pedido urgente e não foi aprovado
-                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                        if (!deliveryDate) return "Faça upload dos documentos necessários para prosseguir com o pedido";
+                        
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
@@ -2163,7 +2194,9 @@ export function OrderDetailDrawer({
                         }
 
                         // 3. Verificar se é pedido urgente e não foi aprovado
-                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                        if (!deliveryDate) return null;
+                        
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
@@ -2192,7 +2225,12 @@ export function OrderDetailDrawer({
 
                       {(() => {
                         // 2. Verificar se é pedido urgente e não foi aprovado
-                        const deliveryDate = new Date(orderDetails.deliveryDate);
+                        const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                        if (!deliveryDate) {
+                          // Se não houver data de entrega, permitir o upload normal
+                          return null;
+                        }
+                        
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;

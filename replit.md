@@ -59,7 +59,7 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
-### October 17, 2025 - Afternoon
+### October 17, 2025 - Afternoon  
 - ✅ **Critical Bug Fixes - Order Table & Settings**
   - Fixed OrderDetailDrawer crash: added null/undefined check for deliveryDate before calling .toString()
   - Corrected API data mapping from snake_case to camelCase across all order table operations:
@@ -69,6 +69,11 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
     - Data export (CSV/XLSX)
   - Added missing `/api/settings` endpoints (GET, GET/:key, POST, PUT) to resolve "Failed to fetch settings" error
   - All endpoints tested and confirmed working (200/304 responses)
+  - **Resolved "Invalid time value" errors throughout OrderDetailDrawer**:
+    - Created `createValidDate()` helper function to safely handle date conversions
+    - Added validation checks before all `new Date()` calls on deliveryDate
+    - Protected all 6 locations where deliveryDate was used without validation
+    - Fixed in: canRequestReschedule(), tab disable logic, QR code section, and document upload sections
   - Architect review: PASS - flows function correctly, suggested future improvements for typed normalization helpers
 
 ### October 15, 2025 - Evening
