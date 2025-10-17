@@ -283,6 +283,7 @@ export function OrderDetailDrawer({
   const [activeTab, setActiveTab] = useState("details");
   // Estado para controlar a quantidade confirmada na entrega
   const [confirmedQuantity, setConfirmedQuantity] = useState("");
+  const [quantidadeRecebida, setQuantidadeRecebida] = useState("");
 
   // Estado para a foto da nota assinada
   const [fotoNotaAssinada, setFotoNotaAssinada] = useState<File | null>(null);
@@ -489,6 +490,7 @@ export function OrderDetailDrawer({
     if (open && orderDetails) {
       // Não resetamos a aba ativa aqui para manter a navegação entre abas
       setConfirmedQuantity("");
+      setQuantidadeRecebida("");
       setFotoNotaAssinada(null);
 
       // Verificar se os documentos já foram carregados com base no status do pedido
@@ -1035,7 +1037,9 @@ export function OrderDetailDrawer({
     if (!orderDetails || !canConfirmDelivery) return;
 
     if (action === "aprovado") {
-      if (!confirmedQuantity || parseFloat(confirmedQuantity) <= 0) {
+      const quantityToConfirm = quantidadeRecebida || confirmedQuantity;
+      
+      if (!quantityToConfirm || parseFloat(quantityToConfirm) <= 0) {
         toast({
           title: "Erro",
           description: "Informe uma quantidade válida",
@@ -1055,7 +1059,7 @@ export function OrderDetailDrawer({
 
       try {
         const formData = new FormData();
-        formData.append("quantidadeRecebida", confirmedQuantity);
+        formData.append("quantidadeRecebida", quantityToConfirm);
         formData.append("fotoNotaAssinada", fotoNotaAssinada);
 
         toast({
@@ -1081,6 +1085,7 @@ export function OrderDetailDrawer({
 
           // Limpar os campos
           setConfirmedQuantity("");
+          setQuantidadeRecebida("");
           setFotoNotaAssinada(null);
 
           // Não fechar o drawer, apenas atualizar para mostrar status entregue
@@ -2847,9 +2852,13 @@ export function OrderDetailDrawer({
                             <Input
                               type="number"
                               placeholder="Digite a quantidade recebida"
-                              value={confirmedQuantity}
-                              onChange={(e) => setConfirmedQuantity(e.target.value)}
-                              min="0"
+                              value={quantidadeRecebida}
+                              onChange={(e) => {
+                                setQuantidadeRecebida(e.target.value);
+                                setConfirmedQuantity(e.target.value);
+                              }}
+                              min="0.01"
+                              max="999999.99"
                               step="0.01"
                             />
                           </div>
@@ -2912,9 +2921,9 @@ export function OrderDetailDrawer({
                               onClick={() => handleConfirmDelivery("aprovado")}
                               className="flex-1"
                               disabled={
-                                !confirmedQuantity ||
+                                (!quantidadeRecebida && !confirmedQuantity) ||
                                 !fotoNotaAssinada ||
-                                parseFloat(confirmedQuantity) <= 0
+                                parseFloat(quantidadeRecebida || confirmedQuantity || "0") <= 0
                               }
                             >
                               <CheckCircle className="mr-2 h-4 w-4" />
