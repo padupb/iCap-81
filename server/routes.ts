@@ -97,9 +97,19 @@ function extractQuantityFromXML(xmlBuffer: Buffer): { quantity: number; productI
     }
 
     if (totalQuantity > 0) {
-      console.log(`✅ Quantidade total extraída do XML: ${totalQuantity}`);
+      // REGRA: Se quantidade for maior que 99, dividir por 1000
+      let finalQuantity = totalQuantity;
+      if (totalQuantity > 99) {
+        finalQuantity = totalQuantity / 1000;
+        console.log(`📊 Quantidade > 99 detectada. Aplicando divisão por 1000:`);
+        console.log(`   Original: ${totalQuantity}`);
+        console.log(`   Ajustada: ${finalQuantity}`);
+      } else {
+        console.log(`✅ Quantidade total extraída do XML: ${totalQuantity}`);
+      }
+      
       return {
-        quantity: totalQuantity,
+        quantity: finalQuantity,
         productInfo: productInfo
       };
     }
