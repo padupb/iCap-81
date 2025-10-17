@@ -408,15 +408,12 @@ export function OrderDetailDrawer({
     if (!order) return null;
 
     console.log('📋 Debug orderDetails:', {
-      orderId: order.id,
-      numeroPedido: order.numeroPedido,
+      id: order.id,
+      order_id: (order as any).order_id,
       numero_pedido: order.numero_pedido,
       status: order.status,
-      productId: order.productId,
       product_id: (order as any).product_id,
-      supplierId: order.supplierId,
       supplier_id: (order as any).supplier_id,
-      purchaseOrderId: order.purchaseOrderId,
       purchase_order_id: (order as any).purchase_order_id,
       deliveryDate: order.deliveryDate || (order as any).delivery_date,
       createdAt: order.createdAt || (order as any).created_at
@@ -1992,8 +1989,10 @@ export function OrderDetailDrawer({
                           );
                         }
 
-                        // Verificar se o orderId existe para gerar o QR code
-                        if (!orderDetails.orderId) {
+                        // Usar o código do pedido (order_id) para o QR code
+                        const pedidoCodigo = (orderDetails as any).order_id || orderDetails.orderId;
+                        
+                        if (!pedidoCodigo) {
                           return (
                             <div className="flex flex-col items-center justify-center p-6 border border-gray-200 rounded-lg bg-gray-50 w-full">
                               <AlertCircle className="h-12 w-12 text-gray-400 mb-2" />
@@ -2006,7 +2005,7 @@ export function OrderDetailDrawer({
 
                         return (
                           <QRCodeComponent
-                            value={String(orderDetails.orderId)}
+                            value={String(pedidoCodigo)}
                             size={150}
                             className="mt-4"
                           />
