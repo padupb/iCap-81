@@ -5,11 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date | undefined | null): string {
+  // Validar entrada
+  if (!date) return "Data não disponível";
+
   // Extrair a data diretamente da string ISO sem conversão de timezone
   const dateStr = typeof date === 'string' ? date : date.toISOString();
   const [datePart] = dateStr.split('T');
   const [year, month, day] = datePart.split('-');
+
+  // Retornar no formato DD/MM/YYYY
   return `${day}/${month}/${year}`;
 }
 
