@@ -417,13 +417,17 @@ export function OrderDetailDrawer({
       supplierId: order.supplierId,
       supplier_id: (order as any).supplier_id,
       purchaseOrderId: order.purchaseOrderId,
-      purchase_order_id: (order as any).purchase_order_id
+      purchase_order_id: (order as any).purchase_order_id,
+      deliveryDate: order.deliveryDate || (order as any).delivery_date,
+      createdAt: order.createdAt || (order as any).created_at
     });
 
     // Usar os campos corretos do banco de dados
     const productId = order.productId || (order as any).product_id;
     const supplierId = order.supplierId || (order as any).supplier_id;
     const purchaseOrderId = order.purchaseOrderId || (order as any).purchase_order_id;
+    const deliveryDate = order.deliveryDate || (order as any).delivery_date;
+    const createdAt = order.createdAt || (order as any).created_at;
 
     const product = products.find((p) => p.id === productId);
     const supplier = companies.find((c) => c.id === supplierId);
@@ -499,6 +503,8 @@ export function OrderDetailDrawer({
       purchaseOrderCompany,
       unit,
       workDestination, // Adicionar a obra de destino aos dados retornados
+      deliveryDate: deliveryDate, // Garantir que deliveryDate está presente
+      createdAt: createdAt, // Garantir que createdAt está presente
     } as OrderDetails & {
       purchaseOrderCompany?: Company;
       unit?: Unit;
