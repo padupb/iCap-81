@@ -2794,7 +2794,16 @@ export function OrderDetailDrawer({
                                 Entrega Confirmada
                               </h3>
                               <p className="text-sm text-green-600">
-                                Quantidade recebida: {formatNumber(orderDetails.quantidade_recebida || orderDetails.quantidadeRecebida)} {orderDetails.unit?.abbreviation || ""}
+                                Quantidade recebida: {(() => {
+                                  console.log('🔍 DEBUG quantidade_recebida:', {
+                                    quantidade_recebida: (orderDetails as any).quantidade_recebida,
+                                    quantidadeRecebida: (orderDetails as any).quantidadeRecebida,
+                                    confirmedQuantity: orderDetails.confirmedQuantity,
+                                    orderDetails: orderDetails
+                                  });
+                                  const valor = (orderDetails as any).quantidade_recebida || (orderDetails as any).quantidadeRecebida || orderDetails.confirmedQuantity;
+                                  return formatNumber(valor);
+                                })()} {orderDetails.unit?.abbreviation || ""}
                               </p>
                             </div>
                           </div>
