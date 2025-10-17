@@ -2846,16 +2846,22 @@ Status: Teste em progresso...`;
                     try {
                       // Buscar a ordem de compra para verificar o CNPJ de destino
                       const ordemCompraResult = await pool.query(
-                        "SELECT cnpj FROM ordens_compra WHERE id = $1",
+                        `SELECT oc.cnpj, c.id as obra_id, c.name as obra_nome 
+                         FROM ordens_compra oc
+                         LEFT JOIN companies c ON oc.cnpj = c.cnpj
+                         WHERE oc.id = $1`,
                         [order.purchaseOrderId]
                       );
 
                       if (ordemCompraResult.rows.length > 0) {
                         const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+                        const obraId = ordemCompraResult.rows[0].obra_id;
 
                         // Verificar se o CNPJ de destino corresponde à empresa do usuário
-                        if (cnpjDestino === userCompany.cnpj) {
+                        // OU se a obra de destino é a empresa do usuário
+                        if (cnpjDestino === userCompany.cnpj || obraId === userCompany.id) {
                           filteredOrders.push(order);
+                          console.log(`✅ Pedido ${order.orderId} incluído - destinado à obra ${userCompany.name}`);
                         }
                       }
                     } catch (error) {
@@ -3015,14 +3021,20 @@ Status: Teste em progresso...`;
                   if (order.purchaseOrderId) {
                     try {
                       const ordemCompraResult = await pool.query(
-                        "SELECT cnpj FROM ordens_compra WHERE id = $1",
+                        `SELECT oc.cnpj, c.id as obra_id, c.name as obra_nome 
+                         FROM ordens_compra oc
+                         LEFT JOIN companies c ON oc.cnpj = c.cnpj
+                         WHERE oc.id = $1`,
                         [order.purchaseOrderId]
                       );
 
                       if (ordemCompraResult.rows.length > 0) {
                         const cnpjDestino = ordemCompraResult.rows[0].cnpj;
+                        const obraId = ordemCompraResult.rows[0].obra_id;
 
-                        if (cnpjDestino === userCompany.cnpj) {
+                        // Verificar se o CNPJ de destino corresponde à empresa do usuário
+                        // OU se a obra de destino é a empresa do usuário
+                        if (cnpjDestino === userCompany.cnpj || obraId === userCompany.id) {
                           filteredReprogramacoes.push(order);
                         }
                       }
