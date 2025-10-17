@@ -31,9 +31,9 @@ function extractQuantityFromXML(xmlBuffer: Buffer): { quantity: number; productI
 
     console.log(`🔍 Parsing XML da NF-e...`);
 
-    // Estrutura típica de NF-e: nfeProc > NFe > infNFe > det > prod
+    // Estrutura típica de NF-e: nfeProc > NFe > infNFe
     let nfeData = null;
-    
+
     // Tentar diferentes estruturas possíveis de NF-e
     if (result.nfeProc?.NFe?.infNFe) {
       nfeData = result.nfeProc.NFe.infNFe;
@@ -76,7 +76,7 @@ function extractQuantityFromXML(xmlBuffer: Buffer): { quantity: number; productI
         // qTrib = quantidade tributável (alternativa)
         const qCom = parseFloat(prod.qCom || 0);
         const qTrib = parseFloat(prod.qTrib || 0);
-        
+
         // Usar quantidade comercial como padrão
         const itemQty = qCom || qTrib;
         totalQuantity += itemQty;
@@ -107,7 +107,7 @@ function extractQuantityFromXML(xmlBuffer: Buffer): { quantity: number; productI
       } else {
         console.log(`✅ Quantidade total extraída do XML: ${totalQuantity}`);
       }
-      
+
       return {
         quantity: finalQuantity,
         productInfo: productInfo
@@ -954,7 +954,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
           companyId: user.companyId,
           roleId: user.roleId,
           permissions: user.role ? user.role.permissions || [] : [],
-          isKeyUser: user.id === 1, // Assumendo que o usuário com ID 1 é o KeyUser
+          isKeyUser: user.id === 1, // Assumindo que o usuário com ID 1 é o KeyUser
           canConfirmDelivery: user.canConfirmDelivery,
           canCreateOrder: user.canCreateOrder,
           canCreatePurchaseOrder: user.canCreatePurchaseOrder
@@ -1380,7 +1380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // TESTE 2: Upload de arquivo de teste
-      log.push('\n📤 TESTE 2: Testando upload...');
+      log.log('\n📤 TESTE 2: Testando upload...');
       const testContent = `Teste da API Object Storage
 Executado por: ${req.user.name}
 Data/Hora: ${new Date().toLocaleString('pt-BR')}
@@ -1456,6 +1456,7 @@ Status: Teste em progresso...`;
         } else if (typeof downloadedData === 'object' && downloadedData !== null && downloadedData.length !== undefined) {
           // Array-like object
           try {
+            // Verificar se é um objeto com chaves numéricas
             const values = Object.values(downloadedData) as number[];
             rawData = new Uint8Array(values);
             log.push(`✅ Object array-like convertido para Uint8Array`);
@@ -2102,10 +2103,10 @@ Status: Teste em progresso...`;
   app.get("/api/companies", async (req, res) => {
     try {
       console.log("📋 Buscando todas as empresas...");
-      
+
       // Buscar diretamente do banco de dados
       const result = await pool.query(`
-        SELECT 
+        SELECT
           c.id,
           c.name,
           c.cnpj,
@@ -2124,9 +2125,9 @@ Status: Teste em progresso...`;
         LEFT JOIN company_categories cc ON c.category_id = cc.id
         ORDER BY c.name
       `);
-      
+
       console.log(`✅ ${result.rows.length} empresas encontradas`);
-      
+
       // Mapear resultados para incluir categoria como objeto
       const companiesWithCategory = result.rows.map(row => ({
         id: row.id,
@@ -2146,7 +2147,7 @@ Status: Teste em progresso...`;
           canEditPurchaseOrders: row.category_can_edit_purchase_orders
         } : null
       }));
-      
+
       res.json(companiesWithCategory);
     } catch (error) {
       console.error("Erro ao buscar empresas:", error);
@@ -2878,7 +2879,7 @@ Status: Teste em progresso...`;
     try {
       // Buscar pedidos com status "Aguardando Aprovação" OU "Suspenso" diretamente do banco com JOIN
       const reprogramacoesResult = await pool.query(`
-        SELECT 
+        SELECT
           o.id,
           o.order_id as "orderId",
           o.delivery_date as "deliveryDate",
@@ -2919,7 +2920,7 @@ Status: Teste em progresso...`;
       if (isKeyUserCheck) {
         console.log(`🔑 KeyUser ${req.user.name} (ID: ${req.user.id}) - visualização total de reprogramações`);
         console.log(`📋 Retornando ${reprogramacoes.length} reprogramações para KeyUser`);
-        
+
         const mappedReprogramacoes = reprogramacoes.map((r: any) => ({
           id: r.id,
           orderId: r.orderId,
@@ -3068,7 +3069,7 @@ Status: Teste em progresso...`;
 
       // 1. Verificar se é KeyUser (IDs 1-5)
       const isKeyUserCheck = req.user.id >= 1 && req.user.id <= 5;
-      
+
       if (isKeyUserCheck || req.user.isKeyUser === true) {
         console.log(`🔑 Acesso liberado para pedidos urgentes - KeyUser (ID ${req.user.id}): ${req.user.name}`);
 
@@ -3141,15 +3142,15 @@ Status: Teste em progresso...`;
       const dataEntregaParts = dataEntregaStr.split('T')[0].split('-');
       // Criar data em Cuiabá (GMT-4)
       const dataEntrega = new Date(Date.UTC(
-        parseInt(dataEntregaParts[0]), 
-        parseInt(dataEntregaParts[1]) - 1, 
+        parseInt(dataEntregaParts[0]),
+        parseInt(dataEntregaParts[1]) - 1,
         parseInt(dataEntregaParts[2]),
         4, 0, 0 // 04:00 UTC = 00:00 Cuiabá (GMT-4)
       ));
-      
+
       const validoDesde = new Date(ordemCompra.valido_desde);
       validoDesde.setHours(0, 0, 0, 0);
-      
+
       const validoAte = new Date(ordemCompra.valido_ate);
       validoAte.setHours(23, 59, 59, 999);
 
@@ -3343,7 +3344,7 @@ Status: Teste em progresso...`;
 
       // Verificar se faltam pelo menos 3 dias para a data de entrega
       const diasRestantes = getDaysDifference(new Date(order.delivery_date));
-      
+
       if (diasRestantes < 3) {
         return res.status(400).json({
           sucesso: false,
@@ -3361,8 +3362,8 @@ Status: Teste em progresso...`;
 
       // Atualizar o pedido para status Cancelado e zerar quantidade
       await pool.query(
-        `UPDATE orders 
-         SET status = 'Cancelado', 
+        `UPDATE orders
+         SET status = 'Cancelado',
              quantity = 0,
              rescheduling_comment = $1
          WHERE id = $2`,
@@ -3546,10 +3547,10 @@ Status: Teste em progresso...`;
   app.get("/api/empresas-para-ordens-compra", async (req, res) => {
     try {
       console.log("📋 Buscando empresas para ordens de compra...");
-      
+
       // Buscar todas as empresas com suas categorias
       const result = await pool.query(`
-        SELECT 
+        SELECT
           c.id,
           c.name,
           c.cnpj,
@@ -3568,9 +3569,9 @@ Status: Teste em progresso...`;
         LEFT JOIN company_categories cc ON c.category_id = cc.id
         ORDER BY c.name
       `);
-      
+
       console.log(`✅ ${result.rows.length} empresas encontradas para ordens de compra`);
-      
+
       // Mapear resultados
       const companies = result.rows.map(row => ({
         id: row.id,
@@ -3590,7 +3591,7 @@ Status: Teste em progresso...`;
           canEditPurchaseOrders: row.category_can_edit_purchase_orders
         } : null
       }));
-      
+
       res.json(companies);
     } catch (error) {
       console.error("Erro ao buscar empresas para ordens de compra:", error);
@@ -3813,7 +3814,7 @@ Status: Teste em progresso...`;
       // Converter datas para o fuso horário de Cuiabá (GMT-4)
       const validoDesdeStr = typeof validoDesde === 'string' ? validoDesde : validoDesde.toISOString();
       const validoAteStr = typeof validoAte === 'string' ? validoAte : validoAte.toISOString();
-      
+
       await pool.query(
         `UPDATE ordens_compra
          SET numero_ordem = $1,
@@ -4024,7 +4025,7 @@ Status: Teste em progresso...`;
       }
 
       const ordem = result.rows[0];
-      
+
       console.log(`✅ Ordem encontrada: ${ordem.numero_ordem}`);
 
       res.json(ordem);
@@ -4121,7 +4122,7 @@ Status: Teste em progresso...`;
         try {
           const downloadResult = await objectStorage.downloadAsBytes(ocKey);
           const buffer = extractBufferFromStorageResult(downloadResult);
-          
+
           if (buffer && buffer.length > 1) { // Verificar se o arquivo não está vazio ou corrompido
             console.log(`✅ PDF recuperado da pasta OC: ${ocKey} (${buffer.length} bytes)`);
 
@@ -4185,7 +4186,7 @@ Status: Teste em progresso...`;
 
       // Buscar informações do pedido incluindo documentos_info
       const pedidoResult = await pool.query(
-        "SELECT order_id, documentos_info FROM orders WHERE id = $1",
+        "SELECT order_id, documentos_info, foto_confirmacao FROM orders WHERE id = $1",
         [id]
       );
 
@@ -4398,7 +4399,7 @@ Status: Teste em progresso...`;
     }
   });
 
-  // Rota para baixar ZIP com documentos de múltiplos pedidos
+  // Rota para download de documentos de múltiplos pedidos em um ZIP
   app.post("/api/pedidos/download-zip", isAuthenticated, async (req, res) => {
     try {
       const { pedidoIds } = req.body;
@@ -4487,7 +4488,7 @@ Status: Teste em progresso...`;
               }
             }
 
-            // Se não encontrou via documentos_info/foto_confirmacao, tentar buscar diretamente no Object Storage
+            // Se não encontrou o arquivo, tentar buscar diretamente no Object Storage
             if (!fileBuffer && objectStorageAvailable && objectStorage && orderId) {
               try {
                 const listResult = await objectStorage.list();
@@ -4552,7 +4553,7 @@ Status: Teste em progresso...`;
       console.log(`📦 Gerando arquivo ZIP com ${filesAdded} documentos`);
 
       // Gerar o ZIP
-      const zipBuffer = await zip.generateAsync({ 
+      const zipBuffer = await zip.generateAsync({
         type: 'nodebuffer',
         compression: 'DEFLATE',
         compressionOptions: { level: 6 }
@@ -4570,7 +4571,7 @@ Status: Teste em progresso...`;
       res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
       res.setHeader('Content-Length', zipBuffer.length);
       res.setHeader('Cache-Control', 'no-cache');
-      
+
       return res.end(zipBuffer);
 
     } catch (error) {
@@ -4646,7 +4647,7 @@ Status: Teste em progresso...`;
               if (fieldName === 'nota_xml') {
                 console.log(`📊 Processando XML da NF-e para extrair quantidade...`);
                 xmlQuantityData = extractQuantityFromXML(fileBuffer);
-                
+
                 if (xmlQuantityData) {
                   console.log(`✅ Quantidade extraída: ${xmlQuantityData.quantity}`);
                   console.log(`📦 Produto: ${xmlQuantityData.productInfo.name || 'N/A'}`);
@@ -5012,7 +5013,7 @@ Status: Teste em progresso...`;
 
       // Verificar se faltam pelo menos 3 dias para a data de entrega
       const diasRestantes = getDaysDifference(new Date(pedido.delivery_date));
-      
+
       if (diasRestantes < 3) {
         return res.status(400).json({
           sucesso: false,
@@ -5022,8 +5023,8 @@ Status: Teste em progresso...`;
 
       // Atualizar pedido com nova data e justificativa (usando nomes corretos das colunas em português)
       await pool.query(
-        `UPDATE orders 
-         SET nova_data_entrega = $1, 
+        `UPDATE orders
+         SET nova_data_entrega = $1,
              justificativa_reprogramacao = $2,
              data_solicitacao_reprogramacao = NOW(),
              usuario_reprogramacao = $3,
@@ -5153,7 +5154,7 @@ Status: Teste em progresso...`;
 
       console.log(`📸 Download foto de confirmação - Pedido ${id}`);
 
-      // Buscar informações do pedido incluindo foto_confirmacao
+      // Buscar informações do pedido
       const pedidoResult = await pool.query(
         "SELECT order_id, foto_confirmacao, status FROM orders WHERE id = $1",
         [id]
@@ -5584,11 +5585,19 @@ Status: Teste em progresso...`;
 
       // Verificar se faltam pelo menos 3 dias para a data de entrega
       const diasRestantes = getDaysDifference(new Date(pedido.delivery_date));
-      
+
       if (diasRestantes < 3) {
         return res.status(400).json({
           sucesso: false,
           mensagem: "Cancelamentos devem ser feitos com pelo menos 3 dias de antecedência da data de entrega programada"
+        });
+      }
+
+      // Verificar se há documentos carregados
+      if (pedido.documentos_carregados || pedido.status === "Carregado") {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Pedidos com documentos fiscais carregados não podem ser cancelados"
         });
       }
 
@@ -6250,7 +6259,7 @@ Status: Teste em progresso...`;
 
       // Aprovar: atualizar delivery_date com a nova data e mudar status
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET delivery_date = nova_data_entrega,
              status = 'Aprovado',
              nova_data_entrega = NULL,
@@ -6303,7 +6312,7 @@ Status: Teste em progresso...`;
 
       // Rejeitar: cancelar o pedido
       await pool.query(
-        `UPDATE orders 
+        `UPDATE orders
          SET status = 'Cancelado',
              nova_data_entrega = NULL,
              justificativa_reprogramacao = NULL,
