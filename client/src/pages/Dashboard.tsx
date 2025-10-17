@@ -137,8 +137,14 @@ export default function Dashboard() {
                     </TableHeader>
                     <TableBody>
                       {recentOrders.map((order) => {
+                        // Mapear campos do banco de dados
+                        const productId = order.productId || (order as any).product_id;
+                        const orderId = (order as any).order_id || order.orderId;
+                        const deliveryDate = (order as any).delivery_date || order.deliveryDate;
+                        const isUrgent = order.isUrgent || (order as any).is_urgent;
+                        
                         const product = products.find(
-                          (p) => p.id === order.productId,
+                          (p) => p.id === productId,
                         );
 
                         return (
@@ -148,16 +154,16 @@ export default function Dashboard() {
                             onClick={() => handleOpenDetails(order)}
                           >
                             <TableCell className="font-mono text-sm text-foreground">
-                              {order.orderId}
+                              {orderId || "N/A"}
                             </TableCell>
                             <TableCell className="text-foreground">
-                              {product?.name || `Produto ID: ${order.productId}`}
+                              {product?.name || `Produto ID: ${productId}`}
                             </TableCell>
                             <TableCell>
                               <Badge className={getStatusColor(order.status)}>
                                 {order.status}
                               </Badge>
-                              {order.isUrgent && (
+                              {isUrgent && (
                                 <Badge variant="destructive" className="ml-2">
                                   <AlertTriangle size={12} className="mr-1" />
                                   Urgente
@@ -165,7 +171,7 @@ export default function Dashboard() {
                               )}
                             </TableCell>
                             <TableCell className="text-muted-foreground">
-                              {formatDate(order.deliveryDate)}
+                              {deliveryDate ? formatDate(deliveryDate) : "N/A"}
                             </TableCell>
                           </TableRow>
                         );
