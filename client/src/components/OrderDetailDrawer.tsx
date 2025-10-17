@@ -76,8 +76,6 @@ type OrderDetails = Order & {
   quantidadeRecebida?: string;
   quantidade_recebida?: string; // Campo do banco de dados
   documentosCarregados?: boolean;
-  fotoConfirmacao?: string | Record<string, any>; // Adicionado para fotoConfirmacao
-  foto_confirmacao?: string | Record<string, any>; // Adicionado para foto_confirmacao
 };
 
 // Tipo para tracking points
@@ -2796,25 +2794,7 @@ export function OrderDetailDrawer({
                                 Entrega Confirmada
                               </h3>
                               <p className="text-sm text-green-600">
-                                Quantidade recebida: {(() => {
-                                  // Buscar quantidade da foto_confirmacao
-                                  const fotoConfirmacao = orderDetails.fotoConfirmacao || (orderDetails as any).foto_confirmacao;
-                                  let quantidadeConfirmada = null;
-
-                                  if (fotoConfirmacao) {
-                                    try {
-                                      const confirmacao = typeof fotoConfirmacao === 'string' 
-                                        ? JSON.parse(fotoConfirmacao) 
-                                        : fotoConfirmacao;
-                                      quantidadeConfirmada = confirmacao?.quantidadeConfirmada;
-                                    } catch (e) {
-                                      console.error('Erro ao parse foto_confirmacao:', e);
-                                    }
-                                  }
-
-                                  const valor = quantidadeConfirmada || (orderDetails as any).quantidade_recebida || orderDetails.confirmedQuantity || parseFloat(orderDetails.quantity || "0");
-                                  return formatNumber(valor);
-                                })()} {orderDetails.unit?.abbreviation || ""}
+                                Quantidade recebida: {formatNumber((orderDetails as any).quantidadeRecebida || orderDetails.quantity)} {orderDetails.unit?.abbreviation || ""}
                               </p>
                             </div>
                           </div>
