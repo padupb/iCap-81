@@ -5832,6 +5832,61 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Settings routes
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const settings = await storage.getAllSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("❌ Erro ao buscar configurações:", error);
+      res.status(500).json({ message: "Erro ao buscar configurações" });
+    }
+  });
+
+  app.get("/api/settings/:key", async (req, res) => {
+    try {
+      const key = req.params.key;
+      const setting = await storage.getSetting(key);
+      if (!setting) {
+        return res.status(404).json({ message: "Configuração não encontrada" });
+      }
+      res.json(setting);
+    } catch (error) {
+      console.error("❌ Erro ao buscar configuração:", error);
+      res.status(500).json({ message: "Erro ao buscar configuração" });
+    }
+  });
+
+  app.post("/api/settings", async (req, res) => {
+    try {
+      const settingData = insertSettingSchema.parse(req.body);
+      const setting = await storage.createOrUpdateSetting(settingData);
+      res.status(201).json(setting);
+    } catch (error) {
+      console.error("❌ Erro ao criar configuração:", error);
+      res.status(500).json({ message: "Erro ao criar configuração" });
+    }
+  });
+
+  app.put("/api/settings", async (req, res) => {
+    try {
+      const settingsArray = req.body;
+      if (!Array.isArray(settingsArray)) {
+        return res.status(400).json({ message: "Esperado um array de configurações" });
+      }
+
+      for (const settingData of settingsArray) {
+        await storage.createOrUpdateSetting(settingData);
+      }
+
+      const updatedSettings = await storage.getAllSettings();
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error("❌ Erro ao atualizar configurações:", error);
+      res.status(500).json({ message: "Erro ao atualizar configurações" });
+    }
+  });
+
   // Rota para buscar todos os pedidos com filtros
   app.get("/api/pedidos", isAuthenticated, async (req, res) => {
     try {
