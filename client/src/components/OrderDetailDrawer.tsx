@@ -431,7 +431,7 @@ export function OrderDetailDrawer({
     const unit = product ? units.find((u) => u.id === product.unitId) : null;
 
     // Buscar ordem de compra: primeiro na tabela ordens_compra, depois em purchase_orders
-    let purchaseOrder = null;
+    let purchaseOrder: PurchaseOrder | null = null;
     let purchaseOrderCompany = null;
     let workDestination = null; // Nova variável para armazenar a obra de destino
 
@@ -483,6 +483,8 @@ export function OrderDetailDrawer({
         }
       }
     }
+
+    console.log("🔍 DEBUG Final - purchaseOrder após busca:", purchaseOrder);
 
     console.log('📋 Debug final orderDetails:', {
       product: product?.name,
@@ -2300,6 +2302,9 @@ export function OrderDetailDrawer({
                         console.log("🔍 DEBUG - confirmationType:", confirmationType);
                         console.log("🔍 DEBUG - orderDetails.purchaseOrder:", orderDetails.purchaseOrder);
                         console.log("🔍 DEBUG - documentsLoaded:", documentsLoaded);
+                        console.log("🔍 DEBUG - canUploadDocuments():", canUploadDocuments());
+                        console.log("🔍 DEBUG - user.companyId:", user?.companyId);
+                        console.log("🔍 DEBUG - orderDetails.supplierId:", orderDetails.supplierId);
 
                         if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
                           console.log("✅ DEBUG - Entrando na validação de validade");
