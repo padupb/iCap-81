@@ -1635,20 +1635,20 @@ export function OrderDetailDrawer({
                       // 3. Verificar tipo de confirmação
                       const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
 
-                      // 3a. Para produtos com número_pedido, permitir acesso se for fornecedor
+                      // 3a. Para produtos com número_pedido, SEMPRE permitir acesso ao fornecedor
                       if (confirmationType === "numero_pedido") {
-                        // Se o usuário pode fazer upload (é fornecedor), permitir acesso
+                        // Fornecedor sempre tem acesso (pode confirmar ou visualizar)
                         if (canUploadDocuments()) {
                           return false;
                         }
-                        // Se não pode fazer upload mas já foi confirmado, permitir visualização
+                        // Outros usuários só veem se já foi confirmado
                         if (orderDetails.numeroPedido || 
                             orderDetails.status === "Em Rota" ||
                             orderDetails.status === "Em transporte" ||
                             orderDetails.status === "Entregue") {
                           return false;
                         }
-                        // Caso contrário, bloquear
+                        // Bloquear para não-fornecedores antes da confirmação
                         return true;
                       }
 
