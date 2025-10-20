@@ -1630,9 +1630,27 @@ export function OrderDetailDrawer({
                         return true;
                       }
 
-                      // 3. NOVA REGRA: Para produtos com confirmação por nota fiscal, verificar período de validade
+                      // 3. Verificar tipo de confirmação
                       const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
 
+                      // 3a. Para produtos com número_pedido, permitir acesso se for fornecedor
+                      if (confirmationType === "numero_pedido") {
+                        // Se o usuário pode fazer upload (é fornecedor), permitir acesso
+                        if (canUploadDocuments()) {
+                          return false;
+                        }
+                        // Se não pode fazer upload mas já foi confirmado, permitir visualização
+                        if (orderDetails.numeroPedido || 
+                            orderDetails.status === "Em Rota" ||
+                            orderDetails.status === "Em transporte" ||
+                            orderDetails.status === "Entregue") {
+                          return false;
+                        }
+                        // Caso contrário, bloquear
+                        return true;
+                      }
+
+                      // 3b. Para produtos com nota_fiscal, verificar período de validade
                       if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
                         const purchaseOrder = orderDetails.purchaseOrder;
 
@@ -1645,7 +1663,6 @@ export function OrderDetailDrawer({
                           validFromDate = new Date(validFromRaw);
                           validFromDate.setHours(0, 0, 0, 0);
                         }
-
 
                         if (validFromDate) {
                           validFromDate.setHours(0, 0, 0, 0);
@@ -1669,8 +1686,10 @@ export function OrderDetailDrawer({
                         }
                       }
 
-                      // 4. Verificar se o usuário não é fornecedor e não há documentos carregados
-                      if (!canUploadDocuments() && !documentsLoaded &&
+                      // 4. Verificar se o usuário não é fornecedor e não há documentos carregados (apenas para nota_fiscal)
+                      if (confirmationType === "nota_fiscal" && 
+                          !canUploadDocuments() && 
+                          !documentsLoaded &&
                           orderDetails.status !== "Carregado" &&
                           orderDetails.status !== "Em Rota" &&
                           orderDetails.status !== "Em transporte" &&
