@@ -539,21 +539,25 @@ export default function Orders() {
   // Aplicar filtros aos pedidos
   const filteredOrders = orders.filter((order: any) => {
     // Filtrar por texto de busca
+    const product = products.find(p => p.id === order.product_id);
+    const company = companies.find(c => c.id === order.supplier_id);
+    
     const searchMatch =
-      String(order.orderId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(order.productId || "").includes(searchTerm) ||
+      String(order.order_id || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(product?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(company?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(order.workLocation || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     // Filtrar por status
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
 
     // Filtrar por produto
-    const productMatch = productFilter === "all" || (order as any).product_id === parseInt(productFilter);
+    const productMatch = productFilter === "all" || order.product_id === parseInt(productFilter);
 
     // Filtrar por período
     let dateMatch = true;
     if (startDate || endDate) {
-      const orderDate = new Date((order as any).delivery_date);
+      const orderDate = new Date(order.delivery_date);
 
       if (startDate && endDate) {
         const start = new Date(startDate);
