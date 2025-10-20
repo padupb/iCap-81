@@ -426,6 +426,13 @@ export function OrderDetailDrawer({
     const deliveryDate = order.deliveryDate || (order as any).delivery_date;
     const createdAt = order.createdAt || (order as any).created_at;
 
+    console.log('📋 Debug mapeamento de IDs:', {
+      orderId: order.id,
+      productId,
+      supplierId,
+      purchaseOrderId
+    });
+
     const product = products.find((p) => p.id === productId);
     const supplier = companies.find((c) => c.id === supplierId);
     const unit = product ? units.find((u) => u.id === product.unitId) : null;
@@ -496,6 +503,7 @@ export function OrderDetailDrawer({
 
     return {
       ...order,
+      supplierId, // Garantir que supplierId está mapeado corretamente
       product,
       supplier,
       purchaseOrder,
@@ -577,9 +585,17 @@ export function OrderDetailDrawer({
     // KeyUser sempre pode fazer upload (exceto em pedidos cancelados/suspensos)
     if (user.id === 1 || user.isKeyUser) return true;
 
+    // Obter supplier_id usando múltiplas possibilidades de campo
+    const supplierId = orderDetails.supplierId || (orderDetails as any).supplier_id;
+
     // Verificar se o usuário pertence à empresa fornecedora do pedido
-    if (user.companyId && orderDetails.supplierId) {
-      return user.companyId === orderDetails.supplierId;
+    if (user.companyId && supplierId) {
+      console.log('🔍 Verificação de permissão upload:', {
+        userCompanyId: user.companyId,
+        supplierId,
+        match: user.companyId === supplierId
+      });
+      return user.companyId === supplierId;
     }
 
     return false;
@@ -1637,10 +1653,26 @@ export function OrderDetailDrawer({
 
                       // 3a. Para produtos com número_pedido, SEMPRE permitir acesso ao fornecedor
                       if (confirmationType === "numero_pedido") {
+                        // Obter supplier_id do pedido
+                        const supplierId = orderDetails.supplierId || (orderDetails as any).supplier_id;
+                        
+                        // Verificar se o usuário é fornecedor deste pedido
+                        const isSupplier = user?.companyId && supplierId && user.companyId === supplierId;
+                        
+                        console.log('🔐 Debug acesso aba documentos (numero_pedido):', {
+                          userId: user?.id,
+                          userCompanyId: user?.companyId,
+                          supplierId,
+                          isSupplier,
+                          numeroPedido: orderDetails.numeroPedido,
+                          status: orderDetails.status
+                        });
+                        
                         // Fornecedor sempre tem acesso (pode confirmar ou visualizar)
-                        if (canUploadDocuments()) {
+                        if (isSupplier || user?.isKeyUser) {
                           return false;
                         }
+                        
                         // Outros usuários só veem se já foi confirmado
                         if (orderDetails.numeroPedido || 
                             orderDetails.status === "Em Rota" ||
@@ -1648,6 +1680,7 @@ export function OrderDetailDrawer({
                             orderDetails.status === "Entregue") {
                           return false;
                         }
+                        
                         // Bloquear para não-fornecedores antes da confirmação
                         return true;
                       }
