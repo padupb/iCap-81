@@ -474,7 +474,7 @@ export class MemStorage implements IStorage {
 
   // System Logs
   async getAllLogs(): Promise<SystemLog[]> {
-    return Array.from(this.systemLogs.values()).sort((a, b) => 
+    return Array.from(this.systemLogs.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
   }
@@ -987,8 +987,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
-    // Gerar OrderID automático baseado na empresa criadora
-    const orderId = await this.generateOrderIdForOrder(insertOrder);
+    const { pool } = await import("./db");
+
+    // Gerar order_id usando a empresa da ordem de compra
+    const orderId = await this.generateOrderId(insertOrder.purchaseOrderId);
 
     // Calcular se o pedido é urgente baseado na data de entrega
     const now = new Date();
@@ -1031,7 +1033,7 @@ export class DatabaseStorage implements IStorage {
     return order;
   }
 
-  private async generateOrderIdForOrder(insertOrder: InsertOrder): Promise<string> {
+  private async generateOrderId(purchaseOrderId?: number): Promise<string> {
     const now = new Date();
     const day = now.getDate().toString().padStart(2, '0');
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -1041,53 +1043,54 @@ export class DatabaseStorage implements IStorage {
     const sequentialNumber = await this.getNextSequentialNumber();
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
-    let prefix = "CAP"; // Padrão caso não consiga determinar
+    // Determinar prefixo baseado na empresa DA ORDEM DE COMPRA (destino/obra)
+    let prefix = "CAP"; // Prefixo padrão
 
     try {
-      // Buscar a empresa criadora da obra através da ordem de compra
-      if (insertOrder.purchaseOrderId) {
+      if (purchaseOrderId) {
         const { pool } = await import("./db");
 
         // Buscar a ordem de compra para pegar o CNPJ da obra de destino
-        const purchaseOrderResult = await pool.query(`
-          SELECT oc.cnpj 
-          FROM ordens_compra oc 
-          WHERE oc.id = $1
-        `, [insertOrder.purchaseOrderId]);
+        const purchaseOrderResult = await pool.query(
+          "SELECT cnpj FROM ordens_compra WHERE id = $1",
+          [purchaseOrderId]
+        );
 
         if (purchaseOrderResult.rows.length > 0) {
           const cnpjObra = purchaseOrderResult.rows[0].cnpj;
+          console.log(`🔍 CNPJ da obra na ordem de compra: ${cnpjObra}`);
 
-          // Buscar a empresa dona da obra pelo CNPJ
-          const companyResult = await pool.query(`
-            SELECT name 
-            FROM companies 
-            WHERE cnpj = $1
-          `, [cnpjObra]);
+          // Buscar a empresa (obra) pelo CNPJ
+          const companyResult = await pool.query(
+            "SELECT id, name FROM companies WHERE cnpj = $1",
+            [cnpjObra]
+          );
 
           if (companyResult.rows.length > 0) {
+            const companyId = companyResult.rows[0].id;
             const companyName = companyResult.rows[0].name;
+            console.log(`🏢 Empresa encontrada: ${companyName} (ID: ${companyId})`);
 
             // Buscar se há uma sigla personalizada configurada para esta empresa
-            const companyId = await this.getCompanyIdByName(companyName);
-            if (companyId) {
-              const customAcronymSetting = await this.getSetting(`company_${companyId}_acronym`);
-              if (customAcronymSetting?.value) {
-                prefix = customAcronymSetting.value;
-                console.log(`📝 Usando sigla personalizada "${prefix}" para empresa "${companyName}"`);
-              } else {
-                prefix = this.generateCompanyAcronym(companyName);
-                console.log(`📝 Gerada sigla automática "${prefix}" para empresa "${companyName}"`);
-              }
+            const customAcronymSetting = await this.getSetting(`company_${companyId}_acronym`);
+            if (customAcronymSetting?.value) {
+              prefix = customAcronymSetting.value;
+              console.log(`📝 Usando sigla personalizada "${prefix}" para empresa "${companyName}"`);
             } else {
               prefix = this.generateCompanyAcronym(companyName);
               console.log(`📝 Gerada sigla automática "${prefix}" para empresa "${companyName}"`);
             }
+          } else {
+            console.log(`⚠️ Empresa não encontrada para CNPJ: ${cnpjObra} - usando prefixo padrão CAP`);
           }
+        } else {
+          console.log(`⚠️ Ordem de compra não encontrada: ${purchaseOrderId} - usando prefixo padrão CAP`);
         }
+      } else {
+        console.log(`⚠️ purchaseOrderId não fornecido - usando prefixo padrão CAP`);
       }
     } catch (error) {
-      console.log("Erro ao determinar empresa criadora, usando prefixo padrão CAP:", error);
+      console.log("❌ Erro ao determinar empresa da obra, usando prefixo padrão CAP:", error);
     }
 
     let baseOrderId = `${prefix}${day}${month}${year}${paddedNumber}`;
@@ -1104,6 +1107,7 @@ export class DatabaseStorage implements IStorage {
       );
 
       if (existingOrder.rows.length === 0) {
+        console.log(`✅ Order ID gerado: ${orderId}`);
         break; // ID não existe, pode usar
       }
 
@@ -1114,6 +1118,7 @@ export class DatabaseStorage implements IStorage {
 
     return orderId;
   }
+
 
   async updateOrder(id: number, updateData: Partial<Order>): Promise<Order | undefined> {
     // Se não há banco de dados, usar implementação em memória
