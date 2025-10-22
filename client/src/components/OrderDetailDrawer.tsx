@@ -497,7 +497,7 @@ export function OrderDetailDrawer({
       product: product?.name,
       supplier: supplier?.name,
       unit: unit?.abbreviation,
-      purchaseOrder: purchaseOrder?.orderNumber || purchaseOrder?.numero_ordem,
+      purchaseOrder: purchaseOrder?.orderNumber || purchaseOrder?.orderNumber,
       workDestination: workDestination?.name
     });
 
@@ -613,10 +613,10 @@ export function OrderDetailDrawer({
 
     // Verificar se faltam pelo menos 3 dias para a data de entrega
     const deliveryDate = new Date(orderDetails.deliveryDate);
-    
+
     // Verificar se a data é válida
     if (isNaN(deliveryDate.getTime())) return false;
-    
+
     deliveryDate.setHours(0, 0, 0, 0);
 
     const today = new Date();
@@ -1638,7 +1638,7 @@ export function OrderDetailDrawer({
                       // 2. Verificar se é pedido urgente e não foi aprovado
                       const deliveryDate = createValidDate(orderDetails.deliveryDate);
                       if (!deliveryDate) return false;
-                      
+
                       const today = new Date();
                       const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                       const isUrgent = daysDiff <= 7;
@@ -1655,10 +1655,10 @@ export function OrderDetailDrawer({
                       if (confirmationType === "numero_pedido") {
                         // Obter supplier_id do pedido
                         const supplierId = orderDetails.supplierId || (orderDetails as any).supplier_id;
-                        
+
                         // Verificar se o usuário é fornecedor deste pedido
                         const isSupplier = user?.companyId && supplierId && user.companyId === supplierId;
-                        
+
                         console.log('🔐 Debug acesso aba documentos (numero_pedido):', {
                           userId: user?.id,
                           userCompanyId: user?.companyId,
@@ -1667,12 +1667,12 @@ export function OrderDetailDrawer({
                           numeroPedido: orderDetails.numeroPedido,
                           status: orderDetails.status
                         });
-                        
+
                         // Fornecedor sempre tem acesso (pode confirmar ou visualizar)
                         if (isSupplier || user?.isKeyUser) {
                           return false;
                         }
-                        
+
                         // Outros usuários só veem se já foi confirmado
                         if (orderDetails.numeroPedido || 
                             orderDetails.status === "Em Rota" ||
@@ -1680,7 +1680,7 @@ export function OrderDetailDrawer({
                             orderDetails.status === "Entregue") {
                           return false;
                         }
-                        
+
                         // Bloquear para não-fornecedores antes da confirmação
                         return true;
                       }
@@ -1913,12 +1913,12 @@ export function OrderDetailDrawer({
 
                               // Verificar antecedência mínima de 3 dias
                               const deliveryDate = new Date(orderDetails.deliveryDate);
-                              
+
                               // Verificar se a data é válida
                               if (isNaN(deliveryDate.getTime())) {
                                 return null;
                               }
-                              
+
                               deliveryDate.setHours(0, 0, 0, 0);
 
                               const today = new Date();
@@ -2024,7 +2024,7 @@ export function OrderDetailDrawer({
                         // Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = createValidDate(orderDetails.deliveryDate);
                         if (!deliveryDate) return null;
-                        
+
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
@@ -2045,7 +2045,7 @@ export function OrderDetailDrawer({
 
                         // Usar o código do pedido (order_id) para o QR code
                         const pedidoCodigo = (orderDetails as any).order_id || orderDetails.orderId;
-                        
+
                         if (!pedidoCodigo) {
                           return (
                             <div className="flex flex-col items-center justify-center p-6 border border-gray-200 rounded-lg bg-gray-50 w-full">
@@ -2253,7 +2253,7 @@ export function OrderDetailDrawer({
                         // 3. Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = createValidDate(orderDetails.deliveryDate);
                         if (!deliveryDate) return "Faça upload dos documentos necessários para prosseguir com o pedido";
-                        
+
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
@@ -2286,7 +2286,7 @@ export function OrderDetailDrawer({
                         // 3. Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = createValidDate(orderDetails.deliveryDate);
                         if (!deliveryDate) return null;
-                        
+
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
@@ -2320,7 +2320,7 @@ export function OrderDetailDrawer({
                           // Se não houver data de entrega, permitir o upload normal
                           return null;
                         }
-                        
+
                         const today = new Date();
                         const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                         const isUrgent = daysDiff <= 7;
@@ -3049,7 +3049,7 @@ export function OrderDetailDrawer({
                                   <input
                                     ref={fotoNotaAssinadaRef}
                                     type="file"
-                                    accept="image/*"
+                                    accept="image/jpeg,image/png"
                                     onChange={(e) => handleFotoChange(e, setFotoNotaAssinada)}
                                     className="hidden"
                                   />
