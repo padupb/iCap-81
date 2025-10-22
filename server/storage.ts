@@ -149,7 +149,7 @@ export class MemStorage implements IStorage {
       { key: "app_name", value: "i-CAP 5.0", description: "Nome da aplicação" },
       { key: "keyuser_email", value: "padupb@admin.icap", description: "E-mail do superadministrador" },
       { key: "keyuser_password", value: "170824", description: "Senha do superadministrador" },
-      { key: "order_id_pattern", value: "EMPRESA{DD}{MM}{YY}{NNNN}", description: "Padrão de numeração de pedidos (EMPRESA = sigla da empresa criadora)" },
+      { key: "order_id_pattern", value: "CNI{DD}{MM}{YY}{NNNN}", description: "Padrão de numeração de pedidos CNI (Consorcio Nova imigrantes)" },
       { key: "use_company_acronym", value: "true", description: "Usar sigla da empresa criadora no prefixo dos pedidos" },
       { key: "google_drive_client_email", value: "", description: "Email da Service Account do Google Drive" },
       { key: "google_drive_private_key", value: "", description: "Chave privada da Service Account do Google Drive" },
@@ -1173,7 +1173,7 @@ export class DatabaseStorage implements IStorage {
     // Buscar configuração de padrão personalizado se existir
     const patternSetting = await this.getSetting("order_id_pattern");
 
-    if (patternSetting?.value && patternSetting.value !== "CAP{DD}{MM}{YY}{NNNN}") {
+    if (patternSetting?.value && patternSetting.value !== "CNI{DD}{MM}{YY}{NNNN}") {
       // Se há um padrão personalizado configurado, usar ele
       return await this.generateOrderIdWithPattern(patternSetting.value);
     }
