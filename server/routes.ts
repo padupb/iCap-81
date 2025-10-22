@@ -3250,8 +3250,8 @@ Status: Teste em progresso...`;
       // Criar o pedido usando uma inserção direta para garantir que isUrgent e status sejam salvos
       const orderResult = await pool.query(
         `INSERT INTO orders 
-         (order_id, product_id, quantity, supplier_id, work_location, delivery_date, status, is_urgent, user_id, purchase_order_id, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+         (order_id, product_id, quantity, supplier_id, work_location, delivery_date, status, is_urgent, user_id, purchase_order_id, observacoes, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
          RETURNING *`,
         [
           `ORD${Date.now()}`, // ID temporário, será substituído pelo trigger
@@ -3263,7 +3263,8 @@ Status: Teste em progresso...`;
           status,
           isUrgent,
           orderData.userId || req.session.userId || 1,
-          orderData.purchaseOrderId
+          orderData.purchaseOrderId,
+          orderData.observacoes || null
         ]
       );
 
