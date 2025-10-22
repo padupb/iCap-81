@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -134,6 +135,7 @@ const orderFormSchema = z.object({
       message: "Quantidade deve ser maior que zero",
     }),
   deliveryDate: z.string({ required_error: "Informe a data de entrega" }),
+  observacoes: z.string().max(250, "As observações devem ter no máximo 250 caracteres").optional(),
 });
 
 // Inferir tipo a partir do schema
@@ -1055,6 +1057,30 @@ export default function Orders() {
                             </div>
                           </div>
                         )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Observações */}
+                  <FormField
+                    control={form.control}
+                    name="observacoes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Observações (opcional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Digite observações sobre o pedido (máximo 250 caracteres)"
+                            className="bg-input border-border resize-none"
+                            maxLength={250}
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                        <div className="text-xs text-muted-foreground text-right">
+                          {field.value?.length || 0}/250 caracteres
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
