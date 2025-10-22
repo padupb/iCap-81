@@ -3247,6 +3247,38 @@ Status: Teste em progresso...`;
         autoApproved: !isUrgent
       });
 
+      // Gerar order_id no formato CNI{DD}{MM}{YY}{NNNN}
+      const nowForId = new Date();
+      const day = nowForId.getDate().toString().padStart(2, '0');
+      const month = (nowForId.getMonth() + 1).toString().padStart(2, '0');
+      const year = nowForId.getFullYear().toString().slice(-2);
+      const prefix = "CNI";
+      const dateStr = `${day}${month}${year}`;
+
+      // Buscar o último pedido criado hoje para obter o próximo número sequencial
+      const todayStr = `${nowForId.getFullYear()}-${(nowForId.getMonth() + 1).toString().padStart(2, '0')}-${nowForId.getDate().toString().padStart(2, '0')}`;
+      const lastOrderResult = await pool.query(
+        `SELECT order_id FROM orders 
+         WHERE DATE(created_at) = $1 AND order_id LIKE $2
+         ORDER BY id DESC 
+         LIMIT 1`,
+        [todayStr, `${prefix}${dateStr}%`]
+      );
+
+      let sequentialNumber = 1;
+      if (lastOrderResult.rows.length > 0) {
+        const lastOrderId = lastOrderResult.rows[0].order_id;
+        const numberMatch = lastOrderId.match(/(\d{4})$/);
+        if (numberMatch) {
+          sequentialNumber = parseInt(numberMatch[1]) + 1;
+        }
+      }
+
+      const paddedNumber = sequentialNumber.toString().padStart(4, '0');
+      const orderId = `${prefix}${dateStr}${paddedNumber}`;
+
+      console.log(`✅ Order ID gerado: ${orderId} (prefixo: ${prefix}, data: ${day}/${month}/${year}, sequencial do dia: ${paddedNumber})`);
+
       // Criar o pedido usando uma inserção direta para garantir que isUrgent e status sejam salvos
       const orderResult = await pool.query(
         `INSERT INTO orders 
@@ -3254,7 +3286,7 @@ Status: Teste em progresso...`;
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
          RETURNING *`,
         [
-          `ORD${Date.now()}`, // ID temporário, será substituído pelo trigger
+          orderId,
           orderData.productId,
           orderData.quantity,
           orderData.supplierId,
