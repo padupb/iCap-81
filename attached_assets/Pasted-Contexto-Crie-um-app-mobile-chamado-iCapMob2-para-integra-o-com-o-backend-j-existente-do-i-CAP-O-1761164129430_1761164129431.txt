@@ -1,0 +1,255 @@
+Contexto
+Crie um app mobile chamado iCapMob2 para integração com o backend já existente do i-CAP. O app deve:
+
+Funcionar offline-first e sincronizar dados ao recuperar conexão.
+
+Ler QR Code para identificar pedidos/carregamentos.
+
+Respeitar perfis de usuário: Transportador e Recebedor (com base nas credenciais/role retornadas pelo backend).
+
+Geolocalização: para Transportador, registrar e enviar coordenadas a cada 1 hora enquanto estiver “em rota”.
+
+Para Recebedor, upload de nota fiscal (câmera ou galeria) e confirmação de quantidades (tela “Confirmar recebimento” em versão mobile).
+
+Stack e Projeto
+React Native com Expo (TypeScript).
+
+Gerência de estado: Redux Toolkit + RTK Query (para APIs e cache).
+
+Offline: SQLite (expo-sqlite) OU WatermelonDB (pode escolher um; priorize simplicidade com expo-sqlite) + filas de sincronização.
+
+Background tasks: Expo Task Manager + Background Fetch + expo-location para job de localização a cada 1h (mesmo em segundo plano).
+
+QR Code: expo-barcode-scanner.
+
+Upload de imagem: expo-image-picker + envio multipart/form-data.
+
+Autenticação: JWT com refresh; armazenamento seguro (expo-secure-store). O backend já existe.
+
+Env: dotenv-style via app.config.js (Expo) e/ou @env.
+
+Lint/Qualidade: ESLint + Prettier + Jest + Testing Library.
+
+Estrutura do Repositório
+bash
+Copiar código
+/app
+  /api
+  /features
+    /auth
+    /sync
+    /tracking
+    /recebimento
+    /scanner
+    /home
+  /components
+  /db
+  /hooks
+  /utils
+assets/
+app.json
+app.config.js
+eas.json
+package.json
+README.md
+Telas (UX resumida)
+Login (email/senha) → salva tokens; consulta perfil/role.
+
+Home (Dashboard)
+
+Se role=TRANSPORTADOR: botões “Escanear carregamento”, “Iniciar rota” (se aplicável), “Finalizar entrega”.
+
+Se role=RECEBEDOR: atalhos para “Confirmar recebimento”, “Escanear NF”, “Upload NF”.
+
+Indicadores de status de conexão (online/offline) e fila de sincronização.
+
+Scanner (QR)
+
+Lê código → resolve para pedidoId/carregamentoId.
+
+Fluxo Transportador
+
+Confirmar Carregamento (após QR): confirma e muda status para “em rota”.
+
+Rastreamento em rota: inicia tarefa de segundo plano que grava coordenada 1x/h (timestamp, lat, lon, precisão, bateria opcional) em tabela local e agenda envio.
+
+Finalizar Entrega: encerra rastreamento, marca entrega concluída, libera botão para “Escanear novo carregamento”.
+
+Fluxo Recebedor
+
+Upload NF: tira foto ou escolhe da galeria; preview e envio multipart.
+
+Confirmar Recebimento: formulário com itens/quantidades (espelho da aba web “Confirmar recebimento”); permite ajustes, observações e submissão.
+
+Sincronização
+
+Tela/área de status mostrando pendências (tracking_points não enviados, recebimentos pendentes, notas fiscais a subir, etc.), com opção “forçar sync agora”.
+
+Funcionalidades Detalhadas
+Offline-first:
+
+Toda ação cria um registro local e entra numa fila de sync com status: pending.
+
+Ao detectar rede, a fila é processada em ordem FIFO, com retry exponencial e resolução de conflitos (última escrita vence para tracking; para recebimento, preferir confirmação mais recente e sinalizar divergência).
+
+Geolocalização (Transportador):
+
+Permissões foreground + background.
+
+Tarefa em 2º plano salva em SQLite tracking_points com pedidoId, timestamp, lat, lon, accuracy, source.
+
+Política de energia: usar Background Fetch/task manager com intervalo alvo de 1h.
+
+Envio em lote quando online para /tracking_points.
+
+Scanner (QR):
+
+Ao escanear, bater em /carregamentos/:codigo (ou rota equivalente) para obter metadados.
+
+Recebimento e NF:
+
+Upload NF: multipart para /recebimentos/:id/nf-upload.
+
+Confirmar quantidades: POST/PUT para /recebimentos/:id/confirmar com itens, quantidades, observações, evidências (imagens anexas).
+
+Autenticação e Perfis:
+
+/auth/login retorna accessToken, refreshToken, role (TRANSPORTADOR/RECEBEDOR) e dados do usuário.
+
+Interceptor RTK Query para refresh automático no 401.
+
+Telemetria/Logs:
+
+Logger local para falhas de sync, erros de permissões, e última execução de background task (visível na tela de “Status”).
+
+Modelos (SQLite)
+ts
+Copiar código
+// tabela usuarios (mínimo)
+usuarios(id, nome, email, role, updatedAt)
+
+// tabela tracking_points
+tracking_points(id, pedidoId, lat, lon, accuracy, createdAt, syncedAt NULLABLE, status ENUM('pending','synced','error'))
+
+// tabela recebimentos
+recebimentos(id, pedidoId, status, observacao, updatedAt, syncedAt)
+
+// tabela recebimento_itens
+recebimento_itens(id, recebimentoId, insumoId, descricao, qtdPrevista, qtdConfirmada, unidademedida)
+
+// tabela anexos (NF/imagens)
+anexos(id, entidade, entidadeId, uriLocal, remoteUrl NULLABLE, mime, createdAt, syncedAt, status)
+Contratos de API (exemplos — ajustar aos endpoints reais)
+POST /auth/login { email, senha } -> { accessToken, refreshToken, role, user }
+
+GET /carregamentos/:codigo -> { pedidoId, ... }
+
+POST /carregamentos/:pedidoId/confirmar-carregamento -> { status }
+
+POST /tracking_points -> [{ pedidoId, lat, lon, accuracy, timestamp }]
+
+POST /recebimentos/:id/confirmar -> { itens: [...], observacao }
+
+POST /recebimentos/:id/nf-upload multipart: file, metadata
+
+POST /auth/refresh -> { accessToken }
+
+Sincronizador
+Serviço que observa conectividade.
+
+Processa em blocos: 1) anexos (NF), 2) tracking_points, 3) recebimentos.
+
+Marca cada registro como synced com syncedAt em sucesso; guarda lastSyncAt global.
+
+Em erro, incrementa retryCount, aplica backoff exponencial com jitter.
+
+Segurança e Privacidade
+Armazene tokens em expo-secure-store.
+
+Não grave dados sensíveis em logs.
+
+Para imagens, comprimir e sanitizar metadados (remover EXIF que não seja necessário).
+
+Permissões Android
+Solicitar e justificar:
+
+Câmera (QR + foto da NF).
+
+Fotos/Media (galeria).
+
+Localização em foreground e background (rastreamento 1x/h “em rota”).
+
+Gerar mensagens de UX explicando o porquê.
+
+UI/Design
+Layout ancorado no topo, simples e funcional (cores claras).
+
+Botão “Home” constante no header para voltar ao Dashboard.
+
+Indicadores: Online/Offline, Fila de Sync (N), Status Rota (Idle/Em rota/Finalizado).
+
+Testes
+Unit (Jest) para reducers, selectors, utils (sync scheduler, mappers).
+
+Integração (Testing Library) para fluxos de login, escaneamento e confirmação.
+
+Mocks de API (MSW) para testes offline/online.
+
+Entregáveis
+Código completo RN/Expo (TypeScript) com README detalhado.
+
+Script de seed local (ex.: usuários fake) para navegação em dev.
+
+Arquivo eas.json configurado para Android (build profile preview e production).
+
+.apk (ou .aab) gerado via EAS.
+
+Instruções para rodar no Replit (como repo/espelho) e build via Expo EAS (cloud).
+
+Passo a passo (Dev → Android)
+npx create-expo-app iCapMob2 --template
+
+Adicionar libs: expo-location, expo-task-manager, expo-background-fetch, expo-barcode-scanner, expo-image-picker, expo-file-system, expo-secure-store, @reduxjs/toolkit, react-redux, @react-native-async-storage/async-storage, expo-sqlite, expo-dev-client, jest, @testing-library/react-native.
+
+Configurar RTK Query com baseURL do backend i-CAP e interceptores de token/refresh.
+
+Implementar DB local + filas + sincronizador + serviços de background.
+
+Implementar telas e fluxos dos dois perfis.
+
+Testar offline (modo avião), depois online (envio pendências).
+
+Configurar eas.json; executar eas build -p android --profile preview para gerar APK.
+
+Publicar instruções no README (inclua como alterar baseURL via env).
+
+Critérios de Aceite (checklist)
+ Login com roles distintas e redirecionamento correto.
+
+ Scanner QR funcional, resolvendo pedido/carregamento.
+
+ Transportador: confirmar carregamento → status “em rota” → grava coordenada a cada 1h em 2º plano → finalizar entrega encerra tarefa e libera novo scan.
+
+ Recebedor: upload de NF (câmera/galeria) com envio multipart; formulário “Confirmar recebimento” com itens e quantidades; envio e sincronização.
+
+ App opera sem internet, mantém dados e fila; ao voltar conexão, sincroniza automaticamente.
+
+ Tokens seguros; refresh automático; tratamento de 401.
+
+ APK/AAB gerado via EAS e instalável em Android.
+
+Variáveis de ambiente (exemplo)
+API_BASE_URL=https://SEU_BACKEND/api
+
+TRACKING_INTERVAL_MINUTES=60
+
+IMAGE_MAX_WIDTH=1600
+
+Observações finais ao gerador
+Comentar trechos críticos (background tasks, sync, tratamento de permissões).
+
+Incluir fallback se Android limitar execução em segundo plano (usar Background Fetch + persistência e disparar envio ao abrir o app).
+
+Garantir que a tarefa de localização só rode enquanto o status do pedido for “em rota”.
+
+Deixar pronto um dev toggle na Home para simular offline/online e disparar sync manual.
