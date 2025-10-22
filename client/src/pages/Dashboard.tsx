@@ -142,7 +142,7 @@ export default function Dashboard() {
                         const orderId = order.orderId || (order as any).order_id || `PED-${order.id}`;
                         const deliveryDate = order.deliveryDate || (order as any).delivery_date;
                         
-                        // Calcular se é urgente ignorando horas (apenas se tiver MENOS de 7 dias)
+                        // Calcular se é urgente ignorando horas
                         let isUrgent = order.isUrgent || (order as any).is_urgent || false;
                         if (!isUrgent && deliveryDate) {
                           const delivery = new Date(deliveryDate);
@@ -150,8 +150,7 @@ export default function Dashboard() {
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
                           const daysDiff = Math.floor((delivery.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                          // Urgente apenas com 0 a 6 dias completos
-                          isUrgent = daysDiff >= 0 && daysDiff < 7;
+                          isUrgent = daysDiff < 7;
                         }
                         
                         const product = products.find(
