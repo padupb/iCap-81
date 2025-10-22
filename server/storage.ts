@@ -1188,16 +1188,8 @@ export class DatabaseStorage implements IStorage {
     const sequentialNumber = await this.getNextSequentialNumber();
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
-    // Por padrão usar "CAP" se não consiga determinar a empresa
-    let prefix = "CAP";
-
-    try {
-      // Tentar determinar a empresa criadora (isso será implementado quando tivermos o contexto do usuário)
-      // Por enquanto, vamos usar o padrão antigo
-      prefix = "CAP";
-    } catch (error) {
-      console.log("Usando prefixo padrão CAP");
-    }
+    // Usar prefixo CNI (Consorcio Nova imigrantes)
+    let prefix = "CNI";
 
     let baseOrderId = `${prefix}${day}${month}${year}${paddedNumber}`;
     let counter = 0;
