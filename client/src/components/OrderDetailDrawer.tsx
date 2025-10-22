@@ -883,6 +883,19 @@ export function OrderDetailDrawer({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       console.log("Arquivo selecionado:", file.name, file.type, file.size);
+      
+      // Validar formato de imagem
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Formato Inválido",
+          description: "Apenas imagens JPEG ou PNG são permitidas",
+          variant: "destructive",
+        });
+        e.target.value = ""; // Limpar o input
+        return;
+      }
+      
       setFile(file);
       toast({
         title: "Foto selecionada",
@@ -3049,7 +3062,7 @@ export function OrderDetailDrawer({
                                   <input
                                     ref={fotoNotaAssinadaRef}
                                     type="file"
-                                    accept="image/jpeg,image/png"
+                                    accept="image/jpeg,image/png,image/jpg"
                                     onChange={(e) => handleFotoChange(e, setFotoNotaAssinada)}
                                     className="hidden"
                                   />
@@ -3057,7 +3070,7 @@ export function OrderDetailDrawer({
                                 <p className="text-xs text-muted-foreground text-center max-w-xs">
                                   {fotoNotaAssinada
                                     ? `Foto selecionada: ${fotoNotaAssinada.name}`
-                                    : "Clique no ícone para tirar uma foto da nota fiscal assinada"}
+                                    : "Clique no ícone para tirar uma foto da nota fiscal assinada (apenas JPEG ou PNG)"}
                                 </p>
                               </div>
                             </div>
