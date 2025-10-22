@@ -59,6 +59,20 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### October 22, 2025 - Afternoon
+- ✅ **Novo Sistema de Geração de IDs de Pedidos (CNI)**
+  - Alterado prefixo de "CAP" para "CNI" (Consorcio Nova imigrantes)
+  - Novo formato de ID: CNI{DD}{MM}{YY}{NNNN}
+  - Exemplo: CNI2210250001 (22/10/2025, primeiro pedido do dia)
+  - Estrutura: CNI (prefixo) + data (DDMMAA) + sequencial diário de 4 dígitos (0001-9999)
+  - Contador sequencial reinicia automaticamente todos os dias
+  - Atualizado em ambas implementações:
+    - `DatabaseStorage.generateOrderId()` - para banco de dados PostgreSQL
+    - `MemStorage.generateOrderId()` - para testes e ambiente de memória
+  - Configuração padrão `order_id_pattern` atualizada para "CNI{DD}{MM}{YY}{NNNN}"
+  - Garante unicidade através de verificação de duplicatas no banco
+  - Architect review: PASS - ambas implementações geram IDs consistentes com reinício diário correto
+
 ### October 17, 2025 - Afternoon  
 - ✅ **Critical Bug Fixes - Order Table & Settings**
   - Fixed OrderDetailDrawer crash: added null/undefined check for deliveryDate before calling .toString()
