@@ -3247,58 +3247,91 @@ Status: Teste em progresso...`;
         autoApproved: !isUrgent
       });
 
-      // Gerar order_id no formato CNI{DD}{MM}{YY}{NNNN}
-      const nowForId = new Date();
-      const day = nowForId.getDate().toString().padStart(2, '0');
-      const month = (nowForId.getMonth() + 1).toString().padStart(2, '0');
-      const year = nowForId.getFullYear().toString().slice(-2);
-      const prefix = "CNI";
-      const dateStr = `${day}${month}${year}`;
+      // Gerar order_id no formato CNI{DD}{MM}{YY}{NNNN} com retry em caso de duplicata
+      let orderResult;
+      let attempts = 0;
+      const maxAttempts = 10;
 
-      // Buscar o último pedido criado hoje para obter o próximo número sequencial
-      const todayStr = `${nowForId.getFullYear()}-${(nowForId.getMonth() + 1).toString().padStart(2, '0')}-${nowForId.getDate().toString().padStart(2, '0')}`;
-      const lastOrderResult = await pool.query(
-        `SELECT order_id FROM orders 
-         WHERE DATE(created_at) = $1 AND order_id LIKE $2
-         ORDER BY id DESC 
-         LIMIT 1`,
-        [todayStr, `${prefix}${dateStr}%`]
-      );
+      while (attempts < maxAttempts) {
+        const client = await pool.connect();
+        try {
+          const nowForId = new Date();
+          const day = nowForId.getDate().toString().padStart(2, '0');
+          const month = (nowForId.getMonth() + 1).toString().padStart(2, '0');
+          const year = nowForId.getFullYear().toString().slice(-2);
+          const prefix = "CNI";
+          const dateStr = `${day}${month}${year}`;
 
-      let sequentialNumber = 1;
-      if (lastOrderResult.rows.length > 0) {
-        const lastOrderId = lastOrderResult.rows[0].order_id;
-        const numberMatch = lastOrderId.match(/(\d{4})$/);
-        if (numberMatch) {
-          sequentialNumber = parseInt(numberMatch[1]) + 1;
+          // Iniciar transação no cliente dedicado
+          await client.query('BEGIN');
+
+          const todayStr = `${nowForId.getFullYear()}-${(nowForId.getMonth() + 1).toString().padStart(2, '0')}-${nowForId.getDate().toString().padStart(2, '0')}`;
+          const lastOrderResult = await client.query(
+            `SELECT order_id FROM orders 
+             WHERE DATE(created_at) = $1 AND order_id LIKE $2
+             ORDER BY id DESC 
+             LIMIT 1
+             FOR UPDATE`,
+            [todayStr, `${prefix}${dateStr}%`]
+          );
+
+          let sequentialNumber = 1;
+          if (lastOrderResult.rows.length > 0) {
+            const lastOrderId = lastOrderResult.rows[0].order_id;
+            const numberMatch = lastOrderId.match(/(\d{4})$/);
+            if (numberMatch) {
+              sequentialNumber = parseInt(numberMatch[1]) + 1;
+            }
+          }
+
+          const paddedNumber = sequentialNumber.toString().padStart(4, '0');
+          const orderId = `${prefix}${dateStr}${paddedNumber}`;
+
+          console.log(`✅ Order ID gerado (tentativa ${attempts + 1}): ${orderId} (prefixo: ${prefix}, data: ${day}/${month}/${year}, sequencial do dia: ${paddedNumber})`);
+
+          // Criar o pedido usando uma inserção direta para garantir que isUrgent e status sejam salvos
+          orderResult = await client.query(
+            `INSERT INTO orders 
+             (order_id, product_id, quantity, supplier_id, work_location, delivery_date, status, is_urgent, user_id, purchase_order_id, observacoes, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+             RETURNING *`,
+            [
+              orderId,
+              orderData.productId,
+              orderData.quantity,
+              orderData.supplierId,
+              orderData.workLocation || "Conforme ordem de compra",
+              dataEntrega,
+              status,
+              isUrgent,
+              orderData.userId || req.session.userId || 1,
+              orderData.purchaseOrderId,
+              orderData.observacoes || null
+            ]
+          );
+
+          await client.query('COMMIT');
+          client.release();
+          break; // Sucesso, sair do loop
+
+        } catch (error: any) {
+          await client.query('ROLLBACK');
+          client.release();
+
+          // Se for erro de duplicata (unique constraint violation), tentar novamente
+          if (error.code === '23505' && attempts < maxAttempts - 1) {
+            console.log(`⚠️ ID duplicado detectado, tentando novamente (tentativa ${attempts + 1}/${maxAttempts})...`);
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 10)); // Pequeno delay
+            continue;
+          }
+
+          // Outro tipo de erro ou tentativas excedidas, propagar o erro
+          throw error;
         }
+
+        attempts++;
       }
-
-      const paddedNumber = sequentialNumber.toString().padStart(4, '0');
-      const orderId = `${prefix}${dateStr}${paddedNumber}`;
-
-      console.log(`✅ Order ID gerado: ${orderId} (prefixo: ${prefix}, data: ${day}/${month}/${year}, sequencial do dia: ${paddedNumber})`);
-
-      // Criar o pedido usando uma inserção direta para garantir que isUrgent e status sejam salvos
-      const orderResult = await pool.query(
-        `INSERT INTO orders 
-         (order_id, product_id, quantity, supplier_id, work_location, delivery_date, status, is_urgent, user_id, purchase_order_id, observacoes, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
-         RETURNING *`,
-        [
-          orderId,
-          orderData.productId,
-          orderData.quantity,
-          orderData.supplierId,
-          orderData.workLocation || "Conforme ordem de compra",
-          dataEntrega,
-          status,
-          isUrgent,
-          orderData.userId || req.session.userId || 1,
-          orderData.purchaseOrderId,
-          orderData.observacoes || null
-        ]
-      );
 
       const newOrder = orderResult.rows[0];
 
