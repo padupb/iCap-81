@@ -392,30 +392,21 @@ export class MemStorage implements IStorage {
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = String(now.getFullYear()).slice(-2);
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
 
-    let baseOrderId = `CAV${day}${month}${year}${hours}${minutes}`;
-    let counter = 0;
-    let orderId = baseOrderId;
+    const prefix = "CNI";
+    const dateStr = `${day}${month}${year}`;
 
-    // Verificar se o ID já existe na memória e incrementar se necessário
-    while (Array.from(this.orders.values()).some(order => order.orderId === orderId)) {
-      counter++;
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const ordersToday = Array.from(this.orders.values())
+      .filter(order => {
+        const orderDate = new Date(order.createdAt);
+        return orderDate >= todayStart && order.orderId.startsWith(`${prefix}${dateStr}`);
+      });
 
-      // Extrair os últimos 2 dígitos e somar o counter
-      const baseNumber = parseInt(baseOrderId.slice(-2));
-      const newNumber = (baseNumber + counter).toString().padStart(2, '0');
+    const sequentialNumber = ordersToday.length + 1;
+    const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
-      if (baseNumber + counter > 99) {
-        const newNumberStr = (baseNumber + counter).toString();
-        orderId = baseOrderId.slice(0, -2) + newNumberStr;
-      } else {
-        orderId = baseOrderId.slice(0, -2) + newNumber;
-      }
-    }
-
-    return orderId;
+    return `${prefix}${dateStr}${paddedNumber}`;
   }
 
   // Purchase Orders
@@ -1040,7 +1031,7 @@ export class DatabaseStorage implements IStorage {
     const year = now.getFullYear().toString().slice(-2);
 
     // Determinar prefixo baseado na OBRA DE DESTINO (campo cnpj da ordem de compra)
-    let prefix = "CAP"; // Prefixo padrão
+    let prefix = "CNI"; // Prefixo padrão (Consorcio Nova imigrantes)
 
     try {
       if (purchaseOrderId) {
@@ -1077,16 +1068,16 @@ export class DatabaseStorage implements IStorage {
               console.log(`📝 generateOrderId - Gerada sigla automática "${prefix}" para obra "${companyName}"`);
             }
           } else {
-            console.log(`⚠️ generateOrderId - Obra não encontrada para CNPJ: ${cnpjObra} - usando prefixo padrão CAP`);
+            console.log(`⚠️ generateOrderId - Obra não encontrada para CNPJ: ${cnpjObra} - usando prefixo padrão CNI`);
           }
         } else {
-          console.log(`⚠️ generateOrderId - Ordem de compra não encontrada: ${purchaseOrderId} - usando prefixo padrão CAP`);
+          console.log(`⚠️ generateOrderId - Ordem de compra não encontrada: ${purchaseOrderId} - usando prefixo padrão CNI`);
         }
       } else {
-        console.log(`⚠️ generateOrderId - purchaseOrderId não fornecido - usando prefixo padrão CAP`);
+        console.log(`⚠️ generateOrderId - purchaseOrderId não fornecido - usando prefixo padrão CNI`);
       }
     } catch (error) {
-      console.log("❌ generateOrderId - Erro ao determinar obra de destino, usando prefixo padrão CAP:", error);
+      console.log("❌ generateOrderId - Erro ao determinar obra de destino, usando prefixo padrão CNI:", error);
     }
 
     // Buscar próximo número sequencial DO DIA para este prefixo
