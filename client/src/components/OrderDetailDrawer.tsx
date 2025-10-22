@@ -2004,6 +2004,17 @@ export function OrderDetailDrawer({
                               : "N/A"}
                           </p>
                         </div>
+
+                        {orderDetails.observacoes && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-muted-foreground">
+                              Observações
+                            </h4>
+                            <p className="text-base">
+                              {orderDetails.observacoes}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
