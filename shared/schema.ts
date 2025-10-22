@@ -96,6 +96,9 @@ export const orders = pgTable("orders", {
   // Campos para reprogramação de entrega
   newDeliveryDate: timestamp("new_delivery_date"),
   reschedulingComment: text("rescheduling_comment"),
+  
+  // Campo para observações do pedido
+  observacoes: text("observacoes"),
 });
 
 // Purchase orders table
@@ -257,6 +260,7 @@ export const insertOrderSchema = createInsertSchema(orders)
   .omit({ id: true, orderId: true, createdAt: true, isUrgent: true })
   .extend({
     purchaseOrderId: z.number().optional(),
+    observacoes: z.string().max(250, "As observações devem ter no máximo 250 caracteres").optional(),
   });
 export const insertPurchaseOrderSchema = createInsertSchema(
   purchaseOrders,
