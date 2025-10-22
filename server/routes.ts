@@ -9,9 +9,9 @@ import {
   insertUserRoleSchema, insertProductSchema, insertUnitSchema,
   insertOrderSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
   insertSystemLogSchema, insertSettingSchema,
-  orders, trackingPoints, users
+  orders, trackingPoints, users, companies, companyCategories
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -3621,32 +3621,32 @@ Status: Teste em progresso...`;
     try {
       console.log("📋 Buscando empresas para ordens de compra...");
 
-      // Buscar todas as empresas com suas categorias
-      const result = await pool.query(`
-        SELECT
-          c.id,
-          c.name,
-          c.cnpj,
-          c.address,
-          c.category_id as "categoryId",
-          c.approver_id as "approverId",
-          c.contract_number as "contractNumber",
-          c.created_at as "createdAt",
-          cc.id as category_id,
-          cc.name as category_name,
-          cc.requires_approver as category_requires_approver,
-          cc.receives_purchase_orders as category_receives_purchase_orders,
-          cc.requires_contract as category_requires_contract,
-          cc.can_edit_purchase_orders as category_can_edit_purchase_orders
-        FROM companies c
-        LEFT JOIN company_categories cc ON c.category_id = cc.id
-        ORDER BY c.name
-      `);
+      // Buscar todas as empresas com suas categorias usando Drizzle
+      const result = await db
+        .select({
+          id: companies.id,
+          name: companies.name,
+          cnpj: companies.cnpj,
+          address: companies.address,
+          categoryId: companies.categoryId,
+          approverId: companies.approverId,
+          contractNumber: companies.contractNumber,
+          createdAt: companies.createdAt,
+          category_id: companyCategories.id,
+          category_name: companyCategories.name,
+          category_requires_approver: companyCategories.requiresApprover,
+          category_receives_purchase_orders: companyCategories.receivesPurchaseOrders,
+          category_requires_contract: companyCategories.requiresContract,
+          category_can_edit_purchase_orders: companyCategories.canEditPurchaseOrders,
+        })
+        .from(companies)
+        .leftJoin(companyCategories, eq(companies.categoryId, companyCategories.id))
+        .orderBy(asc(companies.name));
 
-      console.log(`✅ ${result.rows.length} empresas encontradas para ordens de compra`);
+      console.log(`✅ ${result.length} empresas encontradas para ordens de compra`);
 
       // Mapear resultados
-      const companies = result.rows.map(row => ({
+      const companiesData = result.map(row => ({
         id: row.id,
         name: row.name,
         cnpj: row.cnpj,
@@ -3665,7 +3665,7 @@ Status: Teste em progresso...`;
         } : null
       }));
 
-      res.json(companies);
+      res.json(companiesData);
     } catch (error) {
       console.error("Erro ao buscar empresas para ordens de compra:", error);
       res.status(500).json({ message: "Erro ao buscar empresas" });
