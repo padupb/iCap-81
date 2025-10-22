@@ -1039,10 +1039,6 @@ export class DatabaseStorage implements IStorage {
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const year = now.getFullYear().toString().slice(-2);
 
-    // Buscar próximo número sequencial
-    const sequentialNumber = await this.getNextSequentialNumber();
-    const paddedNumber = sequentialNumber.toString().padStart(4, '0');
-
     // Determinar prefixo baseado na OBRA DE DESTINO (campo cnpj da ordem de compra)
     let prefix = "CAP"; // Prefixo padrão
 
@@ -1093,28 +1089,12 @@ export class DatabaseStorage implements IStorage {
       console.log("❌ generateOrderId - Erro ao determinar obra de destino, usando prefixo padrão CAP:", error);
     }
 
-    let baseOrderId = `${prefix}${day}${month}${year}${paddedNumber}`;
-    let counter = 0;
-    let orderId = baseOrderId;
+    // Buscar próximo número sequencial DO DIA para este prefixo
+    const sequentialNumber = await this.getNextSequentialNumberForPrefix(prefix, day, month, year);
+    const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
-    // Verificar duplicidade
-    const { pool } = await import("./db");
-
-    while (true) {
-      const existingOrder = await pool.query(
-        "SELECT id FROM orders WHERE order_id = $1 LIMIT 1",
-        [orderId]
-      );
-
-      if (existingOrder.rows.length === 0) {
-        console.log(`✅ generateOrderId - Order ID gerado: ${orderId} (prefixo da obra de destino)`);
-        break; // ID não existe, pode usar
-      }
-
-      counter++;
-      const newNumber = (parseInt(paddedNumber) + counter).toString().padStart(4, '0');
-      orderId = `${prefix}${day}${month}${year}${newNumber}`;
-    }
+    const orderId = `${prefix}${day}${month}${year}${paddedNumber}`;
+    console.log(`✅ generateOrderId - Order ID gerado: ${orderId} (prefixo: ${prefix}, data: ${day}/${month}/${year}, sequencial do dia: ${paddedNumber})`);
 
     return orderId;
   }
@@ -1305,6 +1285,43 @@ export class DatabaseStorage implements IStorage {
       return parseInt(numberMatch[1]) + 1;
     }
 
+    return 1;
+  }
+
+  private async getNextSequentialNumberForPrefix(prefix: string, day: string, month: string, year: string): Promise<number> {
+    const { pool } = await import("./db");
+
+    // Buscar o maior número sequencial usado hoje para este prefixo específico
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+
+    // Padrão do ID: PREFIXO + DDMMYY + NNNN
+    const pattern = `${prefix}${day}${month}${year}%`;
+
+    const result = await pool.query(`
+      SELECT order_id FROM orders 
+      WHERE DATE(created_at) = $1 
+        AND order_id LIKE $2
+      ORDER BY order_id DESC 
+      LIMIT 1
+    `, [todayStr, pattern]);
+
+    if (result.rows.length === 0) {
+      console.log(`📊 getNextSequentialNumberForPrefix - Primeiro pedido do dia para prefixo ${prefix}`);
+      return 1; // Primeiro pedido do dia para este prefixo
+    }
+
+    // Extrair o número sequencial do último pedido (últimos 4 dígitos)
+    const lastOrderId = result.rows[0].order_id;
+    const numberMatch = lastOrderId.match(/(\d{4})$/);
+
+    if (numberMatch) {
+      const nextNumber = parseInt(numberMatch[1]) + 1;
+      console.log(`📊 getNextSequentialNumberForPrefix - Último pedido: ${lastOrderId}, próximo número: ${nextNumber}`);
+      return nextNumber;
+    }
+
+    console.log(`⚠️ getNextSequentialNumberForPrefix - Não foi possível extrair número de ${lastOrderId}, usando 1`);
     return 1;
   }
 
