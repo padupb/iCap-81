@@ -1043,7 +1043,7 @@ export class DatabaseStorage implements IStorage {
     const sequentialNumber = await this.getNextSequentialNumber();
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
-    // Determinar prefixo baseado na empresa DA ORDEM DE COMPRA (destino/obra)
+    // Determinar prefixo baseado na OBRA DE DESTINO (campo cnpj da ordem de compra)
     let prefix = "CAP"; // Prefixo padrão
 
     try {
@@ -1058,9 +1058,9 @@ export class DatabaseStorage implements IStorage {
 
         if (purchaseOrderResult.rows.length > 0) {
           const cnpjObra = purchaseOrderResult.rows[0].cnpj;
-          console.log(`🔍 CNPJ da obra na ordem de compra: ${cnpjObra}`);
+          console.log(`🔍 generateOrderId - CNPJ da obra na ordem de compra: ${cnpjObra}`);
 
-          // Buscar a empresa (obra) pelo CNPJ
+          // Buscar a empresa (obra) pelo CNPJ - este é o destino do pedido
           const companyResult = await pool.query(
             "SELECT id, name FROM companies WHERE cnpj = $1",
             [cnpjObra]
@@ -1069,28 +1069,28 @@ export class DatabaseStorage implements IStorage {
           if (companyResult.rows.length > 0) {
             const companyId = companyResult.rows[0].id;
             const companyName = companyResult.rows[0].name;
-            console.log(`🏢 Empresa encontrada: ${companyName} (ID: ${companyId})`);
+            console.log(`🏗️ generateOrderId - Obra de destino: ${companyName} (ID: ${companyId})`);
 
-            // Buscar se há uma sigla personalizada configurada para esta empresa
+            // Buscar se há uma sigla personalizada configurada para esta obra
             const customAcronymSetting = await this.getSetting(`company_${companyId}_acronym`);
             if (customAcronymSetting?.value) {
               prefix = customAcronymSetting.value;
-              console.log(`📝 Usando sigla personalizada "${prefix}" para empresa "${companyName}"`);
+              console.log(`📝 generateOrderId - Usando sigla personalizada "${prefix}" para obra "${companyName}"`);
             } else {
               prefix = this.generateCompanyAcronym(companyName);
-              console.log(`📝 Gerada sigla automática "${prefix}" para empresa "${companyName}"`);
+              console.log(`📝 generateOrderId - Gerada sigla automática "${prefix}" para obra "${companyName}"`);
             }
           } else {
-            console.log(`⚠️ Empresa não encontrada para CNPJ: ${cnpjObra} - usando prefixo padrão CAP`);
+            console.log(`⚠️ generateOrderId - Obra não encontrada para CNPJ: ${cnpjObra} - usando prefixo padrão CAP`);
           }
         } else {
-          console.log(`⚠️ Ordem de compra não encontrada: ${purchaseOrderId} - usando prefixo padrão CAP`);
+          console.log(`⚠️ generateOrderId - Ordem de compra não encontrada: ${purchaseOrderId} - usando prefixo padrão CAP`);
         }
       } else {
-        console.log(`⚠️ purchaseOrderId não fornecido - usando prefixo padrão CAP`);
+        console.log(`⚠️ generateOrderId - purchaseOrderId não fornecido - usando prefixo padrão CAP`);
       }
     } catch (error) {
-      console.log("❌ Erro ao determinar empresa da obra, usando prefixo padrão CAP:", error);
+      console.log("❌ generateOrderId - Erro ao determinar obra de destino, usando prefixo padrão CAP:", error);
     }
 
     let baseOrderId = `${prefix}${day}${month}${year}${paddedNumber}`;
@@ -1107,7 +1107,7 @@ export class DatabaseStorage implements IStorage {
       );
 
       if (existingOrder.rows.length === 0) {
-        console.log(`✅ Order ID gerado: ${orderId}`);
+        console.log(`✅ generateOrderId - Order ID gerado: ${orderId} (prefixo da obra de destino)`);
         break; // ID não existe, pode usar
       }
 
