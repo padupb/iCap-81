@@ -71,7 +71,19 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
     - `MemStorage.generateOrderId()` - para testes e ambiente de memória
   - Configuração padrão `order_id_pattern` atualizada para "CNI{DD}{MM}{YY}{NNNN}"
   - Garante unicidade através de verificação de duplicatas no banco
-  - Architect review: PASS - ambas implementações geram IDs consistentes com reinício diário correto
+  - **Correção na rota POST /api/orders** (linhas 3253-3337 em `server/routes.ts`):
+    - Removido uso de ID temporário `ORD${Date.now()}`
+    - Implementada lógica inline de geração de ID no formato CNI correto
+    - **Proteção contra race conditions**:
+      - Uso de cliente dedicado do pool (`pool.connect()`)
+      - Transação com BEGIN/COMMIT/ROLLBACK
+      - SELECT ... FOR UPDATE para serializar acesso concorrente
+      - Retry logic com até 10 tentativas em caso de unique constraint violation (código 23505)
+      - Pequeno delay (10ms) entre tentativas para reduzir contenção
+    - Garante que todos os comandos (SELECT, INSERT) executem na mesma conexão/transação
+    - Libera cliente de volta ao pool após uso (success ou erro)
+  - Architect review: PASS - implementação robusta contra duplicação de IDs em cenários de alta concorrência
+  - Teste confirmado: Pedido CNI2210250001 criado com sucesso em 22/10/2025
 
 ### October 17, 2025 - Afternoon  
 - ✅ **Critical Bug Fixes - Order Table & Settings**
