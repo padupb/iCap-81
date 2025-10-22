@@ -1376,12 +1376,22 @@ export default function Orders() {
                           <Badge className={getStatusColor(order.status)}>
                             {order.status}
                           </Badge>
-                          {order.isUrgent && (
-                            <Badge variant="destructive" className="ml-2">
-                              <AlertTriangle size={12} className="mr-1" />
-                              Urgente
-                            </Badge>
-                          )}
+                          {(() => {
+                            // Calcular se é urgente baseado na data de entrega
+                            const deliveryDate = new Date((order as any).delivery_date);
+                            deliveryDate.setHours(0, 0, 0, 0);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                            const isUrgent = daysDiff <= 7 && order.status === "Registrado";
+                            
+                            return isUrgent && (
+                              <Badge variant="destructive" className="ml-2">
+                                <AlertTriangle size={12} className="mr-1" />
+                                Urgente
+                              </Badge>
+                            );
+                          })()}
                         </TableCell>
                         {isKeyUser && (
                           <TableCell className="text-right">

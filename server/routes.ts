@@ -3230,6 +3230,7 @@ Status: Teste em progresso...`;
 
       // Calcular se o pedido é urgente baseado na data de entrega
       const now = new Date();
+      now.setHours(0, 0, 0, 0);
       const daysDiff = Math.ceil((dataEntrega.getTime() - now.getTime()) / (1000 * 3600 * 24));
       const isUrgent = daysDiff <= 7;
 
@@ -3246,16 +3247,27 @@ Status: Teste em progresso...`;
         autoApproved: !isUrgent
       });
 
-      // Criar o pedido usando o storage
-      const newOrder = await storage.createOrder({
-        purchaseOrderId: orderData.purchaseOrderId,
-        productId: orderData.productId,
-        quantity: orderData.quantity,
-        supplierId: orderData.supplierId,
-        deliveryDate: dataEntrega,
-        userId: orderData.userId || req.session.userId || 1,
-        workLocation: orderData.workLocation || "Conforme ordem de compra"
-      });
+      // Criar o pedido usando uma inserção direta para garantir que isUrgent e status sejam salvos
+      const orderResult = await pool.query(
+        `INSERT INTO orders 
+         (order_id, product_id, quantity, supplier_id, work_location, delivery_date, status, is_urgent, user_id, purchase_order_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+         RETURNING *`,
+        [
+          `ORD${Date.now()}`, // ID temporário, será substituído pelo trigger
+          orderData.productId,
+          orderData.quantity,
+          orderData.supplierId,
+          orderData.workLocation || "Conforme ordem de compra",
+          dataEntrega,
+          status,
+          isUrgent,
+          orderData.userId || req.session.userId || 1,
+          orderData.purchaseOrderId
+        ]
+      );
+
+      const newOrder = orderResult.rows[0];
 
       // Registrar log de criação
       if (req.session.userId) {
@@ -3264,7 +3276,7 @@ Status: Teste em progresso...`;
           action: "Criou pedido",
           itemType: "order",
           itemId: newOrder.id.toString(),
-          details: `Pedido ${newOrder.orderId} criado`
+          details: `Pedido ${newOrder.order_id} criado${!isUrgent ? ' e aprovado automaticamente (não urgente)' : ' - aguardando aprovação (urgente)'}`
         });
       }
 
