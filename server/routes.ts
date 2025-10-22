@@ -8,8 +8,10 @@ import {
   insertUserSchema, insertCompanySchema, insertCompanyCategorySchema,
   insertUserRoleSchema, insertProductSchema, insertUnitSchema,
   insertOrderSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
-  insertSystemLogSchema, insertSettingSchema
+  insertSystemLogSchema, insertSettingSchema,
+  orders, trackingPoints, users
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -6081,46 +6083,40 @@ Status: Teste em progresso...`;
 
       console.log(`📍 Buscando pontos de rastreamento para pedido ID: ${orderId}`);
 
-      // Verificar se a tabela tracking_points existe
-      const tableCheck = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables
-          WHERE table_name = 'tracking_points'
-        );
-      `);
+      // Primeiro, buscar o código (order_id) do pedido usando Drizzle
+      const orderResult = await db.select({ orderId: orders.orderId })
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .limit(1);
 
-      if (!tableCheck.rows[0].exists) {
-        console.log(`⚠️ Tabela tracking_points não existe - retornando array vazio`);
-        return res.json([]);
-      }
-
-      // Primeiro, buscar o código (order_id) do pedido
-      const orderResult = await pool.query(`
-        SELECT order_id FROM orders WHERE id = $1
-      `, [orderId]);
-
-      if (!orderResult.rows.length) {
+      if (!orderResult.length) {
         console.log(`⚠️ Pedido ${orderId} não encontrado`);
         return res.json([]);
       }
 
-      const orderCode = orderResult.rows[0].order_id;
+      const orderCode = orderResult[0].orderId;
       console.log(`📋 Código do pedido: ${orderCode}`);
 
-      // Buscar pontos de rastreamento usando o código do pedido
-      const result = await pool.query(`
-        SELECT
-          tp.*,
-          u.name as user_name
-        FROM tracking_points tp
-        LEFT JOIN users u ON tp.user_id = u.id
-        WHERE tp.order_id = $1
-        ORDER BY tp.created_at ASC
-      `, [orderCode]);
+      // Buscar pontos de rastreamento usando o código do pedido com Drizzle
+      const result = await db.select({
+        id: trackingPoints.id,
+        orderId: trackingPoints.orderId,
+        status: trackingPoints.status,
+        comment: trackingPoints.comment,
+        userId: trackingPoints.userId,
+        latitude: trackingPoints.latitude,
+        longitude: trackingPoints.longitude,
+        createdAt: trackingPoints.createdAt,
+        user_name: users.name
+      })
+        .from(trackingPoints)
+        .leftJoin(users, eq(trackingPoints.userId, users.id))
+        .where(eq(trackingPoints.orderId, orderCode))
+        .orderBy(trackingPoints.createdAt);
 
-      console.log(`✅ ${result.rows.length} pontos encontrados para pedido ${orderCode}`);
+      console.log(`✅ ${result.length} pontos encontrados para pedido ${orderCode}`);
 
-      res.json(result.rows);
+      res.json(result);
     } catch (error) {
       console.error("❌ Erro ao buscar pontos de rastreamento:", error);
       res.status(500).json({
