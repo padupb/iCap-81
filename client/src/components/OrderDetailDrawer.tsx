@@ -883,7 +883,7 @@ export function OrderDetailDrawer({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       console.log("Arquivo selecionado:", file.name, file.type, file.size);
-      
+
       // Validar formato de imagem
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
       if (!validTypes.includes(file.type)) {
@@ -895,7 +895,7 @@ export function OrderDetailDrawer({
         e.target.value = ""; // Limpar o input
         return;
       }
-      
+
       setFile(file);
       toast({
         title: "Foto selecionada",
@@ -1652,9 +1652,15 @@ export function OrderDetailDrawer({
                       const deliveryDate = createValidDate(orderDetails.deliveryDate);
                       if (!deliveryDate) return false;
 
+                      // Normalizar datas para meia-noite
+                      deliveryDate.setHours(0, 0, 0, 0);
                       const today = new Date();
-                      const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                      const isUrgent = daysDiff <= 7;
+                      today.setHours(0, 0, 0, 0);
+
+                      // Calcular diferença em dias ignorando horas
+                      const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                      const isUrgent = daysDiff < 7;
+
 
                       // Se é urgente e ainda está "Registrado", bloquear acesso
                       if (isUrgent && orderDetails.status === "Registrado") {
@@ -1687,7 +1693,7 @@ export function OrderDetailDrawer({
                         }
 
                         // Outros usuários só veem se já foi confirmado
-                        if (orderDetails.numeroPedido || 
+                        if (orderDetails.numeroPedido ||
                             orderDetails.status === "Em Rota" ||
                             orderDetails.status === "Em transporte" ||
                             orderDetails.status === "Entregue") {
@@ -1735,8 +1741,8 @@ export function OrderDetailDrawer({
                       }
 
                       // 4. Verificar se o usuário não é fornecedor e não há documentos carregados (apenas para nota_fiscal)
-                      if (confirmationType === "nota_fiscal" && 
-                          !canUploadDocuments() && 
+                      if (confirmationType === "nota_fiscal" &&
+                          !canUploadDocuments() &&
                           !documentsLoaded &&
                           orderDetails.status !== "Carregado" &&
                           orderDetails.status !== "Em Rota" &&
@@ -2038,9 +2044,14 @@ export function OrderDetailDrawer({
                         const deliveryDate = createValidDate(orderDetails.deliveryDate);
                         if (!deliveryDate) return null;
 
+                        // Normalizar datas para meia-noite
+                        deliveryDate.setHours(0, 0, 0, 0);
                         const today = new Date();
-                        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                        const isUrgent = daysDiff <= 7;
+                        today.setHours(0, 0, 0, 0);
+
+                        // Calcular diferença em dias ignorando horas
+                        const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const isUrgent = daysDiff < 7;
 
                         if (isUrgent && orderDetails.status === "Registrado") {
                           return (
@@ -2267,9 +2278,14 @@ export function OrderDetailDrawer({
                         const deliveryDate = createValidDate(orderDetails.deliveryDate);
                         if (!deliveryDate) return "Faça upload dos documentos necessários para prosseguir com o pedido";
 
+                        // Normalizar datas para meia-noite
+                        deliveryDate.setHours(0, 0, 0, 0);
                         const today = new Date();
-                        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                        const isUrgent = daysDiff <= 7;
+                        today.setHours(0, 0, 0, 0);
+
+                        // Calcular diferença em dias ignorando horas
+                        const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const isUrgent = daysDiff < 7;
 
                         if (isUrgent && orderDetails.status === "Registrado") {
                             return "Este pedido urgente precisa ser aprovado antes de permitir o upload de documentos";
@@ -2298,11 +2314,19 @@ export function OrderDetailDrawer({
 
                         // 3. Verificar se é pedido urgente e não foi aprovado
                         const deliveryDate = createValidDate(orderDetails.deliveryDate);
-                        if (!deliveryDate) return null;
+                        if (!deliveryDate) {
+                          return null;
+                        }
 
+                        // Normalizar datas para meia-noite
+                        deliveryDate.setHours(0, 0, 0, 0);
                         const today = new Date();
-                        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                        const isUrgent = daysDiff <= 7;
+                        today.setHours(0, 0, 0, 0);
+
+                        // Calcular diferença em dias ignorando horas
+                        const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const isUrgent = daysDiff < 7;
+
 
                         // Se é urgente e não aprovado, mostrar aviso de bloqueio
                         if (isUrgent && orderDetails.status === "Registrado") {
@@ -2334,9 +2358,15 @@ export function OrderDetailDrawer({
                           return null;
                         }
 
+                        // Normalizar datas para meia-noite
+                        deliveryDate.setHours(0, 0, 0, 0);
                         const today = new Date();
-                        const daysDiff = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                        const isUrgent = daysDiff <= 7;
+                        today.setHours(0, 0, 0, 0);
+
+                        // Calcular diferença em dias ignorando horas
+                        const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const isUrgent = daysDiff < 7;
+
 
                         // Se é urgente e não aprovado, não mostrar o conteúdo normal
                         if (isUrgent && orderDetails.status === "Registrado") {
@@ -2949,8 +2979,8 @@ export function OrderDetailDrawer({
 
                                   if (fotoConfirmacao) {
                                     try {
-                                      const confirmacao = typeof fotoConfirmacao === 'string' 
-                                        ? JSON.parse(fotoConfirmacao) 
+                                      const confirmacao = typeof fotoConfirmacao === 'string'
+                                        ? JSON.parse(fotoConfirmacao)
                                         : fotoConfirmacao;
                                       quantidadeConfirmada = confirmacao?.quantidadeConfirmada;
                                     } catch (e) {
@@ -3270,7 +3300,7 @@ export function OrderDetailDrawer({
             <DialogTitle>Reprogramar Entrega</DialogTitle>
             <DialogDescription>
               {(() => {
-                const validUntil = orderDetails?.purchaseOrder?.validUntil 
+                const validUntil = orderDetails?.purchaseOrder?.validUntil
                   ? new Date(orderDetails.purchaseOrder.validUntil).toLocaleDateString('pt-BR')
                   : 'não definida';
 

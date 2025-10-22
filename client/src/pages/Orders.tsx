@@ -491,10 +491,11 @@ export default function Orders() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // Calcular diferença em dias ignorando horas
       const diffTime = selectedDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-      setIsUrgentOrder(diffDays <= urgentDaysThreshold);
+      setIsUrgentOrder(diffDays < urgentDaysThreshold);
 
       // Validar se a data de entrega está dentro do período de validade da ordem de compra
       const purchaseOrderId = form.watch("purchaseOrderId");

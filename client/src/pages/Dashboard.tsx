@@ -141,7 +141,17 @@ export default function Dashboard() {
                         const productId = order.productId || (order as any).product_id;
                         const orderId = order.orderId || (order as any).order_id || `PED-${order.id}`;
                         const deliveryDate = order.deliveryDate || (order as any).delivery_date;
-                        const isUrgent = order.isUrgent || (order as any).is_urgent || false;
+                        
+                        // Calcular se é urgente ignorando horas
+                        let isUrgent = order.isUrgent || (order as any).is_urgent || false;
+                        if (!isUrgent && deliveryDate) {
+                          const delivery = new Date(deliveryDate);
+                          delivery.setHours(0, 0, 0, 0);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const daysDiff = Math.floor((delivery.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                          isUrgent = daysDiff < 7;
+                        }
                         
                         const product = products.find(
                           (p) => p.id === productId,

@@ -141,8 +141,12 @@ export default function Approvals() {
               <TableBody>
                 {filteredOrders.map((order) => {
                   const deliveryDate = new Date(order.deliveryDate);
+                  deliveryDate.setHours(0, 0, 0, 0);
+                  
                   const today = new Date();
-                  const daysRemaining = Math.ceil(
+                  today.setHours(0, 0, 0, 0);
+                  
+                  const daysRemaining = Math.floor(
                     (deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24)
                   );
 

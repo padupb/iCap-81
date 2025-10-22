@@ -42,7 +42,9 @@ export function convertToLocalDate(dateString: string): Date {
 /**
  * Calcula a diferença em dias entre duas datas.
  * Retorna número positivo se targetDate é no futuro, negativo se no passado.
- * Usa Math.floor para contar apenas dias completos.
+ * Usa Math.floor para contar apenas dias completos, ignorando horas.
+ * 
+ * Exemplo: Se hoje é dia 22 e a data alvo é dia 29, retorna 7.
  */
 export function getDaysDifference(targetDate: Date, fromDate: Date = new Date()): number {
   // Normalizar ambas as datas para meia-noite para comparação correta
@@ -52,6 +54,7 @@ export function getDaysDifference(targetDate: Date, fromDate: Date = new Date())
   const from = new Date(fromDate);
   from.setHours(0, 0, 0, 0);
   
+  // Calcular diferença em milissegundos e converter para dias
   const diffTime = target.getTime() - from.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   
