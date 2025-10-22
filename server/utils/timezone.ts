@@ -1,19 +1,26 @@
+
 // Funções utilitárias para fuso horário de Cuiabá (GMT-4)
 
 /**
- * Retorna a data/hora atual (UTC).
- * PostgreSQL armazena timestamps em UTC. Esta função retorna o momento atual sem ajustes.
+ * Retorna a data/hora atual ajustada para o fuso de Cuiabá (GMT-4).
+ * Subtrai 4 horas do UTC para obter o horário de Cuiabá.
  */
 export function getCuiabaDateTime(): Date {
-  return new Date();
+  const now = new Date();
+  // GMT-4 = UTC - 4 horas
+  const cuiabaTime = new Date(now.getTime() - (4 * 60 * 60 * 1000));
+  return cuiabaTime;
 }
 
 /**
- * Converte uma data para string ISO padrão.
+ * Converte uma data para string ISO ajustada para o fuso de Cuiabá (GMT-4).
+ * Retorna a data no formato ISO mas com o horário ajustado para GMT-4.
  */
 export function toCuiabaISOString(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toISOString();
+  // Ajustar para GMT-4 (subtrair 4 horas)
+  const cuiabaTime = new Date(dateObj.getTime() - (4 * 60 * 60 * 1000));
+  return cuiabaTime.toISOString();
 }
 
 /**
