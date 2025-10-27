@@ -1160,95 +1160,26 @@ export class DatabaseStorage implements IStorage {
     return acronym;
   }
 
-  private async generateOrderId(): Promise<string> {
-    // Buscar configuração de padrão personalizado se existir
-    const patternSetting = await this.getSetting("order_id_pattern");
-
-    if (patternSetting?.value && patternSetting.value !== "CNI{DD}{MM}{YY}{NNNN}") {
-      // Se há um padrão personalizado configurado, usar ele
-      return await this.generateOrderIdWithPattern(patternSetting.value);
-    }
-
-    // Usar novo padrão baseado na empresa
-    const now = new Date();
-    const day = now.getDate().toString().padStart(2, '0');
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const year = now.getFullYear().toString().slice(-2);
-
-    // Buscar próximo número sequencial
-    const sequentialNumber = await this.getNextSequentialNumber();
-    const paddedNumber = sequentialNumber.toString().padStart(4, '0');
-
-    // Usar prefixo CNI (Consorcio Nova imigrantes)
-    let prefix = "CNI";
-
-    let baseOrderId = `${prefix}${day}${month}${year}${paddedNumber}`;
-    let counter = 0;
-    let orderId = baseOrderId;
-
-    // Usar query do banco de dados para verificar se o ID já existe
-    const { pool } = await import("./db");
-
-    while (true) {
-      const existingOrder = await pool.query(
-        "SELECT id FROM orders WHERE order_id = $1 LIMIT 1",
-        [orderId]
-      );
-
-      if (existingOrder.rows.length === 0) {
-        break; // ID não existe, pode usar
-      }
-
-      counter++;
-      const newNumber = (parseInt(paddedNumber) + counter).toString().padStart(4, '0');
-      orderId = `${prefix}${day}${month}${year}${newNumber}`;
-    }
-
-    return orderId;
-  }
-
+  // Método auxiliar para gerar ID com padrão personalizado (OBSOLETO - mantido para compatibilidade)
   private async generateOrderIdWithPattern(pattern: string): Promise<string> {
     const now = new Date();
     const day = now.getDate().toString().padStart(2, '0');
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const year = now.getFullYear().toString().slice(-2);
 
-    // Buscar próximo número sequencial
     const sequentialNumber = await this.getNextSequentialNumber();
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
-    // Substituir placeholders
     let orderId = pattern
       .replace('{DD}', day)
       .replace('{MM}', month)
       .replace('{YY}', year)
       .replace('{NNNN}', paddedNumber);
 
-    // Verificar duplicatas e incrementar se necessário
-    const { pool } = await import("./db");
-    let counter = 0;
-
-    while (true) {
-      const existingOrder = await pool.query(
-        "SELECT id FROM orders WHERE order_id = $1 LIMIT 1",
-        [orderId]
-      );
-
-      if (existingOrder.rows.length === 0) {
-        break; // ID não existe, pode usar
-      }
-
-      counter++;
-      const newNumber = (parseInt(paddedNumber) + counter).toString().padStart(4, '0');
-      orderId = pattern
-        .replace('{DD}', day)
-        .replace('{MM}', month)
-        .replace('{YY}', year)
-        .replace('{NNNN}', newNumber);
-    }
-
     return orderId;
   }
+
+  
 
   private async getCompanyIdByName(companyName: string): Promise<number | null> {
     try {
