@@ -1218,11 +1218,36 @@ export class DatabaseStorage implements IStorage {
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
     // Substituir placeholders
-    return pattern
+    let orderId = pattern
       .replace('{DD}', day)
       .replace('{MM}', month)
       .replace('{YY}', year)
       .replace('{NNNN}', paddedNumber);
+
+    // Verificar duplicatas e incrementar se necessário
+    const { pool } = await import("./db");
+    let counter = 0;
+
+    while (true) {
+      const existingOrder = await pool.query(
+        "SELECT id FROM orders WHERE order_id = $1 LIMIT 1",
+        [orderId]
+      );
+
+      if (existingOrder.rows.length === 0) {
+        break; // ID não existe, pode usar
+      }
+
+      counter++;
+      const newNumber = (parseInt(paddedNumber) + counter).toString().padStart(4, '0');
+      orderId = pattern
+        .replace('{DD}', day)
+        .replace('{MM}', month)
+        .replace('{YY}', year)
+        .replace('{NNNN}', newNumber);
+    }
+
+    return orderId;
   }
 
   private async getCompanyIdByName(companyName: string): Promise<number | null> {

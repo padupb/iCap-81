@@ -2777,8 +2777,8 @@ Status: Teste em progresso...`;
       }
 
       // LÓGICA DE AUTORIZAÇÃO UNIFICADA
-      // KeyUsers (ID 1 ou isKeyUser) veem tudo
-      if (req.user.id === 1 || req.user.isKeyUser) {
+      // KeyUsers (IDs 1-5 ou isKeyUser) veem tudo
+      if ((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser) {
         console.log(`🔓 Usuário ${req.user.name} (ID: ${req.user.id}) - visualização irrestrita (KeyUser)`);
       } 
       // Usuários com companyId aplicam filtros
@@ -2806,10 +2806,11 @@ Status: Teste em progresso...`;
             }
             
             // CONDIÇÃO 2: Empresa do usuário é a obra de destino (via CNPJ ou ID da purchase order)
+            // CONDIÇÃO 3: Empresa do usuário é a concessionária (empresa_id da ordem de compra)
             if (!includeOrder && purchaseOrderId) {
               try {
                 const poResult = await pool.query(`
-                  SELECT oc.cnpj, c.id as obra_id, c.name as obra_nome, c.approver_id
+                  SELECT oc.empresa_id, oc.cnpj, c.id as obra_id, c.name as obra_nome, c.approver_id
                   FROM ordens_compra oc
                   LEFT JOIN companies c ON oc.cnpj = c.cnpj
                   WHERE oc.id = $1
@@ -2818,8 +2819,14 @@ Status: Teste em progresso...`;
                 if (poResult.rows.length > 0) {
                   const poData = poResult.rows[0];
                   
+                  // Verificar se a empresa do usuário é a concessionária (empresa que emitiu a ordem de compra)
+                  if (poData.empresa_id === req.user.companyId) {
+                    includeOrder = true;
+                    reason = "concessionária (empresa da ordem de compra)";
+                  }
+                  
                   // Verificar se o CNPJ da PO corresponde ao CNPJ da empresa do usuário
-                  if (poData.cnpj === userCompany.cnpj) {
+                  if (!includeOrder && poData.cnpj === userCompany.cnpj) {
                     includeOrder = true;
                     reason = "obra de destino (CNPJ)";
                   }
@@ -2830,7 +2837,7 @@ Status: Teste em progresso...`;
                     reason = "obra de destino (ID)";
                   }
                   
-                  // CONDIÇÃO 3: Usuário é aprovador da obra de destino
+                  // CONDIÇÃO 4: Usuário é aprovador da obra de destino
                   if (!includeOrder && poData.approver_id === req.user.id) {
                     includeOrder = true;
                     reason = "aprovador da obra";
@@ -2903,8 +2910,8 @@ Status: Teste em progresso...`;
 
       // APLICAR MESMA LÓGICA DE FILTRO DA ROTA /api/orders
 
-      // NOVA REGRA: KeyUsers (IDs 1-5) veem todas as reprogramações
-      const isKeyUserCheck = req.user.id >= 1 && req.user.id <= 5;
+      // NOVA REGRA: KeyUsers (IDs 1-5 ou isKeyUser) veem todas as reprogramações
+      const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
 
       if (isKeyUserCheck) {
         console.log(`🔑 KeyUser ${req.user.name} (ID: ${req.user.id}) - visualização total de reprogramações`);
@@ -2969,7 +2976,7 @@ Status: Teste em progresso...`;
 
       } else {
         // Aplicar restrição baseada nos critérios da empresa do usuário
-        if (req.user && req.user.companyId && req.user.id !== 1 && !req.user.isKeyUser) {
+        if (req.user && req.user.companyId && !((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser)) {
           const userCompany = await storage.getCompany(req.user.companyId);
 
           if (userCompany) {
@@ -2991,11 +2998,11 @@ Status: Teste em progresso...`;
                     continue;
                   }
 
-                  // 2. Incluir reprogramações destinadas à empresa (obra de destino)
+                  // 2. Incluir reprogramações onde a empresa é a concessionária ou obra de destino
                   if (order.purchaseOrderId) {
                     try {
                       const ordemCompraResult = await pool.query(
-                        `SELECT oc.cnpj, c.id as obra_id, c.name as obra_nome 
+                        `SELECT oc.empresa_id, oc.cnpj, c.id as obra_id, c.name as obra_nome 
                          FROM ordens_compra oc
                          LEFT JOIN companies c ON oc.cnpj = c.cnpj
                          WHERE oc.id = $1`,
@@ -3003,12 +3010,14 @@ Status: Teste em progresso...`;
                       );
 
                       if (ordemCompraResult.rows.length > 0) {
+                        const empresaId = ordemCompraResult.rows[0].empresa_id;
                         const cnpjDestino = ordemCompraResult.rows[0].cnpj;
                         const obraId = ordemCompraResult.rows[0].obra_id;
 
-                        // Verificar se o CNPJ de destino corresponde à empresa do usuário
+                        // Verificar se a empresa é a concessionária (empresa que emitiu a ordem)
+                        // OU se o CNPJ de destino corresponde à empresa do usuário
                         // OU se a obra de destino é a empresa do usuário
-                        if (cnpjDestino === userCompany.cnpj || obraId === userCompany.id) {
+                        if (empresaId === req.user.companyId || cnpjDestino === userCompany.cnpj || obraId === userCompany.id) {
                           filteredReprogramacoes.push(order);
                         }
                       }
@@ -3554,8 +3563,14 @@ Status: Teste em progresso...`;
 
       let queryParams: any[] = [];
 
+      // KeyUsers (IDs 1-5 ou isKeyUser) veem todas as ordens de compra
+      const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
+
+      if (isKeyUserCheck) {
+        console.log(`🔓 KeyUser ${req.user.name} (ID: ${req.user.id}) - visualização total de ordens de compra`);
+      }
       // Aplicar restrição baseada nos critérios da empresa do usuário
-      if (req.user && req.user.companyId) {
+      else if (req.user && req.user.companyId) {
         // Buscar a empresa do usuário
         const userCompany = await storage.getCompany(req.user.companyId);
 
@@ -3707,8 +3722,14 @@ Status: Teste em progresso...`;
       whereConditions.push("oc.valido_ate >= CURRENT_DATE");
       whereConditions.push("oc.status = 'Ativo'");
 
+      // KeyUsers (IDs 1-5 ou isKeyUser) veem todas as ordens de compra válidas
+      const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
+
+      if (isKeyUserCheck) {
+        console.log(`🔓 KeyUser ${req.user.name} (ID: ${req.user.id}) - visualização total de purchase orders`);
+      }
       // Aplicar restrição baseada nos critérios da empresa do usuário
-      if (req.user && req.user.companyId) {
+      else if (req.user && req.user.companyId) {
         // Buscar a empresa do usuário
         const userCompany = await storage.getCompany(req.user.companyId);
 
