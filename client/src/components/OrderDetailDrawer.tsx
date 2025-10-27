@@ -1625,30 +1625,30 @@ export function OrderDetailDrawer({
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                   </svg>
                 </Button>
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handlePrintOrder()}
-                className="h-12 w-12"
-                title="Imprimir pedido"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handlePrintOrder()}
+                  className="h-8 w-8"
+                  title="Imprimir pedido"
                 >
-                  <polyline points="6,9 6,2 18,2 18,9" />
-                  <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2,2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2-2H18" />
-                  <rect x="6" y="14" width="12" height="8" />
-                </svg>
-              </Button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6,9 6,2 18,2 18,9" />
+                    <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2,2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2-2H18" />
+                    <rect x="6" y="14" width="12" height="8" />
+                  </svg>
+                </Button>
+              </div>
             </DrawerTitle>
             <DrawerDescription>Detalhes completos do pedido</DrawerDescription>
           </DrawerHeader>
