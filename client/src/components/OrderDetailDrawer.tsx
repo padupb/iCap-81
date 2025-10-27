@@ -1591,17 +1591,20 @@ export function OrderDetailDrawer({
           <DrawerHeader>
             <DrawerTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span>{orderDetails?.orderId}</span>
+                <span className="text-lg font-semibold">
+                  {orderDetails ? ((orderDetails as any).order_id || orderDetails.orderId || "N/A") : "Carregando..."}
+                </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => {
-                    if (orderDetails?.orderId) {
-                      navigator.clipboard.writeText(orderDetails.orderId);
+                    const pedidoId = orderDetails ? ((orderDetails as any).order_id || orderDetails.orderId) : null;
+                    if (pedidoId) {
+                      navigator.clipboard.writeText(pedidoId);
                       toast({
                         title: "Copiado!",
-                        description: `Número do pedido ${orderDetails.orderId} copiado para a área de transferência`,
+                        description: `Número do pedido ${pedidoId} copiado para a área de transferência`,
                       });
                     }
                   }}
