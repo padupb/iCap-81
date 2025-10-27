@@ -3270,7 +3270,62 @@ Status: Teste em progresso...`;
           const day = nowForId.getDate().toString().padStart(2, '0');
           const month = (nowForId.getMonth() + 1).toString().padStart(2, '0');
           const year = nowForId.getFullYear().toString().slice(-2);
-          const prefix = "CNI";
+          
+          // Determinar prefixo baseado na obra de destino
+          let prefix = "CNI"; // Fallback
+          try {
+            // Buscar CNPJ da obra de destino via ordem de compra
+            const poResult = await client.query(
+              "SELECT cnpj FROM ordens_compra WHERE id = $1",
+              [orderData.purchaseOrderId]
+            );
+            
+            if (poResult.rows.length > 0) {
+              const cnpjObra = poResult.rows[0].cnpj;
+              
+              // Buscar a empresa (obra) pelo CNPJ
+              const companyResult = await client.query(
+                "SELECT id, name FROM companies WHERE cnpj = $1",
+                [cnpjObra]
+              );
+              
+              if (companyResult.rows.length > 0) {
+                const companyName = companyResult.rows[0].name;
+                
+                // Gerar sigla baseada no nome da obra
+                const stopWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre'];
+                const words = companyName
+                  .toLowerCase()
+                  .replace(/[^\w\s]/g, '')
+                  .split(/\s+/)
+                  .filter((word: string) => word.length > 0 && !stopWords.includes(word));
+                
+                let acronym = '';
+                if (words.length === 0) {
+                  acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+                } else if (words.length === 1) {
+                  acronym = words[0].substring(0, 3).toUpperCase();
+                } else if (words.length === 2) {
+                  acronym = words[0].substring(0, 2).toUpperCase() + words[1].substring(0, 1).toUpperCase();
+                } else {
+                  acronym = words.slice(0, 3).map((word: string) => word.charAt(0).toUpperCase()).join('');
+                }
+                
+                if (acronym.length < 2) {
+                  acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+                }
+                if (acronym.length > 3) {
+                  acronym = acronym.substring(0, 3);
+                }
+                
+                prefix = acronym;
+                console.log(`📝 Gerada sigla "${prefix}" para obra "${companyName}"`);
+              }
+            }
+          } catch (prefixError) {
+            console.log("⚠️ Erro ao gerar prefixo, usando CNI:", prefixError);
+          }
+          
           const dateStr = `${day}${month}${year}`;
 
           // Iniciar transação no cliente dedicado
