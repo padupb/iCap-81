@@ -5972,6 +5972,29 @@ Status: Teste em progresso...`;
     }
   });
 
+  // System Logs routes
+  app.get("/api/logs", isAuthenticated, async (req, res) => {
+    try {
+      console.log(`🔍 Verificando usuário da sessão: ${req.user.id}`);
+
+      // Verificar se é KeyUser
+      const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
+
+      if (!isKeyUserCheck) {
+        console.log(`🔒 Usuário ${req.user.name} (ID: ${req.user.id}) sem permissão para visualizar logs`);
+        return res.status(403).json({ message: "Acesso negado: apenas KeyUsers podem visualizar logs do sistema" });
+      }
+
+      console.log(`🔑 KeyUser ${req.user.name} (ID: ${req.user.id}) acessando logs do sistema`);
+      const logs = await storage.getAllLogs();
+      console.log(`📋 Retornando ${logs.length} registros de log`);
+      res.json(logs);
+    } catch (error) {
+      console.error("❌ Erro ao buscar logs:", error);
+      res.status(500).json({ message: "Erro ao buscar logs" });
+    }
+  });
+
   // Rota para buscar todos os pedidos com filtros
   app.get("/api/pedidos", isAuthenticated, async (req, res) => {
     try {

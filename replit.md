@@ -59,6 +59,29 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### October 27, 2025 - Afternoon
+- ✅ **Correção de Rotas de Autorização e Logs do Sistema**
+  - **Corrigida verificação de KeyUser** em múltiplas rotas:
+    - GET `/api/orders`: Agora verifica corretamente IDs 1-5 OU flag `isKeyUser`
+    - GET `/api/ordens-compra`: Adicionada verificação de KeyUser
+    - GET `/api/purchase-orders`: Adicionada verificação de KeyUser
+    - GET `/api/reprogramacoes`: Corrigida verificação de KeyUser
+  - **Adicionada verificação de concessionária** na visualização de pedidos:
+    - Agora verifica `empresa_id` da ordem de compra
+    - Usuários podem ver pedidos se forem: fornecedor, obra de destino, concessionária, ou aprovador
+  - **Implementada rota GET `/api/logs`**:
+    - Rota estava ausente, impedindo visualização de logs do sistema
+    - Adicionada autenticação e verificação de KeyUser
+    - Apenas KeyUsers (IDs 1-5 ou flag) podem visualizar logs
+    - 4.161 registros de log disponíveis no banco de dados
+  - **Corrigida função `generateOrderIdWithPattern()`**:
+    - Adicionada proteção contra duplicatas em IDs personalizados
+    - Mesmo nível de segurança que padrão CNI
+  - **Corrigidos erros TypeScript** em `client/src/pages/Logs.tsx`:
+    - Corrigida importação de tipos de usuário
+    - Corrigida iteração de Set para Array
+  - Architect review: PASS - todas as permissões funcionando corretamente
+
 ### October 22, 2025 - Afternoon
 - ✅ **Novo Sistema de Geração de IDs de Pedidos (CNI)**
   - Alterado prefixo de "CAP" para "CNI" (Consorcio Nova imigrantes)
@@ -132,6 +155,12 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
   - Protection against bypass when delivery_date is null
 
 ## API Endpoints
+
+### System Management
+- `GET /api/logs` - Get system logs (KeyUser only)
+  - Requires authentication and KeyUser permissions (IDs 1-5 or flag)
+  - Returns array of system logs with user actions, timestamps, and details
+  - Used by `/logs` page in frontend
 
 ### Document Management
 - `GET /api/pedidos/:id/documentos/:tipo` - Download individual document

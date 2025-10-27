@@ -26,7 +26,9 @@ import {
   XCircle
 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
-import type { SystemLog, User as UserType } from "@shared/schema";
+import type { SystemLog, users } from "@shared/schema";
+
+type User = typeof users.$inferSelect;
 
 export default function Logs() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,13 +39,13 @@ export default function Logs() {
     queryKey: ["/api/logs"],
   });
   
-  const { data: users = [] } = useQuery<UserType[]>({
+  const { data: usersList = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
 
   // Get unique actions and item types for filters
-  const uniqueActions = [...new Set(logs.map(log => log.action))];
-  const uniqueItemTypes = [...new Set(logs.map(log => log.itemType))];
+  const uniqueActions = Array.from(new Set(logs.map(log => log.action)));
+  const uniqueItemTypes = Array.from(new Set(logs.map(log => log.itemType)));
 
   // Filter logs
   const filteredLogs = logs.filter(log => {
@@ -180,7 +182,7 @@ export default function Logs() {
                       <div className="flex items-center">
                         <User className="mr-2 text-muted-foreground" size={14} />
                         <span className="text-sm">
-                          {users.find(user => user.id === log.userId)?.name || `Usuário ${log.userId}`}
+                          {usersList.find(user => user.id === log.userId)?.name || `Usuário ${log.userId}`}
                         </span>
                       </div>
                     </TableCell>
