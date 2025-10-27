@@ -149,8 +149,7 @@ export class MemStorage implements IStorage {
       { key: "app_name", value: "i-CAP 5.0", description: "Nome da aplicação" },
       { key: "keyuser_email", value: "padupb@admin.icap", description: "E-mail do superadministrador" },
       { key: "keyuser_password", value: "170824", description: "Senha do superadministrador" },
-      { key: "order_id_pattern", value: "CNI{DD}{MM}{YY}{NNNN}", description: "Padrão de numeração de pedidos CNI (Consorcio Nova imigrantes)" },
-      { key: "use_company_acronym", value: "true", description: "Usar sigla da empresa criadora no prefixo dos pedidos" },
+      { key: "order_id_pattern", value: "CNI{DD}{MM}{YY}{NNNN}", description: "Padrão fixo de numeração: CNI (Consorcio Nova imigrantes) + data (DDMMAA) + sequencial diário (0001-9999)" },
       { key: "google_drive_client_email", value: "", description: "Email da Service Account do Google Drive" },
       { key: "google_drive_private_key", value: "", description: "Chave privada da Service Account do Google Drive" },
       { key: "google_drive_project_id", value: "", description: "ID do projeto Google Cloud" },
@@ -1030,86 +1029,16 @@ export class DatabaseStorage implements IStorage {
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const year = now.getFullYear().toString().slice(-2);
 
-    // Determinar prefixo baseado na OBRA DE DESTINO (campo cnpj da ordem de compra)
-    let prefix = "CNI"; // Prefixo padrão (Consorcio Nova imigrantes)
-    let usedCustomPrefix = false; // Flag para debug
+    // Prefixo FIXO para todos os pedidos: CNI (Consorcio Nova imigrantes)
+    const prefix = "CNI";
+    console.log(`🎯 generateOrderId - Usando prefixo fixo: "${prefix}"`);
 
-    try {
-      if (purchaseOrderId) {
-        const { pool } = await import("./db");
-
-        // Buscar a ordem de compra para pegar o CNPJ da obra de destino
-        const purchaseOrderResult = await pool.query(
-          "SELECT cnpj FROM ordens_compra WHERE id = $1",
-          [purchaseOrderId]
-        );
-
-        if (purchaseOrderResult.rows.length > 0) {
-          const cnpjObra = purchaseOrderResult.rows[0].cnpj;
-          console.log(`🔍 generateOrderId - CNPJ da obra na ordem de compra: ${cnpjObra}`);
-
-          // Buscar a empresa (obra) pelo CNPJ - este é o destino do pedido
-          const companyResult = await pool.query(
-            "SELECT id, name FROM companies WHERE cnpj = $1",
-            [cnpjObra]
-          );
-
-          if (companyResult.rows.length > 0) {
-            const companyId = companyResult.rows[0].id;
-            const companyName = companyResult.rows[0].name;
-            console.log(`🏗️ generateOrderId - Obra de destino: ${companyName} (ID: ${companyId})`);
-
-            // Buscar se há uma sigla personalizada configurada para esta obra
-            const customAcronymSetting = await this.getSetting(`company_${companyId}_acronym`);
-            if (customAcronymSetting?.value) {
-              prefix = customAcronymSetting.value;
-              usedCustomPrefix = true;
-              console.log(`✅ generateOrderId - Usando sigla personalizada "${prefix}" para obra "${companyName}"`);
-            } else {
-              // Gerar sigla automaticamente baseada no nome da obra
-              const generatedPrefix = this.generateCompanyAcronym(companyName);
-              console.log(`📝 generateOrderId - Gerada sigla automática "${generatedPrefix}" para obra "${companyName}"`);
-              
-              // Salvar a sigla gerada para uso futuro
-              try {
-                await this.createOrUpdateSetting({
-                  key: `company_${companyId}_acronym`,
-                  value: generatedPrefix,
-                  description: `Sigla automática para ${companyName}`
-                });
-                console.log(`💾 generateOrderId - Sigla "${generatedPrefix}" salva nas configurações para obra ${companyName}`);
-                // IMPORTANTE: Usar a sigla gerada
-                prefix = generatedPrefix;
-                usedCustomPrefix = true;
-              } catch (saveError) {
-                console.log(`⚠️ generateOrderId - Erro ao salvar sigla: ${saveError}`);
-                // Mesmo com erro ao salvar, usar a sigla gerada
-                prefix = generatedPrefix;
-                usedCustomPrefix = true;
-              }
-            }
-          } else {
-            console.log(`⚠️ generateOrderId - Obra não encontrada para CNPJ: ${cnpjObra} - usando prefixo padrão CNI`);
-          }
-        } else {
-          console.log(`⚠️ generateOrderId - Ordem de compra não encontrada: ${purchaseOrderId} - usando prefixo padrão CNI`);
-        }
-      } else {
-        console.log(`⚠️ generateOrderId - purchaseOrderId não fornecido - usando prefixo padrão CNI`);
-      }
-    } catch (error) {
-      console.log("❌ generateOrderId - Erro ao determinar obra de destino, usando prefixo padrão CNI:", error);
-    }
-
-    // Log de debug do prefixo final
-    console.log(`🎯 generateOrderId - Prefixo final determinado: "${prefix}" (customizado: ${usedCustomPrefix})`);
-
-    // Buscar próximo número sequencial DO DIA para este prefixo
+    // Buscar próximo número sequencial DO DIA para o prefixo CNI
     const sequentialNumber = await this.getNextSequentialNumberForPrefix(prefix, day, month, year);
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
     const orderId = `${prefix}${day}${month}${year}${paddedNumber}`;
-    console.log(`✅ generateOrderId - Order ID gerado: ${orderId} (prefixo: ${prefix}, customizado: ${usedCustomPrefix}, data: ${day}/${month}/${year}, sequencial: ${paddedNumber})`);
+    console.log(`✅ generateOrderId - Order ID gerado: ${orderId} (data: ${day}/${month}/${year}, sequencial: ${paddedNumber})`);
 
     return orderId;
   }
@@ -1149,43 +1078,6 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  private generateCompanyAcronym(companyName: string): string {
-    // Remover palavras comuns e conectores
-    const commonWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre', 'construtora'];
-
-    // Dividir o nome em palavras e filtrar palavras vazias e conectores
-    const words = companyName
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '') // Remove pontuação
-      .split(/\s+/)
-      .filter(word => word.length > 0 && !commonWords.includes(word));
-
-    let acronym = '';
-
-    if (words.length === 0) {
-      // Se não sobrou nenhuma palavra, usar o nome original
-      acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
-    } else if (words.length === 1) {
-      // Se só tem uma palavra, pegar as primeiras 3 letras
-      acronym = words[0].substring(0, 3).toUpperCase();
-    } else if (words.length === 2) {
-      // Se tem duas palavras, pegar 2 letras da primeira e 1 da segunda
-      acronym = words[0].substring(0, 2).toUpperCase() + words[1].substring(0, 1).toUpperCase();
-    } else if (words.length >= 3) {
-      // Se tem 3 ou mais palavras, pegar a primeira letra de cada uma das 3 primeiras
-      acronym = words.slice(0, 3).map(word => word.charAt(0).toUpperCase()).join('');
-    }
-
-    // Garantir que a sigla tenha pelo menos 2 caracteres e no máximo 4
-    if (acronym.length < 2) {
-      acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
-    }
-    if (acronym.length > 4) {
-      acronym = acronym.substring(0, 4);
-    }
-
-    return acronym;
-  }
 
   // Método auxiliar para gerar ID com padrão personalizado (OBSOLETO - mantido para compatibilidade)
   private async generateOrderIdWithPattern(pattern: string): Promise<string> {

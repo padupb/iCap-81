@@ -59,6 +59,20 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### October 27, 2025 - Late Afternoon
+- ✅ **Correção Crítica: Geração de IDs de Pedidos**
+  - **Problema**: Sistema estava gerando siglas automáticas diferentes para cada obra (exemplo: "ABC2710250001", "XYZ2710250001"), violando a regra de usar sempre o prefixo fixo "CNI"
+  - **Solução**: Corrigida função `generateOrderId()` em `server/storage.ts` para sempre usar o prefixo fixo "CNI"
+  - **Alterações**:
+    - Removida toda lógica complexa de geração/busca de siglas personalizadas por obra
+    - Removida função `generateCompanyAcronym()` que não é mais necessária
+    - Prefixo agora é sempre "CNI" (Consorcio Nova imigrantes) independente da obra de destino
+    - Código simplificado de ~90 linhas para ~20 linhas
+  - **Formato garantido**: CNI{DD}{MM}{YY}{NNNN} para TODOS os pedidos
+  - **Exemplo**: CNI2710250001 (primeiro pedido do dia 27/10/2025)
+  - Código em `routes.ts` já estava correto usando "CNI" fixo
+  - Reduzidos erros de LSP de 22 para 0 em storage.ts
+
 ### October 27, 2025 - Afternoon
 - ✅ **Correção de Rotas de Autorização e Logs do Sistema**
   - **Corrigida verificação de KeyUser** em múltiplas rotas:
