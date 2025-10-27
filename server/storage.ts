@@ -361,7 +361,7 @@ export class MemStorage implements IStorage {
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     const id = this.currentId++;
     const now = new Date();
-    const orderId = this.generateOrderId();
+    const orderId = this.generateOrderId(insertOrder.purchaseOrderId);
 
     // Check if order is urgent (delivery date <= 7 days)
     const deliveryDate = new Date(insertOrder.deliveryDate);
@@ -386,13 +386,26 @@ export class MemStorage implements IStorage {
     return order;
   }
 
-  private generateOrderId(): string {
+  private generateOrderId(purchaseOrderId?: number): string {
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = String(now.getFullYear()).slice(-2);
 
-    const prefix = "CNI";
+    // Determinar prefixo baseado na obra de destino
+    let prefix = "CNI"; // Fallback padrão
+
+    if (purchaseOrderId) {
+      const purchaseOrder = this.purchaseOrders.get(purchaseOrderId);
+      if (purchaseOrder && purchaseOrder.companyId) {
+        const company = this.companies.get(purchaseOrder.companyId);
+        if (company && company.name) {
+          prefix = this.generateCompanyAcronym(company.name);
+          console.log(`📝 MemStorage - Gerada sigla "${prefix}" para obra "${company.name}"`);
+        }
+      }
+    }
+
     const dateStr = `${day}${month}${year}`;
 
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -406,6 +419,44 @@ export class MemStorage implements IStorage {
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
     return `${prefix}${dateStr}${paddedNumber}`;
+  }
+
+  private generateCompanyAcronym(companyName: string): string {
+    // Palavras a serem removidas (APENAS conectores e sufixos legais - NÃO remover substantivos)
+    const stopWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre'];
+
+    // Limpar e normalizar: remover pontuação, converter para minúsculas, remover stopwords
+    const words = companyName
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '') // Remove pontuação
+      .split(/\s+/) // Divide em palavras
+      .filter(word => word.length > 0 && !stopWords.includes(word)); // Remove vazias e stopwords
+
+    let acronym = '';
+
+    if (words.length === 0) {
+      // Se não sobrou nenhuma palavra válida, usar as primeiras 3 letras do nome original
+      acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+    } else if (words.length === 1) {
+      // 1 palavra: 3 primeiras letras
+      acronym = words[0].substring(0, 3).toUpperCase();
+    } else if (words.length === 2) {
+      // 2 palavras: 2 letras da 1ª + 1 letra da 2ª
+      acronym = words[0].substring(0, 2).toUpperCase() + words[1].substring(0, 1).toUpperCase();
+    } else {
+      // 3+ palavras: 1ª letra de cada uma das 3 primeiras
+      acronym = words.slice(0, 3).map(word => word.charAt(0).toUpperCase()).join('');
+    }
+
+    // Garantir que tenha pelo menos 2 caracteres e no máximo 3
+    if (acronym.length < 2) {
+      acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+    }
+    if (acronym.length > 3) {
+      acronym = acronym.substring(0, 3);
+    }
+
+    return acronym;
   }
 
   // Purchase Orders
@@ -1029,18 +1080,123 @@ export class DatabaseStorage implements IStorage {
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const year = now.getFullYear().toString().slice(-2);
 
-    // Prefixo FIXO para todos os pedidos: CNI (Consorcio Nova imigrantes)
-    const prefix = "CNI";
-    console.log(`🎯 generateOrderId - Usando prefixo fixo: "${prefix}"`);
+    // Determinar prefixo baseado na OBRA DE DESTINO (campo cnpj da ordem de compra)
+    let prefix = "CNI"; // Prefixo padrão (fallback)
+    let usedCustomPrefix = false;
 
-    // Buscar próximo número sequencial DO DIA para o prefixo CNI
+    try {
+      if (purchaseOrderId) {
+        const { pool } = await import("./db");
+
+        // Buscar a ordem de compra para pegar o CNPJ da obra de destino
+        const purchaseOrderResult = await pool.query(
+          "SELECT cnpj FROM ordens_compra WHERE id = $1",
+          [purchaseOrderId]
+        );
+
+        if (purchaseOrderResult.rows.length > 0) {
+          const cnpjObra = purchaseOrderResult.rows[0].cnpj;
+          console.log(`🔍 generateOrderId - CNPJ da obra na ordem de compra: ${cnpjObra}`);
+
+          // Buscar a empresa (obra) pelo CNPJ - este é o destino do pedido
+          const companyResult = await pool.query(
+            "SELECT id, name FROM companies WHERE cnpj = $1",
+            [cnpjObra]
+          );
+
+          if (companyResult.rows.length > 0) {
+            const companyId = companyResult.rows[0].id;
+            const companyName = companyResult.rows[0].name;
+            console.log(`🏗️ generateOrderId - Obra de destino: ${companyName} (ID: ${companyId})`);
+
+            // Buscar se há uma sigla personalizada configurada para esta obra
+            const customAcronymSetting = await this.getSetting(`company_${companyId}_acronym`);
+            if (customAcronymSetting?.value) {
+              prefix = customAcronymSetting.value;
+              usedCustomPrefix = true;
+              console.log(`✅ generateOrderId - Usando sigla salva "${prefix}" para obra "${companyName}"`);
+            } else {
+              // Gerar sigla automaticamente baseada no nome da obra
+              const generatedPrefix = this.generateCompanyAcronym(companyName);
+              console.log(`📝 generateOrderId - Gerada sigla "${generatedPrefix}" para obra "${companyName}"`);
+              
+              // Salvar a sigla gerada para uso futuro
+              try {
+                await this.createOrUpdateSetting({
+                  key: `company_${companyId}_acronym`,
+                  value: generatedPrefix,
+                  description: `Sigla automática para ${companyName}`
+                });
+                console.log(`💾 generateOrderId - Sigla "${generatedPrefix}" salva para obra ${companyName}`);
+                prefix = generatedPrefix;
+                usedCustomPrefix = true;
+              } catch (saveError) {
+                console.log(`⚠️ generateOrderId - Erro ao salvar sigla: ${saveError}`);
+                prefix = generatedPrefix;
+                usedCustomPrefix = true;
+              }
+            }
+          } else {
+            console.log(`⚠️ generateOrderId - Obra não encontrada para CNPJ: ${cnpjObra} - usando CNI`);
+          }
+        } else {
+          console.log(`⚠️ generateOrderId - Ordem de compra não encontrada: ${purchaseOrderId} - usando CNI`);
+        }
+      } else {
+        console.log(`⚠️ generateOrderId - purchaseOrderId não fornecido - usando CNI`);
+      }
+    } catch (error) {
+      console.log("❌ generateOrderId - Erro ao determinar obra, usando CNI:", error);
+    }
+
+    console.log(`🎯 generateOrderId - Prefixo final: "${prefix}" (customizado: ${usedCustomPrefix})`);
+
+    // Buscar próximo número sequencial DO DIA para este prefixo
     const sequentialNumber = await this.getNextSequentialNumberForPrefix(prefix, day, month, year);
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
     const orderId = `${prefix}${day}${month}${year}${paddedNumber}`;
-    console.log(`✅ generateOrderId - Order ID gerado: ${orderId} (data: ${day}/${month}/${year}, sequencial: ${paddedNumber})`);
+    console.log(`✅ generateOrderId - ID gerado: ${orderId} (prefixo: ${prefix}, data: ${day}/${month}/${year}, seq: ${paddedNumber})`);
 
     return orderId;
+  }
+
+  private generateCompanyAcronym(companyName: string): string {
+    // Palavras a serem removidas (APENAS conectores e sufixos legais - NÃO remover substantivos)
+    const stopWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre'];
+
+    // Limpar e normalizar: remover pontuação, converter para minúsculas, remover stopwords
+    const words = companyName
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '') // Remove pontuação
+      .split(/\s+/) // Divide em palavras
+      .filter(word => word.length > 0 && !stopWords.includes(word)); // Remove vazias e stopwords
+
+    let acronym = '';
+
+    if (words.length === 0) {
+      // Se não sobrou nenhuma palavra válida, usar as primeiras 3 letras do nome original
+      acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+    } else if (words.length === 1) {
+      // 1 palavra: 3 primeiras letras
+      acronym = words[0].substring(0, 3).toUpperCase();
+    } else if (words.length === 2) {
+      // 2 palavras: 2 letras da 1ª + 1 letra da 2ª
+      acronym = words[0].substring(0, 2).toUpperCase() + words[1].substring(0, 1).toUpperCase();
+    } else {
+      // 3+ palavras: 1ª letra de cada uma das 3 primeiras
+      acronym = words.slice(0, 3).map(word => word.charAt(0).toUpperCase()).join('');
+    }
+
+    // Garantir que tenha pelo menos 2 caracteres e no máximo 3
+    if (acronym.length < 2) {
+      acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+    }
+    if (acronym.length > 3) {
+      acronym = acronym.substring(0, 3);
+    }
+
+    return acronym;
   }
 
 

@@ -60,18 +60,24 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 ## Recent Changes
 
 ### October 27, 2025 - Late Afternoon
-- ✅ **Correção Crítica: Geração de IDs de Pedidos**
-  - **Problema**: Sistema estava gerando siglas automáticas diferentes para cada obra (exemplo: "ABC2710250001", "XYZ2710250001"), violando a regra de usar sempre o prefixo fixo "CNI"
-  - **Solução**: Corrigida função `generateOrderId()` em `server/storage.ts` para sempre usar o prefixo fixo "CNI"
-  - **Alterações**:
-    - Removida toda lógica complexa de geração/busca de siglas personalizadas por obra
-    - Removida função `generateCompanyAcronym()` que não é mais necessária
-    - Prefixo agora é sempre "CNI" (Consorcio Nova imigrantes) independente da obra de destino
-    - Código simplificado de ~90 linhas para ~20 linhas
-  - **Formato garantido**: CNI{DD}{MM}{YY}{NNNN} para TODOS os pedidos
-  - **Exemplo**: CNI2710250001 (primeiro pedido do dia 27/10/2025)
-  - Código em `routes.ts` já estava correto usando "CNI" fixo
-  - Reduzidos erros de LSP de 22 para 0 em storage.ts
+- ✅ **Implementação: Geração Automática de Siglas por Obra**
+  - **Requisito**: Sistema deve gerar siglas automáticas baseadas no NOME DA OBRA DE DESTINO
+  - **Regras de Geração de Sigla**:
+    - **1 palavra**: 3 primeiras letras (ex: "Construtora" → "CON")
+    - **2 palavras**: 2 letras da 1ª + 1 letra da 2ª (ex: "Nova Imigrantes" → "NOI")
+    - **3+ palavras**: 1ª letra de cada uma das 3 primeiras (ex: "Consórcio Nova Imigrantes" → "CNI")
+  - **Implementação**:
+    - Restaurada função `generateCompanyAcronym()` com regras exatas conforme especificado
+    - Remove palavras comuns (ltda, sa, me, epp, eireli, conectores, etc) antes de gerar sigla
+    - Siglas são salvas nas configurações (`company_{id}_acronym`) para reuso
+    - Sistema busca obra de destino via CNPJ da ordem de compra
+    - Fallback para "CNI" em caso de erro ou dados ausentes
+  - **Formato**: {SIGLA}{DD}{MM}{YY}{NNNN}
+  - **Exemplos Reais**:
+    - Consórcio Nova Imigrantes → CNI2710250001
+    - Tripoloni Sinop → TRI2710250001
+    - Nova Imigrantes → NOI2710250001
+  - Sequencial diário por prefixo mantido com proteção contra duplicatas
 
 ### October 27, 2025 - Afternoon
 - ✅ **Correção de Rotas de Autorização e Logs do Sistema**
