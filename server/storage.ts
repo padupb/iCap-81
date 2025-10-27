@@ -1064,8 +1064,21 @@ export class DatabaseStorage implements IStorage {
               prefix = customAcronymSetting.value;
               console.log(`📝 generateOrderId - Usando sigla personalizada "${prefix}" para obra "${companyName}"`);
             } else {
+              // Gerar sigla automaticamente baseada no nome da obra
               prefix = this.generateCompanyAcronym(companyName);
               console.log(`📝 generateOrderId - Gerada sigla automática "${prefix}" para obra "${companyName}"`);
+              
+              // Salvar a sigla gerada para uso futuro
+              try {
+                await this.createOrUpdateSetting({
+                  key: `company_${companyId}_acronym`,
+                  value: prefix,
+                  description: `Sigla automática para ${companyName}`
+                });
+                console.log(`💾 generateOrderId - Sigla "${prefix}" salva nas configurações para obra ${companyName}`);
+              } catch (saveError) {
+                console.log(`⚠️ generateOrderId - Erro ao salvar sigla: ${saveError}`);
+              }
             }
           } else {
             console.log(`⚠️ generateOrderId - Obra não encontrada para CNPJ: ${cnpjObra} - usando prefixo padrão CNI`);
@@ -1127,7 +1140,7 @@ export class DatabaseStorage implements IStorage {
 
   private generateCompanyAcronym(companyName: string): string {
     // Remover palavras comuns e conectores
-    const commonWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre'];
+    const commonWords = ['ltda', 'sa', 'me', 'epp', 'eireli', 'do', 'da', 'de', 'dos', 'das', 'e', 'em', 'com', 'para', 'por', 'sobre', 'construtora'];
 
     // Dividir o nome em palavras e filtrar palavras vazias e conectores
     const words = companyName
@@ -1138,7 +1151,10 @@ export class DatabaseStorage implements IStorage {
 
     let acronym = '';
 
-    if (words.length === 1) {
+    if (words.length === 0) {
+      // Se não sobrou nenhuma palavra, usar o nome original
+      acronym = companyName.substring(0, 3).toUpperCase().replace(/[^\w]/g, '');
+    } else if (words.length === 1) {
       // Se só tem uma palavra, pegar as primeiras 3 letras
       acronym = words[0].substring(0, 3).toUpperCase();
     } else if (words.length === 2) {
