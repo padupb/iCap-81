@@ -1650,7 +1650,6 @@ export function OrderDetailDrawer({
                 </Button>
               </div>
             </DrawerTitle>
-            <DrawerDescription>Detalhes completos do pedido</DrawerDescription>
           </DrawerHeader>
 
           {!orderDetails ? (
