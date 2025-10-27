@@ -1032,6 +1032,7 @@ export class DatabaseStorage implements IStorage {
 
     // Determinar prefixo baseado na OBRA DE DESTINO (campo cnpj da ordem de compra)
     let prefix = "CNI"; // Prefixo padrão (Consorcio Nova imigrantes)
+    let usedCustomPrefix = false; // Flag para debug
 
     try {
       if (purchaseOrderId) {
@@ -1062,22 +1063,29 @@ export class DatabaseStorage implements IStorage {
             const customAcronymSetting = await this.getSetting(`company_${companyId}_acronym`);
             if (customAcronymSetting?.value) {
               prefix = customAcronymSetting.value;
-              console.log(`📝 generateOrderId - Usando sigla personalizada "${prefix}" para obra "${companyName}"`);
+              usedCustomPrefix = true;
+              console.log(`✅ generateOrderId - Usando sigla personalizada "${prefix}" para obra "${companyName}"`);
             } else {
               // Gerar sigla automaticamente baseada no nome da obra
-              prefix = this.generateCompanyAcronym(companyName);
-              console.log(`📝 generateOrderId - Gerada sigla automática "${prefix}" para obra "${companyName}"`);
+              const generatedPrefix = this.generateCompanyAcronym(companyName);
+              console.log(`📝 generateOrderId - Gerada sigla automática "${generatedPrefix}" para obra "${companyName}"`);
               
               // Salvar a sigla gerada para uso futuro
               try {
                 await this.createOrUpdateSetting({
                   key: `company_${companyId}_acronym`,
-                  value: prefix,
+                  value: generatedPrefix,
                   description: `Sigla automática para ${companyName}`
                 });
-                console.log(`💾 generateOrderId - Sigla "${prefix}" salva nas configurações para obra ${companyName}`);
+                console.log(`💾 generateOrderId - Sigla "${generatedPrefix}" salva nas configurações para obra ${companyName}`);
+                // IMPORTANTE: Usar a sigla gerada
+                prefix = generatedPrefix;
+                usedCustomPrefix = true;
               } catch (saveError) {
                 console.log(`⚠️ generateOrderId - Erro ao salvar sigla: ${saveError}`);
+                // Mesmo com erro ao salvar, usar a sigla gerada
+                prefix = generatedPrefix;
+                usedCustomPrefix = true;
               }
             }
           } else {
@@ -1093,12 +1101,15 @@ export class DatabaseStorage implements IStorage {
       console.log("❌ generateOrderId - Erro ao determinar obra de destino, usando prefixo padrão CNI:", error);
     }
 
+    // Log de debug do prefixo final
+    console.log(`🎯 generateOrderId - Prefixo final determinado: "${prefix}" (customizado: ${usedCustomPrefix})`);
+
     // Buscar próximo número sequencial DO DIA para este prefixo
     const sequentialNumber = await this.getNextSequentialNumberForPrefix(prefix, day, month, year);
     const paddedNumber = sequentialNumber.toString().padStart(4, '0');
 
     const orderId = `${prefix}${day}${month}${year}${paddedNumber}`;
-    console.log(`✅ generateOrderId - Order ID gerado: ${orderId} (prefixo: ${prefix}, data: ${day}/${month}/${year}, sequencial do dia: ${paddedNumber})`);
+    console.log(`✅ generateOrderId - Order ID gerado: ${orderId} (prefixo: ${prefix}, customizado: ${usedCustomPrefix}, data: ${day}/${month}/${year}, sequencial: ${paddedNumber})`);
 
     return orderId;
   }
