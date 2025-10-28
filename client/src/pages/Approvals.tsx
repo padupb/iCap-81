@@ -34,6 +34,15 @@ export default function Approvals() {
 
   const { data: urgentOrders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders/urgent"],
+    onSuccess: (data) => {
+      console.log(`📋 Aprovações - Pedidos urgentes recebidos:`, data);
+      console.log(`📊 Total de pedidos urgentes: ${data.length}`);
+      if (data.length > 0) {
+        data.forEach(order => {
+          console.log(`  - ${order.orderId}: status=${order.status}, urgente=${order.isUrgent}`);
+        });
+      }
+    },
   });
 
   // Filtrar pedidos baseado no termo de busca

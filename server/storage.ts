@@ -938,11 +938,11 @@ export class DatabaseStorage implements IStorage {
 
     console.log(`👔 Usuário ${userId} é aprovador de ${approverCompaniesResult.rows.length} empresa(s):`);
     approverCompaniesResult.rows.forEach((company: any) => {
-      console.log(`  - ${company.name} (CNPJ: ${company.cnpj})`);
+      console.log(`  - ${company.name} (ID: ${company.id}, CNPJ: ${company.cnpj})`);
     });
 
     // Buscar pedidos urgentes que precisam de aprovação baseado no critério obra de destino
-    // O usuário deve ser aprovador da empresa que corresponde ao CNPJ da obra de destino
+    // O usuário deve ser aprovador da empresa que corresponde ao CNPJ da ordem de compra
     const result = await pool.query(`
       SELECT DISTINCT
         o.id,
@@ -963,9 +963,9 @@ export class DatabaseStorage implements IStorage {
         c_obra_destino.name as "obraDestinoNome",
         c_obra_destino.approver_id as "obraApproverId"
       FROM orders o
-      LEFT JOIN products p ON o.product_id = p.id
-      LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
-      LEFT JOIN companies c_obra_destino ON oc.cnpj = c_obra_destino.cnpj
+      INNER JOIN products p ON o.product_id = p.id
+      INNER JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+      INNER JOIN companies c_obra_destino ON TRIM(LOWER(oc.cnpj)) = TRIM(LOWER(c_obra_destino.cnpj))
       WHERE o.is_urgent = true 
         AND o.status = 'Registrado'
         AND c_obra_destino.approver_id = $1
