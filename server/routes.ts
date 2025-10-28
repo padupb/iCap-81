@@ -1710,6 +1710,79 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para resetar status de pedido (KeyUser only)
+  app.post("/api/keyuser/reset-order-status", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const { orderId } = req.body;
+
+      if (!orderId || !orderId.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Número do pedido é obrigatório"
+        });
+      }
+
+      console.log(`🔄 KeyUser ${req.user.name} solicitou reset de status para pedido: ${orderId}`);
+
+      // Buscar o pedido pelo order_id
+      const orderResult = await pool.query(
+        "SELECT id, order_id, status, is_urgent FROM orders WHERE order_id = $1",
+        [orderId.trim()]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: `Pedido ${orderId} não encontrado`
+        });
+      }
+
+      const order = orderResult.rows[0];
+      console.log(`📋 Pedido encontrado - ID: ${order.id}, Status atual: ${order.status}, Urgente: ${order.is_urgent}`);
+
+      // Atualizar status para "Registrado" e is_urgent para true
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Registrado', 
+             is_urgent = true 
+         WHERE id = $1`,
+        [order.id]
+      );
+
+      console.log(`✅ Status resetado - Pedido ${orderId} agora está como "Registrado" e urgente`);
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Reset de status de pedido",
+        itemType: "order",
+        itemId: order.id.toString(),
+        details: `KeyUser resetou status do pedido ${orderId} para "Registrado" e is_urgent = true`
+      });
+
+      res.json({
+        success: true,
+        message: `Pedido ${orderId} resetado com sucesso para status "Registrado" e marcado como urgente`,
+        order: {
+          id: order.id,
+          orderId: orderId,
+          oldStatus: order.status,
+          newStatus: "Registrado",
+          oldIsUrgent: order.is_urgent,
+          newIsUrgent: true
+        }
+      });
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Erro ao resetar status do pedido:", err);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao resetar status: ${err.message}`
+      });
+    }
+  });
+
   // Rota para download do arquivo de teste do Object Storage
   app.post("/api/keyuser/download-test-file", isAuthenticated, isKeyUser, async (req, res) => {
     try {

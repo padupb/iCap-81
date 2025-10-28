@@ -152,6 +152,10 @@ export default function Keyuser() {
   const [activeUnitDialog, setActiveUnitDialog] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false); // Novo estado para o diálogo de categoria
 
+  // Novos estados para a funcionalidade de Reset Status
+  const [resetOrderId, setResetOrderId] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+
   // Estados para edição
   const [editingCategory, setEditingCategory] = useState<CompanyCategory | null>(null);
   const [editingRole, setEditingRole] = useState<UserRole | null>(null);
@@ -721,6 +725,58 @@ export default function Keyuser() {
     }
   };
 
+  // Função para resetar status do pedido
+  const handleResetStatus = async () => {
+    if (!resetOrderId.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe o número do pedido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResetting(true);
+
+    try {
+      const response = await fetch(`/api/keyuser/reset-order-status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          orderId: resetOrderId.trim()
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erro ao resetar status");
+      }
+
+      toast({
+        title: "Sucesso",
+        description: result.message || "Status do pedido resetado com sucesso",
+      });
+
+      setResetOrderId("");
+    } catch (error) {
+      console.error("Erro ao resetar status:", error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao resetar status do pedido",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  // Função para exportar notas fiscais em arquivo ZIP
+  const handleExportNotes = async () => {
+  };
 
   return (
     <div className="space-y-6">
@@ -746,9 +802,9 @@ export default function Keyuser() {
             <Settings className="w-4 h-4" />
             Configurações Gerais
           </TabsTrigger>
-          <TabsTrigger value="icapmob" className="flex items-center gap-2">
-            <Smartphone className="w-4 h-4" />
-            iCapMob
+          <TabsTrigger value="applications" className="flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            Aplicações
           </TabsTrigger>
         </TabsList>
 
@@ -1579,6 +1635,52 @@ export default function Keyuser() {
                     </TableBody>
                   </Table>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Nova Aba: Aplicações */}
+        <TabsContent value="applications" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                Ferramentas de Aplicação
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Reset Status */}
+              <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5" />
+                  Resetar Status do Pedido
+                </h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="reset-order-id" className="sr-only">Número do Pedido</Label>
+                    <Input
+                      id="reset-order-id"
+                      placeholder="Digite o número do pedido"
+                      value={resetOrderId}
+                      onChange={(e) => setResetOrderId(e.target.value)}
+                      disabled={isResetting}
+                    />
+                  </div>
+                  <Button onClick={handleResetStatus} disabled={isResetting}>
+                    {isResetting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Resetando...
+                      </>
+                    ) : (
+                      "Resetar Status"
+                    )}
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Ao resetar, o status do pedido será alterado para "Registrado" e "is_urgent" para "TRUE".
+                </p>
               </div>
             </CardContent>
           </Card>
