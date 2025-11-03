@@ -379,6 +379,13 @@ export default function OrdensCompra() {
       });
     }
 
+    // Resetar o input do arquivo PDF
+    setEditPdfFile(null);
+    const pdfInput = document.getElementById('edit-pdf-input') as HTMLInputElement;
+    if (pdfInput) {
+      pdfInput.value = '';
+    }
+
     setIsAdvancedEditOpen(true);
   };
 
@@ -724,8 +731,20 @@ export default function OrdensCompra() {
                       // Primeiro, fazer upload do PDF se fornecido
                       if (editPdfFile) {
                         console.log('📎 Fazendo upload do PDF...');
+                        console.log('📄 Arquivo selecionado:', {
+                          name: editPdfFile.name,
+                          size: editPdfFile.size,
+                          type: editPdfFile.type
+                        });
+
+                        if (editPdfFile.size === 0) {
+                          throw new Error("O arquivo PDF selecionado está vazio");
+                        }
+
                         const pdfFormData = new FormData();
-                        pdfFormData.append('ordem_pdf', editPdfFile);
+                        pdfFormData.append('ordem_pdf', editPdfFile, editPdfFile.name);
+
+                        console.log('📤 Enviando FormData para o servidor...');
 
                         const uploadResponse = await fetch(`/api/ordem-compra/${selectedOrderForEdit.id}/upload-pdf`, {
                           method: "POST",
@@ -930,12 +949,21 @@ export default function OrdensCompra() {
                 <div className="space-y-2">
                   <FormLabel>Novo PDF da Ordem de Compra (opcional)</FormLabel>
                   <Input
+                    id="edit-pdf-input"
                     type="file"
                     accept=".pdf"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        console.log('📎 Arquivo PDF selecionado no input:', {
+                          name: file.name,
+                          size: file.size,
+                          type: file.type
+                        });
                         setEditPdfFile(file);
+                      } else {
+                        console.log('❌ Nenhum arquivo selecionado');
+                        setEditPdfFile(null);
                       }
                     }}
                     className="bg-input border-border"
