@@ -903,24 +903,11 @@ const ordemCompraStorage = multer.diskStorage({
 
     cb(null, uploadDir);
   },
-  filename: async function (req, file, cb) {
-    try {
-      // Buscar o número da ordem de compra pelo ID
-      const ordemId = req.params.id;
-      const result = await pool.query("SELECT numero_ordem FROM ordens_compra WHERE id = $1", [ordemId]);
-
-      if (result.rows.length === 0) {
-        return cb(new Error("Ordem de compra não encontrada"), "");
-      }
-
-      const numeroOrdem = result.rows[0].numero_ordem;
-      // Salva o PDF com o nome do número da ordem + extensão .pdf
-      const fileName = `${numeroOrdem}.pdf`;
-      cb(null, fileName);
-    } catch (error) {
-      console.error("Erro ao gerar nome do arquivo da ordem de compra:", error);
-      cb(error as Error, "");
-    }
+  filename: function (req, file, cb) {
+    // Usar um nome temporário único e renomear depois no handler da rota
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const fileName = `ordem-compra-${uniqueSuffix}.pdf`;
+    cb(null, fileName);
   }
 });
 
