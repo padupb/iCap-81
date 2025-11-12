@@ -2438,15 +2438,24 @@ export function OrderDetailDrawer({
                           const validFromRaw = purchaseOrder.validFrom || (purchaseOrder as any).valido_desde;
                           if (validFromRaw) {
                             validFromDate = new Date(validFromRaw);
-                            validFromDate.setHours(0, 0, 0, 0);
+                            // Verificar se a data é válida
+                            if (isNaN(validFromDate.getTime())) {
+                              validFromDate = null;
+                            } else {
+                              validFromDate.setHours(0, 0, 0, 0);
+                            }
                           }
 
-
                           // Obter validUntilDate
-                          const validUntilRaw = (purchaseOrder as any).valido_ate || (purchaseOrder as any).validUntil;
+                          const validUntilRaw = (purchaseOrder as any).valido_ate || purchaseOrder.validUntil;
                           if (validUntilRaw) {
                             validUntilDate = new Date(validUntilRaw);
-                            validUntilDate.setHours(0, 0, 0, 0);
+                            // Verificar se a data é válida
+                            if (isNaN(validUntilDate.getTime())) {
+                              validUntilDate = null;
+                            } else {
+                              validUntilDate.setHours(23, 59, 59, 999);
+                            }
                           }
 
                           console.log("🔍 DEBUG - validFromRaw:", validFromRaw);
@@ -2455,9 +2464,6 @@ export function OrderDetailDrawer({
                           console.log("🔍 DEBUG - validUntilDate:", validUntilDate?.toISOString());
 
                           if (validFromDate && validUntilDate) {
-                            validFromDate.setHours(0, 0, 0, 0);
-                            validUntilDate.setHours(0, 0, 0, 0);
-
                             const availableFromDate = new Date(validFromDate);
                             availableFromDate.setDate(availableFromDate.getDate() - 1);
                             availableFromDate.setHours(0, 0, 0, 0);
@@ -2582,18 +2588,20 @@ export function OrderDetailDrawer({
                             orderDetails.status === "Entregue") {
                           return (
                             <div className="space-y-4">
-                              <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
-                                <FileCheck
-                                  size={48}
-                                  className="text-green-500 mb-2"
-                                />
-                                <h3 className="text-lg font-medium text-green-700">
-                                  Documentos Carregados
-                                </h3>
-                                <p className="text-sm text-green-600 text-center mt-2">
-                                  Todos os documentos necessários foram enviados e
-                                  processados com sucesso.
-                                </p>
+                              <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-green-50">
+                                <div className="text-center">
+                                  <FileCheck
+                                    size={48}
+                                    className="text-green-500 mx-auto mb-2"
+                                  />
+                                  <h3 className="text-lg font-medium text-green-700">
+                                    Documentos Carregados
+                                  </h3>
+                                  <p className="text-sm text-green-600 mt-2">
+                                    Todos os documentos necessários foram enviados e
+                                    processados com sucesso.
+                                  </p>
+                                </div>
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
