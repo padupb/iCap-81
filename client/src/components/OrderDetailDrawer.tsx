@@ -2437,7 +2437,10 @@ export function OrderDetailDrawer({
                           // Obter validFromDate - testar primeiro validFrom, depois valido_desde
                           const validFromRaw = purchaseOrder.validFrom || (purchaseOrder as any).valido_desde;
                           if (validFromRaw) {
-                            validFromDate = new Date(validFromRaw);
+                            // Extrair apenas a parte da data (YYYY-MM-DD) e criar data local
+                            const dateStr = validFromRaw.split('T')[0];
+                            const [year, month, day] = dateStr.split('-').map(Number);
+                            validFromDate = new Date(year, month - 1, day);
                             // Verificar se a data é válida
                             if (isNaN(validFromDate.getTime())) {
                               validFromDate = null;
@@ -2449,7 +2452,10 @@ export function OrderDetailDrawer({
                           // Obter validUntilDate
                           const validUntilRaw = (purchaseOrder as any).valido_ate || purchaseOrder.validUntil;
                           if (validUntilRaw) {
-                            validUntilDate = new Date(validUntilRaw);
+                            // Extrair apenas a parte da data (YYYY-MM-DD) e criar data local
+                            const dateStr = validUntilRaw.split('T')[0];
+                            const [year, month, day] = dateStr.split('-').map(Number);
+                            validUntilDate = new Date(year, month - 1, day);
                             // Verificar se a data é válida
                             if (isNaN(validUntilDate.getTime())) {
                               validUntilDate = null;
