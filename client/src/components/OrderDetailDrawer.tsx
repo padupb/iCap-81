@@ -2437,30 +2437,28 @@ export function OrderDetailDrawer({
                           // Obter validFromDate - testar primeiro validFrom, depois valido_desde
                           const validFromRaw = purchaseOrder.validFrom || (purchaseOrder as any).valido_desde;
                           if (validFromRaw) {
-                            // Extrair apenas a parte da data (YYYY-MM-DD) e criar data local
-                            const dateStr = validFromRaw.split('T')[0];
+                            // Extrair apenas a parte da data (YYYY-MM-DD)
+                            const dateStr = validFromRaw.toString().split('T')[0];
                             const [year, month, day] = dateStr.split('-').map(Number);
-                            validFromDate = new Date(year, month - 1, day);
+                            // Criar data em UTC para evitar conversão de fuso horário
+                            validFromDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
                             // Verificar se a data é válida
                             if (isNaN(validFromDate.getTime())) {
                               validFromDate = null;
-                            } else {
-                              validFromDate.setHours(0, 0, 0, 0);
                             }
                           }
 
                           // Obter validUntilDate
                           const validUntilRaw = (purchaseOrder as any).valido_ate || purchaseOrder.validUntil;
                           if (validUntilRaw) {
-                            // Extrair apenas a parte da data (YYYY-MM-DD) e criar data local
-                            const dateStr = validUntilRaw.split('T')[0];
+                            // Extrair apenas a parte da data (YYYY-MM-DD)
+                            const dateStr = validUntilRaw.toString().split('T')[0];
                             const [year, month, day] = dateStr.split('-').map(Number);
-                            validUntilDate = new Date(year, month - 1, day);
+                            // Criar data em UTC para evitar conversão de fuso horário
+                            validUntilDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
                             // Verificar se a data é válida
                             if (isNaN(validUntilDate.getTime())) {
                               validUntilDate = null;
-                            } else {
-                              validUntilDate.setHours(23, 59, 59, 999);
                             }
                           }
 
@@ -2471,11 +2469,10 @@ export function OrderDetailDrawer({
 
                           if (validFromDate && validUntilDate) {
                             const availableFromDate = new Date(validFromDate);
-                            availableFromDate.setDate(availableFromDate.getDate() - 1);
-                            availableFromDate.setHours(0, 0, 0, 0);
+                            availableFromDate.setUTCDate(availableFromDate.getUTCDate() - 1);
 
-                            const todayDate = new Date();
-                            todayDate.setHours(0, 0, 0, 0);
+                            const now = new Date();
+                            const todayDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
 
                             console.log("📅 DEBUG - availableFromDate:", availableFromDate.toLocaleDateString('pt-BR'));
                             console.log("📅 DEBUG - todayDate:", todayDate.toLocaleDateString('pt-BR'));
