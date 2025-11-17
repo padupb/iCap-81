@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Search, Edit, Trash2, User, Phone, Mail, Building, Shield, AlertCircle, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuthorization } from "@/context/AuthorizationContext";
@@ -590,13 +591,14 @@ export default function Users() {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Editar Usuário</DialogTitle>
             </DialogHeader>
 
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+            <ScrollArea className="flex-1 pr-4">
+              <Form {...editForm}>
+                <form id="edit-user-form" onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={editForm.control}
@@ -850,48 +852,51 @@ export default function Users() {
                   )}
                 </div>
 
-                <div className="flex gap-2 justify-between">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button type="button" variant="destructive">
-                              Esquecer senha
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Deseja redefinir a senha do usuário para o padrão icap123? Esta ação exigirá uma nova senha no próximo login.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleResetPassword(selectedUser?.id)}>
-                                Confirmar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-
-                        <div className="flex gap-2">
-                          <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsEditDialogOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/90"
-                    disabled={updateUserMutation.isPending}
-                  >
-                    {updateUserMutation.isPending ? "Salvar Alterações" : "Salvar Alterações"}
-                  </Button>
-                        </div>
-                      </div>
-              </form>
+                </form>
             </Form>
+            </ScrollArea>
+
+            <div className="flex gap-2 justify-between pt-4 border-t">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive">
+                    Esquecer senha
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Deseja redefinir a senha do usuário para o padrão icap123? Esta ação exigirá uma nova senha no próximo login.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleResetPassword(selectedUser?.id)}>
+                      Confirmar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  form="edit-user-form"
+                  className="bg-primary hover:bg-primary/90"
+                  disabled={updateUserMutation.isPending}
+                >
+                  {updateUserMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 
