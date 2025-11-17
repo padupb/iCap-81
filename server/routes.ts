@@ -2161,6 +2161,157 @@ Status: Teste em progresso...`;
     }
   });
 
+  // User works routes - gerenciar obras específicas de um usuário
+  app.get("/api/users/:id/works", isAuthenticated, async (req, res) => {
+    try {
+      // Verificar permissão para gerenciar usuários
+      const hasManagePermission = req.user.permissions?.includes("edit_users") || 
+                                   req.user.permissions?.includes("create_users") || 
+                                   req.user.permissions?.includes("*");
+      const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
+      
+      if (!isKeyUserCheck && !hasManagePermission) {
+        return res.status(403).json({ message: "Sem permissão para visualizar obras de usuários" });
+      }
+
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "ID de usuário inválido" });
+      }
+
+      // Buscar obras associadas ao usuário
+      const result = await pool.query(`
+        SELECT 
+          uw.id as user_work_id,
+          uw.user_id,
+          uw.company_id,
+          uw.created_at,
+          c.name as company_name,
+          c.cnpj,
+          c.category_id,
+          cc.name as category_name
+        FROM user_works uw
+        JOIN companies c ON uw.company_id = c.id
+        JOIN company_categories cc ON c.category_id = cc.id
+        WHERE uw.user_id = $1
+        ORDER BY c.name
+      `, [userId]);
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Erro ao buscar obras do usuário:", error);
+      res.status(500).json({ message: "Erro ao buscar obras do usuário" });
+    }
+  });
+
+  app.post("/api/users/:id/works", isAuthenticated, async (req, res) => {
+    try {
+      // Verificar permissão para gerenciar usuários
+      const hasManagePermission = req.user.permissions?.includes("edit_users") || 
+                                   req.user.permissions?.includes("create_users") || 
+                                   req.user.permissions?.includes("*");
+      const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
+      
+      if (!isKeyUserCheck && !hasManagePermission) {
+        return res.status(403).json({ message: "Sem permissão para modificar obras de usuários" });
+      }
+
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "ID de usuário inválido" });
+      }
+
+      const { companyIds } = req.body;
+      if (!Array.isArray(companyIds)) {
+        return res.status(400).json({ message: "companyIds deve ser um array" });
+      }
+
+      // Verificar se o usuário existe
+      const userExists = await storage.getUser(userId);
+      if (!userExists) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      // Verificar se todas as empresas existem
+      for (const companyId of companyIds) {
+        const company = await storage.getCompany(companyId);
+        if (!company) {
+          return res.status(400).json({ message: `Empresa com ID ${companyId} não encontrada` });
+        }
+      }
+
+      // Remover todas as obras anteriores
+      await pool.query('DELETE FROM user_works WHERE user_id = $1', [userId]);
+
+      // Inserir as novas obras
+      if (companyIds.length > 0) {
+        const values = companyIds.map((companyId, index) => 
+          `($1, $${index + 2})`
+        ).join(', ');
+        
+        await pool.query(
+          `INSERT INTO user_works (user_id, company_id) VALUES ${values}`,
+          [userId, ...companyIds]
+        );
+      }
+
+      // Registrar log
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Atualizou obras do usuário",
+          itemType: "user",
+          itemId: userId.toString(),
+          details: `${companyIds.length} obras atribuídas ao usuário ${userExists.name}`
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Obras atualizadas com sucesso",
+        count: companyIds.length 
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar obras do usuário:", error);
+      res.status(500).json({ message: "Erro ao atualizar obras do usuário" });
+    }
+  });
+
+  app.delete("/api/users/:id/works/:companyId", isAuthenticated, async (req, res) => {
+    try {
+      // Verificar permissão para gerenciar usuários
+      const hasManagePermission = req.user.permissions?.includes("edit_users") || 
+                                   req.user.permissions?.includes("delete_users") || 
+                                   req.user.permissions?.includes("*");
+      const isKeyUserCheck = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser;
+      
+      if (!isKeyUserCheck && !hasManagePermission) {
+        return res.status(403).json({ message: "Sem permissão para remover obras de usuários" });
+      }
+
+      const userId = parseInt(req.params.id);
+      const companyId = parseInt(req.params.companyId);
+      
+      if (isNaN(userId) || isNaN(companyId)) {
+        return res.status(400).json({ message: "IDs inválidos" });
+      }
+
+      const result = await pool.query(
+        'DELETE FROM user_works WHERE user_id = $1 AND company_id = $2 RETURNING *',
+        [userId, companyId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Associação não encontrada" });
+      }
+
+      res.json({ success: true, message: "Obra removida do usuário" });
+    } catch (error) {
+      console.error("Erro ao remover obra do usuário:", error);
+      res.status(500).json({ message: "Erro ao remover obra do usuário" });
+    }
+  });
+
   // Companies routes
   app.get("/api/companies", async (req, res) => {
     try {
@@ -2845,13 +2996,62 @@ Status: Teste em progresso...`;
       else if (req.user && req.user.companyId === 11) {
         console.log(`🔓 Usuário ${req.user.name} (Nova Rota do Oeste) - visualização irrestrita de todos os pedidos`);
       }
-      // Usuários com companyId aplicam filtros
-      else if (req.user && req.user.companyId) {
-        console.log(`🔒 Aplicando filtros de autorização para ${req.user.name} (Empresa ID: ${req.user.companyId})`);
+      // Verificar se usuário tem obras específicas associadas
+      else if (req.user && req.user.id) {
+        // Buscar obras associadas ao usuário
+        const userWorksResult = await pool.query(
+          'SELECT company_id FROM user_works WHERE user_id = $1',
+          [req.user.id]
+        );
         
-        const userCompany = await storage.getCompany(req.user.companyId);
-        
-        if (userCompany) {
+        if (userWorksResult.rows.length > 0) {
+          console.log(`🏗️ Usuário ${req.user.name} tem ${userWorksResult.rows.length} obras específicas associadas`);
+          const userWorkIds = userWorksResult.rows.map(row => row.company_id);
+          const filteredOrders = [];
+          
+          for (const order of orders) {
+            const purchaseOrderId = order.purchase_order_id || order.purchaseOrderId;
+            const orderId = order.order_id || order.orderId;
+            
+            if (purchaseOrderId) {
+              try {
+                const poResult = await pool.query(`
+                  SELECT oc.empresa_id, oc.cnpj, c.id as obra_id
+                  FROM ordens_compra oc
+                  LEFT JOIN companies c ON oc.cnpj = c.cnpj
+                  WHERE oc.id = $1
+                `, [purchaseOrderId]);
+                
+                if (poResult.rows.length > 0) {
+                  const poData = poResult.rows[0];
+                  
+                  // Verificar se a obra de destino está na lista de obras do usuário
+                  if (poData.obra_id && userWorkIds.includes(poData.obra_id)) {
+                    filteredOrders.push(order);
+                    console.log(`✅ Pedido ${orderId} incluído - obra de destino autorizada`);
+                  }
+                  // Verificar se a concessionária está na lista de obras do usuário
+                  else if (poData.empresa_id && userWorkIds.includes(poData.empresa_id)) {
+                    filteredOrders.push(order);
+                    console.log(`✅ Pedido ${orderId} incluído - concessionária autorizada`);
+                  }
+                }
+              } catch (error) {
+                console.error(`Erro ao verificar obras do pedido ${orderId}:`, error);
+              }
+            }
+          }
+          
+          orders = filteredOrders;
+          console.log(`🏗️ ${req.user.name} - visualização de ${orders.length} pedidos (filtrado por obras específicas)`);
+        }
+        // Se não tem obras específicas mas tem companyId, aplicar filtros normais
+        else if (req.user.companyId) {
+          console.log(`🔒 Aplicando filtros de autorização para ${req.user.name} (Empresa ID: ${req.user.companyId})`);
+          
+          const userCompany = await storage.getCompany(req.user.companyId);
+          
+          if (userCompany) {
           const filteredOrders = [];
           
           for (const order of orders) {
@@ -2920,6 +3120,7 @@ Status: Teste em progresso...`;
           
           orders = filteredOrders;
           console.log(`🔒 ${req.user.name} (${userCompany.name}) - visualização de ${orders.length} pedidos`);
+          }
         }
       } 
       // Usuários sem empresa veem tudo

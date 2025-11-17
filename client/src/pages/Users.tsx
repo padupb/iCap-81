@@ -36,6 +36,8 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all");
+  const [selectedWorksCreate, setSelectedWorksCreate] = useState<number[]>([]);
+  const [selectedWorksEdit, setSelectedWorksEdit] = useState<number[]>([]);
 
   const queryClient = useQueryClient();
   const { canCreate, canEdit } = useAuthorization();
@@ -50,6 +52,12 @@ export default function Users() {
 
   const { data: roles = [] } = useQuery<UserRole[]>({
     queryKey: ["/api/user-roles"],
+  });
+
+  // Filtrar apenas as obras (construtoras) para seleção
+  const constructionCompanies = companies.filter(c => {
+    const categoryName = (c as any).category?.name;
+    return categoryName === "Construtora";
   });
 
   const createUserMutation = useMutation({
@@ -149,22 +157,71 @@ export default function Users() {
     resolver: zodResolver(userFormSchema.omit({ password: true })),
   });
 
-  const onSubmit = (data: CreateUserFormData) => {
+  const onSubmit = async (data: CreateUserFormData) => {
     // Adicionar a senha padrão automaticamente
     const userDataWithPassword = {
       ...data,
       password: "icap123"
     };
-    createUserMutation.mutate(userDataWithPassword);
-  };
-
-  const onEditSubmit = (data: Omit<UserFormData, 'password'>) => {
-    if (selectedUser) {
-      updateUserMutation.mutate({ id: selectedUser.id, user: data });
+    
+    // Criar o usuário primeiro
+    try {
+      const createdUser = await apiRequest("POST", "/api/users", userDataWithPassword);
+      
+      // Se há obras selecionadas, associá-las ao usuário
+      if (selectedWorksCreate.length > 0) {
+        await apiRequest("POST", `/api/users/${createdUser.id}/works`, {
+          companyIds: selectedWorksCreate
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setIsCreateDialogOpen(false);
+      setSelectedWorksCreate([]);
+      form.reset();
+      toast({
+        title: "Sucesso",
+        description: "Usuário criado com sucesso",
+      });
+    } catch (error: any) {
+      console.error("Erro ao criar usuário:", error);
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Erro ao criar usuário",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleEdit = (user: UserType) => {
+  const onEditSubmit = async (data: Omit<UserFormData, 'password'>) => {
+    if (!selectedUser) return;
+    
+    try {
+      await apiRequest("PUT", `/api/users/${selectedUser.id}`, data);
+      
+      // Atualizar as obras associadas
+      await apiRequest("POST", `/api/users/${selectedUser.id}/works`, {
+        companyIds: selectedWorksEdit
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      setSelectedWorksEdit([]);
+      toast({
+        title: "Sucesso",
+        description: "Usuário atualizado com sucesso",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar usuário",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEdit = async (user: UserType) => {
     setSelectedUser(user);
     editForm.reset({
       name: user.name,
@@ -177,6 +234,17 @@ export default function Users() {
       canCreatePurchaseOrder: user.canCreatePurchaseOrder || false,
       canEditPurchaseOrders: user.canEditPurchaseOrders || false,
     });
+    
+    // Carregar as obras associadas ao usuário
+    try {
+      const userWorks = await apiRequest("GET", `/api/users/${user.id}/works`, {});
+      const workIds = userWorks.map((work: any) => work.company_id);
+      setSelectedWorksEdit(workIds);
+    } catch (error) {
+      console.error("Erro ao carregar obras do usuário:", error);
+      setSelectedWorksEdit([]);
+    }
+    
     setIsEditDialogOpen(true);
   };
 
@@ -459,6 +527,44 @@ export default function Users() {
                   )}
                 />
 
+                {/* Seleção de Obras */}
+                <div className="space-y-3 border rounded-md p-4 mt-4">
+                  <div>
+                    <h4 className="font-medium text-sm mb-2">Obras Disponíveis para Visualização</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Selecione as obras (construtoras) que este usuário poderá visualizar pedidos
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                    {constructionCompanies.map((company) => (
+                      <div key={company.id} className="flex items-start space-x-2">
+                        <Checkbox
+                          id={`work-create-${company.id}`}
+                          checked={selectedWorksCreate.includes(company.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedWorksCreate([...selectedWorksCreate, company.id]);
+                            } else {
+                              setSelectedWorksCreate(selectedWorksCreate.filter(id => id !== company.id));
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`work-create-${company.id}`}
+                          className="text-sm font-normal leading-none cursor-pointer"
+                        >
+                          {company.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  {constructionCompanies.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Nenhuma obra (construtora) cadastrada
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex justify-end space-x-4 pt-4 border-t border-border">
                   <Button
                     type="button"
@@ -703,6 +809,44 @@ export default function Users() {
                     </FormItem>
                   )}
                 />
+
+                {/* Seleção de Obras - Edição */}
+                <div className="space-y-3 border rounded-md p-4 mt-4">
+                  <div>
+                    <h4 className="font-medium text-sm mb-2">Obras Disponíveis para Visualização</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Selecione as obras (construtoras) que este usuário poderá visualizar pedidos
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                    {constructionCompanies.map((company) => (
+                      <div key={company.id} className="flex items-start space-x-2">
+                        <Checkbox
+                          id={`work-edit-${company.id}`}
+                          checked={selectedWorksEdit.includes(company.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedWorksEdit([...selectedWorksEdit, company.id]);
+                            } else {
+                              setSelectedWorksEdit(selectedWorksEdit.filter(id => id !== company.id));
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`work-edit-${company.id}`}
+                          className="text-sm font-normal leading-none cursor-pointer"
+                        >
+                          {company.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  {constructionCompanies.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Nenhuma obra (construtora) cadastrada
+                    </p>
+                  )}
+                </div>
 
                 <div className="flex gap-2 justify-between">
                         <AlertDialog>
