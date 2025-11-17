@@ -2840,7 +2840,11 @@ Status: Teste em progresso...`;
       // KeyUsers (IDs 1-5 ou isKeyUser) veem tudo
       if ((req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser) {
         console.log(`🔓 Usuário ${req.user.name} (ID: ${req.user.id}) - visualização irrestrita (KeyUser)`);
-      } 
+      }
+      // Usuários da Nova Rota do Oeste (ID 11) veem todos os pedidos
+      else if (req.user && req.user.companyId === 11) {
+        console.log(`🔓 Usuário ${req.user.name} (Nova Rota do Oeste) - visualização irrestrita de todos os pedidos`);
+      }
       // Usuários com companyId aplicam filtros
       else if (req.user && req.user.companyId) {
         console.log(`🔒 Aplicando filtros de autorização para ${req.user.name} (Empresa ID: ${req.user.companyId})`);

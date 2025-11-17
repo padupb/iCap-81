@@ -59,6 +59,18 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### November 17, 2025
+- ✅ **Permissão Especial: Nova Rota do Oeste**
+  - **Requisito**: Integrantes da Nova Rota do Oeste devem visualizar todos os pedidos do iCAP
+  - **Implementação**: Adicionada exceção na lógica de autorização (server/routes.ts, linha 2848-2850)
+  - **Lógica**: Usuários com `companyId === 11` (Nova Rota do Oeste) têm visualização irrestrita de todos os pedidos
+  - **Comportamento**:
+    - KeyUsers (IDs 1-5 ou flag isKeyUser): Visualização total (inalterado)
+    - Nova Rota do Oeste (ID 11): Visualização total de todos os 835 pedidos
+    - Outras empresas: Visualização filtrada conforme regras existentes (fornecedor, concessionária, obra de destino, aprovador)
+  - **Usuários Afetados**: Todos os integrantes da empresa Nova Rota do Oeste, incluindo Lucas Linhares (ID: 103)
+  - **Logs**: Sistema registra "visualização irrestrita de todos os pedidos" para usuários da Nova Rota do Oeste
+
 ### October 27, 2025 - Late Afternoon
 - ✅ **Implementação: Geração Automática de Siglas por Obra**
   - **Requisito**: Sistema deve gerar siglas automáticas baseadas no NOME DA OBRA DE DESTINO
