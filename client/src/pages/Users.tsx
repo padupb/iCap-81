@@ -166,7 +166,8 @@ export default function Users() {
     
     // Criar o usuário primeiro
     try {
-      const createdUser = await apiRequest("POST", "/api/users", userDataWithPassword);
+      const response = await apiRequest("POST", "/api/users", userDataWithPassword);
+      const createdUser = await response.json();
       
       // Se há obras selecionadas, associá-las ao usuário
       if (selectedWorksCreate.length > 0) {
@@ -237,7 +238,8 @@ export default function Users() {
     
     // Carregar as obras associadas ao usuário
     try {
-      const userWorks = await apiRequest("GET", `/api/users/${user.id}/works`, {});
+      const response = await apiRequest("GET", `/api/users/${user.id}/works`);
+      const userWorks = await response.json();
       const workIds = userWorks.map((work: any) => work.company_id);
       setSelectedWorksEdit(workIds);
     } catch (error) {
