@@ -28,6 +28,14 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// User works table - relação many-to-many entre usuários e obras (companies)
+export const userWorks = pgTable("user_works", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  companyId: integer("company_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Companies table
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),
@@ -167,6 +175,21 @@ export const ordersRelations = relations(orders, ({ one }) => ({
   }),
 }));
 
+export const usersRelations = relations(users, ({ many }) => ({
+  works: many(userWorks),
+}));
+
+export const userWorksRelations = relations(userWorks, ({ one }) => ({
+  user: one(users, {
+    fields: [userWorks.userId],
+    references: [users.id],
+  }),
+  company: one(companies, {
+    fields: [userWorks.companyId],
+    references: [companies.id],
+  }),
+}));
+
 // System logs table
 export const systemLogs = pgTable("system_logs", {
   id: serial("id").primaryKey(),
@@ -232,6 +255,10 @@ export const insertUserSchema = createInsertSchema(users)
       .min(4, "A senha deve ter pelo menos 4 caracteres")
       .optional(),
   });
+export const insertUserWorkSchema = createInsertSchema(userWorks).omit({
+  id: true,
+  createdAt: true,
+});
 export const insertCompanySchema = createInsertSchema(companies)
   .omit({ id: true, createdAt: true })
   .extend({
@@ -287,6 +314,10 @@ export const insertTrackingPointSchema = createInsertSchema(trackingPoints)
   });
 
 // Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UserWork = typeof userWorks.$inferSelect;
+export type InsertUserWork = z.infer<typeof insertUserWorkSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Company = typeof companies.$inferSelect;
