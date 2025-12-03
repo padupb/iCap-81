@@ -2929,12 +2929,13 @@ Status: Teste em progresso...`;
   // Orders routes (Pedidos)
   app.get("/api/orders", isAuthenticated, async (req, res) => {
     try {
-      // Buscar pedidos com quantidade_recebida do banco
+      // Buscar pedidos com quantidade_recebida do banco (excluindo os com status "excluido")
       const ordersResult = await pool.query(`
         SELECT 
           o.*,
           o.quantidade_recebida as "quantidadeRecebida"
         FROM orders o
+        WHERE o.status != 'excluido'
         ORDER BY o.created_at DESC
       `);
       
