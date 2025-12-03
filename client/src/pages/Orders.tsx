@@ -192,16 +192,9 @@ export default function Orders() {
   const [isExporting, setIsExporting] = useState(false);
 
 
-  // Buscar pedidos (excluindo os com status "excluido")
+  // Buscar pedidos
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
-    queryFn: async () => {
-      const response = await fetch("/api/orders");
-      if (!response.ok) throw new Error("Falha ao carregar pedidos");
-      const allOrders = await response.json();
-      // Filtrar pedidos com status "excluido"
-      return allOrders.filter((order: any) => order.status !== "excluido");
-    },
   });
 
   // Buscar produtos (usados na tabela)
@@ -865,7 +858,7 @@ export default function Orders() {
 
     // Definir data de entrega com horário 00:01 AM
     const [year, month, day] = data.deliveryDate.split('-').map(Number);
-    const correctedDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 1, 0));
+    const correctedDate = new Date(Date.UTC(year, month - 1, day, 0, 1, 0));
 
     // Adicionar campos adicionais necessários para o backend
     const orderData = {
