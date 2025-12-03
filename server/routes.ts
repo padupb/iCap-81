@@ -3800,8 +3800,8 @@ Status: Teste em progresso...`;
     }
   });
 
-  // Excluir pedido (somente KeyUser)
-  app.delete("/api/orders/:id", isAuthenticated, isKeyUser, async (req, res) => {
+  // Arquivar pedido - Soft delete (somente KeyUser)
+  app.patch("/api/orders/:id/archive", isAuthenticated, isKeyUser, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -3826,30 +3826,33 @@ Status: Teste em progresso...`;
 
       const order = checkOrder.rows[0];
 
-      // Excluir o pedido diretamente (documentos são armazenados como JSON no próprio pedido)
-      await pool.query("DELETE FROM orders WHERE id = $1", [id]);
+      // Atualizar o status para "excluido" em vez de deletar
+      await pool.query(
+        "UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2",
+        ["excluido", id]
+      );
 
-      // Registrar log de exclusão
+      // Registrar log de arquivamento
       if (req.session.userId) {
         await storage.createLog({
           userId: req.session.userId,
-          action: "Excluiu pedido",
+          action: "Arquivou pedido",
           itemType: "order",
           itemId: id.toString(),
-          details: `Pedido ${order.order_id} excluído`
+          details: `Pedido ${order.order_id} arquivado com status "excluido"`
         });
       }
 
       res.json({
         success: true,
-        message: "Pedido excluído com sucesso"
+        message: "Pedido arquivado com sucesso"
       });
 
     } catch (error) {
-      console.error("Erro ao excluir pedido:", error);
+      console.error("Erro ao arquivar pedido:", error);
       res.status(500).json({
         success: false,
-        message: "Erro ao excluir pedido",
+        message: "Erro ao arquivar pedido",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }

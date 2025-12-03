@@ -192,9 +192,16 @@ export default function Orders() {
   const [isExporting, setIsExporting] = useState(false);
 
 
-  // Buscar pedidos
+  // Buscar pedidos (excluindo os com status "excluido")
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
+    queryFn: async () => {
+      const response = await fetch("/api/orders");
+      if (!response.ok) throw new Error("Falha ao carregar pedidos");
+      const allOrders = await response.json();
+      // Filtrar pedidos com status "excluido"
+      return allOrders.filter((order: any) => order.status !== "excluido");
+    },
   });
 
   // Buscar produtos (usados na tabela)
@@ -298,16 +305,20 @@ export default function Orders() {
     },
   });
 
-  // Mutação para excluir pedido
+  // Mutação para arquivar pedido (soft delete)
   const deleteOrderMutation = useMutation({
     mutationFn: async (orderId: number) => {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: "DELETE",
+      const response = await fetch(`/api/orders/${orderId}/archive`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "excluido" }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || "Erro ao excluir pedido");
+        throw new Error(errorData?.message || "Erro ao arquivar pedido");
       }
 
       return response.json();
@@ -316,7 +327,7 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
         title: "Sucesso",
-        description: "Pedido excluído com sucesso",
+        description: "Pedido arquivado com sucesso",
       });
     },
     onError: (error: any) => {
@@ -1436,8 +1447,8 @@ export default function Orders() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Tem certeza que deseja excluir o pedido {(order as any).order_id || order.id}?
-                                    Esta ação não pode ser desfeita.
+                                    Tem certeza que deseja arquivar o pedido {(order as any).order_id || order.id}?
+                                    O pedido será ocultado e poderá ser recuperado no banco de dados quando necessário.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -1446,7 +1457,7 @@ export default function Orders() {
                                     onClick={() => deleteOrderMutation.mutate(order.id)}
                                     disabled={deleteOrderMutation.isPending}
                                   >
-                                    {deleteOrderMutation.isPending ? "Excluindo..." : "Excluir"}
+                                    {deleteOrderMutation.isPending ? "Arquivando..." : "Arquivar"}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
