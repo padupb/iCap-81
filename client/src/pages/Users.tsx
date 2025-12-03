@@ -316,14 +316,14 @@ export default function Users() {
               Novo Usuário
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>Cadastrar Novo Usuário</DialogTitle>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 min-h-0 pr-4">
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: 'calc(85vh - 140px)' }}>
               <Form {...form}>
-                <form id="create-user-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form id="create-user-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
@@ -599,7 +599,7 @@ export default function Users() {
 
                 </form>
               </Form>
-            </ScrollArea>
+            </div>
 
             <div className="flex justify-end space-x-4 pt-4 border-t border-border flex-shrink-0">
               <Button
@@ -623,14 +623,14 @@ export default function Users() {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>Editar Usuário</DialogTitle>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 min-h-0 pr-4">
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: 'calc(85vh - 140px)' }}>
               <Form {...editForm}>
-                <form id="edit-user-form" onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+                <form id="edit-user-form" onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6 pb-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={editForm.control}
@@ -911,8 +911,8 @@ export default function Users() {
                 </div>
 
                 </form>
-            </Form>
-            </ScrollArea>
+              </Form>
+            </div>
 
             <div className="flex gap-2 justify-between pt-4 border-t flex-shrink-0">
               <AlertDialog>
