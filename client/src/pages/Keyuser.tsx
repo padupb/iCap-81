@@ -56,7 +56,8 @@ import {
   UserPlus,
   Download,
   TestTube,
-  Loader2
+  Loader2,
+  Truck
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -155,6 +156,10 @@ export default function Keyuser() {
   // Novos estados para a funcionalidade de Reset Status
   const [resetOrderId, setResetOrderId] = useState("");
   const [isResetting, setIsResetting] = useState(false);
+
+  // Estados para a funcionalidade de Colocar em Rota
+  const [routeOrderId, setRouteOrderId] = useState("");
+  const [isSettingRoute, setIsSettingRoute] = useState(false);
 
   // Estados para edição
   const [editingCategory, setEditingCategory] = useState<CompanyCategory | null>(null);
@@ -771,6 +776,55 @@ export default function Keyuser() {
       });
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  // Função para colocar pedido em rota
+  const handleSetInRoute = async () => {
+    if (!routeOrderId.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe o número do pedido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSettingRoute(true);
+
+    try {
+      const response = await fetch(`/api/keyuser/set-order-in-route`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          orderId: routeOrderId.trim()
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erro ao colocar pedido em rota");
+      }
+
+      toast({
+        title: "Sucesso",
+        description: result.message || "Pedido colocado em rota com sucesso",
+      });
+
+      setRouteOrderId("");
+    } catch (error) {
+      console.error("Erro ao colocar em rota:", error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao colocar pedido em rota",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSettingRoute(false);
     }
   };
 
@@ -1680,6 +1734,39 @@ export default function Keyuser() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Ao resetar, o status do pedido será alterado para "Registrado" e "is_urgent" para "TRUE".
+                </p>
+              </div>
+
+              {/* Colocar em Rota */}
+              <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <Truck className="w-5 h-5" />
+                  Colocar em Rota
+                </h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="route-order-id" className="sr-only">Número do Pedido</Label>
+                    <Input
+                      id="route-order-id"
+                      placeholder="Digite o número do pedido"
+                      value={routeOrderId}
+                      onChange={(e) => setRouteOrderId(e.target.value)}
+                      disabled={isSettingRoute}
+                    />
+                  </div>
+                  <Button onClick={handleSetInRoute} disabled={isSettingRoute}>
+                    {isSettingRoute ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Colocando em Rota...
+                      </>
+                    ) : (
+                      "Colocar em Rota"
+                    )}
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Ao colocar em rota, o status do pedido será alterado para "Em Rota".
                 </p>
               </div>
             </CardContent>

@@ -1770,6 +1770,85 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para colocar pedido em rota (KeyUser only)
+  app.post("/api/keyuser/set-order-in-route", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const { orderId } = req.body;
+
+      if (!orderId || !orderId.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Número do pedido é obrigatório"
+        });
+      }
+
+      console.log(`🚚 KeyUser ${req.user.name} solicitou colocar em rota o pedido: ${orderId}`);
+
+      // Buscar o pedido pelo order_id
+      const orderResult = await pool.query(
+        "SELECT id, order_id, status FROM orders WHERE order_id = $1",
+        [orderId.trim()]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: `Pedido ${orderId} não encontrado`
+        });
+      }
+
+      const order = orderResult.rows[0];
+      console.log(`📋 Pedido encontrado - ID: ${order.id}, Status atual: ${order.status}`);
+
+      // Validar se o status atual permite colocar em rota
+      const statusEligiveisParaRota = ['Registrado', 'Aprovado', 'Separado', 'Em Separação', 'Faturado'];
+      if (!statusEligiveisParaRota.includes(order.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Pedido ${orderId} não pode ser colocado em rota. Status atual: "${order.status}". Status permitidos: ${statusEligiveisParaRota.join(', ')}`
+        });
+      }
+
+      // Atualizar status para "Em Rota"
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Em Rota'
+         WHERE id = $1`,
+        [order.id]
+      );
+
+      console.log(`✅ Pedido ${orderId} agora está "Em Rota"`);
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Pedido colocado em rota",
+        itemType: "order",
+        itemId: order.id.toString(),
+        details: `KeyUser alterou status do pedido ${orderId} para "Em Rota"`
+      });
+
+      res.json({
+        success: true,
+        message: `Pedido ${orderId} colocado em rota com sucesso`,
+        order: {
+          id: order.id,
+          orderId: orderId,
+          oldStatus: order.status,
+          newStatus: "Em Rota"
+        }
+      });
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Erro ao colocar pedido em rota:", err);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao colocar em rota: ${err.message}`
+      });
+    }
+  });
+
   // Rota para download do arquivo de teste do Object Storage
   app.post("/api/keyuser/download-test-file", isAuthenticated, isKeyUser, async (req, res) => {
     try {
