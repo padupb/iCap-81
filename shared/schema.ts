@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   canCreateOrder: boolean("can_create_order").default(false),
   canCreatePurchaseOrder: boolean("can_create_purchase_order").default(false),
   canEditPurchaseOrders: boolean("can_edit_purchase_orders").default(false),
+  canViewLancamento: boolean("can_view_lancamento").default(false),
   primeiroLogin: boolean("primeiro_login").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -107,6 +108,9 @@ export const orders = pgTable("orders", {
   
   // Campo para observações do pedido
   observacoes: text("observacoes"),
+  
+  // Campo para status de lançamento da nota
+  lancamento: boolean("lancamento").default(false),
 });
 
 // Purchase orders table
