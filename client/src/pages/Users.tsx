@@ -565,28 +565,30 @@ export default function Users() {
                       Selecione as obras (construtoras) que este usuário poderá visualizar pedidos
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                    {constructionCompanies.map((company) => (
-                      <div key={company.id} className="flex items-start space-x-2">
-                        <Checkbox
-                          id={`work-create-${company.id}`}
-                          checked={selectedWorksCreate.includes(company.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedWorksCreate([...selectedWorksCreate, company.id]);
-                            } else {
-                              setSelectedWorksCreate(selectedWorksCreate.filter(id => id !== company.id));
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={`work-create-${company.id}`}
-                          className="text-sm font-normal leading-none cursor-pointer"
-                        >
-                          {company.name}
-                        </label>
-                      </div>
-                    ))}
+                  <div className="max-h-60 overflow-y-auto border rounded-md p-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {constructionCompanies.map((company) => (
+                        <div key={company.id} className="flex items-start space-x-2">
+                          <Checkbox
+                            id={`work-create-${company.id}`}
+                            checked={selectedWorksCreate.includes(company.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedWorksCreate([...selectedWorksCreate, company.id]);
+                              } else {
+                                setSelectedWorksCreate(selectedWorksCreate.filter(id => id !== company.id));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`work-create-${company.id}`}
+                            className="text-sm font-normal leading-none cursor-pointer"
+                          >
+                            {company.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   {constructionCompanies.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
@@ -876,28 +878,30 @@ export default function Users() {
                       Selecione as obras (construtoras) que este usuário poderá visualizar pedidos
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                    {constructionCompanies.map((company) => (
-                      <div key={company.id} className="flex items-start space-x-2">
-                        <Checkbox
-                          id={`work-edit-${company.id}`}
-                          checked={selectedWorksEdit.includes(company.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedWorksEdit([...selectedWorksEdit, company.id]);
-                            } else {
-                              setSelectedWorksEdit(selectedWorksEdit.filter(id => id !== company.id));
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={`work-edit-${company.id}`}
-                          className="text-sm font-normal leading-none cursor-pointer"
-                        >
-                          {company.name}
-                        </label>
-                      </div>
-                    ))}
+                  <div className="max-h-60 overflow-y-auto border rounded-md p-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {constructionCompanies.map((company) => (
+                        <div key={company.id} className="flex items-start space-x-2">
+                          <Checkbox
+                            id={`work-edit-${company.id}`}
+                            checked={selectedWorksEdit.includes(company.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedWorksEdit([...selectedWorksEdit, company.id]);
+                              } else {
+                                setSelectedWorksEdit(selectedWorksEdit.filter(id => id !== company.id));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`work-edit-${company.id}`}
+                            className="text-sm font-normal leading-none cursor-pointer"
+                          >
+                            {company.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   {constructionCompanies.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
