@@ -3828,7 +3828,7 @@ Status: Teste em progresso...`;
 
       // Atualizar o status para "excluido" em vez de deletar
       await pool.query(
-        "UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2",
+        "UPDATE orders SET status = $1 WHERE id = $2",
         ["excluido", id]
       );
 
