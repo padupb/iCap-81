@@ -1502,7 +1502,7 @@ export default function Orders() {
                         {(isKeyUser || (currentUser as any)?.canViewLancamento) && (
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              {(currentUser as any)?.canViewLancamento && (
+                              {(isKeyUser || (currentUser as any)?.canViewLancamento) && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
