@@ -316,13 +316,14 @@ export default function Users() {
               Novo Usuário
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>Cadastrar Novo Usuário</DialogTitle>
             </DialogHeader>
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <ScrollArea className="flex-1 min-h-0 pr-4">
+              <Form {...form}>
+                <form id="create-user-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
@@ -594,35 +595,38 @@ export default function Users() {
                   )}
                 </div>
 
-                <div className="flex justify-end space-x-4 pt-4 border-t border-border">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCreateDialogOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/90"
-                    disabled={createUserMutation.isPending}
-                  >
-                    {createUserMutation.isPending ? "Salvando..." : "Salvar Usuário"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
+                </form>
+              </Form>
+            </ScrollArea>
+
+            <div className="flex justify-end space-x-4 pt-4 border-t border-border flex-shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                form="create-user-form"
+                className="bg-primary hover:bg-primary/90"
+                disabled={createUserMutation.isPending}
+              >
+                {createUserMutation.isPending ? "Salvando..." : "Salvar Usuário"}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>Editar Usuário</DialogTitle>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 pr-4">
+            <ScrollArea className="flex-1 min-h-0 pr-4">
               <Form {...editForm}>
                 <form id="edit-user-form" onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -906,7 +910,7 @@ export default function Users() {
             </Form>
             </ScrollArea>
 
-            <div className="flex gap-2 justify-between pt-4 border-t">
+            <div className="flex gap-2 justify-between pt-4 border-t flex-shrink-0">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="destructive">
