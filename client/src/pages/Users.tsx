@@ -236,6 +236,7 @@ export default function Users() {
       canCreateOrder: user.canCreateOrder || false,
       canCreatePurchaseOrder: user.canCreatePurchaseOrder || false,
       canEditPurchaseOrders: user.canEditPurchaseOrders || false,
+      canViewLancamento: (user as any).canViewLancamento || false,
     });
     
     // Carregar as obras associadas ao usuário
