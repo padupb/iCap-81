@@ -3832,27 +3832,27 @@ Status: Teste em progresso...`;
         ["excluido", id]
       );
 
-      // Registrar log de arquivamento
+      // Registrar log de exclusão
       if (req.session.userId) {
         await storage.createLog({
           userId: req.session.userId,
-          action: "Arquivou pedido",
+          action: "Excluiu pedido",
           itemType: "order",
           itemId: id.toString(),
-          details: `Pedido ${order.order_id} arquivado com status "excluido"`
+          details: `Pedido ${order.order_id} excluído com status "excluido"`
         });
       }
 
       res.json({
         success: true,
-        message: "Pedido arquivado com sucesso"
+        message: "Pedido excluído com sucesso"
       });
 
     } catch (error) {
-      console.error("Erro ao arquivar pedido:", error);
+      console.error("Erro ao excluir pedido:", error);
       res.status(500).json({
         success: false,
-        message: "Erro ao arquivar pedido",
+        message: "Erro ao excluir pedido",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }

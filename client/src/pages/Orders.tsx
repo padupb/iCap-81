@@ -298,7 +298,7 @@ export default function Orders() {
     },
   });
 
-  // Mutação para arquivar pedido (soft delete)
+  // Mutação para excluir pedido (soft delete)
   const deleteOrderMutation = useMutation({
     mutationFn: async (orderId: number) => {
       const response = await fetch(`/api/orders/${orderId}/archive`, {
@@ -311,7 +311,7 @@ export default function Orders() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || "Erro ao arquivar pedido");
+        throw new Error(errorData?.message || "Erro ao excluir pedido");
       }
 
       return response.json();
@@ -320,7 +320,7 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
         title: "Sucesso",
-        description: "Pedido arquivado com sucesso",
+        description: "Pedido excluído com sucesso",
       });
     },
     onError: (error: any) => {
@@ -1440,7 +1440,7 @@ export default function Orders() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Tem certeza que deseja arquivar o pedido {(order as any).order_id || order.id}?
+                                    Tem certeza que deseja excluir o pedido {(order as any).order_id || order.id}?
                                     O pedido será ocultado e poderá ser recuperado no banco de dados quando necessário.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
@@ -1450,7 +1450,7 @@ export default function Orders() {
                                     onClick={() => deleteOrderMutation.mutate(order.id)}
                                     disabled={deleteOrderMutation.isPending}
                                   >
-                                    {deleteOrderMutation.isPending ? "Arquivando..." : "Arquivar"}
+                                    {deleteOrderMutation.isPending ? "Excluindo..." : "Excluir"}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
