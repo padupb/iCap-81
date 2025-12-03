@@ -151,6 +151,7 @@ export default function Users() {
       canCreateOrder: false,
       canCreatePurchaseOrder: false,
       canEditPurchaseOrders: false,
+      canViewLancamento: false,
     },
   });
 
@@ -530,6 +531,30 @@ export default function Users() {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="canViewLancamento"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mt-3">
+                      <FormControl>
+                        <input
+                          type="checkbox" 
+                          checked={field.value === true}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          id="view-lancamento"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Visualizar Botão de Lançamento</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Permite que o usuário visualize e marque notas como lançadas nos pedidos.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
                 {/* Seleção de Obras */}
                 <div className="space-y-3 border rounded-md p-4 mt-4">
                   <div>
@@ -808,6 +833,30 @@ export default function Users() {
                         <FormLabel>Permissão para Edição de Ordens de Compra</FormLabel>
                         <p className="text-sm text-muted-foreground">
                           Permite que o usuário edite ordens de compra existentes no sistema.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="canViewLancamento"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mt-3">
+                      <FormControl>
+                        <input
+                          type="checkbox" 
+                          checked={field.value === true}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          id="edit-view-lancamento"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Visualizar Botão de Lançamento</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Permite que o usuário visualize e marque notas como lançadas nos pedidos.
                         </p>
                       </div>
                     </FormItem>

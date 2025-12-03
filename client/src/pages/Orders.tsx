@@ -52,7 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Filter, AlertTriangle, Trash2, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { Plus, Search, Filter, AlertTriangle, Trash2, ChevronUp, ChevronDown, Download, FileText } from "lucide-react";
 import { getStatusColor, formatDate } from "@/lib/utils";
 
 // Função para formatar números com vírgula (formato brasileiro)
@@ -331,6 +331,46 @@ export default function Orders() {
       });
     },
   });
+
+  // Mutação para atualizar status de lançamento
+  const updateLancamentoMutation = useMutation({
+    mutationFn: async ({ orderId, lancamento }: { orderId: number; lancamento: boolean }) => {
+      const response = await fetch(`/api/orders/${orderId}/lancamento`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ lancamento }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || "Erro ao atualizar lançamento");
+      }
+
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Sucesso",
+        description: variables.lancamento ? "Nota marcada como lançada" : "Nota desmarcada",
+      });
+      setLancamentoDialogOpen(false);
+      setSelectedOrderForLancamento(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao atualizar lançamento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Estado para o diálogo de lançamento
+  const [lancamentoDialogOpen, setLancamentoDialogOpen] = useState(false);
+  const [selectedOrderForLancamento, setSelectedOrderForLancamento] = useState<any>(null);
 
   // Formulário com react-hook-form e zod
   const form = useForm<OrderFormData>({
@@ -882,6 +922,42 @@ export default function Orders() {
         orderId={selectedOrderId}
       />
 
+      {/* Diálogo de confirmação de lançamento */}
+      <AlertDialog open={lancamentoDialogOpen} onOpenChange={setLancamentoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>A nota foi lançada?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedOrderForLancamento?.lancamento 
+                ? `Deseja desmarcar a nota do pedido ${selectedOrderForLancamento?.order_id || selectedOrderForLancamento?.orderId} como lançada?`
+                : `Confirme se a nota do pedido ${selectedOrderForLancamento?.order_id || selectedOrderForLancamento?.orderId} foi lançada no sistema.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setLancamentoDialogOpen(false);
+              setSelectedOrderForLancamento(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedOrderForLancamento) {
+                  updateLancamentoMutation.mutate({
+                    orderId: selectedOrderForLancamento.id,
+                    lancamento: !selectedOrderForLancamento.lancamento
+                  });
+                }
+              }}
+              disabled={updateLancamentoMutation.isPending}
+            >
+              {updateLancamentoMutation.isPending ? "Processando..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Header com ações */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex gap-2">
@@ -1372,7 +1448,7 @@ export default function Orders() {
                         )}
                       </Button>
                     </TableHead>
-                    {isKeyUser && <TableHead className="text-right">Ações</TableHead>}
+                    {(isKeyUser || (currentUser as any)?.canViewLancamento) && <TableHead className="text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1423,38 +1499,58 @@ export default function Orders() {
                             );
                           })()}
                         </TableCell>
-                        {isKeyUser && (
+                        {(isKeyUser || (currentUser as any)?.canViewLancamento) && (
                           <TableCell className="text-right">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
+                            <div className="flex items-center justify-end gap-1">
+                              {(currentUser as any)?.canViewLancamento && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  title="Excluir pedido"
-                                  onClick={(e) => e.stopPropagation()}
+                                  title={order.lancamento ? "Nota lançada" : "Marcar nota como lançada"}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedOrderForLancamento(order);
+                                    setLancamentoDialogOpen(true);
+                                  }}
                                 >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                  <FileText 
+                                    className={`h-4 w-4 ${order.lancamento ? 'text-primary' : 'text-gray-500'}`} 
+                                  />
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Tem certeza que deseja excluir o pedido {(order as any).order_id || order.id}?
-                                    O pedido será ocultado e poderá ser recuperado no banco de dados quando necessário.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteOrderMutation.mutate(order.id)}
-                                    disabled={deleteOrderMutation.isPending}
-                                  >
-                                    {deleteOrderMutation.isPending ? "Excluindo..." : "Excluir"}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                              )}
+                              {isKeyUser && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Excluir pedido"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja excluir o pedido {(order as any).order_id || order.id}?
+                                        O pedido será ocultado e poderá ser recuperado no banco de dados quando necessário.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => deleteOrderMutation.mutate(order.id)}
+                                        disabled={deleteOrderMutation.isPending}
+                                      >
+                                        {deleteOrderMutation.isPending ? "Excluindo..." : "Excluir"}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>

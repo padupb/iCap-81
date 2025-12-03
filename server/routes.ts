@@ -3859,6 +3859,68 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Atualizar status de lançamento do pedido
+  app.patch("/api/orders/:id/lancamento", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { lancamento } = req.body;
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID inválido"
+        });
+      }
+
+      // Verificar se o pedido existe
+      const checkOrder = await pool.query(
+        "SELECT * FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!checkOrder.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const order = checkOrder.rows[0];
+
+      // Atualizar o status de lançamento
+      await pool.query(
+        "UPDATE orders SET lancamento = $1 WHERE id = $2",
+        [lancamento === true, id]
+      );
+
+      console.log(`📝 Pedido ${order.order_id} - Lançamento atualizado para: ${lancamento}`);
+
+      // Registrar log
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: lancamento ? "Marcou nota como lançada" : "Desmarcou nota como lançada",
+          itemType: "order",
+          itemId: id.toString(),
+          details: `Pedido ${order.order_id} - Lançamento: ${lancamento ? 'Sim' : 'Não'}`
+        });
+      }
+
+      res.json({
+        success: true,
+        message: lancamento ? "Nota marcada como lançada" : "Nota desmarcada como lançada"
+      });
+
+    } catch (error) {
+      console.error("Erro ao atualizar lançamento:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao atualizar lançamento",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Purchase Orders routes
   app.get("/api/ordens-compra", isAuthenticated, async (req, res) => {
     try {
