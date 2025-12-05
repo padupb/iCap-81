@@ -51,7 +51,7 @@ export function formatDate(date: string | Date | undefined | null): string {
 
 export function formatDateTime(date: string | Date) {
   const d = new Date(date);
-  return d.toLocaleString("pt-BR");
+  return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
 export function formatCurrency(value: number | string) {

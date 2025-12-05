@@ -1193,20 +1193,10 @@ export function OrderDetailDrawer({
     return user?.name || `Usuário ID: ${userId}`;
   };
 
-  // Função para formatar data e hora no fuso de Cuiabá (-04:00)
+  // Função para formatar data e hora no fuso de Brasília (GMT-3)
   const formatDateTimeInCuiaba = (dateString: string): string => {
     const date = new Date(dateString);
-
-    // Converter para o fuso horário de Cuiabá (UTC-4)
-    const cuiabaTime = new Date(date.toLocaleString('en-US', { timeZone: 'America/Cuiaba' }));
-
-    const day = String(cuiabaTime.getDate()).padStart(2, '0');
-    const month = String(cuiabaTime.getMonth() + 1).padStart(2, '0');
-    const year = cuiabaTime.getFullYear();
-    const hours = String(cuiabaTime.getHours()).padStart(2, '0');
-    const minutes = String(cuiabaTime.getMinutes()).padStart(2, '0');
-
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
+    return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   };
 
   // Função para gerar link do Google Maps
