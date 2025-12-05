@@ -3554,7 +3554,7 @@ Status: Teste em progresso...`;
         const usadoResult = await pool.query(
           `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as total_usado
            FROM orders
-           WHERE purchase_order_id = $1 AND product_id = $2 AND status NOT IN ('Cancelado', 'Excluido')`,
+           WHERE purchase_order_id = $1 AND product_id = $2 AND LOWER(status) NOT IN ('cancelado', 'excluido')`,
           [orderData.purchaseOrderId, orderData.productId]
         );
 
@@ -4472,7 +4472,7 @@ Status: Teste em progresso...`;
         FROM orders
         WHERE purchase_order_id = $1
           AND product_id = $2
-          AND status NOT IN ('Cancelado', 'Excluido')
+          AND LOWER(status) NOT IN ('cancelado', 'excluido')
       `, [ordemId, produtoId]);
 
       const quantidadeUsada = parseFloat(pedidosResult.rows[0].total_usado || 0);
@@ -6331,7 +6331,7 @@ Status: Teste em progresso...`;
           c_supplier.name as supplier_name,
           c_work.name as work_location_name,
           COALESCE(SUM(CASE WHEN o.status = 'Entregue' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
-          COALESCE(SUM(CASE WHEN o.status NOT IN ('Cancelado', 'Excluido') THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
+          COALESCE(SUM(CASE WHEN LOWER(o.status) NOT IN ('cancelado', 'excluido') THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
         FROM orders o
         JOIN products p ON o.product_id = p.id
         LEFT JOIN units u ON p.unit_id = u.id
@@ -6523,7 +6523,7 @@ Status: Teste em progresso...`;
           c_supplier.name as supplier_name,
           c_work.name as work_location_name,
           COALESCE(SUM(CASE WHEN o.status = 'Entregue' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
-          COALESCE(SUM(CASE WHEN o.status NOT IN ('Cancelado', 'Excluido') THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
+          COALESCE(SUM(CASE WHEN LOWER(o.status) NOT IN ('cancelado', 'excluido') THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
         FROM orders o
         JOIN products p ON o.product_id = p.id
         LEFT JOIN units u ON p.unit_id = u.id
