@@ -47,7 +47,11 @@ export default function Logs() {
       const matchesItemType = itemTypeFilter === "all" || log.itemType === itemTypeFilter;
       
       return matchesSearch && matchesAction && matchesItemType;
-    }).sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+    }).sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
   }, [logs, searchTerm, actionFilter, itemTypeFilter]);
 
   const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
