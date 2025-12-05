@@ -14,14 +14,34 @@ export function getCuiabaDateTime(): Date {
 /**
  * Retorna a data e hora atual no fuso horário de Brasília (GMT-3).
  * Usado para registros de log e histórico onde o horário é importante.
+ * 
+ * Cria uma data que, quando formatada ou serializada, representa o horário de Brasília.
  */
 export function getBrasiliaDateTime(): Date {
-  const now = new Date();
-  // Primeiro converter para UTC
-  const utcTime = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-  // Depois subtrair 3 horas para Brasília (GMT-3)
-  const brasiliaTime = utcTime - (3 * 60 * 60 * 1000);
-  return new Date(brasiliaTime);
+  // Obter o horário atual de Brasília usando Intl.DateTimeFormat
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(new Date());
+  const getPart = (type: string) => parts.find(p => p.type === type)?.value || '0';
+  
+  const year = parseInt(getPart('year'));
+  const month = parseInt(getPart('month')) - 1;
+  const day = parseInt(getPart('day'));
+  const hour = parseInt(getPart('hour'));
+  const minute = parseInt(getPart('minute'));
+  const second = parseInt(getPart('second'));
+  
+  // Criar data UTC com os valores de Brasília (para que seja armazenada corretamente)
+  return new Date(Date.UTC(year, month, day, hour, minute, second));
 }
 
 /**
