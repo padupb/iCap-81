@@ -1585,7 +1585,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllLogs(): Promise<SystemLog[]> {
-    return await db.select().from(systemLogs);
+    return await db.select().from(systemLogs).orderBy(desc(systemLogs.createdAt));
   }
 
   async createLog(insertLog: InsertSystemLog): Promise<SystemLog> {
