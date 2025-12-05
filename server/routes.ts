@@ -3746,16 +3746,15 @@ Status: Teste em progresso...`;
 
       const newOrder = orderResult.rows[0];
 
-      // Registrar log de criação
-      if (req.session.userId) {
-        await storage.createLog({
-          userId: req.session.userId,
-          action: "Criou pedido",
-          itemType: "order",
-          itemId: newOrder.id.toString(),
-          details: `Pedido ${newOrder.order_id} criado${!isUrgent ? ' e aprovado automaticamente (não urgente)' : ' - aguardando aprovação (urgente)'}`
-        });
-      }
+      // Registrar log de criação - usar userId do pedido ou sessão
+      const logUserId = newOrder.user_id || req.session?.userId || orderData.userId || 1;
+      await storage.createLog({
+        userId: logUserId,
+        action: "Criou pedido",
+        itemType: "order",
+        itemId: newOrder.id.toString(),
+        details: `Pedido ${newOrder.order_id} criado${!isUrgent ? ' e aprovado automaticamente (não urgente)' : ' - aguardando aprovação (urgente)'}`
+      });
 
       res.json({
         success: true,
