@@ -9,6 +9,7 @@ import {
   type SystemLog, type InsertSystemLog, type Setting, type InsertSetting,
   type Document, type InsertDocument
 } from "../shared/schema";
+import { getBrasiliaDateTime } from "./utils/timezone";
 
 export interface IStorage {
   // Users
@@ -523,7 +524,7 @@ export class MemStorage implements IStorage {
 
   async createLog(insertLog: InsertSystemLog): Promise<SystemLog> {
     const id = this.currentId++;
-    const log: SystemLog = { ...insertLog, id, createdAt: getCuiabaDateTime() };
+    const log: SystemLog = { ...insertLog, id, createdAt: getBrasiliaDateTime() };
     this.systemLogs.set(id, log);
     return log;
   }
@@ -1591,7 +1592,7 @@ export class DatabaseStorage implements IStorage {
   async createLog(insertLog: InsertSystemLog): Promise<SystemLog> {
     const [log] = await db.insert(systemLogs).values({
       ...insertLog,
-      createdAt: getCuiabaDateTime()
+      createdAt: getBrasiliaDateTime()
     }).returning();
     return log;
   }

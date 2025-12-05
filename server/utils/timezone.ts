@@ -1,7 +1,7 @@
-// Funções utilitárias para fuso horário de Cuiabá (GMT-4)
+// Funções utilitárias para fuso horário de Brasília (GMT-3)
 
 /**
- * Retorna a data atual (apenas dia) em Cuiabá, sem considerar horas.
+ * Retorna a data atual (apenas dia), sem considerar horas.
  * Usado para comparações de pedidos urgentes onde apenas o dia importa.
  */
 export function getCuiabaDateTime(): Date {
@@ -9,6 +9,21 @@ export function getCuiabaDateTime(): Date {
   // Zerar horas para trabalhar apenas com dias completos
   now.setHours(0, 0, 0, 0);
   return now;
+}
+
+/**
+ * Retorna a data e hora atual no fuso horário de Brasília (GMT-3).
+ * Usado para registros de log e histórico onde o horário é importante.
+ */
+export function getBrasiliaDateTime(): Date {
+  const now = new Date();
+  // Offset de Brasília: -3 horas (em minutos = -180)
+  const brasiliaOffset = -180;
+  // Offset atual do sistema (em minutos)
+  const localOffset = now.getTimezoneOffset();
+  // Calcular diferença e ajustar
+  const diff = localOffset - brasiliaOffset;
+  return new Date(now.getTime() + diff * 60 * 1000);
 }
 
 /**
