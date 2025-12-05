@@ -2082,7 +2082,7 @@ Status: Teste em progresso...`;
         });
       }
 
-      const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders } = req.body;
+      const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders, canViewLancamento } = req.body;
 
       // Verificar se o email já existe antes de tentar criar
       const existingUser = await storage.getUserByEmail(email);
@@ -2095,7 +2095,7 @@ Status: Teste em progresso...`;
 
       // Validar dados com Zod (incluindo o novo campo)
       const userData = insertUserSchema.parse({
-        name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders
+        name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders, canViewLancamento
       });
 
       const newUser = await storage.createUser(userData);
@@ -2161,11 +2161,11 @@ Status: Teste em progresso...`;
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
 
-      const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders } = req.body;
+      const { name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders, canViewLancamento } = req.body;
 
       // Validar dados com Zod (incluindo o novo campo)
       const userData = insertUserSchema.parse({
-        name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders
+        name, email, phone, companyId, roleId, canConfirmDelivery, canCreateOrder, canCreatePurchaseOrder, canEditPurchaseOrders, canViewLancamento
       });
 
       console.log("Updating user:", { id, user: userData });
