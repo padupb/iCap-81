@@ -17,13 +17,11 @@ export function getCuiabaDateTime(): Date {
  */
 export function getBrasiliaDateTime(): Date {
   const now = new Date();
-  // Offset de Brasília: -3 horas (em minutos = -180)
-  const brasiliaOffset = -180;
-  // Offset atual do sistema (em minutos)
-  const localOffset = now.getTimezoneOffset();
-  // Calcular diferença e ajustar
-  const diff = localOffset - brasiliaOffset;
-  return new Date(now.getTime() + diff * 60 * 1000);
+  // Primeiro converter para UTC
+  const utcTime = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+  // Depois subtrair 3 horas para Brasília (GMT-3)
+  const brasiliaTime = utcTime - (3 * 60 * 60 * 1000);
+  return new Date(brasiliaTime);
 }
 
 /**
