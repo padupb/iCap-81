@@ -6271,6 +6271,43 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para buscar histórico de um pedido específico
+  app.get("/api/pedidos/:id/historico", isAuthenticated, async (req, res) => {
+    try {
+      const pedidoId = req.params.id;
+      
+      console.log(`📋 Buscando histórico do pedido ID: ${pedidoId}`);
+
+      // Buscar logs do pedido
+      const logs = await storage.getLogsByOrderId(pedidoId);
+      
+      // Buscar nomes dos usuários para enriquecer os dados
+      const usersResult = await pool.query(`SELECT id, name FROM users`);
+      const usersMap = new Map(usersResult.rows.map((u: any) => [u.id, u.name]));
+
+      // Formatar os logs para o frontend
+      const formattedLogs = logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        etapa: log.action,
+        created_at: log.createdAt,
+        data: log.createdAt,
+        user_id: log.userId,
+        user_name: usersMap.get(log.userId) || 'Sistema',
+        usuario: usersMap.get(log.userId) || 'Sistema',
+        description: log.details,
+        descricao: log.details
+      }));
+
+      console.log(`✅ Encontrados ${formattedLogs.length} registros de histórico para o pedido ${pedidoId}`);
+      
+      res.json(formattedLogs);
+    } catch (error) {
+      console.error("❌ Erro ao buscar histórico do pedido:", error);
+      res.status(500).json({ message: "Erro ao buscar histórico do pedido" });
+    }
+  });
+
   // Rota para buscar detalhes de um pedido específico
   app.get("/api/pedidos/:id", isAuthenticated, async (req, res) => {
     try {

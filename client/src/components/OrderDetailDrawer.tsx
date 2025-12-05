@@ -3217,79 +3217,42 @@ export function OrderDetailDrawer({
                     <CardContent>
                       <div className="space-y-4">
                         {(() => {
-                          // Criar histórico baseado nos dados disponíveis
-                          const history = [];
+                          // Usar logs reais da API como fonte principal
+                          const history: Array<{
+                            etapa: string;
+                            data: string;
+                            usuario: string;
+                            descricao: string;
+                            icon: string;
+                          }> = [];
 
-                          if (orderDetails) {
-                            // 1. Criação do pedido
-                            history.push({
-                              etapa: "Pedido Criado",
-                              data: orderDetails.createdAt || new Date().toISOString(),
-                              usuario: getUserNameById(orderDetails.userId) || "Sistema",
-                              descricao: `Pedido ${orderDetails.orderId} criado para ${formatProductWithUnit(orderDetails)}`,
-                              icon: "Package"
-                            });
+                          // Primeiro, adicionar os logs reais da API
+                          if (historyData && Array.isArray(historyData) && historyData.length > 0) {
+                            historyData.forEach((item: any) => {
+                              const action = item.action || item.etapa || "Atualização";
+                              let icon = "Edit";
+                              
+                              // Definir ícone baseado na ação
+                              if (action.toLowerCase().includes("criad") || action.toLowerCase().includes("registr")) {
+                                icon = "Package";
+                              } else if (action.toLowerCase().includes("document") || action.toLowerCase().includes("nota") || action.toLowerCase().includes("upload") || action.toLowerCase().includes("carregad")) {
+                                icon = "FileText";
+                              } else if (action.toLowerCase().includes("rota") || action.toLowerCase().includes("transport")) {
+                                icon = "Truck";
+                              } else if (action.toLowerCase().includes("entreg") || action.toLowerCase().includes("confirm")) {
+                                icon = "CheckCircle";
+                              } else if (action.toLowerCase().includes("cancel")) {
+                                icon = "XCircle";
+                              } else if (action.toLowerCase().includes("reset") || action.toLowerCase().includes("alter")) {
+                                icon = "Edit";
+                              }
 
-                            // 2. Se há documentos carregados
-                            if (orderDetails.status === "Carregado" ||
-                                orderDetails.status === "Em Rota" ||
-                                orderDetails.status === "Em transporte" ||
-                                orderDetails.status === "Entregue") {
-                              const fornecedorName = orderDetails.supplier?.name || "Fornecedor";
                               history.push({
-                                etapa: "Documentos Carregados",
-                                data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
-                                usuario: fornecedorName,
-                                descricao: "Nota fiscal PDF, XML e certificado enviados",
-                                icon: "FileText"
-                              });
-                            }
-
-                            // 3. Se está em rota
-                            if (orderDetails.status === "Em Rota" ||
-                                orderDetails.status === "Em transporte" ||
-                                orderDetails.status === "Entregue") {
-                              history.push({
-                                etapa: "Em Rota",
-                                data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
-                                usuario: "Sistema",
-                                descricao: "Pedido saiu para entrega",
-                                icon: "Truck"
-                              });
-                            }
-
-                            // 4. Se foi entregue
-                            if (orderDetails.status === "Entregue") {
-                              history.push({
-                                etapa: "Entrega Confirmada",
-                                data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
-                                usuario: getUserNameById(user?.id) || "Sistema",
-                                descricao: `Entrega confirmada com quantidade: ${orderDetails.quantidadeRecebida || orderDetails.quantidade_recebida || orderDetails.quantity} ${orderDetails.unit?.abbreviation || ""}`,
-                                icon: "CheckCircle"
-                              });
-                            }
-
-                            // 5. Se foi cancelado
-                            if (orderDetails.quantidade === 0) {
-                              history.push({
-                                etapa: "Pedido Cancelado",
-                                data: orderDetails.updatedAt || orderDetails.createdAt || new Date().toISOString(),
-                                usuario: getUserNameById(user?.id) || "Sistema",
-                                descricao: "Pedido cancelado",
-                                icon: "XCircle"
-                              });
-                            }
-                          }
-
-                          // Incluir dados do historyData se disponível
-                          if (historyData && Array.isArray(historyData)) {
-                            historyData.forEach(item => {
-                              history.push({
-                                etapa: item.action || item.etapa || "Atualização",
+                                etapa: action,
                                 data: item.created_at || item.data || new Date().toISOString(),
-                                usuario: item.user_name || getUserNameById(item.user_id) || item.usuario || "Sistema",
+                                usuario: item.user_name || item.usuario || "Sistema",
                                 descricao: item.description || item.descricao || "",
-                                icon: "Edit"
+                                icon: icon
                               });
                             });
                           }
@@ -3323,7 +3286,7 @@ export function OrderDetailDrawer({
                                       <IconComponent className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center justify-between">
+                                      <div className="flex items-center justify-between flex-wrap gap-2">
                                         <h4 className="font-medium text-sm">{item.etapa}</h4>
                                         <Badge variant="outline" className="text-xs">
                                           {formatDateTimeInCuiaba(item.data)}
@@ -3332,6 +3295,11 @@ export function OrderDetailDrawer({
                                       <p className="text-xs text-muted-foreground mt-1">
                                         Por: {item.usuario}
                                       </p>
+                                      {item.descricao && (
+                                        <p className="text-xs text-muted-foreground mt-1 italic">
+                                          {item.descricao}
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
                                 );

@@ -81,6 +81,7 @@ export interface IStorage {
 
   // System Logs
   getAllLogs(): Promise<SystemLog[]>;
+  getLogsByOrderId(orderId: string): Promise<SystemLog[]>;
   createLog(log: InsertSystemLog): Promise<SystemLog>;
 
   // Settings
@@ -525,6 +526,12 @@ export class MemStorage implements IStorage {
     const log: SystemLog = { ...insertLog, id, createdAt: getCuiabaDateTime() };
     this.systemLogs.set(id, log);
     return log;
+  }
+
+  async getLogsByOrderId(orderId: string): Promise<SystemLog[]> {
+    return Array.from(this.systemLogs.values())
+      .filter(log => log.itemType === 'order' && log.itemId === orderId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
 
   // Settings
@@ -1587,6 +1594,15 @@ export class DatabaseStorage implements IStorage {
       createdAt: getCuiabaDateTime()
     }).returning();
     return log;
+  }
+
+  async getLogsByOrderId(orderId: string): Promise<SystemLog[]> {
+    return await db.select().from(systemLogs)
+      .where(and(
+        eq(systemLogs.itemType, 'order'),
+        eq(systemLogs.itemId, orderId)
+      ))
+      .orderBy(desc(systemLogs.createdAt));
   }
 
   // Settings
