@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import session from "express-session";
 import memorystore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
 import "./types";
 import { storage } from "./storage";
 import { db, pool } from "./db";
@@ -16,6 +17,12 @@ console.log(
 );
 
 const app = express();
+
+// Confiar no proxy reverso em produção (necessário para cookies seguros)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -38,24 +45,42 @@ app.use("/public", express.static(path.join(process.cwd(), "public")));
 app.use("/icapmob", express.static(path.join(process.cwd(), "icapmob")));
 
 const MemoryStore = memorystore(session);
+const PgStore = connectPgSimple(session);
+
+// Determinar qual store usar baseado no ambiente
+const isProduction = process.env.NODE_ENV === 'production';
+let sessionStore: any;
+
+if (isProduction && pool) {
+  console.log("🔒 Usando PostgreSQL session store para produção");
+  sessionStore = new PgStore({
+    pool: pool,
+    tableName: 'session',
+    createTableIfMissing: true,
+    pruneSessionInterval: 60 * 15, // Limpar sessões expiradas a cada 15 minutos
+  });
+} else {
+  console.log("💾 Usando MemoryStore para desenvolvimento");
+  sessionStore = new MemoryStore({
+    checkPeriod: 86400000 // prune expired entries every 24h
+  });
+}
 
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'icap-secret-2024-very-long-and-secure-key-for-session-management',
-    resave: false, // Não forçar salvamento se não modificada
+    resave: false,
     saveUninitialized: false,
-    rolling: false, // Não renovar cookie a cada requisição para evitar problemas
+    rolling: false,
     cookie: { 
-      secure: false, // Para desenvolvimento, definir como true em produção com HTTPS
+      secure: isProduction, // true em produção com HTTPS
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24 horas
-      sameSite: 'lax' // Importante para funcionar em desenvolvimento
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias para melhor persistência
+      sameSite: isProduction ? 'none' : 'lax' // 'none' para produção com secure=true
     },
-    name: 'icap.sid', // Nome personalizado para o cookie de sessão
-    // Adicionar store em memória para desenvolvimento
-    store: new MemoryStore({
-      checkPeriod: 86400000 // prune expired entries every 24h
-    }),
+    name: 'icap.sid',
+    store: sessionStore,
+    proxy: isProduction, // Confiar no proxy reverso em produção
   }),
 );
 
@@ -197,7 +222,7 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  const port = process.env.PORT || 5000;
+  const port = parseInt(process.env.PORT || "5000", 10);
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
