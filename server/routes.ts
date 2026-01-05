@@ -4178,16 +4178,20 @@ Status: Teste em progresso...`;
       else if (req.user && req.user.companyId) {
         // Buscar a empresa do usuário
         const userCompany = await storage.getCompany(req.user.companyId);
+        console.log(`📊 DEBUG [/api/purchase-orders] Usuário: ${req.user.name} (ID: ${req.user.id}), Empresa: ${userCompany?.name} (ID: ${req.user.companyId})`);
 
         if (userCompany) {
           // Buscar a categoria da empresa
           const companyCategory = await storage.getCompanyCategory(userCompany.categoryId);
+          console.log(`📊 DEBUG [/api/purchase-orders] Categoria: ${companyCategory?.name}, requiresApprover: ${companyCategory?.requiresApprover}, requiresContract: ${companyCategory?.requiresContract}, receivesPurchaseOrders: ${companyCategory?.receivesPurchaseOrders}`);
 
           if (companyCategory) {
             // Verificar se a empresa tem pelo menos 1 critério ativo
             const hasAnyCriteria = companyCategory.requiresApprover ||
                                  companyCategory.requiresContract ||
                                  companyCategory.receivesPurchaseOrders;
+
+            console.log(`📊 DEBUG [/api/purchase-orders] hasAnyCriteria: ${hasAnyCriteria}`);
 
             if (hasAnyCriteria) {
               // Filtrar ordens de compra onde:
@@ -4199,9 +4203,17 @@ Status: Teste em progresso...`;
               whereConditions.push("(oc.empresa_id = $" + paramIndex1 + " OR obra.id = $" + paramIndex1 + " OR oc.cnpj = $" + paramIndex2 + ")");
               queryParams.push(req.user.companyId, userCompany.cnpj);
               console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name} (ID: ${req.user.companyId}, CNPJ: ${userCompany.cnpj}) como fornecedora ou obra e apenas válidas`);
+            } else {
+              console.log(`🔓 Purchase orders - visualização irrestrita (empresa ${userCompany.name} sem critérios de filtragem)`);
             }
+          } else {
+            console.log(`⚠️ DEBUG [/api/purchase-orders] Categoria não encontrada para empresa ${userCompany.name}`);
           }
+        } else {
+          console.log(`⚠️ DEBUG [/api/purchase-orders] Empresa não encontrada para ID ${req.user.companyId}`);
         }
+      } else {
+        console.log(`⚠️ DEBUG [/api/purchase-orders] Usuário sem companyId: ${req.user?.name} (ID: ${req.user?.id})`);
       }
 
       if (whereConditions.length > 0) {
