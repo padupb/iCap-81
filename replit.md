@@ -47,6 +47,17 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 - **Database Safety**: Strict avoidance of manual SQL migrations; `npm run db:push` is the designated tool for schema synchronization.
 - **Code Standards**: Strict TypeScript mode, Drizzle ORM for all database interactions, robust error handling with try/catch, and informative logging.
 
+## Recent Changes
+
+### 2026-01-05: Correção na filtragem de Ordens de Compra
+- **Problema**: Alguns usuários não conseguiam ver ordens de compra na página "Ordem de compras" enquanto outros viam perfeitamente.
+- **Causa raiz**: A lógica de filtragem comparava incorretamente o campo `cnpj` da tabela `ordens_compra` (que contém o CNPJ da **obra de destino**) com o CNPJ da empresa do usuário (empresa **fornecedora**). Esses valores nunca correspondiam.
+- **Solução**: Ajustada a lógica nos endpoints `/api/ordens-compra` e `/api/purchase-orders` para verificar:
+  1. Se o usuário é da empresa fornecedora (`empresa_id = companyId`)
+  2. OU se o usuário é da empresa obra de destino (`obra.id = companyId` via JOIN)
+  3. OU fallback: se o CNPJ da obra corresponde ao CNPJ da empresa do usuário
+- **Arquivos modificados**: `server/routes.ts` (linhas ~4035-4042 e ~4195-4204)
+
 ## External Dependencies
 
 - **Database**: PostgreSQL (Neon).

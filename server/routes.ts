@@ -4032,10 +4032,11 @@ Status: Teste em progresso...`;
             if (hasAnyCriteria) {
               // Filtrar ordens de compra onde:
               // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
-              // 2. OU a empresa é a obra de destino (cnpj corresponde ao CNPJ da empresa do usuário)
-              query += ` WHERE (oc.empresa_id = $1 OR oc.cnpj = $2)`;
+              // 2. OU a empresa é a obra de destino (obra.id = companyId do usuário)
+              // 3. OU o CNPJ da obra corresponde ao CNPJ da empresa do usuário (fallback para obras sem cadastro de empresa)
+              query += ` WHERE (oc.empresa_id = $1 OR obra.id = $1 OR oc.cnpj = $2)`;
               queryParams.push(req.user.companyId, userCompany.cnpj);
-              console.log(`🔒 Ordens de compra - visualização restrita à empresa ${userCompany.name} (fornecedora ou obra)`);
+              console.log(`🔒 Ordens de compra - visualização restrita à empresa ${userCompany.name} (ID: ${req.user.companyId}, CNPJ: ${userCompany.cnpj}) como fornecedora ou obra`);
             } else {
               console.log(`🔓 Ordens de compra - visualização irrestrita (empresa ${userCompany.name} sem critérios)`);
             }
@@ -4191,10 +4192,13 @@ Status: Teste em progresso...`;
             if (hasAnyCriteria) {
               // Filtrar ordens de compra onde:
               // 1. A empresa é a fornecedora (empresa_id = companyId do usuário)
-              // 2. OU a empresa é a obra de destino (cnpj corresponde ao CNPJ da empresa do usuário)
-              whereConditions.push("(oc.empresa_id = $" + (queryParams.length + 1) + " OR oc.cnpj = $" + (queryParams.length + 2) + ")");
+              // 2. OU a empresa é a obra de destino (obra.id = companyId do usuário)
+              // 3. OU o CNPJ da obra corresponde ao CNPJ da empresa do usuário (fallback para obras sem cadastro de empresa)
+              const paramIndex1 = queryParams.length + 1;
+              const paramIndex2 = queryParams.length + 2;
+              whereConditions.push("(oc.empresa_id = $" + paramIndex1 + " OR obra.id = $" + paramIndex1 + " OR oc.cnpj = $" + paramIndex2 + ")");
               queryParams.push(req.user.companyId, userCompany.cnpj);
-              console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name} (fornecedora ou obra) e apenas válidas`);
+              console.log(`🔒 Purchase orders (compatibilidade) - visualização restrita à empresa ${userCompany.name} (ID: ${req.user.companyId}, CNPJ: ${userCompany.cnpj}) como fornecedora ou obra e apenas válidas`);
             }
           }
         }
