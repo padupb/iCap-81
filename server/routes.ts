@@ -2324,13 +2324,10 @@ Status: Teste em progresso...`;
 
       // Inserir as novas obras
       if (companyIds.length > 0) {
-        const values = companyIds.map((companyId, index) => 
-          `($1, $${index + 2})`
-        ).join(', ');
-        
         await pool.query(
-          `INSERT INTO user_works (user_id, company_id) VALUES ${values}`,
-          [userId, ...companyIds]
+          `INSERT INTO user_works (user_id, company_id) 
+           SELECT $1, unnest($2::int[])`,
+          [userId, companyIds]
         );
       }
 
