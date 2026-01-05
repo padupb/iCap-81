@@ -6281,8 +6281,8 @@ Status: Teste em progresso...`;
       const logs = await storage.getLogsByOrderId(pedidoId);
       
       // Buscar nomes dos usuários para enriquecer os dados
-      const usersResult = await pool.query(`SELECT id, name FROM users`);
-      const usersMap = new Map(usersResult.rows.map((u: any) => [u.id, u.name]));
+      const usersResult = await db.select({ id: users.id, name: users.name }).from(users);
+      const usersMap = new Map(usersResult.map((u: any) => [u.id, u.name]));
 
       // Formatar os logs para o frontend
       const formattedLogs = logs.map(log => ({
