@@ -6,6 +6,8 @@ import memorystore from "memorystore";
 import "./types";
 import { storage } from "./storage";
 import { db, pool } from "./db";
+import { settings } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 console.log(
@@ -159,13 +161,18 @@ app.use((req, res, next) => {
     console.error("🔧 Tentando criar configurações diretamente...");
 
     // Fallback: tentar criar as configurações diretamente no banco
-    if (db && pool) {
+    if (db) {
       try {
-        await pool.query(`
-          INSERT INTO settings (key, value, description) 
-          VALUES ('keyuser_password', '', 'Senha do superadministrador')
-          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-        `);
+        await db.insert(settings)
+          .values({
+            key: 'keyuser_password',
+            value: '',
+            description: 'Senha do superadministrador'
+          })
+          .onConflictDoUpdate({
+            target: settings.key,
+            set: { value: '' }
+          });
         console.log(
           "✅ Configurações do keyuser criadas diretamente no banco!",
         );
