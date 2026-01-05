@@ -3009,7 +3009,7 @@ Status: Teste em progresso...`;
   app.get("/api/orders", isAuthenticated, async (req, res) => {
     try {
       // Buscar pedidos com quantidade_recebida do banco (excluindo os com status "excluido")
-      const ordersResult = await pool.query(`
+      const ordersResult = await db.execute(sql`
         SELECT 
           o.*,
           o.quantidade_recebida as "quantidadeRecebida"
@@ -3018,7 +3018,7 @@ Status: Teste em progresso...`;
         ORDER BY o.created_at DESC
       `);
       
-      let orders = ordersResult.rows;
+      let orders = ordersResult.rows as any[];
 
       // Atualizar status dos pedidos baseado na validade da ordem de compra
       const today = new Date();
