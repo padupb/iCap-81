@@ -11,7 +11,7 @@ import {
   insertSystemLogSchema, insertSettingSchema,
   orders, trackingPoints, users, companies, companyCategories
 } from "@shared/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -3219,7 +3219,7 @@ Status: Teste em progresso...`;
   app.get("/api/orders/reprogramacoes", isAuthenticated, async (req, res) => {
     try {
       // Buscar pedidos com status "Aguardando Aprovação" OU "Suspenso" diretamente do banco com JOIN
-      const reprogramacoesResult = await pool.query(`
+      const reprogramacoesResult = await db.execute(sql`
         SELECT
           o.id,
           o.order_id as "orderId",
@@ -3283,13 +3283,13 @@ Status: Teste em progresso...`;
       }
 
       // REGRA 2: Se o usuário é aprovador, só pode ver pedidos onde ele é o aprovador
-      const isApprover = await pool.query(`
+      const isApprover = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM companies
-        WHERE approver_id = $1
-      `, [req.user.id]);
+        WHERE approver_id = ${req.user.id}
+      `);
 
-      const userIsApprover = parseInt(isApprover.rows[0].total) > 0;
+      const userIsApprover = parseInt((isApprover.rows[0] as any).total) > 0;
 
       if (userIsApprover) {
         console.log(`🔒 Usuário ${req.user.name} (ID: ${req.user.id}) é aprovador - filtrando reprogramações`);
@@ -3299,13 +3299,13 @@ Status: Teste em progresso...`;
         for (const order of reprogramacoes) {
           if (order.purchaseOrderId) {
             try {
-              const approverCheck = await pool.query(`
+              const approverCheck = await db.execute(sql`
                 SELECT c.id, c.name, c.approver_id
                 FROM orders o
                 LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
                 LEFT JOIN companies c ON oc.cnpj = c.cnpj
-                WHERE o.id = $1 AND c.approver_id = $2
-              `, [order.id, req.user.id]);
+                WHERE o.id = ${order.id} AND c.approver_id = ${req.user.id}
+              `);
 
               if (approverCheck.rows.length > 0) {
                 filteredReprogramacoes.push(order);
