@@ -9,9 +9,9 @@ import {
   insertUserRoleSchema, insertProductSchema, insertUnitSchema,
   insertOrderSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
   insertSystemLogSchema, insertSettingSchema,
-  orders, trackingPoints, users, companies, companyCategories
+  orders, trackingPoints, users, companies, companyCategories, userWorks
 } from "@shared/schema";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -2375,12 +2375,11 @@ Status: Teste em progresso...`;
         return res.status(400).json({ message: "IDs inválidos" });
       }
 
-      const result = await pool.query(
-        'DELETE FROM user_works WHERE user_id = $1 AND company_id = $2 RETURNING *',
-        [userId, companyId]
-      );
+      const result = await db.delete(userWorks)
+        .where(and(eq(userWorks.userId, userId), eq(userWorks.companyId, companyId)))
+        .returning();
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return res.status(404).json({ message: "Associação não encontrada" });
       }
 
@@ -2396,48 +2395,33 @@ Status: Teste em progresso...`;
     try {
       console.log("📋 Buscando todas as empresas...");
 
-      // Buscar diretamente do banco de dados
-      const result = await pool.query(`
-        SELECT
-          c.id,
-          c.name,
-          c.cnpj,
-          c.address,
-          c.category_id as "categoryId",
-          c.approver_id as "approverId",
-          c.contract_number as "contractNumber",
-          c.created_at as "createdAt",
-          cc.id as category_id,
-          cc.name as category_name,
-          cc.requires_approver as category_requires_approver,
-          cc.receives_purchase_orders as category_receives_purchase_orders,
-          cc.requires_contract as category_requires_contract,
-          cc.can_edit_purchase_orders as category_can_edit_purchase_orders
-        FROM companies c
-        LEFT JOIN company_categories cc ON c.category_id = cc.id
-        ORDER BY c.name
-      `);
+      const result = await db.select({
+        id: companies.id,
+        name: companies.name,
+        cnpj: companies.cnpj,
+        address: companies.address,
+        categoryId: companies.categoryId,
+        approverId: companies.approverId,
+        contractNumber: companies.contractNumber,
+        createdAt: companies.createdAt,
+        category: {
+          id: companyCategories.id,
+          name: companyCategories.name,
+          requiresApprover: companyCategories.requiresApprover,
+          receivesPurchaseOrders: companyCategories.receivesPurchaseOrders,
+          requiresContract: companyCategories.requiresContract,
+          canEditPurchaseOrders: companyCategories.canEditPurchaseOrders
+        }
+      })
+      .from(companies)
+      .leftJoin(companyCategories, eq(companies.categoryId, companyCategories.id))
+      .orderBy(asc(companies.name));
 
-      console.log(`✅ ${result.rows.length} empresas encontradas`);
+      console.log(`✅ ${result.length} empresas encontradas`);
 
-      // Mapear resultados para incluir categoria como objeto
-      const companiesWithCategory = result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        cnpj: row.cnpj,
-        address: row.address,
-        categoryId: row.categoryId,
-        approverId: row.approverId,
-        contractNumber: row.contractNumber,
-        createdAt: row.createdAt,
-        category: row.category_id ? {
-          id: row.category_id,
-          name: row.category_name,
-          requiresApprover: row.category_requires_approver,
-          receivesPurchaseOrders: row.category_receives_purchase_orders,
-          requiresContract: row.category_requires_contract,
-          canEditPurchaseOrders: row.category_can_edit_purchase_orders
-        } : null
+      const companiesWithCategory = result.map(row => ({
+        ...row,
+        category: row.category?.id ? row.category : null
       }));
 
       res.json(companiesWithCategory);
