@@ -47,6 +47,86 @@ app.use("/icapmob", express.static(path.join(process.cwd(), "icapmob")));
 const MemoryStore = memorystore(session);
 const PgStore = connectPgSimple(session);
 
+// Função para garantir que a tabela de sessão existe corretamente
+async function ensureSessionTable() {
+  if (!pool) return;
+  
+  try {
+    console.log("🔍 Verificando tabela de sessão...");
+    
+    // Verificar se a tabela session existe
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'session'
+      );
+    `);
+    
+    if (tableCheck.rows[0].exists) {
+      // Verificar se a estrutura está correta
+      const columnCheck = await pool.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'session';
+      `);
+      const columns = columnCheck.rows.map((r: { column_name: string }) => r.column_name);
+      
+      if (columns.includes('sid') && columns.includes('sess') && columns.includes('expire')) {
+        console.log("✅ Tabela de sessão existe e está correta");
+        return;
+      } else {
+        console.log("⚠️ Tabela de sessão com estrutura incorreta, recriando...");
+        await pool.query(`DROP TABLE IF EXISTS "session" CASCADE;`);
+      }
+    }
+    
+    // Limpar qualquer constraint/index órfão antes de criar
+    console.log("🧹 Limpando objetos órfãos...");
+    try {
+      await pool.query(`DROP INDEX IF EXISTS "IDX_session_expire";`);
+    } catch (e) { /* ignorar */ }
+    try {
+      await pool.query(`DROP INDEX IF EXISTS "session_pkey";`);
+    } catch (e) { /* ignorar */ }
+    try {
+      await pool.query(`ALTER TABLE IF EXISTS "session" DROP CONSTRAINT IF EXISTS "session_pkey";`);
+    } catch (e) { /* ignorar */ }
+    try {
+      await pool.query(`DROP TABLE IF EXISTS "session" CASCADE;`);
+    } catch (e) { /* ignorar */ }
+    
+    console.log("📦 Criando tabela de sessão...");
+    await pool.query(`
+      CREATE TABLE "session" (
+        "sid" varchar NOT NULL COLLATE "default" PRIMARY KEY,
+        "sess" json NOT NULL,
+        "expire" timestamp(6) NOT NULL
+      );
+    `);
+    
+    // Criar índice
+    await pool.query(`CREATE INDEX "IDX_session_expire" ON "session" ("expire");`);
+    
+    // Verificar se foi criada corretamente
+    const verifyTable = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'session'
+      );
+    `);
+    
+    if (verifyTable.rows[0].exists) {
+      console.log("✅ Tabela de sessão criada e verificada com sucesso");
+    } else {
+      throw new Error("Falha ao criar tabela de sessão");
+    }
+  } catch (error: any) {
+    console.error("❌ Erro crítico ao configurar tabela de sessão:", error.message);
+    throw error; // Falhar o startup se não conseguir criar a tabela
+  }
+}
+
 // Determinar qual store usar baseado no ambiente
 const isProduction = process.env.NODE_ENV === 'production';
 let sessionStore: any;
@@ -56,7 +136,7 @@ if (isProduction && pool) {
   sessionStore = new PgStore({
     pool: pool,
     tableName: 'session',
-    createTableIfMissing: true, // Criar tabela automaticamente se não existir
+    createTableIfMissing: false, // Nós criamos manualmente
     pruneSessionInterval: 60 * 15, // Limpar sessões expiradas a cada 15 minutos
     errorLog: console.error.bind(console),
   });
@@ -115,7 +195,7 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    console.log("🔧 Inicializando configurações do keyuser...");
+    console.log("🔧 Inicializando configurações...");
 
     // Aguardar um pouco para garantir que o banco esteja pronto
     if (db) {
@@ -123,6 +203,12 @@ app.use((req, res, next) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
+    // Garantir que a tabela de sessão existe antes de continuar
+    if (isProduction && pool) {
+      await ensureSessionTable();
+    }
+
+    console.log("🔧 Inicializando configurações do keyuser...");
     let keyUserEmail = await storage.getSetting("keyuser_email");
     let keyUserPassword = await storage.getSetting("keyuser_password");
 
