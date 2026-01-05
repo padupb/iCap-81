@@ -14,18 +14,6 @@ build = ["sh", "-c", "npm run build"]
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 37009
-externalPort = 3001
-
-[[ports]]
-localPort = 38529
-externalPort = 3000
-
-[[ports]]
-localPort = 43593
-externalPort = 3002
-
 [workflows]
 runButton = "Project"
 
@@ -46,6 +34,9 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[workflows.workflow]]
 name = "Start server"
