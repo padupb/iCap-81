@@ -3985,7 +3985,17 @@ Status: Teste em progresso...`;
     try {
       // Usar query SQL direta na tabela ordens_compra em vez do storage obsoleto
       if (!pool) {
-        // Se não há banco de dados, retornar array vazio para desenvolvimento local
+        console.error("❌ ERRO: Pool de conexão não disponível em /api/ordens-compra");
+        console.error("DATABASE_URL configurada?", !!process.env.DATABASE_URL);
+        console.error("NODE_ENV:", process.env.NODE_ENV);
+        // Se não há banco de dados em produção, retornar erro
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(503).json({ 
+            error: "Banco de dados não disponível",
+            message: "O sistema está temporariamente indisponível. Por favor, tente novamente em alguns minutos."
+          });
+        }
+        // Para desenvolvimento local sem banco, retornar array vazio
         return res.json([]);
       }
 
