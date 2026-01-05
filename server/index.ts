@@ -56,8 +56,9 @@ if (isProduction && pool) {
   sessionStore = new PgStore({
     pool: pool,
     tableName: 'session',
-    createTableIfMissing: true,
+    createTableIfMissing: false, // Tabela já existe
     pruneSessionInterval: 60 * 15, // Limpar sessões expiradas a cada 15 minutos
+    errorLog: console.error.bind(console),
   });
 } else {
   console.log("💾 Usando MemoryStore para desenvolvimento");
