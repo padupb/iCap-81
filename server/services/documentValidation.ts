@@ -108,8 +108,11 @@ RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
     const analysis = JSON.parse(jsonMatch[0]);
 
     const pdfXmlMatch = analysis.pdfXmlMatch === true;
-    const purchaseOrderMatch = analysis.purchaseOrderMatch === true;
-    const foundPurchaseOrderNumber = analysis.foundPurchaseOrderNumber || null;
+    const foundPurchaseOrderNumber = analysis.foundPurchaseOrderNumber ? String(analysis.foundPurchaseOrderNumber).trim() : null;
+    const expectedPONormalized = expectedPurchaseOrderNumber.trim().replace(/^0+/, '');
+    const foundPONormalized = foundPurchaseOrderNumber ? foundPurchaseOrderNumber.replace(/^0+/, '') : null;
+    
+    const purchaseOrderMatch = analysis.purchaseOrderMatch === true || (foundPONormalized !== null && foundPONormalized === expectedPONormalized);
     const warnings: string[] = analysis.warnings || [];
 
     if (!pdfXmlMatch) {
