@@ -337,6 +337,20 @@ export function OrderDetailDrawer({
   // Estado para controlar se os documentos foram carregados
   const [documentsLoaded, setDocumentsLoaded] = useState(false);
 
+  // Estados para validação de documentos com IA
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState<{
+    isValid: boolean;
+    pdfXmlMatch: boolean;
+    purchaseOrderMatch: boolean;
+    foundPurchaseOrderNumber: string | null;
+    expectedPurchaseOrderNumber: string | null;
+    details: string;
+    warnings: string[];
+  } | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
+
   // Estado para tracking de histórico
   const [orderHistory, setOrderHistory] = useState<
     Array<{
@@ -764,8 +778,103 @@ export function OrderDetailDrawer({
     }
   }, [orderDetails?.documentosCarregados]);
 
+  // Tipo para resultado da validação
+  type ValidationResultType = {
+    isValid: boolean;
+    pdfXmlMatch: boolean;
+    purchaseOrderMatch: boolean;
+    foundPurchaseOrderNumber: string | null;
+    expectedPurchaseOrderNumber: string | null;
+    details: string;
+    warnings: string[];
+  } | null;
+
+  // Função para validar documentos antes do upload
+  const validateDocumentsBeforeUpload = async (): Promise<{ passed: boolean; result: ValidationResultType }> => {
+    if (!orderId || !notaPdf || !notaXml) return { passed: false, result: null };
+
+    setIsValidating(true);
+    toast({
+      title: "Validando documentos",
+      description: "Aguarde enquanto os documentos são analisados pela IA...",
+    });
+
+    try {
+      const validationFormData = new FormData();
+      validationFormData.append("nota_pdf", notaPdf as Blob);
+      validationFormData.append("nota_xml", notaXml as Blob);
+
+      const response = await fetch(`/api/pedidos/${orderId}/validar-documentos`, {
+        method: "POST",
+        body: validationFormData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro na validação");
+      }
+
+      const data = await response.json();
+      console.log("📊 Resultado da validação:", data);
+
+      if (data.success && data.validation) {
+        const validationData = data.validation as ValidationResultType;
+        setValidationResult(validationData);
+
+        // Se a validação passou, retornar true
+        if (validationData?.isValid) {
+          toast({
+            title: "Validação OK",
+            description: "Documentos validados com sucesso!",
+          });
+          return { passed: true, result: validationData };
+        } else {
+          // Se não passou, retornar o resultado para mostrar o diálogo
+          return { passed: false, result: validationData };
+        }
+      }
+
+      return { passed: false, result: null };
+    } catch (error) {
+      console.error("Erro na validação:", error);
+      toast({
+        title: "Erro na validação",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+      return { passed: false, result: null };
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  // Função para confirmar upload após validação
+  const confirmUploadAfterValidation = () => {
+    if (pendingFormData) {
+      toast({
+        title: "Enviando documentos",
+        description: "Aguarde enquanto os documentos são enviados...",
+      });
+      documentUploadMutation.mutate(pendingFormData);
+      setPendingFormData(null);
+      setValidationDialogOpen(false);
+      setValidationResult(null);
+    }
+  };
+
+  // Função para cancelar upload
+  const cancelUpload = () => {
+    setPendingFormData(null);
+    setValidationDialogOpen(false);
+    setValidationResult(null);
+    toast({
+      title: "Upload cancelado",
+      description: "O envio dos documentos foi cancelado.",
+    });
+  };
+
   // Função para fazer upload de todos os documentos
-  const handleUploadDocuments = () => {
+  const handleUploadDocuments = async () => {
     console.log("Iniciando upload de documentos para pedido:", orderId);
 
     if (!orderId) {
@@ -848,12 +957,22 @@ export function OrderDetailDrawer({
       formData.append("certificado_pdf", certificadoPdf as Blob);
     }
 
-    toast({
-      title: "Enviando documentos",
-      description: "Aguarde enquanto os documentos são enviados...",
-    });
+    // Validar documentos antes de fazer o upload
+    const { passed, result } = await validateDocumentsBeforeUpload();
 
-    documentUploadMutation.mutate(formData);
+    if (passed) {
+      // Se a validação passou, fazer upload diretamente
+      toast({
+        title: "Enviando documentos",
+        description: "Aguarde enquanto os documentos são enviados...",
+      });
+      documentUploadMutation.mutate(formData);
+    } else if (result) {
+      // Se a validação falhou mas temos resultado, mostrar diálogo de confirmação
+      setValidationResult(result);
+      setPendingFormData(formData);
+      setValidationDialogOpen(true);
+    }
   };
 
   // Função para lidar com a seleção de arquivos
@@ -2940,13 +3059,36 @@ export function OrderDetailDrawer({
                             onClick={handleUploadDocuments}
                             disabled={
                               documentUploadMutation.isPending ||
+                              isValidating ||
                               !notaPdf ||
                               !notaXml ||
                               !certificadoPdf
                             }
                             className="w-full"
                           >
-                            {documentUploadMutation.isPending ? (
+                            {isValidating ? (
+                              <>
+                                <svg
+                                  className="mr-2 h-4 w-4 animate-spin"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                  />
+                                </svg>
+                                Validando documentos...
+                              </>
+                            ) : documentUploadMutation.isPending ? (
                               <>
                                 <svg
                                   className="mr-2 h-4 w-4 animate-spin"
@@ -2971,7 +3113,7 @@ export function OrderDetailDrawer({
                             ) : (
                               <>
                                 <Upload className="mr-2 h-4 w-4" />
-                                Enviar Documentos
+                                Validar e Enviar Documentos
                               </>
                             )}
                           </Button>
@@ -3479,6 +3621,110 @@ export function OrderDetailDrawer({
               />
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Validação de Documentos */}
+      <Dialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertCircle className="h-5 w-5" />
+              Atenção: Inconsistências Detectadas
+            </DialogTitle>
+            <DialogDescription>
+              A validação automática encontrou divergências nos documentos enviados.
+              Revise os detalhes abaixo e decida se deseja prosseguir.
+            </DialogDescription>
+          </DialogHeader>
+
+          {validationResult && (
+            <div className="space-y-4">
+              {/* Status da correspondência PDF/XML */}
+              <div className={`p-3 rounded-md border ${validationResult.pdfXmlMatch ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="flex items-center gap-2">
+                  {validationResult.pdfXmlMatch ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-600" />
+                  )}
+                  <span className={`font-medium text-sm ${validationResult.pdfXmlMatch ? 'text-green-700' : 'text-red-700'}`}>
+                    {validationResult.pdfXmlMatch 
+                      ? 'PDF e XML correspondem' 
+                      : 'PDF e XML não correspondem'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status do pedido de compra */}
+              <div className={`p-3 rounded-md border ${validationResult.purchaseOrderMatch ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="flex items-center gap-2">
+                  {validationResult.purchaseOrderMatch ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-600" />
+                  )}
+                  <span className={`font-medium text-sm ${validationResult.purchaseOrderMatch ? 'text-green-700' : 'text-red-700'}`}>
+                    {validationResult.purchaseOrderMatch 
+                      ? 'Pedido de compra confere' 
+                      : 'Pedido de compra divergente'}
+                  </span>
+                </div>
+                {validationResult.foundPurchaseOrderNumber && !validationResult.purchaseOrderMatch && (
+                  <div className="mt-2 text-sm text-red-600">
+                    <p>Encontrado: <strong>{validationResult.foundPurchaseOrderNumber}</strong></p>
+                    <p>Esperado: <strong>{validationResult.expectedPurchaseOrderNumber || 'Não informado'}</strong></p>
+                  </div>
+                )}
+                {!validationResult.foundPurchaseOrderNumber && (
+                  <p className="mt-2 text-sm text-amber-600">
+                    Não foi possível identificar o número do pedido de compra na nota fiscal.
+                  </p>
+                )}
+              </div>
+
+              {/* Avisos */}
+              {validationResult.warnings && validationResult.warnings.length > 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="font-medium text-sm text-amber-800 mb-2">Avisos:</p>
+                  <ul className="list-disc list-inside text-sm text-amber-700 space-y-1">
+                    {validationResult.warnings.map((warning, idx) => (
+                      <li key={idx}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Detalhes */}
+              {validationResult.details && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-sm text-gray-700">{validationResult.details}</p>
+                </div>
+              )}
+
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-800">
+                  <strong>Deseja prosseguir mesmo assim?</strong><br />
+                  Ao prosseguir, os documentos serão enviados normalmente, mas as divergências ficarão registradas.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={cancelUpload}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmUploadAfterValidation}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Prosseguir Mesmo Assim
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Drawer>

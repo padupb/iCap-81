@@ -5148,6 +5148,93 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para validação de documentos com IA (Gemini)
+  app.post(
+    "/api/pedidos/:id/validar-documentos",
+    isAuthenticated,
+    upload.fields([
+      { name: 'nota_pdf', maxCount: 1 },
+      { name: 'nota_xml', maxCount: 1 }
+    ]),
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          return res.status(400).json({
+            success: false,
+            message: "ID de pedido inválido"
+          });
+        }
+
+        console.log(`🔍 Iniciando validação de documentos para pedido ID: ${id}`);
+
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+        if (!files?.nota_pdf?.[0] || !files?.nota_xml?.[0]) {
+          return res.status(400).json({
+            success: false,
+            message: "É necessário enviar o PDF e XML da nota fiscal para validação"
+          });
+        }
+
+        // Buscar informações do pedido incluindo o número da ordem de compra
+        const pedidoResult = await pool.query(
+          `SELECT o.id, o.order_id, o.purchase_order_id, oc.numero_ordem
+           FROM orders o
+           LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
+           WHERE o.id = $1`,
+          [id]
+        );
+
+        if (!pedidoResult.rows.length) {
+          // Limpar arquivos temporários
+          if (files.nota_pdf?.[0]?.path) fs.unlinkSync(files.nota_pdf[0].path);
+          if (files.nota_xml?.[0]?.path) fs.unlinkSync(files.nota_xml[0].path);
+          return res.status(404).json({
+            success: false,
+            message: "Pedido não encontrado"
+          });
+        }
+
+        const pedido = pedidoResult.rows[0];
+        const numeroOrdemCompra = pedido.numero_ordem || "";
+
+        console.log(`📋 Pedido encontrado - Order ID: ${pedido.order_id}, Ordem de Compra: ${numeroOrdemCompra}`);
+
+        // Ler os arquivos
+        const pdfBuffer = fs.readFileSync(files.nota_pdf[0].path);
+        const xmlBuffer = fs.readFileSync(files.nota_xml[0].path);
+
+        // Importar e usar o serviço de validação
+        const { validateDocuments } = await import("./services/documentValidation");
+        const validationResult = await validateDocuments(pdfBuffer, xmlBuffer, numeroOrdemCompra);
+
+        console.log(`📊 Resultado da validação:`, validationResult);
+
+        // Limpar arquivos temporários
+        try {
+          if (files.nota_pdf?.[0]?.path) fs.unlinkSync(files.nota_pdf[0].path);
+          if (files.nota_xml?.[0]?.path) fs.unlinkSync(files.nota_xml[0].path);
+        } catch (e) {
+          console.warn("Aviso: não foi possível remover arquivos temporários");
+        }
+
+        res.status(200).json({
+          success: true,
+          validation: validationResult
+        });
+
+      } catch (error) {
+        console.error("❌ Erro na validação de documentos:", error);
+        res.status(500).json({
+          success: false,
+          message: "Erro ao validar documentos",
+          error: error instanceof Error ? error.message : "Erro desconhecido"
+        });
+      }
+    }
+  );
+
   // Rota para upload de documentos do pedido (nota_pdf, nota_xml, certificado_pdf)
   app.post(
     "/api/pedidos/:id/documentos",
