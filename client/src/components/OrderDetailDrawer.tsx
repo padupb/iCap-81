@@ -3683,26 +3683,6 @@ export function OrderDetailDrawer({
                 )}
               </div>
 
-              {/* Avisos */}
-              {validationResult.warnings && validationResult.warnings.length > 0 && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                  <p className="font-medium text-sm text-amber-800 mb-2">Avisos:</p>
-                  <ul className="list-disc list-inside text-sm text-amber-700 space-y-1">
-                    {validationResult.warnings
-                      .filter(warning => 
-                        // Filtrar avisos que já estão detalhados no card de divergência do pedido
-                        !(validationResult.purchaseOrderMatch === false && 
-                          validationResult.foundPurchaseOrderNumber && 
-                          warning.includes(validationResult.foundPurchaseOrderNumber))
-                      )
-                      .map((warning, idx) => (
-                        <li key={idx}>{warning}</li>
-                      ))
-                    }
-                  </ul>
-                </div>
-              )}
-
               <div className="mt-4">
                 <p className="text-sm text-muted-foreground">
                   <strong>Deseja prosseguir mesmo assim?</strong><br />
