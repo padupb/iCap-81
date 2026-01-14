@@ -30,27 +30,31 @@ export async function validateDocuments(
 
     const prompt = `Você é um especialista em análise de notas fiscais brasileiras (DANFE).
     
-Sua tarefa principal é localizar o número do pedido de compra iCap ("${expectedPurchaseOrderNumber}") dentro do XML da nota fiscal.
+Sua tarefa principal é localizar dois identificadores dentro do XML da nota fiscal:
+1. O número do pedido de compra iCap ("${expectedPurchaseOrderNumber}").
+2. O código identificador do pedido no sistema ("${expectedPurchaseOrderNumber}" ou variações próximas).
 
 O número pode estar em:
-1. Informações Complementares: Procure por padrões como "PEDIDO DE COMPRA:", "PEDIDO:", "OC:", "PO:", seguido de um número.
-2. Descrição dos Produtos: Verifique se o número aparece na descrição de algum item (<xProd>).
+1. Informações Complementares (<infCpl> ou <infAdic>): Procure por padrões como "PEDIDO DE COMPRA:", "PEDIDO:", "OC:", "PO:", "ORDEM:", seguido de um número.
+2. Descrição dos Produtos (<xProd>): Verifique se o número aparece na descrição de algum item.
 
 CONTEÚDO DO XML (Focado em campos relevantes):
 ${xmlContent.substring(0, 40000)}
 
-INSTRUÇÕES CRITICAS:
-- No exemplo fornecido pelo usuário, o texto "PEDIDO DE COMPRA: 20660" aparece claramente nas informações complementares.
-- Você deve ser capaz de extrair o número logo após o prefixo "PEDIDO DE COMPRA:".
-- O número pode conter apenas dígitos ou ser alfanumérico.
+INSTRUÇÕES CRÍTICAS:
+- Extraia o número logo após prefixos como "PEDIDO DE COMPRA:".
+- Considere que o número pode vir com zeros à esquerda ou sem eles.
+- Verifique se o ID do pedido (CNI..., CCC..., etc) também aparece no texto.
 
 RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
 {
   "pdfXmlMatch": true,
   "pdfXmlMatchDetails": "XML validado",
   "foundPurchaseOrderNumber": "o número exato encontrado (ex: 20660)",
-  "purchaseOrderMatch": true/false (comparar com "${expectedPurchaseOrderNumber}"),
-  "purchaseOrderDetails": "Explicação de onde encontrou o número",
+  "purchaseOrderMatch": true/false,
+  "foundOrderId": "ID do sistema encontrado (ex: CNI2024...) ou null",
+  "orderIdMatch": true/false,
+  "purchaseOrderDetails": "Explicação de onde encontrou os dados",
   "warnings": []
 }`;
 
@@ -112,7 +116,11 @@ RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
     const expectedPONormalized = expectedPurchaseOrderNumber.trim().replace(/^0+/, '');
     const foundPONormalized = foundPurchaseOrderNumber ? foundPurchaseOrderNumber.replace(/^0+/, '') : null;
     
-    const purchaseOrderMatch = analysis.purchaseOrderMatch === true || (foundPONormalized !== null && foundPONormalized === expectedPONormalized);
+    // Sucesso se o número da ordem bater (mesmo sem zeros) OU se o ID do pedido iCap for encontrado e bater
+    const purchaseOrderMatch = analysis.purchaseOrderMatch === true || 
+                             (foundPONormalized !== null && foundPONormalized === expectedPONormalized) ||
+                             (analysis.orderIdMatch === true);
+
     const warnings: string[] = analysis.warnings || [];
 
     if (!pdfXmlMatch) {
