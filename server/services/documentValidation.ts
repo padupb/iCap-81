@@ -28,25 +28,29 @@ export async function validateDocuments(
     const pdfBase64 = pdfBuffer.toString("base64");
     const xmlContent = xmlBuffer.toString("utf-8");
 
-    const prompt = `Você é um especialista em análise de notas fiscais brasileiras. Analise o XML fornecido, focando principalmente nas tags <infAdic> (informações adicionais) e nas descrições dos produtos (<xProd>).
+    const prompt = `Você é um especialista em análise de notas fiscais brasileiras (DANFE).
     
-TAREFAS:
-1. Verifique se o XML corresponde ao PDF (valores totais e dados básicos).
-2. Localize o número do pedido de compra iCap ("${expectedPurchaseOrderNumber}") dentro do XML, procurando especificamente em:
-   - Tags de observações/informações complementares (<infCpl> ou <infAdic>).
-   - Descrições de itens (<xProd>).
-3. Compare o número encontrado com o esperado: "${expectedPurchaseOrderNumber}".
+Sua tarefa principal é localizar o número do pedido de compra iCap ("${expectedPurchaseOrderNumber}") dentro do XML da nota fiscal.
+
+O número pode estar em:
+1. Informações Complementares: Procure por padrões como "PEDIDO DE COMPRA:", "PEDIDO:", "OC:", "PO:", seguido de um número.
+2. Descrição dos Produtos: Verifique se o número aparece na descrição de algum item (<xProd>).
 
 CONTEÚDO DO XML (Focado em campos relevantes):
-${xmlContent.substring(0, 30000)}
+${xmlContent.substring(0, 40000)}
+
+INSTRUÇÕES CRITICAS:
+- No exemplo fornecido pelo usuário, o texto "PEDIDO DE COMPRA: 20660" aparece claramente nas informações complementares.
+- Você deve ser capaz de extrair o número logo após o prefixo "PEDIDO DE COMPRA:".
+- O número pode conter apenas dígitos ou ser alfanumérico.
 
 RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
 {
-  "pdfXmlMatch": true/false,
-  "pdfXmlMatchDetails": "explicação concisa",
-  "foundPurchaseOrderNumber": "número encontrado ou null",
-  "purchaseOrderMatch": true/false,
-  "purchaseOrderDetails": "explicação sobre o pedido de compra",
+  "pdfXmlMatch": true,
+  "pdfXmlMatchDetails": "XML validado",
+  "foundPurchaseOrderNumber": "o número exato encontrado (ex: 20660)",
+  "purchaseOrderMatch": true/false (comparar com "${expectedPurchaseOrderNumber}"),
+  "purchaseOrderDetails": "Explicação de onde encontrou o número",
   "warnings": []
 }`;
 
