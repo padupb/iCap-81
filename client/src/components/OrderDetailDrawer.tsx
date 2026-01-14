@@ -3695,8 +3695,8 @@ export function OrderDetailDrawer({
                 </div>
               )}
 
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-sm text-blue-800">
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-600">
                   <strong>Deseja prosseguir mesmo assim?</strong><br />
                   Ao prosseguir, os documentos serão enviados normalmente, mas as divergências ficarão registradas.
                 </p>
