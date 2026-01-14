@@ -52,3 +52,4 @@ defaultBucketID = "replit-objstore-fbeb22e6-fccf-4b1c-92bc-eb3a0e56bd49"
 
 [agent]
 expertMode = true
+integrations = ["javascript_gemini_ai_integrations:2.0.0"]
