@@ -28,24 +28,26 @@ export async function validateDocuments(
     const pdfBase64 = pdfBuffer.toString("base64");
     const xmlContent = xmlBuffer.toString("utf-8");
 
-    const prompt = `Você é um especialista em análise de notas fiscais brasileiras. Analise cuidadosamente o PDF da nota fiscal e o XML fornecidos.
-
+    const prompt = `Você é um especialista em análise de notas fiscais brasileiras. Analise o XML fornecido, focando principalmente nas tags <infAdic> (informações adicionais) e nas descrições dos produtos (<xProd>).
+    
 TAREFAS:
-1. Compare se o XML corresponde ao PDF da nota fiscal (verifique valores, datas, CNPJ, número da nota, produtos)
-2. Identifique o número do pedido de compra/ordem de compra mencionado na descrição dos produtos ou em campos específicos
-3. Compare se o pedido de compra encontrado é igual ao esperado: "${expectedPurchaseOrderNumber}"
+1. Verifique se o XML corresponde ao PDF (valores totais e dados básicos).
+2. Localize o número do pedido de compra iCap ("${expectedPurchaseOrderNumber}") dentro do XML, procurando especificamente em:
+   - Tags de observações/informações complementares (<infCpl> ou <infAdic>).
+   - Descrições de itens (<xProd>).
+3. Compare o número encontrado com o esperado: "${expectedPurchaseOrderNumber}".
 
-CONTEÚDO DO XML DA NOTA FISCAL:
-${xmlContent.substring(0, 50000)}
+CONTEÚDO DO XML (Focado em campos relevantes):
+${xmlContent.substring(0, 30000)}
 
 RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
 {
   "pdfXmlMatch": true/false,
-  "pdfXmlMatchDetails": "explicação detalhada da comparação",
+  "pdfXmlMatchDetails": "explicação concisa",
   "foundPurchaseOrderNumber": "número encontrado ou null",
   "purchaseOrderMatch": true/false,
   "purchaseOrderDetails": "explicação sobre o pedido de compra",
-  "warnings": ["lista de avisos ou inconsistências encontradas"]
+  "warnings": []
 }`;
 
     const response = await ai.models.generateContent({
