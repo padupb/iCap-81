@@ -3695,13 +3695,6 @@ export function OrderDetailDrawer({
                 </div>
               )}
 
-              {/* Detalhes */}
-              {validationResult.details && (
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                  <p className="text-sm text-gray-700">{validationResult.details}</p>
-                </div>
-              )}
-
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm text-blue-800">
                   <strong>Deseja prosseguir mesmo assim?</strong><br />
