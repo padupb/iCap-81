@@ -116,10 +116,16 @@ RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
     const expectedPONormalized = expectedPurchaseOrderNumber.trim().replace(/^0+/, '');
     const foundPONormalized = foundPurchaseOrderNumber ? foundPurchaseOrderNumber.replace(/^0+/, '') : null;
     
-    // Sucesso se o número da ordem bater (mesmo sem zeros) OU se o ID do pedido iCap for encontrado e bater
-    const purchaseOrderMatch = analysis.purchaseOrderMatch === true || 
-                             (foundPONormalized !== null && foundPONormalized === expectedPONormalized) ||
-                             (analysis.orderIdMatch === true);
+    // Comparação direta (não confia na IA) - verifica se os números normalizado batem
+    const purchaseOrderMatch = foundPONormalized !== null && foundPONormalized === expectedPONormalized;
+
+    console.log("🔍 Validação de pedido de compra:", {
+      encontrado: foundPurchaseOrderNumber,
+      encontradoNormalizado: foundPONormalized,
+      esperado: expectedPurchaseOrderNumber,
+      esperadoNormalizado: expectedPONormalized,
+      resultado: purchaseOrderMatch ? "CONFERE" : "DIVERGE"
+    });
 
     const warnings: string[] = analysis.warnings || [];
 
