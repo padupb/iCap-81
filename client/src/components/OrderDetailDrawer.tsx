@@ -346,6 +346,9 @@ export function OrderDetailDrawer({
     purchaseOrderMatch: boolean;
     foundPurchaseOrderNumber: string | null;
     expectedPurchaseOrderNumber: string | null;
+    orderIdMatch: boolean;
+    foundOrderId: string | null;
+    expectedOrderId: string | null;
     details: string;
     warnings: string[];
   } | null>(null);
@@ -785,6 +788,9 @@ export function OrderDetailDrawer({
     purchaseOrderMatch: boolean;
     foundPurchaseOrderNumber: string | null;
     expectedPurchaseOrderNumber: string | null;
+    orderIdMatch: boolean;
+    foundOrderId: string | null;
+    expectedOrderId: string | null;
     details: string;
     warnings: string[];
   } | null;
@@ -3688,6 +3694,39 @@ export function OrderDetailDrawer({
                   </div>
                 )}
               </div>
+
+              {/* Status do ID do pedido iCap */}
+              {validationResult.expectedOrderId && (
+                <div className={`p-3 rounded-md border ${validationResult.orderIdMatch ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <div className="flex items-center gap-2">
+                    {validationResult.orderIdMatch ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    )}
+                    <span className={`font-medium text-sm ${validationResult.orderIdMatch ? 'text-green-700' : 'text-red-700'}`}>
+                      {validationResult.orderIdMatch 
+                        ? 'ID do pedido confere' 
+                        : 'ID do pedido divergente'}
+                    </span>
+                  </div>
+                  {!validationResult.orderIdMatch && (
+                    <div className="mt-2 text-sm">
+                      {validationResult.foundOrderId ? (
+                        <div className="text-red-600">
+                          <p>Encontrado: <strong>{validationResult.foundOrderId}</strong></p>
+                          <p>Esperado: <strong>{validationResult.expectedOrderId}</strong></p>
+                        </div>
+                      ) : (
+                        <p className="text-amber-600">
+                          Não foi possível identificar o ID do pedido na nota fiscal.
+                          <span className="block mt-1">Esperado: <strong>{validationResult.expectedOrderId}</strong></span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mt-4">
                 <p className="text-sm text-muted-foreground">

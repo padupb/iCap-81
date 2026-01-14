@@ -5198,8 +5198,9 @@ Status: Teste em progresso...`;
 
         const pedido = pedidoResult.rows[0];
         const numeroOrdemCompra = pedido.numero_ordem || "";
+        const orderId = pedido.order_id || "";
 
-        console.log(`📋 Pedido encontrado - Order ID: ${pedido.order_id}, Ordem de Compra: ${numeroOrdemCompra}`);
+        console.log(`📋 Pedido encontrado - Order ID: ${orderId}, Ordem de Compra: ${numeroOrdemCompra}`);
 
         // Ler os arquivos
         const pdfBuffer = fs.readFileSync(files.nota_pdf[0].path);
@@ -5207,7 +5208,7 @@ Status: Teste em progresso...`;
 
         // Importar e usar o serviço de validação
         const { validateDocuments } = await import("./services/documentValidation");
-        const validationResult = await validateDocuments(pdfBuffer, xmlBuffer, numeroOrdemCompra);
+        const validationResult = await validateDocuments(pdfBuffer, xmlBuffer, numeroOrdemCompra, orderId);
 
         console.log(`📊 Resultado da validação:`, validationResult);
 

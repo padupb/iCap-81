@@ -15,6 +15,9 @@ export interface DocumentValidationResult {
   purchaseOrderMatch: boolean;
   foundPurchaseOrderNumber: string | null;
   expectedPurchaseOrderNumber: string | null;
+  orderIdMatch: boolean;
+  foundOrderId: string | null;
+  expectedOrderId: string | null;
   details: string;
   warnings: string[];
 }
@@ -22,7 +25,8 @@ export interface DocumentValidationResult {
 export async function validateDocuments(
   pdfBuffer: Buffer,
   xmlBuffer: Buffer,
-  expectedPurchaseOrderNumber: string
+  expectedPurchaseOrderNumber: string,
+  expectedOrderId: string = ""
 ): Promise<DocumentValidationResult> {
   try {
     const pdfBase64 = pdfBuffer.toString("base64");
@@ -30,30 +34,27 @@ export async function validateDocuments(
 
     const prompt = `Você é um especialista em análise de notas fiscais brasileiras (DANFE).
     
-Sua tarefa principal é localizar dois identificadores dentro do XML da nota fiscal:
-1. O número do pedido de compra iCap ("${expectedPurchaseOrderNumber}").
-2. O código identificador do pedido no sistema ("${expectedPurchaseOrderNumber}" ou variações próximas).
+Sua tarefa é localizar DOIS identificadores dentro do XML da nota fiscal:
+1. O número do PEDIDO DE COMPRA (ex: "20660", "006241").
+2. O código identificador do PEDIDO no sistema iCap (começa com prefixos como CNI, CCC, CCM, CO0, TRL, TRS, etc seguido de números).
 
-O número pode estar em:
-1. Informações Complementares (<infCpl> ou <infAdic>): Procure por padrões como "PEDIDO DE COMPRA:", "PEDIDO:", "OC:", "PO:", "ORDEM:", seguido de um número.
-2. Descrição dos Produtos (<xProd>): Verifique se o número aparece na descrição de algum item.
+Locais para buscar:
+1. Informações Complementares (<infCpl> ou <infAdic>): Procure por "PEDIDO DE COMPRA:" seguido de número, e também códigos alfanuméricos como "CCC1212250003".
+2. Descrição dos Produtos (<xProd>): Verifique se aparecem esses códigos.
 
-CONTEÚDO DO XML (Focado em campos relevantes):
+CONTEÚDO DO XML:
 ${xmlContent.substring(0, 40000)}
 
 INSTRUÇÕES CRÍTICAS:
-- Extraia o número logo após prefixos como "PEDIDO DE COMPRA:".
-- Considere que o número pode vir com zeros à esquerda ou sem eles.
-- Verifique se o ID do pedido (CNI..., CCC..., etc) também aparece no texto.
+- Extraia o número logo após "PEDIDO DE COMPRA:".
+- Procure por códigos alfanuméricos que sigam o padrão de ID do iCap (3 letras + números, ex: CNI2710250001, CCC1212250003, CCM0610250001).
 
 RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
 {
   "pdfXmlMatch": true,
   "pdfXmlMatchDetails": "XML validado",
-  "foundPurchaseOrderNumber": "o número exato encontrado (ex: 20660)",
-  "purchaseOrderMatch": true/false,
-  "foundOrderId": "ID do sistema encontrado (ex: CNI2024...) ou null",
-  "orderIdMatch": true/false,
+  "foundPurchaseOrderNumber": "número do pedido de compra encontrado (ex: 20660)",
+  "foundOrderId": "código do pedido iCap encontrado (ex: CCC1212250003) ou null",
   "purchaseOrderDetails": "Explicação de onde encontrou os dados",
   "warnings": []
 }`;
@@ -112,12 +113,16 @@ RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
     const analysis = JSON.parse(jsonMatch[0]);
 
     const pdfXmlMatch = analysis.pdfXmlMatch === true;
+    
+    // Validação do número do pedido de compra
     const foundPurchaseOrderNumber = analysis.foundPurchaseOrderNumber ? String(analysis.foundPurchaseOrderNumber).trim() : null;
     const expectedPONormalized = expectedPurchaseOrderNumber.trim().replace(/^0+/, '');
     const foundPONormalized = foundPurchaseOrderNumber ? foundPurchaseOrderNumber.replace(/^0+/, '') : null;
-    
-    // Comparação direta (não confia na IA) - verifica se os números normalizado batem
     const purchaseOrderMatch = foundPONormalized !== null && foundPONormalized === expectedPONormalized;
+
+    // Validação do ID do pedido iCap
+    const foundOrderId = analysis.foundOrderId ? String(analysis.foundOrderId).trim() : null;
+    const orderIdMatch = expectedOrderId && foundOrderId ? foundOrderId === expectedOrderId : false;
 
     console.log("🔍 Validação de pedido de compra:", {
       encontrado: foundPurchaseOrderNumber,
@@ -125,6 +130,12 @@ RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
       esperado: expectedPurchaseOrderNumber,
       esperadoNormalizado: expectedPONormalized,
       resultado: purchaseOrderMatch ? "CONFERE" : "DIVERGE"
+    });
+
+    console.log("🔍 Validação de ID do pedido:", {
+      encontrado: foundOrderId,
+      esperado: expectedOrderId,
+      resultado: orderIdMatch ? "CONFERE" : "DIVERGE"
     });
 
     const warnings: string[] = analysis.warnings || [];
@@ -143,7 +154,14 @@ RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
       warnings.push("Não foi possível identificar o número do pedido de compra na nota fiscal");
     }
 
-    const isValid = pdfXmlMatch && purchaseOrderMatch;
+    if (expectedOrderId && !orderIdMatch && foundOrderId) {
+      warnings.push(
+        `ID do pedido encontrado (${foundOrderId}) é diferente do esperado (${expectedOrderId})`
+      );
+    }
+
+    // Válido apenas se AMBOS conferirem (quando o ID do pedido é informado)
+    const isValid = pdfXmlMatch && purchaseOrderMatch && (expectedOrderId ? orderIdMatch : true);
 
     let details = "";
     if (analysis.pdfXmlMatchDetails) {
@@ -159,6 +177,9 @@ RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
       purchaseOrderMatch,
       foundPurchaseOrderNumber,
       expectedPurchaseOrderNumber,
+      orderIdMatch,
+      foundOrderId,
+      expectedOrderId,
       details: details || "Análise concluída",
       warnings,
     };
@@ -170,6 +191,9 @@ RESPONDA EM JSON COM ESTA ESTRUTURA EXATA:
       purchaseOrderMatch: false,
       foundPurchaseOrderNumber: null,
       expectedPurchaseOrderNumber,
+      orderIdMatch: false,
+      foundOrderId: null,
+      expectedOrderId,
       details: `Erro ao validar documentos: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
       warnings: ["Falha na validação automática"],
     };
