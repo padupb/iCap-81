@@ -351,6 +351,13 @@ export function OrderDetailDrawer({
     expectedOrderId: string | null;
     details: string;
     warnings: string[];
+    duplicateCheck?: {
+      isDuplicate: boolean;
+      matchingOrderId?: string;
+      matchingOrderNumericId?: number;
+      matchType?: 'order_id' | 'nfe_number';
+      message?: string;
+    };
   } | null>(null);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
 
@@ -793,6 +800,13 @@ export function OrderDetailDrawer({
     expectedOrderId: string | null;
     details: string;
     warnings: string[];
+    duplicateCheck?: {
+      isDuplicate: boolean;
+      matchingOrderId?: string;
+      matchingOrderNumericId?: number;
+      matchType?: 'order_id' | 'nfe_number';
+      message?: string;
+    };
   } | null;
 
   // Função para validar documentos antes do upload
@@ -3725,6 +3739,24 @@ export function OrderDetailDrawer({
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Alerta de duplicata - nota pertence a outro pedido */}
+              {validationResult.duplicateCheck?.isDuplicate && (
+                <div className="p-3 rounded-md border bg-red-100 border-red-300">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-5 w-5 text-red-700" />
+                    <span className="font-semibold text-sm text-red-800">
+                      Atenção: Nota pertence a outro pedido!
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{validationResult.duplicateCheck.message}</p>
+                    <p className="mt-1">
+                      Pedido correto: <strong>{validationResult.duplicateCheck.matchingOrderId}</strong>
+                    </p>
+                  </div>
                 </div>
               )}
 

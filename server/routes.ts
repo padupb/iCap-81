@@ -5212,6 +5212,32 @@ Status: Teste em progresso...`;
 
         console.log(`📊 Resultado da validação:`, validationResult);
 
+        // Verificar se o ID encontrado corresponde a outro pedido no sistema
+        if (validationResult.foundOrderId && validationResult.foundOrderId !== orderId) {
+          console.log(`🔍 Verificando se ${validationResult.foundOrderId} corresponde a outro pedido...`);
+          
+          const duplicateCheck = await pool.query(
+            `SELECT id, order_id FROM orders WHERE order_id = $1 AND id != $2`,
+            [validationResult.foundOrderId, id]
+          );
+
+          if (duplicateCheck.rows.length > 0) {
+            const matchingOrder = duplicateCheck.rows[0];
+            validationResult.duplicateCheck = {
+              isDuplicate: true,
+              matchingOrderId: matchingOrder.order_id,
+              matchingOrderNumericId: matchingOrder.id,
+              matchType: 'order_id',
+              message: `Esta nota fiscal pertence ao pedido ${matchingOrder.order_id} (ID: ${matchingOrder.id})`
+            };
+            validationResult.isValid = false;
+            validationResult.warnings.push(
+              `A nota fiscal encontrada pertence a outro pedido do sistema: ${matchingOrder.order_id}`
+            );
+            console.log(`⚠️ Nota pertence a outro pedido: ${matchingOrder.order_id}`);
+          }
+        }
+
         // Limpar arquivos temporários
         try {
           if (files.nota_pdf?.[0]?.path) fs.unlinkSync(files.nota_pdf[0].path);

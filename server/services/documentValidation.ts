@@ -20,6 +20,13 @@ export interface DocumentValidationResult {
   expectedOrderId: string | null;
   details: string;
   warnings: string[];
+  duplicateCheck?: {
+    isDuplicate: boolean;
+    matchingOrderId?: string;
+    matchingOrderNumericId?: number;
+    matchType?: 'order_id' | 'nfe_number';
+    message?: string;
+  };
 }
 
 export async function validateDocuments(
