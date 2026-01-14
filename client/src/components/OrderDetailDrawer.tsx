@@ -3670,16 +3670,22 @@ export function OrderDetailDrawer({
                       : 'Pedido de compra divergente'}
                   </span>
                 </div>
-                {validationResult.foundPurchaseOrderNumber && !validationResult.purchaseOrderMatch && (
-                  <div className="mt-2 text-sm text-red-600">
-                    <p>Encontrado: <strong>{validationResult.foundPurchaseOrderNumber}</strong></p>
-                    <p>Esperado: <strong>{validationResult.expectedPurchaseOrderNumber || 'Não informado'}</strong></p>
+                {(!validationResult.purchaseOrderMatch || !validationResult.foundPurchaseOrderNumber) && (
+                  <div className="mt-2 text-sm">
+                    {validationResult.foundPurchaseOrderNumber ? (
+                      <div className="text-red-600">
+                        <p>Encontrado: <strong>{validationResult.foundPurchaseOrderNumber}</strong></p>
+                        <p>Esperado: <strong>{validationResult.expectedPurchaseOrderNumber || 'Não informado'}</strong></p>
+                      </div>
+                    ) : (
+                      <p className="text-amber-600">
+                        Não foi possível identificar o número do pedido de compra na nota fiscal.
+                        {validationResult.expectedPurchaseOrderNumber && (
+                          <span className="block mt-1">Esperado: <strong>{validationResult.expectedPurchaseOrderNumber}</strong></span>
+                        )}
+                      </p>
+                    )}
                   </div>
-                )}
-                {!validationResult.foundPurchaseOrderNumber && (
-                  <p className="mt-2 text-sm text-amber-600">
-                    Não foi possível identificar o número do pedido de compra na nota fiscal.
-                  </p>
                 )}
               </div>
 
