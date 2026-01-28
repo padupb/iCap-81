@@ -86,9 +86,13 @@ const unitFormSchema = insertUnitSchema;
 // Esquema para configurações
 const settingsFormSchema = z.object({
   urgent_days_threshold: z.string().min(1, "Campo obrigatório"),
+  approval_timeout_hours: z.string().min(1, "Campo obrigatório"),
   google_maps_api_key: z.string().optional(),
   app_name: z.string().min(1, "Campo obrigatório"),
   logo_url: z.string().optional(),
+  cancel_min_days: z.string().min(1, "Campo obrigatório"),
+  reschedule_min_days: z.string().min(1, "Campo obrigatório"),
+  default_reset_password: z.string().min(1, "Campo obrigatório"),
 });
 
 // Lista de menus/áreas do sistema para configuração de permissões
@@ -474,9 +478,13 @@ export default function Keyuser() {
     resolver: zodResolver(settingsFormSchema),
     values: {
       urgent_days_threshold: settingsObject.urgent_days_threshold || "7",
+      approval_timeout_hours: settingsObject.approval_timeout_hours || "48",
       google_maps_api_key: settingsObject.google_maps_api_key || "",
       app_name: settingsObject.app_name || "iCap",
       logo_url: settingsObject.logo_url || "",
+      cancel_min_days: settingsObject.cancel_min_days || "3",
+      reschedule_min_days: settingsObject.reschedule_min_days || "3",
+      default_reset_password: settingsObject.default_reset_password || "icap123",
     },
   });
 
@@ -591,9 +599,13 @@ export default function Keyuser() {
   const handleSettingsReset = () => {
     settingsForm.reset({
       urgent_days_threshold: "7",
+      approval_timeout_hours: "48",
       google_maps_api_key: "",
       app_name: "iCap",
       logo_url: "",
+      cancel_min_days: "3",
+      reschedule_min_days: "3",
+      default_reset_password: "icap123",
     });
   };
 
@@ -1491,6 +1503,115 @@ export default function Keyuser() {
                           )}
                         />
                       </div>
+
+                      {/* Campos adicionais de configuração */}
+                      <FormField
+                        control={settingsForm.control}
+                        name="approval_timeout_hours"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2 h-5">
+                              <Clock className="w-4 h-4 text-red-500" />
+                              Timeout de Aprovação (horas)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="168"
+                                placeholder="48"
+                                className="bg-input border-border"
+                                {...field}
+                              />
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              Tempo máximo para processar aprovações de pedidos urgentes
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={settingsForm.control}
+                          name="cancel_min_days"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-2 h-5">
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                Dias Mínimos para Cancelar
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="30"
+                                  placeholder="3"
+                                  className="bg-input border-border"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <p className="text-sm text-muted-foreground">
+                                Antecedência mínima (em dias) para cancelar um pedido
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={settingsForm.control}
+                          name="reschedule_min_days"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-2 h-5">
+                                <Clock className="w-4 h-4 text-blue-500" />
+                                Dias Mínimos para Reprogramar
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="30"
+                                  placeholder="3"
+                                  className="bg-input border-border"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <p className="text-sm text-muted-foreground">
+                                Antecedência mínima (em dias) para reprogramar entrega
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={settingsForm.control}
+                        name="default_reset_password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2 h-5">
+                              <Key className="w-4 h-4 text-purple-500" />
+                              Senha Padrão para Reset
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                placeholder="icap123"
+                                className="bg-input border-border"
+                                {...field}
+                              />
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              Senha padrão atribuída ao resetar a senha de um usuário
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
                     {/* Upload de Logo */}
