@@ -103,12 +103,7 @@ export default function Sidebar() {
             <div key={item.name}>
               <Link href={item.href}>
                 <div
-                  className={cn(
-                    "flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer",
-                    isActive
-                      ? "bg-sidebar-primary text-white"
-                      : "text-sidebar-foreground hover:bg-gray-700"
-                  )}
+                  className="flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer text-sidebar-foreground hover:bg-gray-700 pt-[8px] pb-[8px]"
                 >
                   <div className="flex items-center">
                     <Icon className="w-5 h-5 mr-3" />
@@ -136,7 +131,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-
       {/* User Menu at the bottom */}
       <div className="mt-auto p-4 border-t border-sidebar-border bg-[#26262c]">
         <UserMenu />
