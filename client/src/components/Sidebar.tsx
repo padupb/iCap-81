@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { UserMenu } from "./UserMenu";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -135,6 +136,11 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* User Menu at the bottom */}
+      <div className="mt-auto p-4 border-t border-sidebar-border bg-[#26262c]">
+        <UserMenu />
+      </div>
     </div>
   );
 }
