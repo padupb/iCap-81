@@ -1866,7 +1866,7 @@ Status: Teste em progresso...`;
 
       // Buscar o pedido com informações do fornecedor
       const orderResult = await pool.query(
-        `SELECT o.id, o.order_id, o.status, o.supplier_id, o.nota_pdf, o.nota_xml
+        `SELECT o.id, o.order_id, o.status, o.supplier_id, o.documentos_carregados, o.documentos_info
          FROM orders o
          WHERE o.id = $1`,
         [orderId]
@@ -1913,8 +1913,10 @@ Status: Teste em progresso...`;
         });
       }
 
-      // Verificar se os documentos foram carregados (nota_pdf/nota_xml ou status 'Carregado')
-      const hasDocuments = order.nota_pdf || order.nota_xml || order.status === 'Carregado';
+      // Verificar se os documentos foram carregados
+      const hasDocuments = order.documentos_carregados === true || 
+                           order.documentos_info !== null || 
+                           order.status === 'Carregado';
       if (!hasDocuments && !isKeyUser) {
         return res.status(400).json({
           success: false,
