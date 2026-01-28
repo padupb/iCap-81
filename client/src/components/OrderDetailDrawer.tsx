@@ -2586,16 +2586,16 @@ export function OrderDetailDrawer({
                             orderDetails.status === "Entregue") {
                           return (
                             <div className="space-y-4">
-                              <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-green-50">
+                              <div className="flex items-center justify-center p-6 border rounded-lg">
                                 <div className="text-center">
                                   <FileCheck
                                     size={48}
                                     className="text-green-500 mx-auto mb-2"
                                   />
-                                  <h3 className="text-lg font-medium text-green-700">
+                                  <h3 className="text-lg font-medium text-foreground">
                                     Documentos Carregados
                                   </h3>
-                                  <p className="text-sm text-green-600 mt-2">
+                                  <p className="text-sm text-muted-foreground mt-2">
                                     Todos os documentos necessários foram enviados e
                                     processados com sucesso.
                                   </p>
