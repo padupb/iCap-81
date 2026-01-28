@@ -2048,7 +2048,86 @@ export function OrderDetailDrawer({
                           );
                         }
 
-                        // Usar o código do pedido (order_id) para o QR code
+                        // Verificar se usuário é fornecedor deste pedido ou keyuser
+                        const supplierId = orderDetails.supplierId || (orderDetails as any).supplier_id;
+                        const isKeyUserLocal = (user?.id >= 1 && user?.id <= 5) || user?.isKeyUser;
+                        const isSupplierLocal = user?.companyId && supplierId && user.companyId === supplierId;
+                        const canSetRoute = isKeyUserLocal || isSupplierLocal;
+                        
+                        // Verificar se documentos foram carregados
+                        const hasDocumentsUploaded = documentsLoaded || 
+                          orderDetails.documentosCarregados || 
+                          (orderDetails as any).nota_pdf || 
+                          (orderDetails as any).nota_xml ||
+                          orderDetails.status === 'Carregado' ||
+                          orderDetails.status === 'Em Rota' ||
+                          orderDetails.status === 'Entregue';
+                        
+                        // Se pode colocar em rota, mostrar botão em vez do QR code
+                        if (canSetRoute) {
+                          const isAlreadyInRoute = orderDetails.status === 'Em Rota' || orderDetails.status === 'Entregue' || orderDetails.status === 'Em transporte';
+                          const buttonDisabled = !hasDocumentsUploaded || isAlreadyInRoute;
+                          
+                          const handleColocarEmRota = async () => {
+                            try {
+                              const response = await fetch(`/api/pedidos/${orderId}/colocar-em-rota`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                              });
+                              
+                              const result = await response.json();
+                              
+                              if (result.success) {
+                                toast({
+                                  title: "Sucesso!",
+                                  description: "Pedido colocado em rota com sucesso.",
+                                });
+                                queryClient.invalidateQueries({ queryKey: ["orders"] });
+                              } else {
+                                toast({
+                                  title: "Erro",
+                                  description: result.message || "Não foi possível colocar o pedido em rota.",
+                                  variant: "destructive",
+                                });
+                              }
+                            } catch (error) {
+                              console.error("Erro ao colocar em rota:", error);
+                              toast({
+                                title: "Erro",
+                                description: "Erro ao colocar pedido em rota.",
+                                variant: "destructive",
+                              });
+                            }
+                          };
+                          
+                          return (
+                            <div className="flex flex-col items-center justify-center p-4 w-full">
+                              <Button
+                                onClick={handleColocarEmRota}
+                                disabled={buttonDisabled}
+                                className={`w-full max-w-[200px] ${
+                                  isAlreadyInRoute 
+                                    ? 'bg-green-600 hover:bg-green-600 cursor-not-allowed' 
+                                    : buttonDisabled 
+                                      ? 'bg-gray-400 cursor-not-allowed' 
+                                      : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
+                              >
+                                <Truck className="h-5 w-5 mr-2" />
+                                {isAlreadyInRoute ? 'Em Rota' : 'Colocar em Rota'}
+                              </Button>
+                              {!hasDocumentsUploaded && !isAlreadyInRoute && (
+                                <p className="text-xs text-gray-500 mt-2 text-center">
+                                  Faça upload dos documentos para habilitar
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Para outros usuários, mostrar QR code
                         const pedidoCodigo = (orderDetails as any).order_id || orderDetails.orderId;
 
                         if (!pedidoCodigo) {

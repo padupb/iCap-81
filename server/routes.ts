@@ -1849,6 +1849,128 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para colocar pedido em rota (Fornecedores e KeyUsers)
+  // Fornecedores só podem usar após upload de documentos
+  app.post("/api/pedidos/:id/colocar-em-rota", isAuthenticated, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de pedido inválido"
+        });
+      }
+
+      console.log(`🚚 Usuário ${req.user.name} (ID: ${req.user.id}) solicitou colocar em rota o pedido ID: ${orderId}`);
+
+      // Buscar o pedido com informações do fornecedor
+      const orderResult = await pool.query(
+        `SELECT o.id, o.order_id, o.status, o.supplier_id, o.nota_pdf, o.nota_xml
+         FROM orders o
+         WHERE o.id = $1`,
+        [orderId]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: `Pedido não encontrado`
+        });
+      }
+
+      const order = orderResult.rows[0];
+      console.log(`📋 Pedido encontrado - ID: ${order.id}, Status atual: ${order.status}, Supplier ID: ${order.supplier_id}`);
+
+      // Verificar se o usuário é KeyUser (por ID ou flag)
+      const isKeyUser = (req.user.id >= 1 && req.user.id <= 5) || req.user.isKeyUser === true;
+
+      // Verificar se o usuário é fornecedor deste pedido
+      let isSupplier = false;
+      if (req.user.companyId && order.supplier_id) {
+        if (req.user.companyId === order.supplier_id) {
+          // Verificar se a categoria da empresa tem receivesPurchaseOrders = true
+          const companyResult = await pool.query(
+            `SELECT c.id, cc.receives_purchase_orders 
+             FROM companies c
+             INNER JOIN company_categories cc ON c.category_id = cc.id
+             WHERE c.id = $1`,
+            [req.user.companyId]
+          );
+          
+          if (companyResult.rows.length > 0 && companyResult.rows[0].receives_purchase_orders === true) {
+            isSupplier = true;
+            console.log(`✅ Usuário é fornecedor do pedido (empresa ID: ${req.user.companyId})`);
+          }
+        }
+      }
+
+      // Verificar permissão
+      if (!isKeyUser && !isSupplier) {
+        return res.status(403).json({
+          success: false,
+          message: "Sem permissão para colocar este pedido em rota"
+        });
+      }
+
+      // Verificar se os documentos foram carregados (nota_pdf/nota_xml ou status 'Carregado')
+      const hasDocuments = order.nota_pdf || order.nota_xml || order.status === 'Carregado';
+      if (!hasDocuments && !isKeyUser) {
+        return res.status(400).json({
+          success: false,
+          message: "É necessário fazer upload dos documentos antes de colocar o pedido em rota"
+        });
+      }
+
+      // Validar se o status atual permite colocar em rota
+      const statusEligiveisParaRota = ['Registrado', 'Aprovado', 'Separado', 'Em Separação', 'Faturado', 'Carregado'];
+      if (!statusEligiveisParaRota.includes(order.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Pedido não pode ser colocado em rota. Status atual: "${order.status}"`
+        });
+      }
+
+      // Atualizar status para "Em Rota"
+      await pool.query(
+        `UPDATE orders 
+         SET status = 'Em Rota'
+         WHERE id = $1`,
+        [order.id]
+      );
+
+      console.log(`✅ Pedido ${order.order_id} agora está "Em Rota"`);
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Pedido colocado em rota",
+        itemType: "order",
+        itemId: order.id.toString(),
+        details: `${isKeyUser ? 'KeyUser' : 'Fornecedor'} ${req.user.name} alterou status do pedido ${order.order_id} para "Em Rota"`
+      });
+
+      res.json({
+        success: true,
+        message: `Pedido colocado em rota com sucesso`,
+        order: {
+          id: order.id,
+          orderId: order.order_id,
+          oldStatus: order.status,
+          newStatus: "Em Rota"
+        }
+      });
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Erro ao colocar pedido em rota:", err);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao colocar em rota: ${err.message}`
+      });
+    }
+  });
+
   // Rota para download do arquivo de teste do Object Storage
   app.post("/api/keyuser/download-test-file", isAuthenticated, isKeyUser, async (req, res) => {
     try {
