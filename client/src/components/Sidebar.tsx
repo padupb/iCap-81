@@ -50,6 +50,12 @@ export default function Sidebar() {
     enabled: canView("reprogramacoes"),
   });
 
+  // Buscar aprovações pendentes (pedidos urgentes) para mostrar o badge
+  const { data: aprovacoesPendentes = [] } = useQuery<any[]>({
+    queryKey: ["/api/orders/urgent"],
+    enabled: canView("approvals"),
+  });
+
   return (
     <div className="w-60 border-r border-sidebar-border flex flex-col relative z-40">
       {/* Logo/Header */}
@@ -110,6 +116,14 @@ export default function Sidebar() {
                     <Icon className="w-5 h-5 mr-3" />
                     {item.name}
                   </div>
+                  {item.name === "Aprovações" && aprovacoesPendentes.length > 0 && (
+                    <Badge 
+                      variant="secondary" 
+                      className="text-[10px] bg-orange-500 text-white border-orange-500 ml-2 px-1.5 py-0.5 h-4 min-w-4 rounded-full font-bold"
+                    >
+                      {aprovacoesPendentes.length}
+                    </Badge>
+                  )}
                   {item.name === "Reprogramações" && reprogramacoes.length > 0 && (
                     <Badge 
                       variant="secondary" 
