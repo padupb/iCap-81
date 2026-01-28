@@ -3120,13 +3120,26 @@ Status: Teste em progresso...`;
   app.get("/api/orders", isAuthenticated, async (req, res) => {
     try {
       // Buscar pedidos com quantidade_recebida do banco (excluindo os com status "excluido")
+      // Priorização: pedidos dos próximos 10 dias primeiro (ordenados por data de entrega), depois os demais
       const ordersResult = await db.execute(sql`
         SELECT 
           o.*,
-          o.quantidade_recebida as "quantidadeRecebida"
+          o.quantidade_recebida as "quantidadeRecebida",
+          CASE 
+            WHEN o.delivery_date >= CURRENT_DATE AND o.delivery_date <= CURRENT_DATE + INTERVAL '10 days' 
+            THEN 0 
+            ELSE 1 
+          END as priority_order
         FROM orders o
         WHERE o.status != 'excluido'
-        ORDER BY o.created_at DESC
+        ORDER BY 
+          priority_order ASC,
+          CASE 
+            WHEN o.delivery_date >= CURRENT_DATE AND o.delivery_date <= CURRENT_DATE + INTERVAL '10 days'
+            THEN o.delivery_date
+            ELSE NULL
+          END ASC NULLS LAST,
+          o.created_at DESC
       `);
       
       let orders = ordersResult.rows as any[];
