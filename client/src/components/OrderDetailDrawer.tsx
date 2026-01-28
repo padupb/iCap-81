@@ -290,6 +290,7 @@ export function OrderDetailDrawer({
   orderId,
 }: OrderDetailDrawerProps) {
   const { user } = useAuth();
+  const { settings } = useSettings();
   // Definir um valor inicial diferente de "details" para forçar a renderização adequada
   const [activeTab, setActiveTab] = useState("details");
   // Estado para controlar a quantidade confirmada na entrega
@@ -635,7 +636,7 @@ export function OrderDetailDrawer({
     // Verificar se deliveryDate existe
     if (!orderDetails.deliveryDate) return false;
 
-    // Verificar se faltam pelo menos 3 dias para a data de entrega
+    // Verificar se faltam pelo menos X dias para a data de entrega (configurável)
     const deliveryDate = new Date(orderDetails.deliveryDate);
 
     // Verificar se a data é válida
@@ -649,8 +650,9 @@ export function OrderDetailDrawer({
     const diffTime = deliveryDate.getTime() - today.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
 
-    // Se faltam menos de 3 dias, não pode reprogramar
-    if (diffDays < 3) return false;
+    // Se faltam menos dias que o mínimo configurado, não pode reprogramar
+    const minRescheduleDays = settings?.rescheduleMinDays ?? 3;
+    if (diffDays < minRescheduleDays) return false;
 
     // KeyUsers (IDs 1-5) sempre podem reprogramar (se passar as validações acima)
     if ((user.id >= 1 && user.id <= 5) || user.isKeyUser) {
@@ -2110,11 +2112,15 @@ export function OrderDetailDrawer({
                               // Usar Math.floor para contar apenas dias completos
                               const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
 
+                              // Obter o valor configurável de dias mínimos para cancelamento
+                              const minCancelDays = settings?.cancelMinDays ?? 3;
+
                               console.log('🔍 Validação de cancelamento:', {
                                 orderId: orderDetails.orderId,
                                 deliveryDate: deliveryDate.toISOString(),
                                 today: today.toISOString(),
                                 diffDays,
+                                minCancelDays,
                                 canCancel,
                                 hasDocuments,
                                 isKeyUser,
@@ -2123,8 +2129,8 @@ export function OrderDetailDrawer({
                                 userCompanyId: user?.companyId
                               });
 
-                              // Permitir cancelar se tiver 3 ou mais dias COMPLETOS de antecedência
-                              if (canCancel && diffDays >= 3) {
+                              // Permitir cancelar se tiver X ou mais dias COMPLETOS de antecedência (configurável)
+                              if (canCancel && diffDays >= minCancelDays) {
                                 return (
                                   <Button
                                     variant="outline"
