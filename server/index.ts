@@ -221,50 +221,26 @@ app.use((req, res, next) => {
       keyUserPassword ? "configurado" : "não encontrado",
     );
 
-    if (!keyUserEmail || keyUserEmail.value !== "padupb@admin.icap") {
-      console.log("🔄 Criando/atualizando configuração do keyuser_email");
+    // Apenas verificar se as configurações existem (sem forçar valores hardcoded)
+    if (!keyUserEmail) {
+      console.log("🔄 Criando configuração do keyuser_email");
       await storage.createOrUpdateSetting({
         key: "keyuser_email",
-        value: "padupb@admin.icap",
+        value: "",
         description: "E-mail do superadministrador",
       });
-      console.log("✅ KeyUser email configurado");
     }
 
-    if (!keyUserPassword || keyUserPassword.value !== "170824") {
-      console.log("🔄 Criando/atualizando configuração do keyuser_password");
+    if (!keyUserPassword) {
+      console.log("🔄 Criando configuração do keyuser_password");
       await storage.createOrUpdateSetting({
         key: "keyuser_password",
-        value: "170824",
+        value: "",
         description: "Senha do superadministrador",
       });
-      console.log("✅ KeyUser password configurado");
     }
 
-    // Verificar novamente se as configurações foram salvas
-    const emailVerify = await storage.getSetting("keyuser_email");
-    const passwordVerify = await storage.getSetting("keyuser_password");
-
-    console.log("🔍 Verificação final:");
-    console.log(
-      "📧 Email:",
-      emailVerify ? emailVerify.value : "ERRO - não encontrado",
-    );
-    console.log(
-      "🔑 Password:",
-      passwordVerify ? "configurado" : "ERRO - não encontrado",
-    );
-
-    if (emailVerify && passwordVerify) {
-      console.log(
-        "✅ Configurações do superadministrador verificadas com sucesso",
-      );
-      console.log("🎯 KeyUser pronto para uso: padupb@admin.icap / 170824");
-    } else {
-      console.error(
-        "❌ ERRO: Configurações do keyuser não foram salvas corretamente!",
-      );
-    }
+    console.log("✅ Configurações do superadministrador verificadas");
   } catch (error) {
     console.error(
       "❌ Erro ao inicializar configurações do superadministrador:",

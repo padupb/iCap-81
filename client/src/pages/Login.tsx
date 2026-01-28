@@ -18,8 +18,7 @@ const loginSchema = z.object({
   email: z.string()
     .min(1, "E-mail é obrigatório")
     .refine((value) => {
-      // Permitir acesso ao super administrador com email específico ou qualquer email válido
-      return value === "padupb@admin.icap" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     }, "E-mail inválido"),
   password: z.string()
     .min(1, "Senha é obrigatória")

@@ -670,7 +670,6 @@ eas build -p android --profile production
 
 ### Contatos
 - **Backend API:** https://icap81.replit.app
-- **Desenvolvedor Backend:** padupb@admin.icap
 
 ---
 
