@@ -49,6 +49,18 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### 2026-01-28: Botão "Colocar em Rota" para fornecedores
+- **Nova funcionalidade**: Botão para fornecedores colocarem pedidos em rota
+- **Local**: No drawer de detalhes do pedido, no lugar do QR Code para usuários elegíveis
+- **Visibilidade**: Apenas para:
+  - KeyUsers (IDs 1-5 ou flag isKeyUser)
+  - Fornecedores do pedido (empresas com categoria `receivesPurchaseOrders = true`)
+- **Condições para habilitar**:
+  - Documentos devem estar carregados (nota_pdf, nota_xml, ou status "Carregado")
+  - Status do pedido deve permitir a mudança (Registrado, Aprovado, Separado, etc.)
+- **Endpoint**: `POST /api/pedidos/:id/colocar-em-rota`
+- **Arquivos modificados**: `server/routes.ts`, `client/src/components/OrderDetailDrawer.tsx`
+
 ### 2026-01-28: Validação de documentos sem IA
 - **Mudança**: Removida a dependência do Gemini AI para validação de XML/PDF de notas fiscais
 - **Nova implementação**: Parsing direto do XML usando biblioteca `xml2js`
