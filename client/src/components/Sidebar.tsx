@@ -21,18 +21,20 @@ import {
   Settings,
   Smartphone,
   Calendar,
+  CalendarDays,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard, area: "dashboard" },
   { name: "Pedidos", href: "/pedidos", icon: ShoppingCart, area: "orders" },
+  { name: "Previsão Recebimento", href: "/previsao-recebimento", icon: CalendarDays, area: "orders" },
   { name: "Aprovações", href: "/aprovacoes", icon: CheckCircle, area: "approvals" },
   { name: "Reprogramações", href: "/reprogramacoes", icon: Calendar, area: "reprogramacoes" },
   { name: "Ordens de Compra", href: "/ordens-compra", icon: FileText, area: "purchase_orders" },
   { name: "Empresas", href: "/empresas", icon: Building, area: "companies" },
   { name: "Usuários", href: "/usuarios", icon: Users, area: "users" },
   { name: "Produtos", href: "/produtos", icon: Package, area: "products" },
-  { name: "Keyuser", href: "/dev", icon: Code, area: null }, // Acesso especial, mostrado apenas para keyuser
+  { name: "Keyuser", href: "/dev", icon: Code, area: null },
   { name: "Logs do Sistema", href: "/logs", icon: History, area: "logs" },
 ];
 
