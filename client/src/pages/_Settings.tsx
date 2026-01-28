@@ -262,7 +262,7 @@ export default function Settings() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Aba Configurações Gerais */}
+        {/* Aba Configurações Gerais - Atualizado 28/01/2026 */}
         <TabsContent value="general" className="space-y-6">
           <Card className="bg-card border-border">
             <CardHeader>
