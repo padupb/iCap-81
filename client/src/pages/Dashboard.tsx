@@ -27,11 +27,9 @@ import {
 import { getStatusColor, formatDate } from "@/lib/utils";
 import type { Order, Product, Company } from "@shared/schema";
 import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
-import { DashboardTrackingMap } from "@/components/DashboardTrackingMap";
 
 export default function Dashboard() {
   const [showOrdersCard, setShowOrdersCard] = useState(true);
-  const [showTrackingCard, setShowTrackingCard] = useState(true);
 
   // Estado para controlar o drawer de detalhes do pedido
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -195,25 +193,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Map Placeholder */}
-        <Card className="rounded-lg border text-card-foreground shadow-sm bg-card border-border">
-          <CardHeader 
-            className="space-y-1.5 p-6 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => setShowTrackingCard(!showTrackingCard)}
-          >
-            <div className="flex flex-row items-center justify-between">
-              <CardTitle className="text-foreground">Rastreamento</CardTitle>
-              <div className="text-muted-foreground">
-                {showTrackingCard ? '−' : '+'}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            {showTrackingCard && (
-              <DashboardTrackingMap onOrderClick={handleOpenOrderById} />
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

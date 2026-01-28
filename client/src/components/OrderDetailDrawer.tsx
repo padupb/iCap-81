@@ -80,18 +80,6 @@ type OrderDetails = Order & {
   foto_confirmacao?: string | Record<string, any>; // Adicionado para foto_confirmacao
 };
 
-// Tipo para tracking points
-type TrackingPoint = {
-  id: number;
-  status: string;
-  comment?: string;
-  user_id: number;
-  user_name?: string;
-  latitude: number;
-  longitude: number;
-  created_at: string;
-};
-
 // Função para formatar números com vírgula (formato brasileiro)
 const formatNumber = (value: string | number | undefined | null): string => {
   if (value === undefined || value === null) return "0.00";
@@ -111,178 +99,6 @@ const createValidDate = (dateValue: any): Date | null => {
   const date = new Date(dateValue);
   return isNaN(date.getTime()) ? null : date;
 };
-
-import MapComponent from "./MapComponent";
-
-// Componente de Rastreamento com Mapa
-function SimpleTracker({
-  orderId,
-  orderDetails,
-}: {
-  orderId: number;
-  orderDetails: OrderDetails | null;
-}) {
-  const [trackingPoints, setTrackingPoints] = useState<TrackingPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-
-  // Buscar pontos de rastreamento
-  const fetchTrackingPoints = async () => {
-    try {
-      setError(null);
-      setIsLoading(true);
-      console.log(`🔍 Buscando pontos de rastreamento para pedido: ${orderId}`);
-      const response = await fetch(`/api/tracking-points/${orderId}`);
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar dados: ${response.statusText}`);
-      }
-      const data = await response.json();
-      console.log(`📍 Pontos recebidos:`, data);
-      setTrackingPoints(data || []);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Erro desconhecido";
-      console.error("Erro ao buscar tracking points:", errorMessage);
-      setError(errorMessage);
-      toast({
-        title: "Erro ao carregar rastreamento",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Efeito para buscar dados iniciais
-  useEffect(() => {
-    if (orderId) {
-      fetchTrackingPoints();
-    }
-  }, [orderId]);
-
-  // Atualização em tempo real
-  useEffect(() => {
-    if (!orderId) return;
-
-    const interval = setInterval(fetchTrackingPoints, 30000); // Atualiza a cada 30 segundos
-    return () => clearInterval(interval);
-  }, [orderId]);
-
-  // Coordenadas padrão (Cuiabá - MT) ou do último ponto de rastreamento (mais recente)
-  const getMapCoordinates = () => {
-    if (trackingPoints.length > 0) {
-      const lastPoint = trackingPoints[trackingPoints.length - 1];
-      return {
-        lat: Number(lastPoint.latitude),
-        lng: Number(lastPoint.longitude),
-      };
-    }
-
-    // Coordenadas padrão de Cuiabá - MT
-    return {
-      lat: -15.60141,
-      lng: -56.097891,
-    };
-  };
-
-  const coordinates = getMapCoordinates();
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-          <p className="text-muted-foreground">Carregando rastreamento...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center p-6 space-y-4">
-        <AlertCircle className="h-12 w-12 text-destructive" />
-        <div className="text-center">
-          <h3 className="text-lg font-medium">Erro ao carregar rastreamento</h3>
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-      <div className="space-y-4">
-        {/* Seção do Mapa */}
-        <div className="space-y-2">
-          <div className="border rounded-lg overflow-hidden" style={{ height: '400px' }}>
-            <MapComponent
-              lat={coordinates.lat}
-              lng={coordinates.lng}
-              zoom={trackingPoints.length > 0 ? 15 : 12}
-            />
-          </div>
-          {trackingPoints.length > 0 ? (
-            <p className="text-xs text-muted-foreground text-center">
-              Mostrando localização mais recente do rastreamento
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground text-center">
-              Mapa com localização padrão - Aguardando pontos de rastreamento
-            </p>
-          )}
-        </div>
-
-        {/* Seção dos Pontos de Rastreamento */}
-        {trackingPoints.length === 0 ? (
-          <div className="text-center py-8">
-            <MapPin className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-            <div className="text-muted-foreground text-sm font-medium">
-              Nenhum ponto de rastreamento encontrado
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Os pontos aparecerão aqui quando forem adicionados
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            <h4 className="font-medium">
-              Pontos de Rastreamento ({trackingPoints.length})
-            </h4>
-            <div className="grid gap-3">
-              {trackingPoints.map((point, index) => (
-                <div
-                  key={point.id}
-                  className="flex items-center justify-between p-4 border rounded-lg bg-muted/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="font-medium">
-                        Ponto {index + 1}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(point.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                  {point.latitude && point.longitude && (
-                    <div className="text-right text-sm text-muted-foreground">
-                      <p>Lat: {Number(point.latitude).toFixed(6)}</p>
-                      <p>Lng: {Number(point.longitude).toFixed(6)}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-  );
-}
 
 export function OrderDetailDrawer({
   open,
@@ -770,7 +586,7 @@ export function OrderDetailDrawer({
       });
 
       // Atualizar a tab para mostrar os documentos carregados
-      setActiveTab("tracking");
+      setActiveTab("details");
       setTimeout(() => setActiveTab("documents"), 100);
     },
     onError: (error) => {
@@ -1951,21 +1767,6 @@ export function OrderDetailDrawer({
                   >
                     <CheckCircle className="w-4 h-4" />
                     <span>{orderDetails.status === "Entregue" ? "Entregue" : "Confirmar"}</span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="tracking"
-                    className="flex items-center gap-1"
-                    disabled={(() => {
-                      // 1. Se o pedido for cancelado, bloquear TODAS as abas exceto detalhes
-                      if (orderDetails.quantidade === 0) {
-                        return true;
-                      }
-
-                      return false;
-                    })()}
-                  >
-                    <MapPin className="w-4 h-4" />
-                    <span>Rastreamento</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="history"
@@ -3344,21 +3145,6 @@ export function OrderDetailDrawer({
                           </div>
                         </>
                       )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                {/* Aba de Rastreamento */}
-                <TabsContent value="tracking" className="py-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Rastreamento do Pedido</CardTitle>
-                      <CardDescription>
-                        Acompanhe o status e a localização do seu pedido em tempo real
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <SimpleTracker orderId={orderId} orderDetails={orderDetails} />
                     </CardContent>
                   </Card>
                 </TabsContent>
