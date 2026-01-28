@@ -49,6 +49,19 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### 2026-01-28: Parâmetros do sistema tornados configuráveis
+- **Novos parâmetros no menu KeyUser > Configurações Gerais:**
+  - `cancel_min_days`: Dias mínimos de antecedência para cancelar um pedido (padrão: 3)
+  - `reschedule_min_days`: Dias mínimos de antecedência para reprogramar entrega (padrão: 3)
+  - `default_reset_password`: Senha padrão ao resetar senha de usuário (padrão: icap123)
+- **Parâmetros já existentes também configuráveis:**
+  - `urgent_days_threshold`: Dias para considerar pedido urgente (padrão: 7)
+  - `approval_timeout_hours`: Tempo limite para aprovação em horas (padrão: 48)
+  - `app_name`: Nome da aplicação
+  - `google_maps_api_key`: Chave da API Google Maps
+- **Arquivos modificados:** `SettingsContext.tsx`, `_Settings.tsx`, `OrderDetailDrawer.tsx`, `routes.ts`
+- **Segurança:** Senha padrão não é mais exposta nos logs ou respostas da API
+
 ### 2026-01-05: Correção na filtragem de Ordens de Compra
 - **Problema**: Alguns usuários não conseguiam ver ordens de compra na página "Ordem de compras" enquanto outros viam perfeitamente.
 - **Causa raiz**: A lógica de filtragem comparava incorretamente o campo `cnpj` da tabela `ordens_compra` (que contém o CNPJ da **obra de destino**) com o CNPJ da empresa do usuário (empresa **fornecedora**). Esses valores nunca correspondiam.
