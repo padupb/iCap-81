@@ -1,7 +1,0 @@
-# Prompts Realizados no Projeto
-
-1. "Aqui está o que você construiu no projeto até agora. (Esta informação pode estar desatualizada; consulte nossas conversas recentes para o estado mais recente do projeto.)"
-
-2. "Atualmente temos um sério problemas de conversação com banco de dados em todo o sistema, então eu preciso que revise todos os menus, um a um e verifique onde está a quebra no circuito"
-
-3. "gere um arquivo de texto com todos os prompts que eu realizei no projeto"
