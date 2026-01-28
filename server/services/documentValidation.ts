@@ -88,7 +88,7 @@ function findPurchaseOrderNumber(xmlContent: string, parsedXml: any): string | n
 }
 
 function findOrderId(xmlContent: string, parsedXml: any): string | null {
-  const iCapPattern = /\b(CNI|CCC|CCM|CO0|TRL|TRS|CBI|CBE|CBF|CBG|CBH|CBA|CBB|CBC|CBD)[0-9]{10,12}\b/gi;
+  const iCapPattern = /\b(CNI|CCC|CCM|CO0|TRL|TRS|CBI|CBE|CBF|CBG|CBH|CBA|CBB|CBC|CBD|NER|MTS|CBR)[0-9]{10,12}\b/gi;
   
   const matches = xmlContent.match(iCapPattern);
   if (matches && matches.length > 0) {
@@ -198,7 +198,9 @@ export async function validateDocuments(
 
     const nfeNumber = extractNfeNumber(parsedXml);
     const nfeKey = extractNfeKey(parsedXml);
-    const pdfXmlMatch = true;
+    
+    const isValidNFeXml = !!nfeKey || !!nfeNumber;
+    const pdfXmlMatch = isValidNFeXml;
 
     const foundPurchaseOrderNumber = findPurchaseOrderNumber(xmlContent, parsedXml);
     const foundOrderId = findOrderId(xmlContent, parsedXml);
@@ -207,8 +209,8 @@ export async function validateDocuments(
     const foundPONormalized = foundPurchaseOrderNumber ? foundPurchaseOrderNumber.replace(/^0+/, '') : null;
     const purchaseOrderMatch = foundPONormalized !== null && foundPONormalized === expectedPONormalized;
 
-    const orderIdMatch = expectedOrderId && foundOrderId ? 
-      foundOrderId.toUpperCase() === expectedOrderId.toUpperCase() : false;
+    const orderIdMatch = !expectedOrderId ? true : 
+      (foundOrderId ? foundOrderId.toUpperCase() === expectedOrderId.toUpperCase() : false);
 
     console.log("🔍 Validação de pedido de compra (sem IA):", {
       encontrado: foundPurchaseOrderNumber,
@@ -220,8 +222,14 @@ export async function validateDocuments(
 
     console.log("🔍 Validação de ID do pedido (sem IA):", {
       encontrado: foundOrderId,
-      esperado: expectedOrderId,
-      resultado: orderIdMatch ? "CONFERE" : "DIVERGE"
+      esperado: expectedOrderId || "(não informado)",
+      resultado: !expectedOrderId ? "NÃO APLICÁVEL" : (orderIdMatch ? "CONFERE" : "DIVERGE")
+    });
+
+    console.log("📋 Validação do XML (sem IA):", {
+      xmlValido: isValidNFeXml,
+      chaveNFe: nfeKey || "(não encontrada)",
+      numeroNFe: nfeNumber || "(não encontrado)"
     });
 
     if (nfeNumber) {
@@ -232,6 +240,10 @@ export async function validateDocuments(
     }
 
     const warnings: string[] = [];
+
+    if (!isValidNFeXml) {
+      warnings.push("O XML não contém chave ou número de NF-e válido");
+    }
 
     if (!purchaseOrderMatch && foundPurchaseOrderNumber) {
       warnings.push(
