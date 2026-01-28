@@ -1,72 +1,163 @@
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { 
-  ShoppingCart, 
-  Clock, 
-  Truck, 
-  CheckCircle, 
-  Edit,
-  Plus,
-  FileText,
-  Building,
-  MapPin,
+  ChevronLeft, 
+  ChevronRight, 
+  Calendar,
   AlertTriangle
 } from "lucide-react";
-import { getStatusColor, formatDate } from "@/lib/utils";
-import type { Order, Product, Company } from "@shared/schema";
+import { getStatusColor } from "@/lib/utils";
+import type { Order, Product, Company, Unit } from "@shared/schema";
 import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
 
-export default function Dashboard() {
-  const [showOrdersCard, setShowOrdersCard] = useState(true);
+const DAYS_TO_SHOW = 7;
+const dayNames = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const monthNames = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
 
-  // Estado para controlar o drawer de detalhes do pedido
+function getDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatNumber(value: string | number | undefined | null): string {
+  if (value === undefined || value === null) return "0";
+  const numValue = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(numValue)) return "0";
+  return numValue.toLocaleString("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+export default function Dashboard() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [showForecast, setShowForecast] = useState(true);
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
   });
 
-  // Buscar produtos para exibir os nomes corretamente
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
-  // Buscar empresas para exibir os nomes dos fornecedores
   const { data: companies = [] } = useQuery<Company[]>({
     queryKey: ["/api/companies"],
   });
 
-  // Calculate only pending stats for alert
+  const { data: units = [] } = useQuery<Unit[]>({
+    queryKey: ["/api/units"],
+  });
+
   const pendingCount = orders.filter(o => o.status === "Em Aprovação").length;
 
-  // Recent orders (last 5)
-  const recentOrders = orders
-    .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
-    .slice(0, 5);
+  const weekDates = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() + (weekOffset * DAYS_TO_SHOW));
+    
+    const dates: Date[] = [];
+    for (let i = 0; i < DAYS_TO_SHOW; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  }, [weekOffset]);
 
-  // Função para abrir o drawer de detalhes do pedido
-  const handleOpenDetails = (order: Order) => {
-    setSelectedOrderId(order.id);
+  const headerMonthYear = useMemo(() => {
+    const firstDate = weekDates[0];
+    const lastDate = weekDates[weekDates.length - 1];
+    
+    if (firstDate.getMonth() === lastDate.getMonth()) {
+      return `${monthNames[firstDate.getMonth()]} ${firstDate.getFullYear()}`;
+    }
+    
+    if (firstDate.getFullYear() === lastDate.getFullYear()) {
+      return `${monthNames[firstDate.getMonth()].substring(0, 3)} - ${monthNames[lastDate.getMonth()].substring(0, 3)} ${firstDate.getFullYear()}`;
+    }
+    
+    return `${monthNames[firstDate.getMonth()].substring(0, 3)} ${firstDate.getFullYear()} - ${monthNames[lastDate.getMonth()].substring(0, 3)} ${lastDate.getFullYear()}`;
+  }, [weekDates]);
+
+  const filteredOrders = useMemo(() => {
+    const startKey = getDateKey(weekDates[0]);
+    const endKey = getDateKey(weekDates[weekDates.length - 1]);
+    
+    return orders.filter(order => {
+      const deliveryDate = order.deliveryDate || (order as any).delivery_date;
+      if (!deliveryDate) return false;
+      
+      const date = new Date(deliveryDate);
+      const dateKey = getDateKey(date);
+      
+      const statusesToExclude = ["Cancelado", "Suspenso", "Entregue"];
+      if (statusesToExclude.includes(order.status)) return false;
+      
+      return dateKey >= startKey && dateKey <= endKey;
+    });
+  }, [orders, weekDates]);
+
+  const productsWithOrders = useMemo(() => {
+    const productIds = new Set(filteredOrders.map(o => o.productId || (o as any).product_id));
+    return products.filter(p => productIds.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredOrders, products]);
+
+  const ordersByProductAndDate = useMemo(() => {
+    const map: Record<string, Order[]> = {};
+    
+    filteredOrders.forEach(order => {
+      const productId = order.productId || (order as any).product_id;
+      const deliveryDate = order.deliveryDate || (order as any).delivery_date;
+      if (!deliveryDate) return;
+      
+      const date = new Date(deliveryDate);
+      const key = `${productId}-${getDateKey(date)}`;
+      
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push(order);
+    });
+    
+    return map;
+  }, [filteredOrders]);
+
+  const handleOpenDetails = (orderId: number) => {
+    setSelectedOrderId(orderId);
     setDrawerOpen(true);
   };
 
-  // Função para abrir drawer pelo ID do pedido (para o mapa)
-  const handleOpenOrderById = (orderId: number) => {
-    setSelectedOrderId(orderId);
-    setDrawerOpen(true);
+  const goToToday = () => setWeekOffset(0);
+  const goToPreviousWeek = () => setWeekOffset(prev => prev - 1);
+  const goToNextWeek = () => setWeekOffset(prev => prev + 1);
+
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+  };
+
+  const getSupplierName = (order: Order) => {
+    const supplierId = order.supplierId || (order as any).supplier_id;
+    const company = companies.find(c => c.id === supplierId);
+    return company?.name || "Fornecedor";
+  };
+
+  const getOrderQuantityWithUnit = (order: Order, product: Product | undefined) => {
+    const unit = product ? units.find(u => u.id === product.unitId) : null;
+    const quantity = formatNumber(order.quantity);
+    return `${quantity} ${unit?.abbreviation || ""}`.trim();
   };
 
   if (ordersLoading) {
@@ -74,215 +165,179 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Drawer para detalhes do pedido */}
+    <div className="space-y-6">
       <OrderDetailDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         orderId={selectedOrderId}
       />
 
-      {/* Removidos botões de ação rápida para manter o layout limpo */}
-      {/* Conteúdo Principal em Coluna */}
-      <div className="flex flex-col space-y-8">
-        {/* Pending Approvals Alert */}
+      <div className="flex flex-col space-y-6">
         {pendingCount > 0 && (
           <Card className="bg-gradient-to-r from-yellow-600 to-orange-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold">Aprovações Pendentes</h4>
-                <AlertTriangle size={20} />
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle size={20} />
+                  <div>
+                    <h4 className="font-semibold">Aprovações Pendentes</h4>
+                    <p className="text-sm opacity-90">
+                      {pendingCount} pedidos urgentes aguardando aprovação
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 text-white border-0"
+                >
+                  Revisar
+                </Button>
               </div>
-              <p className="text-sm opacity-90 mb-4">
-                {pendingCount} pedidos urgentes aguardando aprovação
-              </p>
-              <Button 
-                variant="secondary" 
-                size="sm"
-                className="bg-white/20 hover:bg-white/30 text-white border-0"
-              >
-                Revisar Agora
-              </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Recent Orders Table */}
-        <Card className="rounded-lg border text-card-foreground shadow-sm bg-card border-border">
+        <Card className="border-border">
           <CardHeader 
-            className="space-y-1.5 p-6 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => setShowOrdersCard(!showOrdersCard)}
+            className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => setShowForecast(!showForecast)}
           >
-            <div className="flex flex-row items-center justify-between">
-              <CardTitle className="text-foreground">Pedidos Recentes</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-lg">Previsão de Recebimento</CardTitle>
+              </div>
               <div className="text-muted-foreground">
-                {showOrdersCard ? '−' : '+'}
+                {showForecast ? '−' : '+'}
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            {showOrdersCard && (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-muted">
-                      <TableRow>
-                        <TableHead className="text-muted-foreground">ID</TableHead>
-                        <TableHead className="text-muted-foreground">Produto</TableHead>
-                        <TableHead className="text-muted-foreground">Status</TableHead>
-                        <TableHead className="text-muted-foreground">Data de Entrega</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {recentOrders.map((order) => {
-                        // Mapear campos do banco de dados - tentar order_id primeiro
-                        const productId = order.productId || (order as any).product_id;
-                        const orderId = order.orderId || (order as any).order_id || `PED-${order.id}`;
-                        const deliveryDate = order.deliveryDate || (order as any).delivery_date;
-                        
-                        // Calcular se é urgente ignorando horas
-                        let isUrgent = order.isUrgent || (order as any).is_urgent || false;
-                        if (!isUrgent && deliveryDate) {
-                          const delivery = new Date(deliveryDate);
-                          delivery.setHours(0, 0, 0, 0);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const daysDiff = Math.floor((delivery.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                          isUrgent = daysDiff < 7;
-                        }
-                        
-                        const product = products.find(
-                          (p) => p.id === productId,
-                        );
-
-                        return (
-                          <TableRow 
-                            key={order.id} 
-                            className="cursor-pointer hover:bg-muted/50 transition-colors"
-                            onClick={() => handleOpenDetails(order)}
-                          >
-                            <TableCell className="font-mono text-sm text-foreground">
-                              {orderId}
-                            </TableCell>
-                            <TableCell className="text-foreground">
-                              {product?.name || `Produto ID: ${productId}`}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getStatusColor(order.status)}>
-                                {order.status}
-                              </Badge>
-                              {isUrgent && (
-                                <Badge variant="destructive" className="ml-2">
-                                  <AlertTriangle size={12} className="mr-1" />
-                                  Urgente
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {deliveryDate ? formatDate(deliveryDate) : "Data não disponível"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+          {showForecast && (
+            <CardContent className="p-0">
+              <div className="px-4 py-2 border-b border-border flex items-center gap-4">
+                <Button variant="outline" size="sm" onClick={goToToday}>
+                  Hoje
+                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPreviousWeek}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNextWeek}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
-                {/* Removido botão "Ver todos os pedidos" para manter o layout limpo */}
-              </>
-            )}
-          </CardContent>
-        </Card>
+                <span className="font-medium text-sm">{headerMonthYear}</span>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="min-w-[800px]">
+                  <div className="grid" style={{ gridTemplateColumns: `180px repeat(${DAYS_TO_SHOW}, 1fr)` }}>
+                    <div className="border-b border-r border-border bg-muted/50 p-2 font-medium text-sm text-muted-foreground">
+                      Produto
+                    </div>
+                    {weekDates.map((date, index) => (
+                      <div
+                        key={index}
+                        className={`border-b border-r border-border p-2 text-center ${
+                          isToday(date) ? "bg-primary/10" : "bg-muted/50"
+                        }`}
+                      >
+                        <div className="text-xs text-muted-foreground">
+                          {dayNames[date.getDay()]}
+                        </div>
+                        <div className={`text-base font-semibold ${isToday(date) ? "text-primary" : ""}`}>
+                          {date.getDate()}
+                        </div>
+                      </div>
+                    ))}
 
+                    {productsWithOrders.length === 0 ? (
+                      <div 
+                        className="p-6 text-center text-muted-foreground"
+                        style={{ gridColumn: `1 / span ${DAYS_TO_SHOW + 1}` }}
+                      >
+                        <Calendar className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                        <p className="text-sm">Nenhuma entrega prevista para este período</p>
+                      </div>
+                    ) : (
+                      productsWithOrders.map((product) => (
+                        <React.Fragment key={product.id}>
+                          <div className="border-b border-r border-border p-2 bg-card">
+                            <div className="font-medium text-xs truncate" title={product.name}>
+                              {product.name}
+                            </div>
+                          </div>
+                          {weekDates.map((date, dateIndex) => {
+                            const cellKey = `${product.id}-${getDateKey(date)}`;
+                            const ordersForCell = ordersByProductAndDate[cellKey] || [];
+                            
+                            return (
+                              <div
+                                key={`cell-${product.id}-${dateIndex}`}
+                                className={`border-b border-r border-border p-1 min-h-[60px] ${
+                                  isToday(date) ? "bg-primary/5" : ""
+                                }`}
+                              >
+                                <div className="space-y-1">
+                                  {ordersForCell.map((order) => {
+                                    const orderId = order.orderId || (order as any).order_id || `PED-${order.id}`;
+                                    return (
+                                      <div
+                                        key={order.id}
+                                        onClick={() => handleOpenDetails(order.id)}
+                                        className="p-1.5 rounded bg-card border border-border hover:bg-muted/50 cursor-pointer transition-colors text-xs flex items-center justify-between gap-1"
+                                      >
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-medium truncate text-foreground" title={orderId}>
+                                            {orderId}
+                                          </div>
+                                          <div className="text-muted-foreground truncate text-[10px]" title={getSupplierName(order)}>
+                                            {getSupplierName(order)} • {getOrderQuantityWithUnit(order, product)}
+                                          </div>
+                                        </div>
+                                        <Badge 
+                                          variant="outline" 
+                                          className={`text-[9px] px-1 py-0 h-4 shrink-0 ${getStatusColor(order.status)}`}
+                                        >
+                                          {order.status.length > 8 ? order.status.substring(0, 8) + "…" : order.status}
+                                        </Badge>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
       </div>
     </div>
   );
 }
 
-interface StatsCardProps {
-  title: string;
-  value: number;
-  icon: React.ElementType;
-  iconColor?: string;
-  change?: string;
-  changeLabel?: string;
-}
-
-function StatsCard({ title, value, icon: Icon, iconColor = "text-primary", change, changeLabel }: StatsCardProps) {
-  return (
-    <Card className="bg-card border-border">
-      <CardContent className="p-6 pt-[4px] pb-[4px]">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-muted-foreground text-sm">{title}</p>
-            <p className="text-3xl font-bold text-foreground mt-1">{value}</p>
-          </div>
-          <div className={`p-3 rounded-xl bg-opacity-20 ${iconColor.includes('primary') ? 'bg-primary' : iconColor.includes('yellow') ? 'bg-yellow-500' : iconColor.includes('green') ? 'bg-green-500' : 'bg-primary'}`}>
-            <Icon className={`${iconColor} text-xl`} size={24} />
-          </div>
-        </div>
-        {change && changeLabel && (
-          <div className="mt-4 flex items-center text-sm">
-            <span className={change.startsWith('+') ? 'text-green-500' : 'text-muted-foreground'}>
-              {change}
-            </span>
-            <span className="text-muted-foreground ml-2">{changeLabel}</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function DashboardSkeleton() {
   return (
-    <div className="space-y-8">
-      {/* Pending Approvals Skeleton */}
+    <div className="space-y-6">
       <Card className="bg-muted/20">
-        <CardContent className="p-6">
-          <Skeleton className="h-5 w-48 mb-3 bg-muted" />
-          <Skeleton className="h-4 w-64 mb-4 bg-muted" />
-          <Skeleton className="h-9 w-32 bg-muted" />
+        <CardContent className="p-4">
+          <Skeleton className="h-5 w-48 mb-2 bg-muted" />
+          <Skeleton className="h-4 w-64 bg-muted" />
         </CardContent>
       </Card>
 
-      {/* Recent Orders Table Skeleton */}
       <Card>
-        <CardHeader className="border-b">
+        <CardHeader className="pb-2">
           <Skeleton className="h-6 w-48 bg-muted" />
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted">
-                <TableRow>
-                  <TableHead><Skeleton className="h-4 w-12 bg-muted-foreground/20" /></TableHead>
-                  <TableHead><Skeleton className="h-4 w-24 bg-muted-foreground/20" /></TableHead>
-                  <TableHead><Skeleton className="h-4 w-20 bg-muted-foreground/20" /></TableHead>
-                  <TableHead><Skeleton className="h-4 w-32 bg-muted-foreground/20" /></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {[...Array(5)].map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-24 bg-muted" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32 bg-muted" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-28 bg-muted" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24 bg-muted" /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Map Skeleton */}
-      <Card>
-        <CardHeader className="border-b">
-          <Skeleton className="h-6 w-32 bg-muted" />
-        </CardHeader>
-        <CardContent className="p-6">
-          <Skeleton className="h-[400px] w-full bg-muted" />
+          <Skeleton className="h-[300px] w-full bg-muted" />
         </CardContent>
       </Card>
     </div>

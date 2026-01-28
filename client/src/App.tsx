@@ -18,7 +18,6 @@ import Users from "./pages/Users";
 import Products from "./pages/Products";
 import Keyuser from "./pages/Keyuser";
 import Logs from "./pages/Logs";
-import PrevisaoRecebimento from "./pages/PrevisaoRecebimento";
 
 import Login from "./pages/Login";
 import NotFound from "@/pages/not-found";
@@ -135,18 +134,6 @@ function Router() {
           component={() => (
             <Layout>
               <Orders />
-            </Layout>
-          )}
-          area="orders"
-        />
-      </Route>
-
-      {/* Previsão de Recebimento - Requer permissão de 'orders' */}
-      <Route path="/previsao-recebimento">
-        <ProtectedRoute 
-          component={() => (
-            <Layout>
-              <PrevisaoRecebimento />
             </Layout>
           )}
           area="orders"

@@ -21,13 +21,11 @@ import {
   Settings,
   Smartphone,
   Calendar,
-  CalendarDays,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard, area: "dashboard" },
   { name: "Pedidos", href: "/pedidos", icon: ShoppingCart, area: "orders" },
-  { name: "Previsão Recebimento", href: "/previsao-recebimento", icon: CalendarDays, area: "orders" },
   { name: "Aprovações", href: "/aprovacoes", icon: CheckCircle, area: "approvals" },
   { name: "Reprogramações", href: "/reprogramacoes", icon: Calendar, area: "reprogramacoes" },
   { name: "Ordens de Compra", href: "/ordens-compra", icon: FileText, area: "purchase_orders" },
