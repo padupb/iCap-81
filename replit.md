@@ -49,6 +49,20 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### 2026-01-28: Validação de documentos sem IA
+- **Mudança**: Removida a dependência do Gemini AI para validação de XML/PDF de notas fiscais
+- **Nova implementação**: Parsing direto do XML usando biblioteca `xml2js`
+- **Validações realizadas:**
+  - Verifica se o XML é uma NF-e válida (possui chave ou número de NF-e)
+  - Extrai e compara o número do Pedido de Compra
+  - Extrai e compara o ID do pedido iCap (quando informado)
+- **Benefícios:**
+  - Mais rápido (sem chamada de API externa)
+  - Sem custo de tokens/API
+  - Resultado determinístico e previsível
+- **Prefixos de pedido iCap suportados:** CNI, CCC, CCM, CO0, TRL, TRS, CBI, CBE, CBF, CBG, CBH, CBA, CBB, CBC, CBD, NER, MTS, CBR
+- **Arquivo modificado:** `server/services/documentValidation.ts`
+
 ### 2026-01-28: Parâmetros do sistema tornados configuráveis
 - **Novos parâmetros no menu KeyUser > Configurações Gerais:**
   - `cancel_min_days`: Dias mínimos de antecedência para cancelar um pedido (padrão: 3)
