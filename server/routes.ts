@@ -2018,9 +2018,15 @@ Status: Teste em progresso...`;
 
       console.log("👤 Usuário encontrado para reset:", user.name);
 
-      // Hash da senha padrão
+      // Buscar senha padrão configurável do banco de dados
+      const defaultPasswordSetting = await db.execute(sql`
+        SELECT value FROM settings WHERE key = 'default_reset_password'
+      `);
+      const defaultPassword = defaultPasswordSetting.rows[0]?.value || 'icap123';
+
+      // Hash da senha padrão configurável
       const bcrypt = await import('bcrypt');
-      const hashedPassword = await bcrypt.hash('icap123', 10);
+      const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
       console.log("🔐 Hash da senha padrão gerado");
 
@@ -2032,20 +2038,20 @@ Status: Teste em progresso...`;
 
       console.log("✅ Usuário atualizado - senha resetada e primeiro_login = true");
 
-      // Log da ação
+      // Log da ação (sem expor a senha)
       await storage.createLog({
         userId: req.session.userId || req.user.id,
         action: "Redefinição de senha",
         itemType: "user",
         itemId: userId.toString(),
-        details: `Senha do usuário ${user.name} foi redefinida para icap123`
+        details: `Senha do usuário ${user.name} foi redefinida para a senha padrão configurada`
       });
 
       console.log("📝 Log da ação criado");
 
       res.json({
         success: true,
-        message: "Senha redefinida com sucesso para 'icap123'"
+        message: "Senha redefinida com sucesso para a senha padrão configurada"
       });
 
     } catch (error) {
