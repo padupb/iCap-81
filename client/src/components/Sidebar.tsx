@@ -7,7 +7,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { QRCodeComponent } from "./QRCodeComponent";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -19,7 +18,6 @@ import {
   Code,
   History,
   Settings,
-  Smartphone,
   Calendar,
 } from "lucide-react";
 
@@ -41,7 +39,6 @@ export default function Sidebar() {
   const { user } = useAuth();
   const { canView } = useAuthorization();
   const { settings } = useSettings();
-  const [showQRModal, setShowQRModal] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
   // Buscar reprogramações pendentes para mostrar o badge
@@ -139,38 +136,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* iCapMob - Transporte no rodapé */}
-      <div className="mt-auto p-4">
-        <div
-          onClick={() => setShowQRModal(true)}
-          className="flex items-center px-4 py-3 rounded-lg transition-colors cursor-pointer text-sidebar-foreground hover:bg-gray-700"
-        >
-          <Smartphone className="w-5 h-5 mr-3" />
-          iCapMob - Transporte
-        </div>
-      </div>
-
-      {/* Modal com QR Code */}
-      <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center">iCapMob - Transporte</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center space-y-4 p-6">
-            <QRCodeComponent 
-              value={`${window.location.origin}/icapmob/icapmob.apk`}
-              size={200}
-              className="mb-4"
-            />
-            <p className="text-sm text-muted-foreground text-center">
-              Escaneie o QR Code para baixar o aplicativo iCapMob
-            </p>
-            <div className="text-xs text-muted-foreground text-center">
-              <p>URL: {window.location.origin}/icapmob/icapmob.apk</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
