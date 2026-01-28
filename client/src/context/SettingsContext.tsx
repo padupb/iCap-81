@@ -6,6 +6,9 @@ interface Settings {
   approvalTimeoutHours: number;
   googleMapsApiKey: string;
   logoUrl: string;
+  cancelMinDays: number;
+  rescheduleMinDays: number;
+  defaultResetPassword: string;
 }
 
 interface SettingsContextType {
@@ -20,6 +23,9 @@ const defaultSettings: Settings = {
   approvalTimeoutHours: 48,
   googleMapsApiKey: "",
   logoUrl: "",
+  cancelMinDays: 3,
+  rescheduleMinDays: 3,
+  defaultResetPassword: "icap123",
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -42,6 +48,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             approvalTimeoutHours: parseInt(data.find((s: any) => s.key === "approval_timeout_hours")?.value || "48", 10),
             googleMapsApiKey: data.find((s: any) => s.key === "google_maps_api_key")?.value || defaultSettings.googleMapsApiKey,
             logoUrl: data.find((s: any) => s.key === "logo_url")?.value?.trim() || defaultSettings.logoUrl,
+            cancelMinDays: parseInt(data.find((s: any) => s.key === "cancel_min_days")?.value || "3", 10),
+            rescheduleMinDays: parseInt(data.find((s: any) => s.key === "reschedule_min_days")?.value || "3", 10),
+            defaultResetPassword: data.find((s: any) => s.key === "default_reset_password")?.value || defaultSettings.defaultResetPassword,
           };
           
           setSettings(settingsObject);
@@ -68,6 +77,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         { key: "approval_timeout_hours", value: updatedSettings.approvalTimeoutHours.toString(), description: "Tempo limite para aprovação em horas" },
         { key: "google_maps_api_key", value: updatedSettings.googleMapsApiKey, description: "Chave da API Google Maps" },
         { key: "logo_url", value: updatedSettings.logoUrl, description: "URL do logo da aplicação" },
+        { key: "cancel_min_days", value: updatedSettings.cancelMinDays.toString(), description: "Dias mínimos de antecedência para cancelar pedido" },
+        { key: "reschedule_min_days", value: updatedSettings.rescheduleMinDays.toString(), description: "Dias mínimos de antecedência para reprogramar pedido" },
+        { key: "default_reset_password", value: updatedSettings.defaultResetPassword, description: "Senha padrão ao resetar senha de usuário" },
       ];
 
       // Atualizar no servidor
