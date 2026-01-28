@@ -80,7 +80,7 @@ export default function Sidebar() {
         </Link>
       </div>
       {/* Navigation Menu */}
-      <nav className="flex-1 px-4 py-6 space-y-2 bg-[#26262c]">
+      <nav className="flex-1 px-4 py-6 space-y-2 bg-[#26262c] overflow-y-auto">
         {navigation.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
