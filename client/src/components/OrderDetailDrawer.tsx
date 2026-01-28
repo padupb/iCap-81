@@ -60,7 +60,6 @@ import {
 } from "lucide-react";
 import { Order, Product, Company, PurchaseOrder, Unit } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { QRCodeComponent } from "./QRCodeComponent";
 import { DocumentData, PDFViewer } from "./PDFViewer"; // Importa o componente PDFViewer e seu tipo
 
 interface OrderDetailDrawerProps {
@@ -2127,27 +2126,8 @@ export function OrderDetailDrawer({
                           );
                         }
 
-                        // Para outros usuários, mostrar QR code
-                        const pedidoCodigo = (orderDetails as any).order_id || orderDetails.orderId;
-
-                        if (!pedidoCodigo) {
-                          return (
-                            <div className="flex flex-col items-center justify-center p-6 border border-gray-200 rounded-lg bg-gray-50 w-full">
-                              <AlertCircle className="h-12 w-12 text-gray-400 mb-2" />
-                              <p className="text-sm text-gray-600 text-center">
-                                QR Code não disponível
-                              </p>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <QRCodeComponent
-                            value={String(pedidoCodigo)}
-                            size={150}
-                            className="mt-4"
-                          />
-                        );
+                        // Para outros usuários, não mostrar nada nesta área
+                        return null;
                       })()}
 
 
