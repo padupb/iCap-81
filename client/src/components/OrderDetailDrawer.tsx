@@ -1611,7 +1611,7 @@ export function OrderDetailDrawer({
                 onValueChange={setActiveTab}
                 className="w-full"
               >
-                <TabsList className="w-full grid grid-cols-5">
+                <TabsList className="w-full grid grid-cols-4">
                   <TabsTrigger
                     value="details"
                     className="flex items-center gap-1"
