@@ -3157,7 +3157,8 @@ export function OrderDetailDrawer({
                         }
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6">
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* ===== SEÇÃO DA DISTRIBUIDORA ===== */}
                       <div className="border rounded-lg p-4 bg-blue-50/50">
                         <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
@@ -3472,6 +3473,7 @@ export function OrderDetailDrawer({
                           Aguardando confirmação pela construtora
                         </div>
                       )}
+                      </div>
                       </div>
                     </CardContent>
                   </Card>
