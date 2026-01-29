@@ -2604,26 +2604,26 @@ export function OrderDetailDrawer({
                                 orderDetails.status !== "Em transporte" &&
                                 orderDetails.status !== "Entregue") {
                               return (
-                                <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="p-6 bg-blue-950/30 border border-blue-500/30 rounded-lg">
                                     <div className="flex items-start gap-3">
-                                      <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                                      <Info className="h-5 w-5 text-blue-400 mt-0.5" />
                                       <div>
-                                        <p className="text-sm font-medium text-blue-900 mb-2">
+                                        <p className="text-sm font-medium text-blue-300 mb-2">
                                           Upload de documentos ainda não disponível
                                         </p>
-                                        <p className="text-sm text-blue-700 mb-1">
+                                        <p className="text-sm text-blue-400/80 mb-1">
                                           Esta ordem de compra ainda não iniciou sua validade.
                                         </p>
-                                        <p className="text-sm text-blue-700 mb-1">
+                                        <p className="text-sm text-blue-400/80 mb-1">
                                           Período de validade: <strong>{validFromDate.toLocaleDateString('pt-BR')}</strong> até <strong>{validUntilDate.toLocaleDateString('pt-BR')}</strong>
                                         </p>
-                                        <p className="text-sm text-blue-700 mb-1">
+                                        <p className="text-sm text-blue-400/80 mb-1">
                                           A aba de documentos estará disponível a partir de:
                                         </p>
-                                        <p className="text-lg font-bold text-blue-800">
+                                        <p className="text-lg font-bold text-blue-300">
                                           {availableFromDate.toLocaleDateString('pt-BR')}
                                         </p>
-                                        <p className="text-xs text-blue-600 mt-1">
+                                        <p className="text-xs text-blue-400/70 mt-1">
                                           (1 dia antes do início da validade)
                                         </p>
                                       </div>
@@ -2643,21 +2643,21 @@ export function OrderDetailDrawer({
                         )) {
                           return (
                             <div className="space-y-4">
-                              <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
+                              <div className="flex items-center justify-center p-6 border border-green-500/30 rounded-lg bg-green-950/30">
                                 <div className="text-center">
                                   <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                                  <h3 className="text-xl font-medium text-green-700 mb-2">
+                                  <h3 className="text-xl font-medium text-green-400 mb-2">
                                     Número do Pedido Confirmado
                                   </h3>
-                                  <div className="p-4 bg-green-50 rounded-lg border border-green-300">
-                                    <p className="text-sm text-green-700 font-medium mb-1">
+                                  <div className="p-4 bg-green-900/40 rounded-lg border border-green-500/30">
+                                    <p className="text-sm text-green-400 font-medium mb-1">
                                       Número do Pedido:
                                     </p>
-                                    <p className="text-3xl font-bold text-green-800">
+                                    <p className="text-3xl font-bold text-green-300">
                                       {orderDetails.numero_pedido || orderDetails.numeroPedido || "Não informado"}
                                     </p>
                                   </div>
-                                  <p className="text-sm text-green-600 mt-4">
+                                  <p className="text-sm text-green-400/80 mt-4">
                                     O pedido foi confirmado e está em rota para entrega
                                   </p>
                                 </div>
@@ -2928,7 +2928,7 @@ export function OrderDetailDrawer({
                           <div className="space-y-4">
                             <div className="flex items-center space-x-3">
                               <button
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${notaPdf ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${notaPdf ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
                                 onClick={() => {
                                   console.log("Clique no ícone PDF");
                                   if (notaPdfRef.current) {
@@ -2974,7 +2974,7 @@ export function OrderDetailDrawer({
                           <div className="space-y-4">
                             <div className="flex items-center space-x-3">
                               <button
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${notaXml ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${notaXml ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
                                 onClick={() => {
                                   console.log("Clique no ícone XML");
                                   if (notaXmlRef.current) {
@@ -3020,7 +3020,7 @@ export function OrderDetailDrawer({
                           <div className="space-y-4">
                             <div className="flex items-center space-x-3">
                               <button
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${certificadoPdf ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${certificadoPdf ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
                                 onClick={() => {
                                   console.log("Clique no ícone Certificado");
                                   if (certificadoPdfRef.current) {
@@ -3160,8 +3160,8 @@ export function OrderDetailDrawer({
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* ===== SEÇÃO DA DISTRIBUIDORA ===== */}
-                      <div className="border rounded-lg p-4 bg-blue-50/50">
-                        <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                      <div className="border border-blue-500/30 rounded-lg p-4 bg-blue-950/30">
+                        <h4 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
                           <Truck className="w-4 h-4" />
                           Registro de Chegada (Distribuidora/Fornecedor)
                         </h4>
@@ -3169,11 +3169,11 @@ export function OrderDetailDrawer({
                         {entregaDistribuidoraData?.entregaDistribuidora ? (
                           // Já foi registrada chegada pela distribuidora
                           <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-green-700">
+                            <div className="flex items-center gap-2 text-green-400">
                               <CheckCircle className="w-5 h-5" />
                               <span className="font-medium">Chegada registrada</span>
                             </div>
-                            <div className="text-sm text-gray-600 space-y-1">
+                            <div className="text-sm text-gray-400 space-y-1">
                               <p><strong>Data/Hora:</strong> {entregaDistribuidoraData.entregaDistribuidora.dataChegada}</p>
                               {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.location && (
                                 <p><strong>Local detectado (Metadata):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.location}</p>
@@ -3293,8 +3293,8 @@ export function OrderDetailDrawer({
                       </div>
 
                       {/* ===== SEÇÃO DA CONSTRUTORA ===== */}
-                      <div className="border rounded-lg p-4 bg-amber-50/50">
-                        <h4 className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
+                      <div className="border border-amber-500/30 rounded-lg p-4 bg-amber-950/30">
+                        <h4 className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
                           <Package className="w-4 h-4" />
                           Confirmação de Recebimento (Construtora)
                         </h4>
@@ -3302,13 +3302,13 @@ export function OrderDetailDrawer({
                         {orderDetails.status === "Entregue" ? (
                         // Mostrar informações da entrega confirmada
                         <div className="space-y-4">
-                          <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
+                          <div className="flex items-center justify-center p-6 border border-green-500/30 rounded-lg bg-green-950/30">
                             <div className="text-center">
                               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                              <h3 className="text-xl font-medium text-green-700 mb-2">
+                              <h3 className="text-xl font-medium text-green-400 mb-2">
                                 Entrega Confirmada
                               </h3>
-                              <p className="text-sm text-green-600">
+                              <p className="text-sm text-green-400/80">
                                 Quantidade recebida: {(() => {
                                   // Buscar quantidade da foto_confirmacao
                                   const fotoConfirmacao = orderDetails.fotoConfirmacao || (orderDetails as any).foto_confirmacao;
@@ -3407,7 +3407,7 @@ export function OrderDetailDrawer({
                               <div className="flex flex-col items-center gap-4">
                                 <div className="flex flex-col items-center gap-2">
                                   <button
-                                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${fotoNotaAssinada ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${fotoNotaAssinada ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
                                     onClick={() => {
                                       if (fotoNotaAssinadaRef.current) {
                                         fotoNotaAssinadaRef.current.value = "";
@@ -3468,7 +3468,7 @@ export function OrderDetailDrawer({
                         </>
                       ) : (
                         // Aguardando confirmação pela construtora
-                        <div className="text-sm text-gray-500 flex items-center gap-2">
+                        <div className="text-sm text-amber-400/70 flex items-center gap-2">
                           <Clock className="w-4 h-4" />
                           Aguardando confirmação pela construtora
                         </div>
