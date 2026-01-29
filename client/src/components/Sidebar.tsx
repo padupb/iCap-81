@@ -20,10 +20,6 @@ import {
   History,
   Settings,
   Calendar,
-  AppWindow,
-  ArrowRightLeft,
-  ChevronDown,
-  ChevronRight,
 } from "lucide-react";
 
 const navigation = [
@@ -38,17 +34,12 @@ const navigation = [
   { name: "Logs do Sistema", href: "/logs", icon: History, area: "logs" },
 ];
 
-const keyuserApplications = [
-  { name: "Troca de Ordem de Compra", href: "/aplicacoes/troca-ordem-compra", icon: ArrowRightLeft },
-];
-
 export default function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { canView } = useAuthorization();
   const { settings } = useSettings();
   const [logoError, setLogoError] = useState(false);
-  const [aplicacoesOpen, setAplicacoesOpen] = useState(false);
 
   // Buscar reprogramações pendentes para mostrar o badge
   const { data: reprogramacoes = [] } = useQuery({
@@ -128,46 +119,6 @@ export default function Sidebar() {
             </div>
           );
         })}
-
-        {/* Menu Aplicações - apenas para KeyUsers */}
-        {user?.isKeyUser && (
-          <div>
-            <div
-              onClick={() => setAplicacoesOpen(!aplicacoesOpen)}
-              className="flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer text-sidebar-foreground hover:bg-gray-700 pt-[8px] pb-[8px]"
-            >
-              <div className="flex items-center">
-                <AppWindow className="w-5 h-5 mr-3" />
-                Aplicações
-              </div>
-              {aplicacoesOpen ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </div>
-            {aplicacoesOpen && (
-              <div className="ml-4 space-y-1">
-                {keyuserApplications.map((app) => {
-                  const AppIcon = app.icon;
-                  const isActive = location === app.href;
-                  return (
-                    <Link key={app.name} href={app.href}>
-                      <div
-                        className={`flex items-center px-4 py-2 rounded-lg transition-colors cursor-pointer text-sidebar-foreground hover:bg-gray-700 text-sm ${
-                          isActive ? "bg-gray-700" : ""
-                        }`}
-                      >
-                        <AppIcon className="w-4 h-4 mr-3" />
-                        {app.name}
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Menu Keyuser - apenas para KeyUsers */}
         {user?.isKeyUser && (

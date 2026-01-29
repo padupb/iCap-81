@@ -57,7 +57,10 @@ import {
   Download,
   TestTube,
   Loader2,
-  Truck
+  Truck,
+  ArrowRightLeft,
+  Search,
+  AlertCircle
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -95,6 +98,29 @@ const settingsFormSchema = z.object({
   default_reset_password: z.string().min(1, "Campo obrigatório"),
   max_order_percentage: z.string().min(1, "Campo obrigatório"),
 });
+
+// Interfaces para Troca de Ordem de Compra
+interface TrocaOrderInfo {
+  id: number;
+  orderId: string;
+  productId: number;
+  productName: string;
+  quantity: string;
+  currentPurchaseOrderId: number | null;
+  currentPurchaseOrderNumber: string | null;
+  status: string;
+}
+
+interface AvailablePurchaseOrder {
+  id: number;
+  orderNumber: string;
+  companyName: string;
+  validFrom: string;
+  validUntil: string;
+  availableBalance: string;
+  totalQuantity: string;
+  usedQuantity: string;
+}
 
 // Lista de menus/áreas do sistema para configuração de permissões
 const SYSTEM_MENUS = [
@@ -166,6 +192,12 @@ export default function Keyuser() {
   const [routeOrderId, setRouteOrderId] = useState("");
   const [isSettingRoute, setIsSettingRoute] = useState(false);
 
+  // Estados para a funcionalidade de Troca de Ordem de Compra
+  const [trocaOrderId, setTrocaOrderId] = useState("");
+  const [searchedTrocaOrderId, setSearchedTrocaOrderId] = useState("");
+  const [selectedPurchaseOrderId, setSelectedPurchaseOrderId] = useState<string>("");
+  const [isTrocando, setIsTrocando] = useState(false);
+
   // Estados para edição
   const [editingCategory, setEditingCategory] = useState<CompanyCategory | null>(null);
   const [editingRole, setEditingRole] = useState<UserRole | null>(null);
@@ -196,6 +228,36 @@ export default function Keyuser() {
   // Query para configurações
   const { data: settings = [], isLoading: settingsLoading } = useQuery<Setting[]>({
     queryKey: ["/api/settings"],
+  });
+
+  // Query para informações do pedido (Troca de OC)
+  const { data: trocaOrderInfo, isLoading: isLoadingTrocaOrder, error: trocaOrderError, refetch: refetchTrocaOrder } = useQuery<TrocaOrderInfo>({
+    queryKey: ["/api/keyuser/pedido-info", searchedTrocaOrderId],
+    queryFn: async () => {
+      if (!searchedTrocaOrderId) return null;
+      const res = await fetch(`/api/keyuser/pedido-info/${encodeURIComponent(searchedTrocaOrderId)}`);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Pedido não encontrado");
+      }
+      return res.json();
+    },
+    enabled: !!searchedTrocaOrderId,
+  });
+
+  // Query para ordens de compra disponíveis (Troca de OC)
+  const { data: availableOrders = [], isLoading: isLoadingAvailableOrders } = useQuery<AvailablePurchaseOrder[]>({
+    queryKey: ["/api/keyuser/ordens-compra-disponiveis", trocaOrderInfo?.id],
+    queryFn: async () => {
+      if (!trocaOrderInfo?.id) return [];
+      const res = await fetch(`/api/keyuser/ordens-compra-disponiveis/${trocaOrderInfo.id}`);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Erro ao buscar ordens de compra");
+      }
+      return res.json();
+    },
+    enabled: !!trocaOrderInfo?.id,
   });
 
   // Mutations para categorias de empresa
@@ -856,6 +918,65 @@ export default function Keyuser() {
 
   // Função para exportar notas fiscais em arquivo ZIP
   const handleExportNotes = async () => {
+  };
+
+  // Função para buscar pedido (Troca de OC)
+  const handleSearchTrocaOrder = () => {
+    if (trocaOrderId.trim()) {
+      setSearchedTrocaOrderId(trocaOrderId.trim());
+      setSelectedPurchaseOrderId("");
+    }
+  };
+
+  // Função para trocar ordem de compra
+  const handleTrocarOrdem = async () => {
+    if (!trocaOrderInfo?.id || !selectedPurchaseOrderId) return;
+
+    setIsTrocando(true);
+
+    try {
+      const response = await fetch("/api/keyuser/trocar-ordem-compra", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          orderId: trocaOrderInfo.id,
+          newPurchaseOrderId: parseInt(selectedPurchaseOrderId),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erro ao trocar ordem de compra");
+      }
+
+      toast({
+        title: "Sucesso",
+        description: result.message || "Ordem de compra trocada com sucesso!",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/keyuser/pedido-info"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/keyuser/ordens-compra-disponiveis"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setSelectedPurchaseOrderId("");
+      setSearchedTrocaOrderId("");
+      setTrocaOrderId("");
+    } catch (error) {
+      console.error("Erro ao trocar ordem:", error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao trocar ordem de compra",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTrocando(false);
+    }
+  };
+
+  // Função auxiliar para formatar data
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("pt-BR");
   };
 
   return (
@@ -1890,6 +2011,163 @@ export default function Keyuser() {
                 <p className="text-sm text-muted-foreground">
                   Ao colocar em rota, o status do pedido será alterado para "Em Rota".
                 </p>
+              </div>
+
+              {/* Troca de Ordem de Compra */}
+              <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <ArrowRightLeft className="w-5 h-5" />
+                  Troca de Ordem de Compra
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Altere a ordem de compra vinculada a um pedido. Apenas ordens com o mesmo produto, saldo disponível e dentro da validade são exibidas.
+                </p>
+
+                {/* Buscar Pedido */}
+                <div className="space-y-3">
+                  <Label htmlFor="troca-order-id">ID do Pedido</Label>
+                  <div className="flex gap-3">
+                    <Input
+                      id="troca-order-id"
+                      placeholder="Ex: CNI2901260001"
+                      value={trocaOrderId}
+                      onChange={(e) => setTrocaOrderId(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSearchTrocaOrder()}
+                      disabled={isLoadingTrocaOrder}
+                      className="flex-1"
+                    />
+                    <Button onClick={handleSearchTrocaOrder} disabled={!trocaOrderId.trim() || isLoadingTrocaOrder}>
+                      {isLoadingTrocaOrder ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Search className="h-4 w-4 mr-2" />
+                      )}
+                      Buscar
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Erro ao buscar pedido */}
+                {trocaOrderError && (
+                  <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{(trocaOrderError as Error).message}</span>
+                  </div>
+                )}
+
+                {/* Informações do pedido encontrado */}
+                {trocaOrderInfo && (
+                  <div className="space-y-4">
+                    <div className="bg-muted/50 p-4 rounded-lg">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">ID do Pedido</p>
+                          <p className="font-medium">{trocaOrderInfo.orderId}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Produto</p>
+                          <p className="font-medium">{trocaOrderInfo.productName}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Quantidade</p>
+                          <p className="font-medium">{trocaOrderInfo.quantity}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Status</p>
+                          <p className="font-medium">{trocaOrderInfo.status}</p>
+                        </div>
+                        <div className="col-span-2 md:col-span-4">
+                          <p className="text-sm text-muted-foreground">Ordem de Compra Atual</p>
+                          <p className="font-medium">
+                            {trocaOrderInfo.currentPurchaseOrderNumber || "Nenhuma ordem vinculada"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Seleção de nova ordem */}
+                    {isLoadingAvailableOrders ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        <span>Carregando ordens disponíveis...</span>
+                      </div>
+                    ) : availableOrders.length === 0 ? (
+                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        <AlertCircle className="h-4 w-4" />
+                        <span className="text-sm">
+                          Nenhuma ordem de compra válida encontrada com o mesmo produto e saldo disponível.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <Label htmlFor="nova-ordem">Nova Ordem de Compra</Label>
+                        <Select
+                          value={selectedPurchaseOrderId}
+                          onValueChange={setSelectedPurchaseOrderId}
+                        >
+                          <SelectTrigger id="nova-ordem">
+                            <SelectValue placeholder="Selecione uma ordem de compra" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableOrders.map((order) => (
+                              <SelectItem key={order.id} value={order.id.toString()}>
+                                {order.orderNumber} - {order.companyName} (Saldo: {order.availableBalance})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {/* Detalhes da ordem selecionada */}
+                        {selectedPurchaseOrderId && (
+                          <div className="bg-muted/50 p-4 rounded-lg">
+                            {(() => {
+                              const selected = availableOrders.find(
+                                (o) => o.id.toString() === selectedPurchaseOrderId
+                              );
+                              if (!selected) return null;
+                              return (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Número da OC</p>
+                                    <p className="font-medium">{selected.orderNumber}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Empresa</p>
+                                    <p className="font-medium">{selected.companyName}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Validade</p>
+                                    <p className="font-medium">
+                                      {formatDate(selected.validFrom)} até {formatDate(selected.validUntil)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Saldo Disponível</p>
+                                    <p className="font-medium text-green-600">{selected.availableBalance}</p>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        <div className="flex justify-end">
+                          <Button
+                            onClick={handleTrocarOrdem}
+                            disabled={!selectedPurchaseOrderId || isTrocando}
+                          >
+                            {isTrocando ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                            )}
+                            Confirmar Troca
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

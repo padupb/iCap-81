@@ -50,7 +50,8 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 ## Recent Changes
 
 ### 2026-01-29: Troca de Ordem de Compra (KeyUser)
-- **Nova funcionalidade**: Menu "Aplicações" > "Troca de Ordem de Compra" exclusivo para KeyUsers
+- **Nova funcionalidade**: Seção na aba "Aplicações" da página KeyUser (/dev)
+- **Localização**: KeyUser > Aba "Aplicações" > Seção "Troca de Ordem de Compra"
 - **Objetivo**: Permite trocar a ordem de compra vinculada a um pedido existente
 - **Critérios de validação**:
   - A nova ordem de compra deve ter o mesmo produto do pedido
@@ -65,10 +66,8 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
   - `GET /api/keyuser/pedido-info/:orderId` - Busca informações do pedido
   - `GET /api/keyuser/ordens-compra-disponiveis/:orderId` - Lista OCs válidas para troca
   - `POST /api/keyuser/trocar-ordem-compra` - Executa a troca com todas as validações
-- **Arquivos criados/modificados**:
-  - `client/src/pages/TrocaOrdemCompra.tsx` (nova página)
-  - `client/src/components/Sidebar.tsx` (menu Aplicações com submenu)
-  - `client/src/App.tsx` (nova rota)
+- **Arquivos modificados**:
+  - `client/src/pages/Keyuser.tsx` (seção na aba Aplicações)
   - `server/routes.ts` (novos endpoints)
 
 ### 2026-01-29: Novo Status "Entregue atrasado"
