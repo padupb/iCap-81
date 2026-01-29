@@ -49,6 +49,24 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### 2026-01-29: Separação de Campos de Entrega (Distribuidora vs Construtora)
+- **Nova funcionalidade**: Fluxo de entrega separado para distribuidora e construtora
+- **Campos da Distribuidora**:
+  - Data e horário de chegada no destino
+  - Upload de foto com timestamp da carga no local
+  - OCR automático via Gemini AI para extrair dados da legenda da foto (timestamp, localização)
+- **Campos da Construtora**: Permanecem os mesmos (quantidade recebida + foto da nota assinada)
+- **Novo campo no banco**: `entrega_distribuidora` (JSONB) na tabela orders
+- **Novos endpoints**:
+  - `POST /api/pedidos/:id/entrega-distribuidora` - Registrar chegada
+  - `GET /api/pedidos/:id/entrega-distribuidora` - Buscar dados de chegada
+  - `GET /api/pedidos/:id/foto-chegada-distribuidora` - Download da foto
+  - `GET /api/user/company-type` - Verificar tipo de empresa do usuário
+- **Controle de acesso**: Campos específicos aparecem conforme tipo de empresa (distribuidora/construtora)
+- **Segurança**: Distribuidora só pode registrar chegada em pedidos onde é o fornecedor
+- **Novo serviço**: `server/services/ocrService.ts` para extração de metadados de fotos via Gemini
+- **Arquivos modificados**: `shared/schema.ts`, `server/routes.ts`, `client/src/components/OrderDetailDrawer.tsx`
+
 ### 2026-01-28: Botão "Colocar em Rota" para fornecedores
 - **Nova funcionalidade**: Botão para fornecedores colocarem pedidos em rota
 - **Local**: No drawer de detalhes do pedido, no lugar do QR Code para usuários elegíveis

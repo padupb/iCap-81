@@ -125,6 +125,13 @@ export function OrderDetailDrawer({
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [cancelJustification, setCancelJustification] = useState("");
 
+  // Estados para entrega da distribuidora
+  const [dataChegadaDistribuidora, setDataChegadaDistribuidora] = useState("");
+  const [horaChegadaDistribuidora, setHoraChegadaDistribuidora] = useState("");
+  const [fotoChegadaDistribuidora, setFotoChegadaDistribuidora] = useState<File | null>(null);
+  const [isSubmittingDistribuidora, setIsSubmittingDistribuidora] = useState(false);
+  const fotoChegadaDistribuidoraRef = useRef<HTMLInputElement>(null);
+
   // Estado para número do pedido
   const [numeroPedido, setNumeroPedido] = useState("");
 
@@ -239,6 +246,48 @@ export function OrderDetailDrawer({
     queryKey: ["/api/ordens-compra"],
     enabled: !!orderId && open,
     });
+
+  // Buscar tipo de empresa do usuário logado
+  const { data: userCompanyType } = useQuery<{
+    success: boolean;
+    isKeyUser: boolean;
+    companyType: string | null;
+    isDistribuidora: boolean;
+    isConstrutora: boolean;
+    categoryName?: string;
+  }>({
+    queryKey: ["/api/user/company-type"],
+    enabled: open,
+  });
+
+  // Buscar dados de entrega da distribuidora
+  const { data: entregaDistribuidoraData, refetch: refetchEntregaDistribuidora } = useQuery<{
+    success: boolean;
+    entregaDistribuidora: {
+      dataChegada: string;
+      fotoChegada: {
+        storageKey: string;
+        filename: string;
+        originalName: string;
+        mimetype: string;
+        uploadDate: string;
+      };
+      dadosOCR?: {
+        success: boolean;
+        timestamp?: string;
+        location?: string;
+        rawText?: string;
+      };
+      registradoPor?: {
+        userId: number;
+        userName: string;
+        companyName: string;
+      };
+    } | null;
+  }>({
+    queryKey: [`/api/pedidos/${orderId}/entrega-distribuidora`],
+    enabled: !!orderId && open,
+  });
 
   // Montar os detalhes do pedido a partir dos dados obtidos
   const orderDetails = useMemo(() => {
@@ -1055,6 +1104,84 @@ export function OrderDetailDrawer({
         description: error instanceof Error ? error.message : "Erro ao cancelar pedido",
         variant: "destructive",
       });
+    }
+  };
+
+  // Função para distribuidora registrar chegada
+  const handleRegistrarChegadaDistribuidora = async () => {
+    if (!orderDetails) return;
+
+    if (!dataChegadaDistribuidora || !horaChegadaDistribuidora) {
+      toast({
+        title: "Erro",
+        description: "Informe a data e hora de chegada",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!fotoChegadaDistribuidora) {
+      toast({
+        title: "Erro",
+        description: "Selecione a foto da carga no local",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmittingDistribuidora(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("dataChegada", dataChegadaDistribuidora);
+      formData.append("horaChegada", horaChegadaDistribuidora);
+      formData.append("fotoChegada", fotoChegadaDistribuidora);
+
+      toast({
+        title: "Registrando chegada",
+        description: "Processando foto e dados de chegada...",
+      });
+
+      const response = await fetch(`/api/pedidos/${orderDetails.id}/entrega-distribuidora`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.sucesso) {
+        toast({
+          title: "Chegada Registrada",
+          description: result.dadosOCR?.success 
+            ? `Chegada registrada! ${result.dadosOCR.location ? `Local detectado: ${result.dadosOCR.location}` : ''}`
+            : "Chegada registrada com sucesso",
+        });
+
+        // Limpar campos
+        setDataChegadaDistribuidora("");
+        setHoraChegadaDistribuidora("");
+        setFotoChegadaDistribuidora(null);
+        
+        // Atualizar dados
+        refetchEntregaDistribuidora();
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${orderId}/historico`] });
+      } else {
+        toast({
+          title: "Erro",
+          description: result.mensagem || "Erro ao registrar chegada",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao registrar chegada:", error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao registrar chegada",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingDistribuidora(false);
     }
   };
 
@@ -3035,8 +3162,145 @@ export function OrderDetailDrawer({
                         }
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      {orderDetails.status === "Entregue" ? (
+                    <CardContent className="space-y-6">
+                      {/* ===== SEÇÃO DA DISTRIBUIDORA ===== */}
+                      <div className="border rounded-lg p-4 bg-blue-50/50">
+                        <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                          <Truck className="w-4 h-4" />
+                          Registro de Chegada (Distribuidora/Fornecedor)
+                        </h4>
+                        
+                        {entregaDistribuidoraData?.entregaDistribuidora ? (
+                          // Já foi registrada chegada pela distribuidora
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-green-700">
+                              <CheckCircle className="w-5 h-5" />
+                              <span className="font-medium">Chegada registrada</span>
+                            </div>
+                            <div className="text-sm text-gray-600 space-y-1">
+                              <p><strong>Data/Hora:</strong> {entregaDistribuidoraData.entregaDistribuidora.dataChegada}</p>
+                              {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.location && (
+                                <p><strong>Local detectado (OCR):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.location}</p>
+                              )}
+                              {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.timestamp && (
+                                <p><strong>Timestamp da foto (OCR):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.timestamp}</p>
+                              )}
+                              {entregaDistribuidoraData.entregaDistribuidora.registradoPor && (
+                                <p><strong>Registrado por:</strong> {entregaDistribuidoraData.entregaDistribuidora.registradoPor.userName}</p>
+                              )}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/foto-chegada-distribuidora`);
+                                  if (!response.ok) throw new Error('Erro ao baixar foto');
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `foto-chegada-${orderDetails.orderId}.jpg`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  window.URL.revokeObjectURL(url);
+                                  document.body.removeChild(a);
+                                } catch (error) {
+                                  toast({ title: "Erro", description: "Erro ao baixar foto", variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Baixar Foto de Chegada
+                            </Button>
+                          </div>
+                        ) : (userCompanyType?.isDistribuidora || userCompanyType?.isKeyUser) ? (
+                          // Formulário para distribuidora registrar chegada
+                          <div className="space-y-3">
+                            <p className="text-sm text-gray-600">
+                              Registre a data/hora de chegada no destino e envie uma foto da carga no local.
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs font-medium">Data de Chegada</label>
+                                <Input
+                                  type="date"
+                                  value={dataChegadaDistribuidora}
+                                  onChange={(e) => setDataChegadaDistribuidora(e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium">Hora de Chegada</label>
+                                <Input
+                                  type="time"
+                                  value={horaChegadaDistribuidora}
+                                  onChange={(e) => setHoraChegadaDistribuidora(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium flex items-center gap-1">
+                                <Camera className="w-3 h-3" />
+                                Foto da Carga no Local (com timestamp)
+                              </label>
+                              <div className="border-2 border-dashed border-blue-200 rounded-lg p-3 mt-1">
+                                <div className="flex flex-col items-center gap-2">
+                                  <button
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${fotoChegadaDistribuidora ? "bg-green-500 text-white" : "bg-blue-100 text-blue-500"}`}
+                                    onClick={() => fotoChegadaDistribuidoraRef.current?.click()}
+                                  >
+                                    {fotoChegadaDistribuidora ? <CheckCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+                                  </button>
+                                  <input
+                                    ref={fotoChegadaDistribuidoraRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/jpg"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) setFotoChegadaDistribuidora(file);
+                                    }}
+                                    className="hidden"
+                                  />
+                                  <p className="text-xs text-gray-500 text-center">
+                                    {fotoChegadaDistribuidora
+                                      ? `Foto: ${fotoChegadaDistribuidora.name}`
+                                      : "A foto será analisada para extrair data/hora e localização"}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={handleRegistrarChegadaDistribuidora}
+                              disabled={!dataChegadaDistribuidora || !horaChegadaDistribuidora || !fotoChegadaDistribuidora || isSubmittingDistribuidora}
+                              className="w-full"
+                            >
+                              {isSubmittingDistribuidora ? (
+                                <>Registrando...</>
+                              ) : (
+                                <>
+                                  <Truck className="mr-2 h-4 w-4" />
+                                  Registrar Chegada no Destino
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          // Aguardando distribuidora
+                          <div className="text-sm text-gray-500 flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            Aguardando registro de chegada pela distribuidora
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ===== SEÇÃO DA CONSTRUTORA ===== */}
+                      <div className="border rounded-lg p-4 bg-amber-50/50">
+                        <h4 className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
+                          <Package className="w-4 h-4" />
+                          Confirmação de Recebimento (Construtora)
+                        </h4>
+
+                        {orderDetails.status === "Entregue" ? (
                         // Mostrar informações da entrega confirmada
                         <div className="space-y-4">
                           <div className="flex items-center justify-center p-6 border border-green-200 rounded-lg bg-[#2f2f37]">
@@ -3114,8 +3378,8 @@ export function OrderDetailDrawer({
                             </Button>
                           </div>
                         </div>
-                      ) : (
-                        // Formulário de confirmação (apenas se não estiver entregue)
+                      ) : (userCompanyType?.isConstrutora || userCompanyType?.isKeyUser || user?.canConfirmDelivery) ? (
+                        // Formulário de confirmação (apenas construtora/keyuser/permissão especial)
                         <>
                           <div className="space-y-2">
                             <label className="text-sm font-medium">
@@ -3203,7 +3467,14 @@ export function OrderDetailDrawer({
                             </Button>
                           </div>
                         </>
+                      ) : (
+                        // Aguardando confirmação pela construtora
+                        <div className="text-sm text-gray-500 flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          Aguardando confirmação pela construtora
+                        </div>
                       )}
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>

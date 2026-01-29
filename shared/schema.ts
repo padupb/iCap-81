@@ -111,6 +111,9 @@ export const orders = pgTable("orders", {
   
   // Campo para status de lançamento da nota
   lancamento: boolean("lancamento").default(false),
+  
+  // Campo para dados de entrega da distribuidora (fornecedor)
+  entregaDistribuidora: text("entrega_distribuidora"), // JSONB: { dataChegada, fotoChegada, dadosOCR }
 });
 
 // Purchase orders table

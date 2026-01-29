@@ -19,6 +19,7 @@ import { z } from "zod";
 import { XMLParser } from "fast-xml-parser";
 import JSZip from "jszip";
 import { getCuiabaDateTime, toCuiabaISOString, convertToLocalDate, getDaysDifference } from "./utils/timezone";
+import { extractImageMetadata } from "./services/ocrService";
 
 // Função para extrair quantidade do XML da NF-e
 function extractQuantityFromXML(xmlBuffer: Buffer): { quantity: number; productInfo: any } | null {
@@ -6346,6 +6347,350 @@ Status: Teste em progresso...`;
       });
     }
   });
+
+  // ============================================================
+  // ROTAS DE ENTREGA DA DISTRIBUIDORA (FORNECEDOR)
+  // ============================================================
+
+  // Rota para distribuidora registrar chegada no destino
+  app.post("/api/pedidos/:id/entrega-distribuidora", isAuthenticated, uploadFotoConfirmacao.single('fotoChegada'), async (req, res) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const { dataChegada, horaChegada } = req.body;
+      const foto = req.file;
+
+      console.log(`📦 Recebida confirmação de chegada da distribuidora:`, {
+        pedidoId,
+        dataChegada,
+        horaChegada,
+        temFoto: !!foto
+      });
+
+      // Validações básicas
+      if (!dataChegada || !horaChegada) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Data e hora de chegada são obrigatórios."
+        });
+      }
+
+      if (!foto) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Foto da carga no local é obrigatória."
+        });
+      }
+
+      // Buscar informações do pedido
+      const pedidoResult = await pool.query(
+        `SELECT o.*, c.category_id as supplier_category_id, c.name as supplier_name
+         FROM orders o
+         JOIN companies c ON o.supplier_id = c.id
+         WHERE o.id = $1`,
+        [pedidoId]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Pedido não encontrado."
+        });
+      }
+
+      const pedido = pedidoResult.rows[0];
+
+      // Verificar se o usuário é da distribuidora (Fornecedor - categoria 2)
+      const userCompanyResult = await pool.query(
+        `SELECT c.category_id, cc.name as category_name
+         FROM users u
+         JOIN companies c ON u.company_id = c.id
+         JOIN company_categories cc ON c.category_id = cc.id
+         WHERE u.id = $1`,
+        [req.user.id]
+      );
+
+      const isKeyUser = req.user.isKeyUser || (req.user.id >= 1 && req.user.id <= 5);
+      const isDistribuidora = userCompanyResult.rows.length > 0 && 
+        userCompanyResult.rows[0].category_id === 2; // Fornecedor
+      
+      // Verificar se o fornecedor é o mesmo do pedido (segurança adicional)
+      const userCompanyId = req.user.companyId;
+      const isSupplierOfOrder = userCompanyId === pedido.supplier_id;
+
+      if (!isKeyUser && (!isDistribuidora || !isSupplierOfOrder)) {
+        return res.status(403).json({
+          sucesso: false,
+          mensagem: "Apenas a distribuidora responsável por este pedido ou KeyUsers podem registrar chegada."
+        });
+      }
+
+      // Processar OCR da foto para extrair metadados
+      let dadosOCR = null;
+      try {
+        console.log(`🔍 Processando OCR da imagem...`);
+        dadosOCR = await extractImageMetadata(foto.buffer, foto.mimetype);
+        console.log(`✅ OCR concluído:`, dadosOCR);
+      } catch (ocrError) {
+        console.error(`⚠️ Erro no OCR (continuando sem dados):`, ocrError);
+      }
+
+      // Upload da foto para Object Storage
+      const timestamp = Date.now();
+      const fotoFilename = `foto-chegada-distribuidora-${timestamp}.${foto.mimetype === 'image/png' ? 'png' : 'jpg'}`;
+
+      console.log(`📤 Fazendo upload da foto de chegada...`);
+
+      let fotoStorageKey;
+      try {
+        fotoStorageKey = await saveFileToStorage(
+          foto.buffer,
+          fotoFilename,
+          pedido.order_id
+        );
+        console.log(`✅ Foto de chegada salva: ${fotoStorageKey}`);
+      } catch (uploadError) {
+        const error = uploadError instanceof Error ? uploadError : new Error(String(uploadError));
+        console.error('❌ Erro ao fazer upload da foto de chegada:', error);
+        return res.status(500).json({
+          sucesso: false,
+          mensagem: `Erro ao salvar a foto: ${error.message}`
+        });
+      }
+
+      // Montar dados de entrega da distribuidora
+      const entregaDistribuidora = {
+        dataChegada: `${dataChegada} ${horaChegada}`,
+        fotoChegada: {
+          storageKey: fotoStorageKey,
+          filename: fotoFilename,
+          originalName: foto.originalname,
+          size: foto.size,
+          mimetype: foto.mimetype,
+          uploadDate: toCuiabaISOString(new Date())
+        },
+        dadosOCR: dadosOCR,
+        registradoPor: {
+          userId: req.user.id,
+          userName: req.user.name,
+          companyName: userCompanyResult.rows[0]?.category_name || 'Desconhecido'
+        }
+      };
+
+      // Atualizar pedido com dados da distribuidora
+      await pool.query(
+        `UPDATE orders
+         SET entrega_distribuidora = $1,
+             status = CASE 
+               WHEN status = 'Criado' THEN 'Em Trânsito'
+               WHEN status = 'Em Trânsito' THEN 'Em Trânsito'
+               ELSE status 
+             END
+         WHERE id = $2`,
+        [JSON.stringify(entregaDistribuidora), pedidoId]
+      );
+
+      // Registrar tracking point
+      await pool.query(
+        `INSERT INTO tracking_points (order_id, status, comment, user_id, created_at)
+         VALUES ($1, 'Chegada no Destino', $2, $3, NOW())`,
+        [
+          pedido.order_id,
+          `Distribuidora registrou chegada no destino. ${dadosOCR?.location ? `Local: ${dadosOCR.location}` : ''}`,
+          req.user.id
+        ]
+      );
+
+      // Registrar log
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Registrou chegada no destino",
+        itemType: "order",
+        itemId: pedidoId.toString(),
+        details: `Distribuidora registrou chegada do pedido ${pedido.order_id} em ${dataChegada} às ${horaChegada}`
+      });
+
+      res.json({
+        sucesso: true,
+        mensagem: "Chegada registrada com sucesso.",
+        dadosOCR: dadosOCR
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao registrar chegada da distribuidora:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao registrar chegada."
+      });
+    }
+  });
+
+  // Rota para buscar dados de entrega da distribuidora
+  app.get("/api/pedidos/:id/entrega-distribuidora", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID inválido"
+        });
+      }
+
+      const pedidoResult = await pool.query(
+        "SELECT entrega_distribuidora FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const entregaDistribuidora = pedidoResult.rows[0].entrega_distribuidora;
+
+      if (!entregaDistribuidora) {
+        return res.json({
+          success: true,
+          entregaDistribuidora: null,
+          message: "Distribuidora ainda não registrou chegada"
+        });
+      }
+
+      const dados = typeof entregaDistribuidora === 'string'
+        ? JSON.parse(entregaDistribuidora)
+        : entregaDistribuidora;
+
+      res.json({
+        success: true,
+        entregaDistribuidora: dados
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar dados de entrega da distribuidora:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar dados de entrega"
+      });
+    }
+  });
+
+  // Rota para buscar foto de chegada da distribuidora
+  app.get("/api/pedidos/:id/foto-chegada-distribuidora", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      const pedidoResult = await pool.query(
+        "SELECT entrega_distribuidora, order_id FROM orders WHERE id = $1",
+        [id]
+      );
+
+      if (!pedidoResult.rows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const entregaDistribuidora = pedidoResult.rows[0].entrega_distribuidora;
+      if (!entregaDistribuidora) {
+        return res.status(404).json({
+          success: false,
+          message: "Distribuidora ainda não registrou chegada"
+        });
+      }
+
+      const dados = typeof entregaDistribuidora === 'string'
+        ? JSON.parse(entregaDistribuidora)
+        : entregaDistribuidora;
+
+      if (!dados.fotoChegada?.storageKey) {
+        return res.status(404).json({
+          success: false,
+          message: "Foto de chegada não encontrada"
+        });
+      }
+
+      // Buscar arquivo do Object Storage
+      const orderId = pedidoResult.rows[0].order_id;
+      const filename = dados.fotoChegada.filename || dados.fotoChegada.originalName || 'foto-chegada.jpg';
+      const fileResult = await readFileFromStorage(dados.fotoChegada.storageKey, orderId, filename);
+
+      if (!fileResult) {
+        return res.status(404).json({
+          success: false,
+          message: "Arquivo não encontrado no storage"
+        });
+      }
+
+      res.setHeader('Content-Type', dados.fotoChegada.mimetype || 'image/jpeg');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileResult.originalName || 'foto-chegada.jpg'}"`);
+      return res.end(fileResult.data);
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar foto de chegada:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar foto de chegada"
+      });
+    }
+  });
+
+  // Rota para verificar tipo de empresa do usuário (para controle de UI)
+  app.get("/api/user/company-type", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const userCompanyResult = await pool.query(
+        `SELECT c.id as company_id, c.name as company_name, c.category_id,
+                cc.name as category_name, cc.requires_contract, cc.receives_purchase_orders
+         FROM users u
+         LEFT JOIN companies c ON u.company_id = c.id
+         LEFT JOIN company_categories cc ON c.category_id = cc.id
+         WHERE u.id = $1`,
+        [userId]
+      );
+
+      const isKeyUser = req.user.isKeyUser || (req.user.id >= 1 && req.user.id <= 5);
+
+      if (!userCompanyResult.rows.length || !userCompanyResult.rows[0].category_id) {
+        return res.json({
+          success: true,
+          isKeyUser: isKeyUser,
+          companyType: null,
+          isDistribuidora: false,
+          isConstrutora: false
+        });
+      }
+
+      const row = userCompanyResult.rows[0];
+      const categoryId = row.category_id;
+
+      res.json({
+        success: true,
+        isKeyUser: isKeyUser,
+        companyId: row.company_id,
+        companyName: row.company_name,
+        categoryId: categoryId,
+        categoryName: row.category_name,
+        companyType: categoryId === 1 ? 'construtora' : categoryId === 2 ? 'distribuidora' : 'outros',
+        isDistribuidora: categoryId === 2,
+        isConstrutora: categoryId === 1,
+        requiresContract: row.requires_contract,
+        receivesPurchaseOrders: row.receives_purchase_orders
+      });
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar tipo de empresa:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao buscar tipo de empresa"
+      });
+    }
+  });
+
+  // ============================================================
 
   // Rota para confirmar entrega de pedido SEM FOTO (legado)
   app.post("/api/pedidos/:id/confirmar-entrega", isAuthenticated, async (req, res) => {
