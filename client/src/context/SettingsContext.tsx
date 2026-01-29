@@ -9,6 +9,7 @@ interface Settings {
   cancelMinDays: number;
   rescheduleMinDays: number;
   defaultResetPassword: string;
+  maxOrderPercentage: number;
 }
 
 interface SettingsContextType {
@@ -26,6 +27,7 @@ const defaultSettings: Settings = {
   cancelMinDays: 3,
   rescheduleMinDays: 3,
   defaultResetPassword: "icap123",
+  maxOrderPercentage: 100,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -51,6 +53,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             cancelMinDays: parseInt(data.find((s: any) => s.key === "cancel_min_days")?.value || "3", 10),
             rescheduleMinDays: parseInt(data.find((s: any) => s.key === "reschedule_min_days")?.value || "3", 10),
             defaultResetPassword: data.find((s: any) => s.key === "default_reset_password")?.value || defaultSettings.defaultResetPassword,
+            maxOrderPercentage: parseInt(data.find((s: any) => s.key === "max_order_percentage")?.value || "100", 10),
           };
           
           setSettings(settingsObject);
@@ -80,6 +83,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         { key: "cancel_min_days", value: updatedSettings.cancelMinDays.toString(), description: "Dias mínimos de antecedência para cancelar pedido" },
         { key: "reschedule_min_days", value: updatedSettings.rescheduleMinDays.toString(), description: "Dias mínimos de antecedência para reprogramar pedido" },
         { key: "default_reset_password", value: updatedSettings.defaultResetPassword, description: "Senha padrão ao resetar senha de usuário" },
+        { key: "max_order_percentage", value: updatedSettings.maxOrderPercentage.toString(), description: "Percentual máximo de carga do pedido sobre a ordem" },
       ];
 
       // Atualizar no servidor

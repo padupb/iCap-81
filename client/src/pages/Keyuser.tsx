@@ -93,6 +93,7 @@ const settingsFormSchema = z.object({
   cancel_min_days: z.string().min(1, "Campo obrigatório"),
   reschedule_min_days: z.string().min(1, "Campo obrigatório"),
   default_reset_password: z.string().min(1, "Campo obrigatório"),
+  max_order_percentage: z.string().min(1, "Campo obrigatório"),
 });
 
 // Lista de menus/áreas do sistema para configuração de permissões
@@ -410,12 +411,23 @@ export default function Keyuser() {
   // Mutation para configurações
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: SettingsFormData) => {
+      const defaultDescriptions: Record<string, string> = {
+        urgent_days_threshold: "Dias para considerar pedido urgente",
+        approval_timeout_hours: "Tempo limite para aprovação em horas",
+        google_maps_api_key: "Chave da API Google Maps",
+        app_name: "Nome da aplicação",
+        logo_url: "URL do logo da aplicação",
+        cancel_min_days: "Dias mínimos de antecedência para cancelar pedido",
+        reschedule_min_days: "Dias mínimos de antecedência para reprogramar pedido",
+        default_reset_password: "Senha padrão ao resetar senha de usuário",
+        max_order_percentage: "Percentual máximo de carga do pedido sobre a ordem",
+      };
       const settingsArray = Object.entries(data).map(([key, value]) => {
         const existingSetting = settings.find((s) => s.key === key);
         return {
           key,
           value: value || "",
-          description: existingSetting?.description || "",
+          description: existingSetting?.description || defaultDescriptions[key] || "",
         };
       });
       return apiRequest("PUT", "/api/settings", settingsArray);
@@ -485,6 +497,7 @@ export default function Keyuser() {
       cancel_min_days: settingsObject.cancel_min_days || "3",
       reschedule_min_days: settingsObject.reschedule_min_days || "3",
       default_reset_password: settingsObject.default_reset_password || "icap123",
+      max_order_percentage: settingsObject.max_order_percentage || "100",
     },
   });
 
@@ -606,6 +619,7 @@ export default function Keyuser() {
       cancel_min_days: "3",
       reschedule_min_days: "3",
       default_reset_password: "icap123",
+      max_order_percentage: "100",
     });
   };
 
@@ -1607,6 +1621,33 @@ export default function Keyuser() {
                             </FormControl>
                             <p className="text-sm text-muted-foreground">
                               Senha padrão atribuída ao resetar a senha de um usuário
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={settingsForm.control}
+                        name="max_order_percentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2 h-5">
+                              <Truck className="w-4 h-4 text-orange-500" />
+                              % Carga Pedido/Ordem
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="100"
+                                placeholder="100"
+                                className="bg-input border-border"
+                                {...field}
+                              />
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              Percentual máximo que um pedido pode ter sobre a ordem (ex: 85% de uma ordem de 10t permite pedidos de até 8,5t)
                             </p>
                             <FormMessage />
                           </FormItem>
