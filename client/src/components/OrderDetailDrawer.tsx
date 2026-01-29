@@ -3160,7 +3160,7 @@ export function OrderDetailDrawer({
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* ===== SEÇÃO DA DISTRIBUIDORA ===== */}
-                      <div className="border border-blue-500/30 rounded-lg p-4 bg-blue-950/30">
+                      <div className="border border-blue-500/30 rounded-lg p-4 bg-blue-950/00">
                         <h4 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
                           <Truck className="w-4 h-4" />
                           Registro de Chegada (Distribuidora/Fornecedor)
@@ -3293,7 +3293,7 @@ export function OrderDetailDrawer({
                       </div>
 
                       {/* ===== SEÇÃO DA CONSTRUTORA ===== */}
-                      <div className="border border-amber-500/30 rounded-lg p-4 bg-amber-950/30">
+                      <div className="border border-amber-500/30 rounded-lg p-4 bg-amber-950/00">
                         <h4 className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
                           <Package className="w-4 h-4" />
                           Confirmação de Recebimento (Construtora)
@@ -3302,7 +3302,7 @@ export function OrderDetailDrawer({
                         {orderDetails.status === "Entregue" ? (
                         // Mostrar informações da entrega confirmada
                         <div className="space-y-4">
-                          <div className="flex items-center justify-center p-6 border border-green-500/30 rounded-lg bg-green-950/30">
+                          <div className="flex items-center justify-center p-6 border border-green-500/30 rounded-lg bg-green-950/00">
                             <div className="text-center">
                               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                               <h3 className="text-xl font-medium text-green-400 mb-2">
