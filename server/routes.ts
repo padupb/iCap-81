@@ -1954,13 +1954,14 @@ Status: Teste em progresso...`;
            oc.valido_ate as valid_until,
            oc.empresa_id as company_id,
            c.name as company_name,
+           oc.cnpj as obra_destino,
            ioc.quantidade as total_quantity,
            COALESCE(
              (SELECT SUM(CAST(o.quantity AS DECIMAL)) 
               FROM orders o 
               WHERE o.purchase_order_id = oc.id 
               AND o.product_id = $1
-              AND o.id != $4
+              AND o.id != $3
               AND o.status NOT IN ('Cancelado', 'excluido')),
              0
            ) as used_quantity
@@ -1968,14 +1969,14 @@ Status: Teste em progresso...`;
          INNER JOIN itens_ordem_compra ioc ON ioc.ordem_compra_id = oc.id AND ioc.produto_id = $1
          INNER JOIN companies c ON oc.empresa_id = c.id
          WHERE oc.status = 'Ativo'
-         AND oc.empresa_id = $3
+         AND oc.empresa_id = $2
          AND NOW() >= oc.valido_desde
          AND NOW() <= oc.valido_ate
-         ${currentPurchaseOrderId ? 'AND oc.id != $5' : ''}
+         ${currentPurchaseOrderId ? 'AND oc.id != $4' : ''}
          ORDER BY oc.valido_ate ASC`,
         currentPurchaseOrderId 
-          ? [productId, requiredQuantity, supplierId, orderId, currentPurchaseOrderId]
-          : [productId, requiredQuantity, supplierId, orderId]
+          ? [productId, supplierId, orderId, currentPurchaseOrderId]
+          : [productId, supplierId, orderId]
       );
 
       // Filtrar as ordens que têm saldo suficiente
@@ -1988,6 +1989,7 @@ Status: Teste em progresso...`;
             id: row.id,
             orderNumber: row.order_number,
             companyName: row.company_name,
+            obraDestino: row.obra_destino,
             validFrom: row.valid_from,
             validUntil: row.valid_until,
             totalQuantity: totalQuantity.toFixed(2),
