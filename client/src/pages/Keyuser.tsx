@@ -891,11 +891,7 @@ export default function Keyuser() {
         {/* Aba Categorias de Empresa */}
         <TabsContent value="categories" className="space-y-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Building className="w-5 h-5" />
-                Categorias de Empresa
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-end">
               <Dialog open={activeCategoryDialog} onOpenChange={setActiveCategoryDialog}>
                 <DialogTrigger asChild>
                   <Button onClick={() => {
@@ -1127,11 +1123,7 @@ export default function Keyuser() {
         {/* Aba Funções de Usuário */}
         <TabsContent value="roles" className="space-y-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Funções de Usuário
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-end">
               <Dialog open={activeRoleDialog} onOpenChange={setActiveRoleDialog}>
                 <DialogTrigger asChild>
                   <Button onClick={() => {
