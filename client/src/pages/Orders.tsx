@@ -44,6 +44,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "@/hooks/use-toast";
 import { useAuthorization } from "@/context/AuthorizationContext";
 import { useAuth } from "@/context/AuthContext";
+import { useSettings } from "@/context/SettingsContext";
 import {
   Table,
   TableBody,
@@ -155,6 +156,7 @@ const statusOptions = [
 export default function Orders() {
   const { canEdit } = useAuthorization();
   const { user: currentUser } = useAuth();
+  const { settings } = useSettings();
   const queryClient = useQueryClient();
 
   // Verificar se o usuário é keyuser
@@ -217,8 +219,8 @@ export default function Orders() {
     },
   });
 
-  // Buscar configurações do sistema
-  const { data: settings = [] } = useQuery({
+  // Buscar configurações do sistema (dados brutos da API)
+  const { data: settingsData = [] } = useQuery({
     queryKey: ["/api/settings"],
     queryFn: async () => {
       const response = await fetch("/api/settings");
@@ -231,11 +233,11 @@ export default function Orders() {
 
   // Atualizar threshold de urgência quando as configurações carregarem
   useEffect(() => {
-    const urgentSetting = settings.find((s: any) => s.key === "urgent_days_threshold");
+    const urgentSetting = settingsData.find((s: any) => s.key === "urgent_days_threshold");
     if (urgentSetting) {
       setUrgentDaysThreshold(parseInt(urgentSetting.value, 10) || 7);
     }
-  }, [settings]);
+  }, [settingsData]);
 
 
 
@@ -497,24 +499,35 @@ export default function Orders() {
     }
   }, [form.watch("purchaseOrderId"), form.watch("productId")]);
 
-  // Validar quantidade com base no saldo disponível
+  // Validar quantidade com base no saldo disponível e percentual máximo
   useEffect(() => {
     const quantity = form.watch("quantity");
 
     if (quantity && productBalance?.sucesso) {
       const quantityValue = parseFloat(quantity);
-      const saldoDisponivel = productBalance.saldo_disponivel || productBalance.saldoDisponivel || 0;
+      const saldoDisponivel = productBalance.saldo_disponivel ?? productBalance.saldoDisponivel ?? 0;
+      const quantidadeTotal = (productBalance as any).quantidade_total ?? (productBalance as any).quantidadeTotal ?? 0;
+      const maxOrderPercentage = settings.maxOrderPercentage ?? 100;
+      const maxAllowedByPercentage = (quantidadeTotal * maxOrderPercentage) / 100;
 
       console.log("Validação de quantidade:", {
         quantity,
         quantityValue,
         saldoDisponivel,
+        quantidadeTotal,
+        maxOrderPercentage,
+        maxAllowedByPercentage,
         productBalance,
         comparison: quantityValue > saldoDisponivel
       });
 
-      if (quantityValue > saldoDisponivel) {
-        const unidade = productBalance.unidade ? ` ${productBalance.unidade}` : '';
+      const unidade = productBalance.unidade ? ` ${productBalance.unidade}` : '';
+
+      if (maxOrderPercentage < 100 && quantidadeTotal > 0 && quantityValue > maxAllowedByPercentage) {
+        setQuantityError(
+          `Quantidade excede o limite de ${maxOrderPercentage}% da ordem (máx: ${formatNumber(maxAllowedByPercentage)}${unidade})`,
+        );
+      } else if (quantityValue > saldoDisponivel) {
         setQuantityError(
           `Quantidade excede o saldo disponível (${formatNumber(saldoDisponivel)}${unidade})`,
         );
@@ -522,7 +535,7 @@ export default function Orders() {
         setQuantityError(null);
       }
     }
-  }, [form.watch("quantity"), productBalance]);
+  }, [form.watch("quantity"), productBalance, settings.maxOrderPercentage]);
 
   // Verificar se o pedido é urgente baseado na data de entrega
   useEffect(() => {
@@ -851,6 +864,24 @@ export default function Orders() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Validação adicional do percentual máximo (garantia extra)
+    if (productBalance?.sucesso) {
+      const quantityValue = parseFloat(data.quantity);
+      const quantidadeTotal = (productBalance as any).quantidade_total ?? (productBalance as any).quantidadeTotal ?? 0;
+      const maxOrderPercentage = settings.maxOrderPercentage ?? 100;
+      const maxAllowedByPercentage = (quantidadeTotal * maxOrderPercentage) / 100;
+      
+      if (maxOrderPercentage < 100 && quantidadeTotal > 0 && quantityValue > maxAllowedByPercentage) {
+        const unidade = productBalance.unidade ? ` ${productBalance.unidade}` : '';
+        toast({
+          title: "Erro de validação",
+          description: `Quantidade excede o limite de ${maxOrderPercentage}% da ordem (máx: ${formatNumber(maxAllowedByPercentage)}${unidade})`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Validar se a data de entrega está dentro do período de validade da ordem de compra
