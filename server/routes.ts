@@ -4579,6 +4579,89 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para excluir ordem de compra (apenas KeyUsers)
+  app.delete("/api/ordem-compra/:id", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "ID inválido"
+        });
+      }
+
+      console.log(`🗑️ KeyUser ${req.session.userId} tentando excluir ordem de compra ID: ${id}`);
+
+      // Verificar se a ordem existe
+      const ordemResult = await pool.query(
+        `SELECT id, numero_ordem FROM ordens_compra WHERE id = $1`,
+        [id]
+      );
+
+      if (ordemResult.rows.length === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: "Ordem de compra não encontrada"
+        });
+      }
+
+      const ordem = ordemResult.rows[0];
+
+      // Verificar se há pedidos vinculados a esta ordem
+      const pedidosResult = await pool.query(
+        `SELECT COUNT(*) as total FROM orders WHERE purchase_order_id = $1`,
+        [id]
+      );
+
+      const totalPedidos = parseInt(pedidosResult.rows[0].total);
+      if (totalPedidos > 0) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `Não é possível excluir esta ordem. Existem ${totalPedidos} pedido(s) vinculado(s) a ela.`
+        });
+      }
+
+      // Excluir itens da ordem primeiro
+      await pool.query(
+        `DELETE FROM itens_ordem_compra WHERE ordem_compra_id = $1`,
+        [id]
+      );
+
+      // Excluir a ordem de compra
+      await pool.query(
+        `DELETE FROM ordens_compra WHERE id = $1`,
+        [id]
+      );
+
+      // Registrar log de exclusão
+      if (req.session.userId) {
+        await storage.createLog({
+          userId: req.session.userId,
+          action: "Excluiu ordem de compra",
+          itemType: "purchase_order",
+          itemId: id.toString(),
+          details: `Ordem de compra ${ordem.numero_ordem} excluída`
+        });
+      }
+
+      console.log(`✅ Ordem de compra ${ordem.numero_ordem} (ID: ${id}) excluída com sucesso`);
+
+      res.json({
+        sucesso: true,
+        mensagem: `Ordem de compra ${ordem.numero_ordem} excluída com sucesso`
+      });
+
+    } catch (error) {
+      console.error("Erro ao excluir ordem de compra:", error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Erro ao excluir ordem de compra",
+        erro: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Rota para verificar saldo disponível de um produto em uma ordem de compra
   app.get("/api/ordens-compra/:ordemId/produtos/:produtoId/saldo", async (req, res) => {
     try {
