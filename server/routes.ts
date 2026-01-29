@@ -6427,11 +6427,11 @@ Status: Teste em progresso...`;
       // Processar OCR da foto para extrair metadados
       let dadosOCR = null;
       try {
-        console.log(`🔍 Processando OCR da imagem...`);
+        console.log(`📸 Processando metadados da imagem: ${foto.originalname} (${foto.mimetype})`);
         dadosOCR = await extractImageMetadata(foto.buffer, foto.mimetype);
-        console.log(`✅ OCR concluído:`, dadosOCR);
+        console.log(`✅ Resultado metadados:`, JSON.stringify(dadosOCR, null, 2));
       } catch (ocrError) {
-        console.error(`⚠️ Erro no OCR (continuando sem dados):`, ocrError);
+        console.error(`⚠️ Erro ao extrair metadados:`, ocrError);
       }
 
       // Upload da foto para Object Storage
