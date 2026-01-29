@@ -3378,8 +3378,8 @@ export function OrderDetailDrawer({
                             </Button>
                           </div>
                         </div>
-                      ) : (userCompanyType?.isConstrutora || userCompanyType?.isKeyUser || user?.canConfirmDelivery) ? (
-                        // Formulário de confirmação (apenas construtora/keyuser/permissão especial)
+                      ) : (userCompanyType?.isConstrutora || userCompanyType?.isKeyUser || user?.canConfirmDelivery || userCompanyType?.isDistribuidora) ? (
+                        // Formulário de confirmação (construtora/keyuser/permissão especial/distribuidora)
                         <>
                           <div className="space-y-2">
                             <label className="text-sm font-medium">
