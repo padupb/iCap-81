@@ -1458,22 +1458,12 @@ export default function Keyuser() {
         {/* Aba Configurações Gerais */}
         <TabsContent value="settings" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Configurações Gerais
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <Form {...settingsForm}>
                 <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="space-y-8">
                   {/* Configurações Gerais */}
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-lg font-medium text-foreground mb-4">
-                        Configurações Gerais
-                      </h3>
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
                           control={settingsForm.control}
