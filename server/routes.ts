@@ -1941,37 +1941,37 @@ Status: Teste em progresso...`;
 
       // Buscar ordens de compra que:
       // 1. Tenham o mesmo produto
-      // 2. Estejam válidas (data atual entre valid_from e valid_until)
+      // 2. Estejam válidas (data atual entre valid_desde e valid_ate)
       // 3. Tenham saldo disponível >= quantidade do pedido
       // 4. Pertençam ao mesmo fornecedor do pedido
       // 5. Não sejam a ordem atual do pedido
       const availableOrdersResult = await pool.query(
         `SELECT 
-           po.id,
-           po.order_number,
-           po.valid_from,
-           po.valid_until,
-           po.company_id,
+           oc.id,
+           oc.numero_ordem as order_number,
+           oc.valido_desde as valid_from,
+           oc.valido_ate as valid_until,
+           oc.empresa_id as company_id,
            c.name as company_name,
-           poi.quantity as total_quantity,
+           ioc.quantidade as total_quantity,
            COALESCE(
              (SELECT SUM(CAST(o.quantity AS DECIMAL)) 
               FROM orders o 
-              WHERE o.purchase_order_id = po.id 
+              WHERE o.purchase_order_id = oc.id 
               AND o.product_id = $1
               AND o.id != $4
-              AND o.status != 'Cancelado'),
+              AND o.status NOT IN ('Cancelado', 'excluido')),
              0
            ) as used_quantity
-         FROM purchase_orders po
-         INNER JOIN purchase_order_items poi ON poi.purchase_order_id = po.id AND poi.product_id = $1
-         INNER JOIN companies c ON po.company_id = c.id
-         WHERE po.status = 'Ativo'
-         AND po.company_id = $3
-         AND NOW() >= po.valid_from
-         AND NOW() <= po.valid_until
-         ${currentPurchaseOrderId ? 'AND po.id != $5' : ''}
-         ORDER BY po.valid_until ASC`,
+         FROM ordens_compra oc
+         INNER JOIN itens_ordem_compra ioc ON ioc.ordem_compra_id = oc.id AND ioc.produto_id = $1
+         INNER JOIN companies c ON oc.empresa_id = c.id
+         WHERE oc.status = 'Ativo'
+         AND oc.empresa_id = $3
+         AND NOW() >= oc.valido_desde
+         AND NOW() <= oc.valido_ate
+         ${currentPurchaseOrderId ? 'AND oc.id != $5' : ''}
+         ORDER BY oc.valido_ate ASC`,
         currentPurchaseOrderId 
           ? [productId, requiredQuantity, supplierId, orderId, currentPurchaseOrderId]
           : [productId, requiredQuantity, supplierId, orderId]
@@ -2043,13 +2043,14 @@ Status: Teste em progresso...`;
 
       // Buscar a nova ordem de compra e validar
       const newPOResult = await pool.query(
-        `SELECT po.id, po.order_number, po.company_id, po.valid_from, po.valid_until, po.status,
-                poi.quantity as item_quantity,
+        `SELECT oc.id, oc.numero_ordem as order_number, oc.empresa_id as company_id, 
+                oc.valido_desde as valid_from, oc.valido_ate as valid_until, oc.status,
+                ioc.quantidade as item_quantity,
                 c.name as company_name
-         FROM purchase_orders po
-         INNER JOIN purchase_order_items poi ON poi.purchase_order_id = po.id AND poi.product_id = $2
-         INNER JOIN companies c ON po.company_id = c.id
-         WHERE po.id = $1`,
+         FROM ordens_compra oc
+         INNER JOIN itens_ordem_compra ioc ON ioc.ordem_compra_id = oc.id AND ioc.produto_id = $2
+         INNER JOIN companies c ON oc.empresa_id = c.id
+         WHERE oc.id = $1`,
         [newPurchaseOrderId, order.product_id]
       );
 
@@ -2094,7 +2095,7 @@ Status: Teste em progresso...`;
          WHERE purchase_order_id = $1 
          AND product_id = $2 
          AND id != $3
-         AND status != 'Cancelado'`,
+         AND status NOT IN ('Cancelado', 'excluido')`,
         [newPurchaseOrderId, order.product_id, orderId]
       );
 
