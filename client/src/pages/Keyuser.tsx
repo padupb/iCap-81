@@ -1498,8 +1498,7 @@ export default function Keyuser() {
                           name="urgent_days_threshold"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="flex items-center gap-2 h-5">
-                                <Clock className="w-4 h-4" />
+                              <FormLabel className="flex items-center h-5">
                                 Limite de Urgência (dias)
                               </FormLabel>
                               <FormControl>
@@ -1524,8 +1523,7 @@ export default function Keyuser() {
                         name="approval_timeout_hours"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="flex items-center gap-2 h-5">
-                              <Clock className="w-4 h-4 text-red-500" />
+                            <FormLabel className="flex items-center h-5">
                               Timeout de Aprovação (horas)
                             </FormLabel>
                             <FormControl>
@@ -1552,8 +1550,7 @@ export default function Keyuser() {
                           name="cancel_min_days"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="flex items-center gap-2 h-5">
-                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                              <FormLabel className="flex items-center h-5">
                                 Dias Mínimos para Cancelar
                               </FormLabel>
                               <FormControl>
@@ -1579,8 +1576,7 @@ export default function Keyuser() {
                           name="reschedule_min_days"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="flex items-center gap-2 h-5">
-                                <Clock className="w-4 h-4 text-blue-500" />
+                              <FormLabel className="flex items-center h-5">
                                 Dias Mínimos para Reprogramar
                               </FormLabel>
                               <FormControl>
@@ -1607,8 +1603,7 @@ export default function Keyuser() {
                         name="default_reset_password"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="flex items-center gap-2 h-5">
-                              <Key className="w-4 h-4 text-purple-500" />
+                            <FormLabel className="flex items-center h-5">
                               Senha Padrão para Reset
                             </FormLabel>
                             <FormControl>
@@ -1632,8 +1627,7 @@ export default function Keyuser() {
                         name="max_order_percentage"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="flex items-center gap-2 h-5">
-                              <Truck className="w-4 h-4 text-orange-500" />
+                            <FormLabel className="flex items-center h-5">
                               % Carga Pedido/Ordem
                             </FormLabel>
                             <FormControl>
