@@ -17,7 +17,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -128,8 +132,10 @@ export function OrderDetailDrawer({
   // Estados para entrega da distribuidora
   const [dataChegadaDistribuidora, setDataChegadaDistribuidora] = useState("");
   const [horaChegadaDistribuidora, setHoraChegadaDistribuidora] = useState("");
-  const [fotoChegadaDistribuidora, setFotoChegadaDistribuidora] = useState<File | null>(null);
-  const [isSubmittingDistribuidora, setIsSubmittingDistribuidora] = useState(false);
+  const [fotoChegadaDistribuidora, setFotoChegadaDistribuidora] =
+    useState<File | null>(null);
+  const [isSubmittingDistribuidora, setIsSubmittingDistribuidora] =
+    useState(false);
   const fotoChegadaDistribuidoraRef = useRef<HTMLInputElement>(null);
 
   // Estado para número do pedido
@@ -178,7 +184,7 @@ export function OrderDetailDrawer({
       isDuplicate: boolean;
       matchingOrderId?: string;
       matchingOrderNumericId?: number;
-      matchType?: 'order_id' | 'nfe_number';
+      matchType?: "order_id" | "nfe_number";
       message?: string;
     };
   } | null>(null);
@@ -245,7 +251,7 @@ export function OrderDetailDrawer({
   const { data: ordensCompra = [] } = useQuery({
     queryKey: ["/api/ordens-compra"],
     enabled: !!orderId && open,
-    });
+  });
 
   // Buscar tipo de empresa do usuário logado
   const { data: userCompanyType } = useQuery<{
@@ -261,7 +267,10 @@ export function OrderDetailDrawer({
   });
 
   // Buscar dados de entrega da distribuidora
-  const { data: entregaDistribuidoraData, refetch: refetchEntregaDistribuidora } = useQuery<{
+  const {
+    data: entregaDistribuidoraData,
+    refetch: refetchEntregaDistribuidora,
+  } = useQuery<{
     success: boolean;
     entregaDistribuidora: {
       dataChegada: string;
@@ -296,7 +305,7 @@ export function OrderDetailDrawer({
     const order = orders.find((o) => o.id === orderId);
     if (!order) return null;
 
-    console.log('📋 Debug orderDetails:', {
+    console.log("📋 Debug orderDetails:", {
       id: order.id,
       order_id: (order as any).order_id,
       numero_pedido: order.numero_pedido,
@@ -305,21 +314,22 @@ export function OrderDetailDrawer({
       supplier_id: (order as any).supplier_id,
       purchase_order_id: (order as any).purchase_order_id,
       deliveryDate: order.deliveryDate || (order as any).delivery_date,
-      createdAt: order.createdAt || (order as any).created_at
+      createdAt: order.createdAt || (order as any).created_at,
     });
 
     // Usar os campos corretos do banco de dados
     const productId = order.productId || (order as any).product_id;
     const supplierId = order.supplierId || (order as any).supplier_id;
-    const purchaseOrderId = order.purchaseOrderId || (order as any).purchase_order_id;
+    const purchaseOrderId =
+      order.purchaseOrderId || (order as any).purchase_order_id;
     const deliveryDate = order.deliveryDate || (order as any).delivery_date;
     const createdAt = order.createdAt || (order as any).created_at;
 
-    console.log('📋 Debug mapeamento de IDs:', {
+    console.log("📋 Debug mapeamento de IDs:", {
       orderId: order.id,
       productId,
       supplierId,
-      purchaseOrderId
+      purchaseOrderId,
     });
 
     const product = products.find((p) => p.id === productId);
@@ -357,7 +367,9 @@ export function OrderDetailDrawer({
         } as PurchaseOrder;
 
         // Buscar a empresa da ordem de compra
-        purchaseOrderCompany = companies.find((c) => c.id === ordemCompra.empresa_id);
+        purchaseOrderCompany = companies.find(
+          (c) => c.id === ordemCompra.empresa_id,
+        );
 
         // Buscar a obra de destino usando o cnpj da ordem de compra
         console.log("🎯 Debug cnpj da obra na ordem:", ordemCompra.cnpj);
@@ -375,19 +387,21 @@ export function OrderDetailDrawer({
         if (purchaseOrderFound) {
           purchaseOrder = purchaseOrderFound;
           // Buscar a empresa da ordem de compra
-          purchaseOrderCompany = companies.find((c) => c.id === purchaseOrderFound.companyId);
+          purchaseOrderCompany = companies.find(
+            (c) => c.id === purchaseOrderFound.companyId,
+          );
         }
       }
     }
 
     console.log("🔍 DEBUG Final - purchaseOrder após busca:", purchaseOrder);
 
-    console.log('📋 Debug final orderDetails:', {
+    console.log("📋 Debug final orderDetails:", {
       product: product?.name,
       supplier: supplier?.name,
       unit: unit?.abbreviation,
       purchaseOrder: purchaseOrder?.orderNumber || purchaseOrder?.orderNumber,
-      workDestination: workDestination?.name
+      workDestination: workDestination?.name,
     });
 
     return {
@@ -406,7 +420,15 @@ export function OrderDetailDrawer({
       unit?: Unit;
       workDestination?: Company;
     };
-  }, [orderId, orders, products, companies, purchaseOrders, ordensCompra, units]);
+  }, [
+    orderId,
+    orders,
+    products,
+    companies,
+    purchaseOrders,
+    ordensCompra,
+    units,
+  ]);
 
   // Função para formatar produto com quantidade e unidade
   const formatProductWithUnit = (orderDetails: any) => {
@@ -469,20 +491,26 @@ export function OrderDetailDrawer({
     if (!user || !orderDetails) return false;
 
     // NENHUM usuário pode fazer upload em pedidos cancelados ou suspensos
-    if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado" || orderDetails.status === "Suspenso") return false;
+    if (
+      orderDetails.quantidade === 0 ||
+      orderDetails.status === "Cancelado" ||
+      orderDetails.status === "Suspenso"
+    )
+      return false;
 
     // KeyUser sempre pode fazer upload (exceto em pedidos cancelados/suspensos)
     if (user.id === 1 || user.isKeyUser) return true;
 
     // Obter supplier_id usando múltiplas possibilidades de campo
-    const supplierId = orderDetails.supplierId || (orderDetails as any).supplier_id;
+    const supplierId =
+      orderDetails.supplierId || (orderDetails as any).supplier_id;
 
     // Verificar se o usuário pertence à empresa fornecedora do pedido
     if (user.companyId && supplierId) {
-      console.log('🔍 Verificação de permissão upload:', {
+      console.log("🔍 Verificação de permissão upload:", {
         userCompanyId: user.companyId,
         supplierId,
-        match: user.companyId === supplierId
+        match: user.companyId === supplierId,
       });
       return user.companyId === supplierId;
     }
@@ -495,7 +523,16 @@ export function OrderDetailDrawer({
     if (!user || !orderDetails) return false;
 
     // Não pode reprogramar se o pedido estiver entregue, cancelado, suspenso ou em rota
-    if (["Entregue", "Cancelado", "Suspenso", "Em Rota", "Em transporte"].includes(orderDetails.status)) return false;
+    if (
+      [
+        "Entregue",
+        "Cancelado",
+        "Suspenso",
+        "Em Rota",
+        "Em transporte",
+      ].includes(orderDetails.status)
+    )
+      return false;
 
     // Verificar se deliveryDate existe
     if (!orderDetails.deliveryDate) return false;
@@ -520,7 +557,9 @@ export function OrderDetailDrawer({
 
     // KeyUsers (IDs 1-5) sempre podem reprogramar (se passar as validações acima)
     if ((user.id >= 1 && user.id <= 5) || user.isKeyUser) {
-      console.log(`🔑 KeyUser (ID ${user.id}) detectado - permitindo reprogramação do pedido ${orderDetails.orderId}`);
+      console.log(
+        `🔑 KeyUser (ID ${user.id}) detectado - permitindo reprogramação do pedido ${orderDetails.orderId}`,
+      );
       return true;
     }
 
@@ -532,7 +571,7 @@ export function OrderDetailDrawer({
     if (!workDestination) return false;
 
     // Verificar se o CNPJ da empresa do usuário corresponde ao CNPJ da obra de destino
-    const userCompany = companies.find(c => c.id === user.companyId);
+    const userCompany = companies.find((c) => c.id === user.companyId);
     if (!userCompany) return false;
 
     return userCompany.cnpj === workDestination.cnpj;
@@ -581,34 +620,47 @@ export function OrderDetailDrawer({
           body: formData,
         });
 
-        console.log(`📥 Resposta recebida: ${response.status} ${response.statusText}`);
-        console.log(`📋 Content-Type: ${response.headers.get('content-type')}`);
+        console.log(
+          `📥 Resposta recebida: ${response.status} ${response.statusText}`,
+        );
+        console.log(`📋 Content-Type: ${response.headers.get("content-type")}`);
 
         if (!response.ok) {
           // Tentar ler como texto primeiro
           const responseText = await response.text();
-          console.error(`❌ Erro do servidor (${response.status}):`, responseText);
+          console.error(
+            `❌ Erro do servidor (${response.status}):`,
+            responseText,
+          );
 
           // Tentar interpretar como JSON se possível
           try {
             const errorData = JSON.parse(responseText);
             throw new Error(
-              errorData.mensagem || errorData.message || "Falha ao fazer upload dos documentos",
+              errorData.mensagem ||
+                errorData.message ||
+                "Falha ao fazer upload dos documentos",
             );
           } catch (jsonError) {
             // Se não for JSON válido, usar o texto da resposta
             throw new Error(
-              responseText.substring(0, 200) || `Erro no servidor: ${response.status}`,
+              responseText.substring(0, 200) ||
+                `Erro no servidor: ${response.status}`,
             );
           }
         }
 
         // Verificar se a resposta é JSON antes de tentar fazer parse
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
           const responseText = await response.text();
-          console.error(`❌ Resposta não é JSON:`, responseText.substring(0, 200));
-          throw new Error(`Servidor retornou resposta inválida: ${responseText.substring(0, 100)}`);
+          console.error(
+            `❌ Resposta não é JSON:`,
+            responseText.substring(0, 200),
+          );
+          throw new Error(
+            `Servidor retornou resposta inválida: ${responseText.substring(0, 100)}`,
+          );
         }
 
         const data = await response.json();
@@ -670,14 +722,18 @@ export function OrderDetailDrawer({
       isDuplicate: boolean;
       matchingOrderId?: string;
       matchingOrderNumericId?: number;
-      matchType?: 'order_id' | 'nfe_number';
+      matchType?: "order_id" | "nfe_number";
       message?: string;
     };
   } | null;
 
   // Função para validar documentos antes do upload
-  const validateDocumentsBeforeUpload = async (): Promise<{ passed: boolean; result: ValidationResultType }> => {
-    if (!orderId || !notaPdf || !notaXml) return { passed: false, result: null };
+  const validateDocumentsBeforeUpload = async (): Promise<{
+    passed: boolean;
+    result: ValidationResultType;
+  }> => {
+    if (!orderId || !notaPdf || !notaXml)
+      return { passed: false, result: null };
 
     setIsValidating(true);
     toast({
@@ -690,10 +746,13 @@ export function OrderDetailDrawer({
       validationFormData.append("nota_pdf", notaPdf as Blob);
       validationFormData.append("nota_xml", notaXml as Blob);
 
-      const response = await fetch(`/api/pedidos/${orderId}/validar-documentos`, {
-        method: "POST",
-        body: validationFormData,
-      });
+      const response = await fetch(
+        `/api/pedidos/${orderId}/validar-documentos`,
+        {
+          method: "POST",
+          body: validationFormData,
+        },
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -725,7 +784,8 @@ export function OrderDetailDrawer({
       console.error("Erro na validação:", error);
       toast({
         title: "Erro na validação",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
+        description:
+          error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive",
       });
       return { passed: false, result: null };
@@ -890,7 +950,7 @@ export function OrderDetailDrawer({
       console.log("Arquivo selecionado:", file.name, file.type, file.size);
 
       // Validar formato de imagem
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      const validTypes = ["image/jpeg", "image/jpg", "image/png"];
       if (!validTypes.includes(file.type)) {
         toast({
           title: "Formato Inválido",
@@ -933,24 +993,27 @@ export function OrderDetailDrawer({
 
     console.log(`📤 Enviando confirmação de número do pedido:`, {
       pedidoId: orderDetails.id,
-      numeroPedido: numeroPedido.trim()
+      numeroPedido: numeroPedido.trim(),
     });
 
     try {
-      const response = await fetch(`/api/pedidos/${orderDetails.id}/confirmar-numero-pedido`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `/api/pedidos/${orderDetails.id}/confirmar-numero-pedido`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            numeroPedido: numeroPedido.trim(),
+          }),
         },
-        body: JSON.stringify({
-          numeroPedido: numeroPedido.trim(),
-        }),
-      });
+      );
 
       console.log(`📥 Resposta recebida:`, {
         status: response.status,
         statusText: response.statusText,
-        contentType: response.headers.get("content-type")
+        contentType: response.headers.get("content-type"),
       });
 
       if (!response.ok) {
@@ -964,7 +1027,8 @@ export function OrderDetailDrawer({
       if (result.sucesso) {
         toast({
           title: "Sucesso",
-          description: "Número do pedido confirmado - Status alterado para Em Rota",
+          description:
+            "Número do pedido confirmado - Status alterado para Em Rota",
         });
 
         // Atualizar a lista de pedidos
@@ -984,7 +1048,10 @@ export function OrderDetailDrawer({
       console.error("❌ Erro ao confirmar número do pedido:", error);
       toast({
         title: "Erro",
-        description: error instanceof Error ? error.message : "Erro ao confirmar número do pedido",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Erro ao confirmar número do pedido",
         variant: "destructive",
       });
     }
@@ -1011,16 +1078,19 @@ export function OrderDetailDrawer({
     }
 
     try {
-      const response = await fetch(`/api/pedidos/${orderDetails.id}/reprogramar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `/api/pedidos/${orderDetails.id}/reprogramar`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            novaDataEntrega: selectedDate.toISOString(),
+            motivo: justificativa.trim(),
+          }),
         },
-        body: JSON.stringify({
-          novaDataEntrega: selectedDate.toISOString(),
-          motivo: justificativa.trim(),
-        }),
-      });
+      );
 
       const result = await response.json();
 
@@ -1093,7 +1163,8 @@ export function OrderDetailDrawer({
       } else {
         toast({
           title: "Erro",
-          description: result.mensagem || "Erro desconhecido ao cancelar pedido",
+          description:
+            result.mensagem || "Erro desconhecido ao cancelar pedido",
           variant: "destructive",
         });
       }
@@ -1101,7 +1172,8 @@ export function OrderDetailDrawer({
       console.error("Erro ao cancelar pedido:", error);
       toast({
         title: "Erro",
-        description: error instanceof Error ? error.message : "Erro ao cancelar pedido",
+        description:
+          error instanceof Error ? error.message : "Erro ao cancelar pedido",
         variant: "destructive",
       });
     }
@@ -1142,18 +1214,21 @@ export function OrderDetailDrawer({
         description: "Processando foto e dados de chegada...",
       });
 
-      const response = await fetch(`/api/pedidos/${orderDetails.id}/entrega-distribuidora`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `/api/pedidos/${orderDetails.id}/entrega-distribuidora`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
 
       const result = await response.json();
 
       if (result.sucesso) {
         toast({
           title: "Chegada Registrada",
-          description: result.dadosOCR?.success 
-            ? `Chegada registrada! ${result.dadosOCR.location ? `Local detectado: ${result.dadosOCR.location}` : ''}`
+          description: result.dadosOCR?.success
+            ? `Chegada registrada! ${result.dadosOCR.location ? `Local detectado: ${result.dadosOCR.location}` : ""}`
             : "Chegada registrada com sucesso",
         });
 
@@ -1161,11 +1236,13 @@ export function OrderDetailDrawer({
         setDataChegadaDistribuidora("");
         setHoraChegadaDistribuidora("");
         setFotoChegadaDistribuidora(null);
-        
+
         // Atualizar dados
         refetchEntregaDistribuidora();
         queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-        queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${orderId}/historico`] });
+        queryClient.invalidateQueries({
+          queryKey: [`/api/pedidos/${orderId}/historico`],
+        });
       } else {
         toast({
           title: "Erro",
@@ -1177,14 +1254,14 @@ export function OrderDetailDrawer({
       console.error("Erro ao registrar chegada:", error);
       toast({
         title: "Erro",
-        description: error instanceof Error ? error.message : "Erro ao registrar chegada",
+        description:
+          error instanceof Error ? error.message : "Erro ao registrar chegada",
         variant: "destructive",
       });
     } finally {
       setIsSubmittingDistribuidora(false);
     }
   };
-
 
   // Função para confirmar entrega
   const handleConfirmDelivery = async (action: "aprovado" | "rejeitado") => {
@@ -1221,17 +1298,21 @@ export function OrderDetailDrawer({
           description: "Enviando foto e confirmando entrega...",
         });
 
-        const response = await fetch(`/api/pedidos/${orderDetails.id}/confirmar`, {
-          method: "POST",
-          body: formData,
-        });
+        const response = await fetch(
+          `/api/pedidos/${orderDetails.id}/confirmar`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
 
         const result = await response.json();
 
         if (result.sucesso) {
           toast({
             title: "Entrega confirmada com sucesso!",
-            description: "A foto foi enviada e a entrega foi confirmada automaticamente.",
+            description:
+              "A foto foi enviada e a entrega foi confirmada automaticamente.",
           });
 
           // Atualizar a lista de pedidos
@@ -1279,7 +1360,7 @@ export function OrderDetailDrawer({
   // Função para formatar data e hora no fuso de Brasília (GMT-3)
   const formatDateTimeInCuiaba = (dateString: string): string => {
     const date = new Date(dateString);
-    return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    return date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   };
 
   // Função para gerar link do Google Maps
@@ -1296,7 +1377,9 @@ export function OrderDetailDrawer({
     if (!orderId) return;
 
     try {
-      const response = await fetch(`/api/pedidos/${orderId}/documentos/${docType}`);
+      const response = await fetch(
+        `/api/pedidos/${orderId}/documentos/${docType}`,
+      );
       if (!response.ok) {
         throw new Error(`Erro ao carregar documento: ${response.statusText}`);
       }
@@ -1306,7 +1389,7 @@ export function OrderDetailDrawer({
 
       reader.onloadend = () => {
         const base64Data = reader.result as string;
-        const contentDisposition = response.headers.get('Content-Disposition');
+        const contentDisposition = response.headers.get("Content-Disposition");
         let filename = defaultFilename;
 
         if (contentDisposition) {
@@ -1327,7 +1410,8 @@ export function OrderDetailDrawer({
       console.error(`Erro ao visualizar ${docType}:`, error);
       toast({
         title: "Erro ao visualizar documento",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
+        description:
+          error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive",
       });
     }
@@ -1338,7 +1422,7 @@ export function OrderDetailDrawer({
     if (!orderDetails) return;
 
     // Criar uma nova janela para impressão
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    const printWindow = window.open("", "_blank", "width=800,height=600");
     if (!printWindow) return;
 
     // Calcular progresso baseado no status atual
@@ -1355,26 +1439,30 @@ export function OrderDetailDrawer({
     };
 
     // Gerar o QR code como data URL
-    const canvas = document.createElement('canvas');
-    import('qrcode').then((QRCode) => {
-      QRCode.toCanvas(canvas, orderDetails.orderId, {
-        width: 120,
-        margin: 1,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
-      }, (error: any) => {
-        if (error) {
-          console.error('Erro ao gerar QR code:', error);
-          return;
-        }
+    const canvas = document.createElement("canvas");
+    import("qrcode").then((QRCode) => {
+      QRCode.toCanvas(
+        canvas,
+        orderDetails.orderId,
+        {
+          width: 120,
+          margin: 1,
+          color: {
+            dark: "#000000",
+            light: "#FFFFFF",
+          },
+        },
+        (error: any) => {
+          if (error) {
+            console.error("Erro ao gerar QR code:", error);
+            return;
+          }
 
-        const qrCodeDataUrl = canvas.toDataURL();
-        const currentProgress = getStatusProgress(orderDetails.status);
+          const qrCodeDataUrl = canvas.toDataURL();
+          const currentProgress = getStatusProgress(orderDetails.status);
 
-        // HTML do layout de impressão
-        const printHTML = `
+          // HTML do layout de impressão
+          const printHTML = `
           <!DOCTYPE html>
           <html>
             <head>
@@ -1584,11 +1672,11 @@ export function OrderDetailDrawer({
 
                   <div className="detail-item">
                     <div className="detail-label">Data de Entrega</div>
-                    <div className="detail-value">${orderDetails.status === "Suspenso" ? (
-                                  `<span class="text-orange-600">Reprogramação solicitada</span>`
-                                ) : (
-                                  formatDate(orderDetails.deliveryDate.toString())
-                                )}</div>
+                    <div className="detail-value">${
+                      orderDetails.status === "Suspenso"
+                        ? `<span class="text-orange-600">Reprogramação solicitada</span>`
+                        : formatDate(orderDetails.deliveryDate.toString())
+                    }</div>
                   </div>
 
                   <div className="detail-item">
@@ -1615,17 +1703,17 @@ export function OrderDetailDrawer({
                   </div>
 
                   <div class="progress-step">
-                    <div class="step-circle ${currentProgress >= 33.33 ? 'completed' : ''}">2</div>
+                    <div class="step-circle ${currentProgress >= 33.33 ? "completed" : ""}">2</div>
                     <div class="step-label">Carregado</div>
                   </div>
 
                   <div class="progress-step">
-                    <div class="step-circle ${currentProgress >= 66.66 ? 'completed' : ''}">3</div>
+                    <div class="step-circle ${currentProgress >= 66.66 ? "completed" : ""}">3</div>
                     <div class="step-label">Em Rota</div>
                   </div>
 
                   <div class="progress-step">
-                    <div class="step-circle ${currentProgress >= 100 ? 'completed' : ''}">4</div>
+                    <div class="step-circle ${currentProgress >= 100 ? "completed" : ""}">4</div>
                     <div class="step-label">Entregue</div>
                   </div>
                 </div>
@@ -1633,24 +1721,25 @@ export function OrderDetailDrawer({
 
               <div class="footer">
                 <p>Sistema iCAP 7.0 - Gestão de Pedidos</p>
-                <p>Documento gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
+                <p>Documento gerado em ${new Date().toLocaleDateString("pt-BR")}</p>
               </div>
             </body>
           </html>
         `;
 
-        // Escrever o HTML na nova janela
-        printWindow.document.write(printHTML);
-        printWindow.document.close();
+          // Escrever o HTML na nova janela
+          printWindow.document.write(printHTML);
+          printWindow.document.close();
 
-        // Aguardar o carregamento e então imprimir
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-          }, 500);
-        };
-      });
+          // Aguardar o carregamento e então imprimir
+          printWindow.onload = () => {
+            setTimeout(() => {
+              printWindow.print();
+              printWindow.close();
+            }, 500);
+          };
+        },
+      );
     });
   };
 
@@ -1665,14 +1754,20 @@ export function OrderDetailDrawer({
             <DrawerTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg font-semibold">
-                  {orderDetails ? ((orderDetails as any).order_id || orderDetails.orderId || "N/A") : "Carregando..."}
+                  {orderDetails
+                    ? (orderDetails as any).order_id ||
+                      orderDetails.orderId ||
+                      "N/A"
+                    : "Carregando..."}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => {
-                    const pedidoId = orderDetails ? ((orderDetails as any).order_id || orderDetails.orderId) : null;
+                    const pedidoId = orderDetails
+                      ? (orderDetails as any).order_id || orderDetails.orderId
+                      : null;
                     if (pedidoId) {
                       navigator.clipboard.writeText(pedidoId);
                       toast({
@@ -1750,13 +1845,22 @@ export function OrderDetailDrawer({
                     className="flex items-center gap-1"
                     disabled={(() => {
                       // 1. Se o pedido for cancelado, suspenso ou não iniciado, bloquear acesso à aba documentos
-                      if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado" || orderDetails.status === "Suspenso" || orderDetails.status === "Não iniciado") {
-                        console.log(`🚫 Aba de documentos bloqueada - Status: ${orderDetails.status}`);
+                      if (
+                        orderDetails.quantidade === 0 ||
+                        orderDetails.status === "Cancelado" ||
+                        orderDetails.status === "Suspenso" ||
+                        orderDetails.status === "Não iniciado"
+                      ) {
+                        console.log(
+                          `🚫 Aba de documentos bloqueada - Status: ${orderDetails.status}`,
+                        );
                         return true;
                       }
 
                       // 2. Verificar se é pedido urgente e não foi aprovado
-                      const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                      const deliveryDate = createValidDate(
+                        orderDetails.deliveryDate,
+                      );
                       if (!deliveryDate) return false;
 
                       // Normalizar datas para meia-noite
@@ -1765,9 +1869,11 @@ export function OrderDetailDrawer({
                       today.setHours(0, 0, 0, 0);
 
                       // Calcular diferença em dias ignorando horas
-                      const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                      const daysDiff = Math.floor(
+                        (deliveryDate.getTime() - today.getTime()) /
+                          (1000 * 3600 * 24),
+                      );
                       const isUrgent = daysDiff < 7;
-
 
                       // Se é urgente e ainda está "Registrado", bloquear acesso
                       if (isUrgent && orderDetails.status === "Registrado") {
@@ -1775,24 +1881,33 @@ export function OrderDetailDrawer({
                       }
 
                       // 3. Verificar tipo de confirmação
-                      const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
+                      const confirmationType =
+                        orderDetails.product?.confirmationType || "nota_fiscal";
 
                       // 3a. Para produtos com número_pedido, SEMPRE permitir acesso ao fornecedor
                       if (confirmationType === "numero_pedido") {
                         // Obter supplier_id do pedido
-                        const supplierId = orderDetails.supplierId || (orderDetails as any).supplier_id;
+                        const supplierId =
+                          orderDetails.supplierId ||
+                          (orderDetails as any).supplier_id;
 
                         // Verificar se o usuário é fornecedor deste pedido
-                        const isSupplier = user?.companyId && supplierId && user.companyId === supplierId;
+                        const isSupplier =
+                          user?.companyId &&
+                          supplierId &&
+                          user.companyId === supplierId;
 
-                        console.log('🔐 Debug acesso aba documentos (numero_pedido):', {
-                          userId: user?.id,
-                          userCompanyId: user?.companyId,
-                          supplierId,
-                          isSupplier,
-                          numeroPedido: orderDetails.numeroPedido,
-                          status: orderDetails.status
-                        });
+                        console.log(
+                          "🔐 Debug acesso aba documentos (numero_pedido):",
+                          {
+                            userId: user?.id,
+                            userCompanyId: user?.companyId,
+                            supplierId,
+                            isSupplier,
+                            numeroPedido: orderDetails.numeroPedido,
+                            status: orderDetails.status,
+                          },
+                        );
 
                         // Fornecedor sempre tem acesso (pode confirmar ou visualizar)
                         if (isSupplier || user?.isKeyUser) {
@@ -1800,10 +1915,12 @@ export function OrderDetailDrawer({
                         }
 
                         // Outros usuários só veem se já foi confirmado
-                        if (orderDetails.numeroPedido ||
-                            orderDetails.status === "Em Rota" ||
-                            orderDetails.status === "Em transporte" ||
-                            orderDetails.status === "Entregue") {
+                        if (
+                          orderDetails.numeroPedido ||
+                          orderDetails.status === "Em Rota" ||
+                          orderDetails.status === "Em transporte" ||
+                          orderDetails.status === "Entregue"
+                        ) {
                           return false;
                         }
 
@@ -1812,14 +1929,19 @@ export function OrderDetailDrawer({
                       }
 
                       // 3b. Para produtos com nota_fiscal, verificar período de validade
-                      if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
+                      if (
+                        confirmationType === "nota_fiscal" &&
+                        orderDetails.purchaseOrder
+                      ) {
                         const purchaseOrder = orderDetails.purchaseOrder;
 
                         // Obter data de início da validade da ordem de compra
                         let validFromDate: Date | null = null;
 
                         // Obter validFromDate - testar primeiro validFrom, depois valido_desde
-                        const validFromRaw = purchaseOrder.validFrom || (purchaseOrder as any).valido_desde;
+                        const validFromRaw =
+                          purchaseOrder.validFrom ||
+                          (purchaseOrder as any).valido_desde;
                         if (validFromRaw) {
                           validFromDate = new Date(validFromRaw);
                           validFromDate.setHours(0, 0, 0, 0);
@@ -1830,31 +1952,38 @@ export function OrderDetailDrawer({
 
                           // Calcular data de disponibilidade (1 dia antes da validade)
                           const availableFromDate = new Date(validFromDate);
-                          availableFromDate.setDate(availableFromDate.getDate() - 1);
+                          availableFromDate.setDate(
+                            availableFromDate.getDate() - 1,
+                          );
                           availableFromDate.setHours(0, 0, 0, 0);
 
                           const todayDate = new Date();
                           todayDate.setHours(0, 0, 0, 0);
 
                           // Se hoje é antes da data de disponibilidade e não há documentos carregados
-                          if (todayDate < availableFromDate && !documentsLoaded &&
-                              orderDetails.status !== "Carregado" &&
-                              orderDetails.status !== "Em Rota" &&
-                              orderDetails.status !== "Em transporte" &&
-                              orderDetails.status !== "Entregue") {
+                          if (
+                            todayDate < availableFromDate &&
+                            !documentsLoaded &&
+                            orderDetails.status !== "Carregado" &&
+                            orderDetails.status !== "Em Rota" &&
+                            orderDetails.status !== "Em transporte" &&
+                            orderDetails.status !== "Entregue"
+                          ) {
                             return true;
                           }
                         }
                       }
 
                       // 4. Verificar se o usuário não é fornecedor e não há documentos carregados (apenas para nota_fiscal)
-                      if (confirmationType === "nota_fiscal" &&
-                          !canUploadDocuments() &&
-                          !documentsLoaded &&
-                          orderDetails.status !== "Carregado" &&
-                          orderDetails.status !== "Em Rota" &&
-                          orderDetails.status !== "Em transporte" &&
-                          orderDetails.status !== "Entregue") {
+                      if (
+                        confirmationType === "nota_fiscal" &&
+                        !canUploadDocuments() &&
+                        !documentsLoaded &&
+                        orderDetails.status !== "Carregado" &&
+                        orderDetails.status !== "Em Rota" &&
+                        orderDetails.status !== "Em transporte" &&
+                        orderDetails.status !== "Entregue"
+                      ) {
                         return true;
                       }
 
@@ -1879,7 +2008,10 @@ export function OrderDetailDrawer({
                       }
 
                       // 3. Se o pedido não estiver "Em Rota" ou "Em transporte", bloquear
-                      if (orderDetails.status !== "Em Rota" && orderDetails.status !== "Em transporte") {
+                      if (
+                        orderDetails.status !== "Em Rota" &&
+                        orderDetails.status !== "Em transporte"
+                      ) {
                         return true;
                       }
 
@@ -1887,7 +2019,11 @@ export function OrderDetailDrawer({
                     })()}
                   >
                     <CheckCircle className="w-4 h-4" />
-                    <span>{orderDetails.status === "Entregue" ? "Entregue" : "Confirmar"}</span>
+                    <span>
+                      {orderDetails.status === "Entregue"
+                        ? "Entregue"
+                        : "Confirmar"}
+                    </span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="history"
@@ -1926,9 +2062,13 @@ export function OrderDetailDrawer({
                             Destino
                           </h4>
                           <p className="text-base font-medium flex items-center gap-2">
-                            {(orderDetails as any)?.workDestination?.name || "Obra não especificada"}
+                            {(orderDetails as any)?.workDestination?.name ||
+                              "Obra não especificada"}
                             <a
-                              href={getGoogleMapsLink((orderDetails as any)?.workDestination?.name || "Obra não especificada")}
+                              href={getGoogleMapsLink(
+                                (orderDetails as any)?.workDestination?.name ||
+                                  "Obra não especificada",
+                              )}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 hover:text-blue-700"
@@ -1960,7 +2100,9 @@ export function OrderDetailDrawer({
                               ) : orderDetails.deliveryDate ? (
                                 formatDate(orderDetails.deliveryDate.toString())
                               ) : (
-                                <span className="text-muted-foreground">Data não disponível</span>
+                                <span className="text-muted-foreground">
+                                  Data não disponível
+                                </span>
                               )}
                             </p>
                             {canRequestReschedule() && (
@@ -1982,7 +2124,8 @@ export function OrderDetailDrawer({
                                 orderDetails.quantidade !== 0;
 
                               // Verificar se já tem documentos (bloqueia cancelamento)
-                              const hasDocuments = documentsLoaded ||
+                              const hasDocuments =
+                                documentsLoaded ||
                                 orderDetails.status === "Carregado" ||
                                 orderDetails.status === "Em Rota" ||
                                 orderDetails.status === "Em transporte";
@@ -1993,16 +2136,22 @@ export function OrderDetailDrawer({
                               }
 
                               // Verificar permissão: apenas KeyUsers ou usuários da obra de destino podem cancelar
-                              const isKeyUser = (user?.id >= 1 && user?.id <= 5) || user?.isKeyUser;
+                              const isKeyUser =
+                                (user?.id >= 1 && user?.id <= 5) ||
+                                user?.isKeyUser;
                               let canUserCancel = isKeyUser;
 
                               if (!isKeyUser && user?.companyId) {
                                 // Verificar se o usuário pertence à obra de destino
-                                const workDestination = (orderDetails as any)?.workDestination;
+                                const workDestination = (orderDetails as any)
+                                  ?.workDestination;
                                 if (workDestination) {
-                                  const userCompany = companies.find(c => c.id === user.companyId);
+                                  const userCompany = companies.find(
+                                    (c) => c.id === user.companyId,
+                                  );
                                   if (userCompany) {
-                                    canUserCancel = userCompany.cnpj === workDestination.cnpj;
+                                    canUserCancel =
+                                      userCompany.cnpj === workDestination.cnpj;
                                   }
                                 }
                               }
@@ -2018,7 +2167,9 @@ export function OrderDetailDrawer({
                               }
 
                               // Verificar antecedência mínima de 3 dias
-                              const deliveryDate = new Date(orderDetails.deliveryDate);
+                              const deliveryDate = new Date(
+                                orderDetails.deliveryDate,
+                              );
 
                               // Verificar se a data é válida
                               if (isNaN(deliveryDate.getTime())) {
@@ -2030,14 +2181,18 @@ export function OrderDetailDrawer({
                               const today = new Date();
                               today.setHours(0, 0, 0, 0);
 
-                              const diffTime = deliveryDate.getTime() - today.getTime();
+                              const diffTime =
+                                deliveryDate.getTime() - today.getTime();
                               // Usar Math.floor para contar apenas dias completos
-                              const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+                              const diffDays = Math.floor(
+                                diffTime / (1000 * 3600 * 24),
+                              );
 
                               // Obter o valor configurável de dias mínimos para cancelamento
-                              const minCancelDays = settings?.cancelMinDays ?? 3;
+                              const minCancelDays =
+                                settings?.cancelMinDays ?? 3;
 
-                              console.log('🔍 Validação de cancelamento:', {
+                              console.log("🔍 Validação de cancelamento:", {
                                 orderId: orderDetails.orderId,
                                 deliveryDate: deliveryDate.toISOString(),
                                 today: today.toISOString(),
@@ -2048,7 +2203,7 @@ export function OrderDetailDrawer({
                                 isKeyUser,
                                 canUserCancel,
                                 userId: user?.id,
-                                userCompanyId: user?.companyId
+                                userCompanyId: user?.companyId,
                               });
 
                               // Permitir cancelar se tiver X ou mais dias COMPLETOS de antecedência (configurável)
@@ -2113,7 +2268,10 @@ export function OrderDetailDrawer({
                     <div className="flex flex-col justify-between items-center">
                       {(() => {
                         // Verificar se o pedido foi cancelado
-                        if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado") {
+                        if (
+                          orderDetails.quantidade === 0 ||
+                          orderDetails.status === "Cancelado"
+                        ) {
                           return (
                             <div className="flex flex-col items-center justify-center p-6 border border-red-200 rounded-lg bg-red-50 w-full">
                               <AlertCircle className="h-12 w-12 text-red-600 mb-2" />
@@ -2121,7 +2279,8 @@ export function OrderDetailDrawer({
                                 Pedido Cancelado
                               </h3>
                               <p className="text-sm text-red-700 text-center mt-2">
-                                Este pedido foi cancelado e não pode ser processado.
+                                Este pedido foi cancelado e não pode ser
+                                processado.
                               </p>
                             </div>
                           );
@@ -2136,14 +2295,17 @@ export function OrderDetailDrawer({
                                 Pedido Não Iniciado
                               </h3>
                               <p className="text-sm text-slate-700 text-center mt-2">
-                                Este pedido aguarda o início do período de validade da ordem de compra.
+                                Este pedido aguarda o início do período de
+                                validade da ordem de compra.
                               </p>
                             </div>
                           );
                         }
 
                         // Verificar se é pedido urgente e não foi aprovado
-                        const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                        const deliveryDate = createValidDate(
+                          orderDetails.deliveryDate,
+                        );
                         if (!deliveryDate) return null;
 
                         // Normalizar datas para meia-noite
@@ -2152,7 +2314,10 @@ export function OrderDetailDrawer({
                         today.setHours(0, 0, 0, 0);
 
                         // Calcular diferença em dias ignorando horas
-                        const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const daysDiff = Math.floor(
+                          (deliveryDate.getTime() - today.getTime()) /
+                            (1000 * 3600 * 24),
+                        );
                         const isUrgent = daysDiff < 7;
 
                         if (isUrgent && orderDetails.status === "Registrado") {
@@ -2170,46 +2335,65 @@ export function OrderDetailDrawer({
                         }
 
                         // Verificar se usuário é fornecedor deste pedido ou keyuser
-                        const supplierId = orderDetails.supplierId || (orderDetails as any).supplier_id;
-                        const isKeyUserLocal = (user?.id >= 1 && user?.id <= 5) || user?.isKeyUser;
-                        const isSupplierLocal = user?.companyId && supplierId && user.companyId === supplierId;
+                        const supplierId =
+                          orderDetails.supplierId ||
+                          (orderDetails as any).supplier_id;
+                        const isKeyUserLocal =
+                          (user?.id >= 1 && user?.id <= 5) || user?.isKeyUser;
+                        const isSupplierLocal =
+                          user?.companyId &&
+                          supplierId &&
+                          user.companyId === supplierId;
                         const canSetRoute = isKeyUserLocal || isSupplierLocal;
-                        
+
                         // Verificar se documentos foram carregados
-                        const hasDocumentsUploaded = documentsLoaded || 
-                          orderDetails.documentosCarregados || 
-                          (orderDetails as any).nota_pdf || 
+                        const hasDocumentsUploaded =
+                          documentsLoaded ||
+                          orderDetails.documentosCarregados ||
+                          (orderDetails as any).nota_pdf ||
                           (orderDetails as any).nota_xml ||
-                          orderDetails.status === 'Carregado' ||
-                          orderDetails.status === 'Em Rota' ||
-                          orderDetails.status === 'Entregue';
-                        
+                          orderDetails.status === "Carregado" ||
+                          orderDetails.status === "Em Rota" ||
+                          orderDetails.status === "Entregue";
+
                         // Se pode colocar em rota, mostrar botão em vez do QR code
                         if (canSetRoute) {
-                          const isAlreadyInRoute = orderDetails.status === 'Em Rota' || orderDetails.status === 'Entregue' || orderDetails.status === 'Em transporte';
-                          const buttonDisabled = !hasDocumentsUploaded || isAlreadyInRoute;
-                          
+                          const isAlreadyInRoute =
+                            orderDetails.status === "Em Rota" ||
+                            orderDetails.status === "Entregue" ||
+                            orderDetails.status === "Em transporte";
+                          const buttonDisabled =
+                            !hasDocumentsUploaded || isAlreadyInRoute;
+
                           const handleColocarEmRota = async () => {
                             try {
-                              const response = await fetch(`/api/pedidos/${orderId}/colocar-em-rota`, {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
+                              const response = await fetch(
+                                `/api/pedidos/${orderId}/colocar-em-rota`,
+                                {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
                                 },
-                              });
-                              
+                              );
+
                               const result = await response.json();
-                              
+
                               if (result.success) {
                                 toast({
                                   title: "Sucesso!",
-                                  description: "Pedido colocado em rota com sucesso.",
+                                  description:
+                                    "Pedido colocado em rota com sucesso.",
                                 });
-                                queryClient.invalidateQueries({ queryKey: ["orders"] });
+                                queryClient.invalidateQueries({
+                                  queryKey: ["orders"],
+                                });
                               } else {
                                 toast({
                                   title: "Erro",
-                                  description: result.message || "Não foi possível colocar o pedido em rota.",
+                                  description:
+                                    result.message ||
+                                    "Não foi possível colocar o pedido em rota.",
                                   variant: "destructive",
                                 });
                               }
@@ -2222,22 +2406,24 @@ export function OrderDetailDrawer({
                               });
                             }
                           };
-                          
+
                           return (
                             <div className="flex flex-col items-center justify-center p-4 w-full">
                               <Button
                                 onClick={handleColocarEmRota}
                                 disabled={buttonDisabled}
                                 className={`w-full max-w-[200px] ${
-                                  isAlreadyInRoute 
-                                    ? 'bg-green-600 hover:bg-green-600 cursor-not-allowed' 
-                                    : buttonDisabled 
-                                      ? 'bg-gray-400 cursor-not-allowed' 
-                                      : 'bg-blue-600 hover:bg-blue-700'
+                                  isAlreadyInRoute
+                                    ? "bg-green-600 hover:bg-green-600 cursor-not-allowed"
+                                    : buttonDisabled
+                                      ? "bg-gray-400 cursor-not-allowed"
+                                      : "bg-blue-600 hover:bg-blue-700"
                                 }`}
                               >
                                 <Truck className="h-5 w-5 mr-2" />
-                                {isAlreadyInRoute ? 'Em Rota' : 'Colocar em Rota'}
+                                {isAlreadyInRoute
+                                  ? "Em Rota"
+                                  : "Colocar em Rota"}
                               </Button>
                               {!hasDocumentsUploaded && !isAlreadyInRoute && (
                                 <p className="text-xs text-gray-500 mt-2 text-center">
@@ -2251,8 +2437,6 @@ export function OrderDetailDrawer({
                         // Para outros usuários, não mostrar nada nesta área
                         return null;
                       })()}
-
-
                     </div>
                   </div>
 
@@ -2421,35 +2605,47 @@ export function OrderDetailDrawer({
                       <CardTitle>Documentos do Pedido</CardTitle>
                       <CardDescription>
                         {(() => {
-                        // 1. Se o pedido for cancelado, informar que não pode prosseguir
-                        if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado") {
-                          return "Este pedido foi cancelado e não pode prosseguir com o envio de documentos.";
-                        }
+                          // 1. Se o pedido for cancelado, informar que não pode prosseguir
+                          if (
+                            orderDetails.quantidade === 0 ||
+                            orderDetails.status === "Cancelado"
+                          ) {
+                            return "Este pedido foi cancelado e não pode prosseguir com o envio de documentos.";
+                          }
 
-                        // 2. Se o pedido estiver suspenso, informar sobre a reprogramação
-                        if (orderDetails.status === "Suspenso") {
-                          return "Este pedido está suspenso aguardando aprovação de reprogramação de entrega.";
-                        }
+                          // 2. Se o pedido estiver suspenso, informar sobre a reprogramação
+                          if (orderDetails.status === "Suspenso") {
+                            return "Este pedido está suspenso aguardando aprovação de reprogramação de entrega.";
+                          }
 
-                        // 3. Se o pedido não foi iniciado, informar sobre o período de validade
-                        if (orderDetails.status === "Não iniciado") {
-                          return "Este pedido aguarda o início do período de validade da ordem de compra para permitir o envio de documentos.";
-                        }
+                          // 3. Se o pedido não foi iniciado, informar sobre o período de validade
+                          if (orderDetails.status === "Não iniciado") {
+                            return "Este pedido aguarda o início do período de validade da ordem de compra para permitir o envio de documentos.";
+                          }
 
-                        // 3. Verificar se é pedido urgente e não foi aprovado
-                        const deliveryDate = createValidDate(orderDetails.deliveryDate);
-                        if (!deliveryDate) return "Faça upload dos documentos necessários para prosseguir com o pedido";
+                          // 3. Verificar se é pedido urgente e não foi aprovado
+                          const deliveryDate = createValidDate(
+                            orderDetails.deliveryDate,
+                          );
+                          if (!deliveryDate)
+                            return "Faça upload dos documentos necessários para prosseguir com o pedido";
 
-                        // Normalizar datas para meia-noite
-                        deliveryDate.setHours(0, 0, 0, 0);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
+                          // Normalizar datas para meia-noite
+                          deliveryDate.setHours(0, 0, 0, 0);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
 
-                        // Calcular diferença em dias ignorando horas
-                        const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                        const isUrgent = daysDiff < 7;
+                          // Calcular diferença em dias ignorando horas
+                          const daysDiff = Math.floor(
+                            (deliveryDate.getTime() - today.getTime()) /
+                              (1000 * 3600 * 24),
+                          );
+                          const isUrgent = daysDiff < 7;
 
-                        if (isUrgent && orderDetails.status === "Registrado") {
+                          if (
+                            isUrgent &&
+                            orderDetails.status === "Registrado"
+                          ) {
                             return "Este pedido urgente precisa ser aprovado antes de permitir o upload de documentos";
                           }
 
@@ -2460,7 +2656,10 @@ export function OrderDetailDrawer({
                     <CardContent>
                       {(() => {
                         // 1. Se o pedido for cancelado, mostrar aviso de cancelamento
-                        if (orderDetails.quantidade === 0 || orderDetails.status === "Cancelado") {
+                        if (
+                          orderDetails.quantidade === 0 ||
+                          orderDetails.status === "Cancelado"
+                        ) {
                           return (
                             <div className="flex flex-col items-center justify-center p-8 border border-red-200 rounded-lg bg-red-50">
                               <AlertCircle className="h-16 w-16 text-red-600 mb-4" />
@@ -2468,14 +2667,17 @@ export function OrderDetailDrawer({
                                 Pedido Cancelado
                               </h3>
                               <p className="text-sm text-red-700 text-center max-w-md">
-                                Este pedido foi cancelado e não pode ser processado.
+                                Este pedido foi cancelado e não pode ser
+                                processado.
                               </p>
                             </div>
                           );
                         }
 
                         // 3. Verificar se é pedido urgente e não foi aprovado
-                        const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                        const deliveryDate = createValidDate(
+                          orderDetails.deliveryDate,
+                        );
                         if (!deliveryDate) {
                           return null;
                         }
@@ -2486,9 +2688,11 @@ export function OrderDetailDrawer({
                         today.setHours(0, 0, 0, 0);
 
                         // Calcular diferença em dias ignorando horas
-                        const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const daysDiff = Math.floor(
+                          (deliveryDate.getTime() - today.getTime()) /
+                            (1000 * 3600 * 24),
+                        );
                         const isUrgent = daysDiff < 7;
-
 
                         // Se é urgente e não aprovado, mostrar aviso de bloqueio
                         if (isUrgent && orderDetails.status === "Registrado") {
@@ -2499,10 +2703,13 @@ export function OrderDetailDrawer({
                                 Pedido Urgente Aguardando Aprovação
                               </h3>
                               <p className="text-sm text-yellow-700 text-center max-w-md">
-                                Este pedido possui entrega em {daysDiff} dias e precisa ser aprovado por um responsável antes de permitir o upload de documentos.
+                                Este pedido possui entrega em {daysDiff} dias e
+                                precisa ser aprovado por um responsável antes de
+                                permitir o upload de documentos.
                               </p>
                               <p className="text-xs text-yellow-600 text-center mt-3">
-                                Apenas KeyUsers e aprovadores de empresas podem liberar pedidos urgentes.
+                                Apenas KeyUsers e aprovadores de empresas podem
+                                liberar pedidos urgentes.
                               </p>
                             </div>
                           );
@@ -2514,7 +2721,9 @@ export function OrderDetailDrawer({
 
                       {(() => {
                         // 2. Verificar se é pedido urgente e não foi aprovado
-                        const deliveryDate = createValidDate(orderDetails.deliveryDate);
+                        const deliveryDate = createValidDate(
+                          orderDetails.deliveryDate,
+                        );
                         if (!deliveryDate) {
                           // Se não houver data de entrega, permitir o upload normal
                           return null;
@@ -2526,9 +2735,11 @@ export function OrderDetailDrawer({
                         today.setHours(0, 0, 0, 0);
 
                         // Calcular diferença em dias ignorando horas
-                        const daysDiff = Math.floor((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const daysDiff = Math.floor(
+                          (deliveryDate.getTime() - today.getTime()) /
+                            (1000 * 3600 * 24),
+                        );
                         const isUrgent = daysDiff < 7;
-
 
                         // Se é urgente e não aprovado, não mostrar o conteúdo normal
                         if (isUrgent && orderDetails.status === "Registrado") {
@@ -2536,29 +2747,62 @@ export function OrderDetailDrawer({
                         }
 
                         // NOVA REGRA: Verificar período de validade para nota fiscal
-                        const confirmationType = orderDetails.product?.confirmationType || "nota_fiscal";
-                        console.log("🔍 DEBUG - confirmationType:", confirmationType);
-                        console.log("🔍 DEBUG - orderDetails.purchaseOrder:", orderDetails.purchaseOrder);
-                        console.log("🔍 DEBUG - documentsLoaded:", documentsLoaded);
-                        console.log("🔍 DEBUG - canUploadDocuments():", canUploadDocuments());
-                        console.log("🔍 DEBUG - user.companyId:", user?.companyId);
-                        console.log("🔍 DEBUG - orderDetails.supplierId:", orderDetails.supplierId);
+                        const confirmationType =
+                          orderDetails.product?.confirmationType ||
+                          "nota_fiscal";
+                        console.log(
+                          "🔍 DEBUG - confirmationType:",
+                          confirmationType,
+                        );
+                        console.log(
+                          "🔍 DEBUG - orderDetails.purchaseOrder:",
+                          orderDetails.purchaseOrder,
+                        );
+                        console.log(
+                          "🔍 DEBUG - documentsLoaded:",
+                          documentsLoaded,
+                        );
+                        console.log(
+                          "🔍 DEBUG - canUploadDocuments():",
+                          canUploadDocuments(),
+                        );
+                        console.log(
+                          "🔍 DEBUG - user.companyId:",
+                          user?.companyId,
+                        );
+                        console.log(
+                          "🔍 DEBUG - orderDetails.supplierId:",
+                          orderDetails.supplierId,
+                        );
 
-                        if (confirmationType === "nota_fiscal" && orderDetails.purchaseOrder) {
-                          console.log("✅ DEBUG - Entrando na validação de validade");
+                        if (
+                          confirmationType === "nota_fiscal" &&
+                          orderDetails.purchaseOrder
+                        ) {
+                          console.log(
+                            "✅ DEBUG - Entrando na validação de validade",
+                          );
                           const purchaseOrder = orderDetails.purchaseOrder;
 
                           let validFromDate: Date | null = null;
                           let validUntilDate: Date | null = null;
 
                           // Obter validFromDate - testar primeiro validFrom, depois valido_desde
-                          const validFromRaw = purchaseOrder.validFrom || (purchaseOrder as any).valido_desde;
+                          const validFromRaw =
+                            purchaseOrder.validFrom ||
+                            (purchaseOrder as any).valido_desde;
                           if (validFromRaw) {
                             // Extrair apenas a parte da data (YYYY-MM-DD)
-                            const dateStr = validFromRaw.toString().split('T')[0];
-                            const [year, month, day] = dateStr.split('-').map(Number);
+                            const dateStr = validFromRaw
+                              .toString()
+                              .split("T")[0];
+                            const [year, month, day] = dateStr
+                              .split("-")
+                              .map(Number);
                             // Criar data em UTC para evitar conversão de fuso horário
-                            validFromDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+                            validFromDate = new Date(
+                              Date.UTC(year, month - 1, day, 0, 0, 0, 0),
+                            );
                             // Verificar se a data é válida
                             if (isNaN(validFromDate.getTime())) {
                               validFromDate = null;
@@ -2566,13 +2810,21 @@ export function OrderDetailDrawer({
                           }
 
                           // Obter validUntilDate
-                          const validUntilRaw = (purchaseOrder as any).valido_ate || purchaseOrder.validUntil;
+                          const validUntilRaw =
+                            (purchaseOrder as any).valido_ate ||
+                            purchaseOrder.validUntil;
                           if (validUntilRaw) {
                             // Extrair apenas a parte da data (YYYY-MM-DD)
-                            const dateStr = validUntilRaw.toString().split('T')[0];
-                            const [year, month, day] = dateStr.split('-').map(Number);
+                            const dateStr = validUntilRaw
+                              .toString()
+                              .split("T")[0];
+                            const [year, month, day] = dateStr
+                              .split("-")
+                              .map(Number);
                             // Criar data em UTC para evitar conversão de fuso horário
-                            validUntilDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+                            validUntilDate = new Date(
+                              Date.UTC(year, month - 1, day, 23, 59, 59, 999),
+                            );
                             // Verificar se a data é válida
                             if (isNaN(validUntilDate.getTime())) {
                               validUntilDate = null;
@@ -2580,54 +2832,109 @@ export function OrderDetailDrawer({
                           }
 
                           console.log("🔍 DEBUG - validFromRaw:", validFromRaw);
-                          console.log("🔍 DEBUG - validFromDate:", validFromDate?.toISOString());
-                          console.log("🔍 DEBUG - validUntilRaw:", validUntilRaw);
-                          console.log("🔍 DEBUG - validUntilDate:", validUntilDate?.toISOString());
+                          console.log(
+                            "🔍 DEBUG - validFromDate:",
+                            validFromDate?.toISOString(),
+                          );
+                          console.log(
+                            "🔍 DEBUG - validUntilRaw:",
+                            validUntilRaw,
+                          );
+                          console.log(
+                            "🔍 DEBUG - validUntilDate:",
+                            validUntilDate?.toISOString(),
+                          );
 
                           if (validFromDate && validUntilDate) {
                             const availableFromDate = new Date(validFromDate);
-                            availableFromDate.setUTCDate(availableFromDate.getUTCDate() - 1);
+                            availableFromDate.setUTCDate(
+                              availableFromDate.getUTCDate() - 1,
+                            );
 
                             const now = new Date();
-                            const todayDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
+                            const todayDate = new Date(
+                              Date.UTC(
+                                now.getFullYear(),
+                                now.getMonth(),
+                                now.getDate(),
+                                0,
+                                0,
+                                0,
+                                0,
+                              ),
+                            );
 
-                            console.log("📅 DEBUG - availableFromDate:", availableFromDate.toLocaleDateString('pt-BR'));
-                            console.log("📅 DEBUG - todayDate:", todayDate.toLocaleDateString('pt-BR'));
-                            console.log("📅 DEBUG - todayDate < availableFromDate:", todayDate < availableFromDate);
-                            console.log("📅 DEBUG - !documentsLoaded:", !documentsLoaded);
-                            console.log("📅 DEBUG - orderDetails.status:", orderDetails.status);
+                            console.log(
+                              "📅 DEBUG - availableFromDate:",
+                              availableFromDate.toLocaleDateString("pt-BR"),
+                            );
+                            console.log(
+                              "📅 DEBUG - todayDate:",
+                              todayDate.toLocaleDateString("pt-BR"),
+                            );
+                            console.log(
+                              "📅 DEBUG - todayDate < availableFromDate:",
+                              todayDate < availableFromDate,
+                            );
+                            console.log(
+                              "📅 DEBUG - !documentsLoaded:",
+                              !documentsLoaded,
+                            );
+                            console.log(
+                              "📅 DEBUG - orderDetails.status:",
+                              orderDetails.status,
+                            );
 
                             // Verifica se a data de hoje é anterior à data disponível (1 dia antes do início da validade)
-                            if (todayDate < availableFromDate && !documentsLoaded &&
-                                orderDetails.status !== "Carregado" &&
-                                orderDetails.status !== "Em Rota" &&
-                                orderDetails.status !== "Em transporte" &&
-                                orderDetails.status !== "Entregue") {
+                            if (
+                              todayDate < availableFromDate &&
+                              !documentsLoaded &&
+                              orderDetails.status !== "Carregado" &&
+                              orderDetails.status !== "Em Rota" &&
+                              orderDetails.status !== "Em transporte" &&
+                              orderDetails.status !== "Entregue"
+                            ) {
                               return (
                                 <div className="p-6 bg-blue-950/30 border border-blue-500/30 rounded-lg">
-                                    <div className="flex items-start gap-3">
-                                      <Info className="h-5 w-5 text-blue-400 mt-0.5" />
-                                      <div>
-                                        <p className="text-sm font-medium text-blue-300 mb-2">
-                                          Upload de documentos ainda não disponível
-                                        </p>
-                                        <p className="text-sm text-blue-400/80 mb-1">
-                                          Esta ordem de compra ainda não iniciou sua validade.
-                                        </p>
-                                        <p className="text-sm text-blue-400/80 mb-1">
-                                          Período de validade: <strong>{validFromDate.toLocaleDateString('pt-BR')}</strong> até <strong>{validUntilDate.toLocaleDateString('pt-BR')}</strong>
-                                        </p>
-                                        <p className="text-sm text-blue-400/80 mb-1">
-                                          A aba de documentos estará disponível a partir de:
-                                        </p>
-                                        <p className="text-lg font-bold text-blue-300">
-                                          {availableFromDate.toLocaleDateString('pt-BR')}
-                                        </p>
-                                        <p className="text-xs text-blue-400/70 mt-1">
-                                          (1 dia antes do início da validade)
-                                        </p>
-                                      </div>
+                                  <div className="flex items-start gap-3">
+                                    <Info className="h-5 w-5 text-blue-400 mt-0.5" />
+                                    <div>
+                                      <p className="text-sm font-medium text-blue-300 mb-2">
+                                        Upload de documentos ainda não
+                                        disponível
+                                      </p>
+                                      <p className="text-sm text-blue-400/80 mb-1">
+                                        Esta ordem de compra ainda não iniciou
+                                        sua validade.
+                                      </p>
+                                      <p className="text-sm text-blue-400/80 mb-1">
+                                        Período de validade:{" "}
+                                        <strong>
+                                          {validFromDate.toLocaleDateString(
+                                            "pt-BR",
+                                          )}
+                                        </strong>{" "}
+                                        até{" "}
+                                        <strong>
+                                          {validUntilDate.toLocaleDateString(
+                                            "pt-BR",
+                                          )}
+                                        </strong>
+                                      </p>
+                                      <p className="text-sm text-blue-400/80 mb-1">
+                                        A aba de documentos estará disponível a
+                                        partir de:
+                                      </p>
+                                      <p className="text-lg font-bold text-blue-300">
+                                        {availableFromDate.toLocaleDateString(
+                                          "pt-BR",
+                                        )}
+                                      </p>
+                                      <p className="text-xs text-blue-400/70 mt-1">
+                                        (1 dia antes do início da validade)
+                                      </p>
                                     </div>
+                                  </div>
                                 </div>
                               );
                             }
@@ -2635,12 +2942,13 @@ export function OrderDetailDrawer({
                         }
 
                         // Se o tipo é número_pedido e já foi confirmado
-                        if (confirmationType === "numero_pedido" && (
-                            orderDetails.numeroPedido ||
+                        if (
+                          confirmationType === "numero_pedido" &&
+                          (orderDetails.numeroPedido ||
                             orderDetails.status === "Em Rota" ||
                             orderDetails.status === "Em transporte" ||
-                            orderDetails.status === "Entregue"
-                        )) {
+                            orderDetails.status === "Entregue")
+                        ) {
                           return (
                             <div className="space-y-4">
                               <div className="flex items-center justify-center p-6 border border-green-500/30 rounded-lg bg-green-950/30">
@@ -2654,11 +2962,14 @@ export function OrderDetailDrawer({
                                       Número do Pedido:
                                     </p>
                                     <p className="text-3xl font-bold text-green-300">
-                                      {orderDetails.numero_pedido || orderDetails.numeroPedido || "Não informado"}
+                                      {orderDetails.numero_pedido ||
+                                        orderDetails.numeroPedido ||
+                                        "Não informado"}
                                     </p>
                                   </div>
                                   <p className="text-sm text-green-400/80 mt-4">
-                                    O pedido foi confirmado e está em rota para entrega
+                                    O pedido foi confirmado e está em rota para
+                                    entrega
                                   </p>
                                 </div>
                               </div>
@@ -2667,11 +2978,17 @@ export function OrderDetailDrawer({
                         }
 
                         // Se o tipo é número_pedido e ainda não foi confirmado
-                        if (confirmationType === "numero_pedido" && canUploadDocuments()) {
+                        if (
+                          confirmationType === "numero_pedido" &&
+                          canUploadDocuments()
+                        ) {
                           return (
                             <div className="space-y-6">
                               <div className="space-y-4">
-                                <Label htmlFor="numeroPedido" className="text-sm font-medium">
+                                <Label
+                                  htmlFor="numeroPedido"
+                                  className="text-sm font-medium"
+                                >
                                   Número do Pedido (máx. 20 caracteres)
                                 </Label>
                                 <Input
@@ -2679,7 +2996,9 @@ export function OrderDetailDrawer({
                                   type="text"
                                   placeholder="Digite o número do pedido"
                                   value={numeroPedido}
-                                  onChange={(e) => setNumeroPedido(e.target.value)}
+                                  onChange={(e) =>
+                                    setNumeroPedido(e.target.value)
+                                  }
                                   maxLength={20}
                                   className="bg-input border-border"
                                 />
@@ -2690,7 +3009,10 @@ export function OrderDetailDrawer({
 
                               <Button
                                 onClick={handleConfirmNumeroPedido}
-                                disabled={!numeroPedido.trim() || numeroPedido.length > 20}
+                                disabled={
+                                  !numeroPedido.trim() ||
+                                  numeroPedido.length > 20
+                                }
                                 className="w-full"
                               >
                                 <CheckCircle className="mr-2 h-4 w-4" />
@@ -2701,11 +3023,13 @@ export function OrderDetailDrawer({
                         }
 
                         // Lógica normal para nota fiscal
-                        if (documentsLoaded ||
-                            orderDetails.status === "Carregado" ||
-                            orderDetails.status === "Em Rota" ||
-                            orderDetails.status === "Em transporte" ||
-                            orderDetails.status === "Entregue") {
+                        if (
+                          documentsLoaded ||
+                          orderDetails.status === "Carregado" ||
+                          orderDetails.status === "Em Rota" ||
+                          orderDetails.status === "Em transporte" ||
+                          orderDetails.status === "Entregue"
+                        ) {
                           return (
                             <div className="space-y-4">
                               <div className="flex items-center justify-center p-6 border rounded-lg">
@@ -2718,414 +3042,473 @@ export function OrderDetailDrawer({
                                     Documentos Carregados
                                   </h3>
                                   <p className="text-sm text-muted-foreground mt-2">
-                                    Todos os documentos necessários foram enviados e
-                                    processados com sucesso.
+                                    Todos os documentos necessários foram
+                                    enviados e processados com sucesso.
                                   </p>
                                 </div>
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                            <div className="p-4 border rounded-lg flex flex-col items-center">
-                              <button
-                                className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
-                                onClick={async () => {
-                                  try {
-                                    console.log(`📥 Iniciando download de nota_pdf para pedido ${orderId}`);
+                                <div className="p-4 border rounded-lg flex flex-col items-center">
+                                  <button
+                                    className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
+                                    onClick={async () => {
+                                      try {
+                                        console.log(
+                                          `📥 Iniciando download de nota_pdf para pedido ${orderId}`,
+                                        );
 
-                                    const response = await fetch(`/api/pedidos/${orderId}/documentos/nota_pdf`);
+                                        const response = await fetch(
+                                          `/api/pedidos/${orderId}/documentos/nota_pdf`,
+                                        );
 
-                                    if (!response.ok) {
-                                      throw new Error(`Erro ao baixar documento: ${response.statusText}`);
-                                    }
+                                        if (!response.ok) {
+                                          throw new Error(
+                                            `Erro ao baixar documento: ${response.statusText}`,
+                                          );
+                                        }
 
-                                    // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
-                                    const contentDisposition = response.headers.get('Content-Disposition');
-                                    let filename = `nota_pdf_${orderDetails?.orderId || orderId}.pdf`;
+                                        // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
+                                        const contentDisposition =
+                                          response.headers.get(
+                                            "Content-Disposition",
+                                          );
+                                        let filename = `nota_pdf_${orderDetails?.orderId || orderId}.pdf`;
 
-                                    if (contentDisposition) {
-                                      const matches = contentDisposition.match(/filename="(.+)"/);
-                                      if (matches && matches[1]) {
-                                        filename = matches[1];
+                                        if (contentDisposition) {
+                                          const matches =
+                                            contentDisposition.match(
+                                              /filename="(.+)"/,
+                                            );
+                                          if (matches && matches[1]) {
+                                            filename = matches[1];
+                                          }
+                                        }
+
+                                        // Converter resposta para blob
+                                        const blob = await response.blob();
+
+                                        // Criar URL temporária e baixar
+                                        const url =
+                                          window.URL.createObjectURL(blob);
+                                        const link =
+                                          document.createElement("a");
+                                        link.href = url;
+                                        link.download = filename;
+                                        document.body.appendChild(link);
+                                        link.click();
+
+                                        // Limpar
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(url);
+
+                                        toast({
+                                          title: "Download concluído",
+                                          description: `Arquivo ${filename} baixado com sucesso`,
+                                        });
+                                      } catch (error) {
+                                        console.error(
+                                          `Erro ao baixar nota_pdf:`,
+                                          error,
+                                        );
+                                        toast({
+                                          title: "Erro no download",
+                                          description:
+                                            error instanceof Error
+                                              ? error.message
+                                              : "Erro desconhecido",
+                                          variant: "destructive",
+                                        });
                                       }
-                                    }
+                                    }}
+                                    title="Clique para baixar a Nota Fiscal (PDF)"
+                                  >
+                                    <FileText size={32} />
+                                  </button>
+                                  <p className="font-medium text-center">
+                                    Nota Fiscal (PDF)
+                                  </p>
+                                  <p className="text-xs text-muted-foreground text-center mt-1">
+                                    Clique no ícone para baixar
+                                  </p>
+                                </div>
 
-                                    // Converter resposta para blob
-                                    const blob = await response.blob();
+                                <div className="p-4 border rounded-lg flex flex-col items-center">
+                                  <button
+                                    className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
+                                    onClick={async () => {
+                                      try {
+                                        console.log(
+                                          `📥 Iniciando download de nota_xml para pedido ${orderId}`,
+                                        );
 
-                                    // Criar URL temporária e baixar
-                                    const url = window.URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = url;
-                                    link.download = filename;
-                                    document.body.appendChild(link);
-                                    link.click();
+                                        const response = await fetch(
+                                          `/api/pedidos/${orderId}/documentos/nota_xml`,
+                                        );
 
-                                    // Limpar
-                                    document.body.removeChild(link);
-                                    window.URL.revokeObjectURL(url);
+                                        if (!response.ok) {
+                                          throw new Error(
+                                            `Erro ao baixar documento: ${response.statusText}`,
+                                          );
+                                        }
 
-                                    toast({
-                                      title: "Download concluído",
-                                      description: `Arquivo ${filename} baixado com sucesso`,
-                                    });
+                                        // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
+                                        const contentDisposition =
+                                          response.headers.get(
+                                            "Content-Disposition",
+                                          );
+                                        let filename = `nota_xml_${orderDetails?.orderId || orderId}.xml`;
 
-                                  } catch (error) {
-                                    console.error(`Erro ao baixar nota_pdf:`, error);
-                                    toast({
-                                      title: "Erro no download",
-                                      description: error instanceof Error ? error.message : "Erro desconhecido",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }}
-                                title="Clique para baixar a Nota Fiscal (PDF)"
-                              >
-                                <FileText size={32} />
-                              </button>
-                              <p className="font-medium text-center">
-                                Nota Fiscal (PDF)
-                              </p>
-                              <p className="text-xs text-muted-foreground text-center mt-1">
-                                Clique no ícone para baixar
-                              </p>
-                            </div>
+                                        if (contentDisposition) {
+                                          const matches =
+                                            contentDisposition.match(
+                                              /filename="(.+)"/,
+                                            );
+                                          if (matches && matches[1]) {
+                                            filename = matches[1];
+                                          }
+                                        }
 
-                            <div className="p-4 border rounded-lg flex flex-col items-center">
-                              <button
-                                className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
-                                onClick={async () => {
-                                  try {
-                                    console.log(`📥 Iniciando download de nota_xml para pedido ${orderId}`);
+                                        // Converter resposta para blob
+                                        const blob = await response.blob();
 
-                                    const response = await fetch(`/api/pedidos/${orderId}/documentos/nota_xml`);
+                                        // Criar URL temporária e baixar
+                                        const url =
+                                          window.URL.createObjectURL(blob);
+                                        const link =
+                                          document.createElement("a");
+                                        link.href = url;
+                                        link.download = filename;
+                                        document.body.appendChild(link);
+                                        link.click();
 
-                                    if (!response.ok) {
-                                      throw new Error(`Erro ao baixar documento: ${response.statusText}`);
-                                    }
+                                        // Limpar
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(url);
 
-                                    // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
-                                    const contentDisposition = response.headers.get('Content-Disposition');
-                                    let filename = `nota_xml_${orderDetails?.orderId || orderId}.xml`;
-
-                                    if (contentDisposition) {
-                                      const matches = contentDisposition.match(/filename="(.+)"/);
-                                      if (matches && matches[1]) {
-                                        filename = matches[1];
+                                        toast({
+                                          title: "Download concluído",
+                                          description: `Arquivo ${filename} baixado com sucesso`,
+                                        });
+                                      } catch (error) {
+                                        console.error(
+                                          `Erro ao baixar nota_xml:`,
+                                          error,
+                                        );
+                                        toast({
+                                          title: "Erro no download",
+                                          description:
+                                            error instanceof Error
+                                              ? error.message
+                                              : "Erro desconhecido",
+                                          variant: "destructive",
+                                        });
                                       }
-                                    }
+                                    }}
+                                    title="Clique para baixar a Nota Fiscal (XML)"
+                                  >
+                                    <FileText size={32} />
+                                  </button>
+                                  <p className="font-medium text-center">
+                                    Nota Fiscal (XML)
+                                  </p>
+                                  <p className="text-xs text-muted-foreground text-center mt-1">
+                                    Clique no ícone para baixar
+                                  </p>
+                                </div>
 
-                                    // Converter resposta para blob
-                                    const blob = await response.blob();
+                                <div className="p-4 border rounded-lg flex flex-col items-center">
+                                  <button
+                                    className="w-16 h-16 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
+                                    onClick={async () => {
+                                      try {
+                                        console.log(
+                                          `📥 Iniciando download de certificado_pdf para pedido ${orderId}`,
+                                        );
 
-                                    // Criar URL temporária e baixar
-                                    const url = window.URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = url;
-                                    link.download = filename;
-                                    document.body.appendChild(link);
-                                    link.click();
+                                        const response = await fetch(
+                                          `/api/pedidos/${orderId}/documentos/certificado_pdf`,
+                                        );
 
-                                    // Limpar
-                                    document.body.removeChild(link);
-                                    window.URL.revokeObjectURL(url);
+                                        if (!response.ok) {
+                                          throw new Error(
+                                            `Erro ao baixar documento: ${response.statusText}`,
+                                          );
+                                        }
 
-                                    toast({
-                                      title: "Download concluído",
-                                      description: `Arquivo ${filename} baixado com sucesso`,
-                                    });
+                                        // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
+                                        const contentDisposition =
+                                          response.headers.get(
+                                            "Content-Disposition",
+                                          );
+                                        let filename = `certificado_pdf_${orderDetails?.orderId || orderId}.pdf`;
 
-                                  } catch (error) {
-                                    console.error(`Erro ao baixar nota_xml:`, error);
-                                    toast({
-                                      title: "Erro no download",
-                                      description: error instanceof Error ? error.message : "Erro desconhecido",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }}
-                                title="Clique para baixar a Nota Fiscal (XML)"
-                              >
-                                <FileText size={32} />
-                              </button>
-                              <p className="font-medium text-center">
-                                Nota Fiscal (XML)
-                              </p>
-                              <p className="text-xs text-muted-foreground text-center mt-1">
-                                Clique no ícone para baixar
-                              </p>
-                            </div>
+                                        if (contentDisposition) {
+                                          const matches =
+                                            contentDisposition.match(
+                                              /filename="(.+)"/,
+                                            );
+                                          if (matches && matches[1]) {
+                                            filename = matches[1];
+                                          }
+                                        }
 
-                            <div className="p-4 border rounded-lg flex flex-col items-center">
-                              <button
-                                className="w-16 h-16 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white flex items-center justify-center transition-all hover:scale-105 cursor-pointer mb-3"
-                                onClick={async () => {
-                                  try {
-                                    console.log(`📥 Iniciando download de certificado_pdf para pedido ${orderId}`);
+                                        // Converter resposta para blob
+                                        const blob = await response.blob();
 
-                                    const response = await fetch(`/api/pedidos/${orderId}/documentos/certificado_pdf`);
+                                        // Criar URL temporária e baixar
+                                        const url =
+                                          window.URL.createObjectURL(blob);
+                                        const link =
+                                          document.createElement("a");
+                                        link.href = url;
+                                        link.download = filename;
+                                        document.body.appendChild(link);
+                                        link.click();
 
-                                    if (!response.ok) {
-                                      throw new Error(`Erro ao baixar documento: ${response.statusText}`);
-                                    }
+                                        // Limpar
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(url);
 
-                                    // Obter o nome do arquivo do cabeçalho Content-Disposition ou usar um padrão
-                                    const contentDisposition = response.headers.get('Content-Disposition');
-                                    let filename = `certificado_pdf_${orderDetails?.orderId || orderId}.pdf`;
-
-                                    if (contentDisposition) {
-                                      const matches = contentDisposition.match(/filename="(.+)"/);
-                                      if (matches && matches[1]) {
-                                        filename = matches[1];
+                                        toast({
+                                          title: "Download concluído",
+                                          description: `Arquivo ${filename} baixado com sucesso`,
+                                        });
+                                      } catch (error) {
+                                        console.error(
+                                          `Erro ao baixar certificado_pdf:`,
+                                          error,
+                                        );
+                                        toast({
+                                          title: "Erro no download",
+                                          description:
+                                            error instanceof Error
+                                              ? error.message
+                                              : "Erro desconhecido",
+                                          variant: "destructive",
+                                        });
                                       }
-                                    }
-
-                                    // Converter resposta para blob
-                                    const blob = await response.blob();
-
-                                    // Criar URL temporária e baixar
-                                    const url = window.URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = url;
-                                    link.download = filename;
-                                    document.body.appendChild(link);
-                                    link.click();
-
-                                    // Limpar
-                                    document.body.removeChild(link);
-                                    window.URL.revokeObjectURL(url);
-
-                                    toast({
-                                      title: "Download concluído",
-                                      description: `Arquivo ${filename} baixado com sucesso`,
-                                    });
-
-                                  } catch (error) {
-                                    console.error(`Erro ao baixar certificado_pdf:`, error);
-                                    toast({
-                                      title: "Erro no download",
-                                      description: error instanceof Error ? error.message : "Erro desconhecido",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }}
-                                title="Clique para baixar o Certificado (PDF)"
-                              >
-                                <FileText size={32} />
-                              </button>
-                              <p className="font-medium text-center">
-                                Certificado (PDF)
-                              </p>
-                              <p className="text-xs text-muted-foreground text-center mt-1">
-                                Clique no ícone para baixar
-                              </p>
-                            </div>
-                          </div>
+                                    }}
+                                    title="Clique para baixar o Certificado (PDF)"
+                                  >
+                                    <FileText size={32} />
+                                  </button>
+                                  <p className="font-medium text-center">
+                                    Certificado (PDF)
+                                  </p>
+                                  <p className="text-xs text-muted-foreground text-center mt-1">
+                                    Clique no ícone para baixar
+                                  </p>
+                                </div>
+                              </div>
                             </div>
                           );
                         } else {
                           return canUploadDocuments() ? (
                             <div className="space-y-6">
-                          <div className="space-y-4">
-                            <div className="flex items-center space-x-3">
-                              <button
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${notaPdf ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
-                                onClick={() => {
-                                  console.log("Clique no ícone PDF");
-                                  if (notaPdfRef.current) {
-                                    notaPdfRef.current.value = "";
-                                    notaPdfRef.current.click();
-                                  }
-                                }}
-                                title={
-                                  notaPdf
-                                    ? "Alterar arquivo PDF"
-                                    : "Selecionar arquivo PDF"
-                                }
-                              >
-                                {notaPdf ? (
-                                  <CheckCircle className="w-4 h-4" />
-                                ) : (
-                                  <Upload className="w-5 h-5" />
-                                )}
-                              </button>
-                              <div className="flex-1">
-                                <label className="text-sm font-medium">
-                                  Nota Fiscal (PDF)
-                                </label>
-                                <p className="text-xs text-muted-foreground">
-                                  {notaPdf
-                                    ? `${notaPdf.name} (${Math.round(notaPdf.size / 1024)} KB)`
-                                    : "Clique no ícone para selecionar o arquivo PDF da nota fiscal"}
-                                </p>
+                              <div className="space-y-4">
+                                <div className="flex items-center space-x-3">
+                                  <button
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${notaPdf ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
+                                    onClick={() => {
+                                      console.log("Clique no ícone PDF");
+                                      if (notaPdfRef.current) {
+                                        notaPdfRef.current.value = "";
+                                        notaPdfRef.current.click();
+                                      }
+                                    }}
+                                    title={
+                                      notaPdf
+                                        ? "Alterar arquivo PDF"
+                                        : "Selecionar arquivo PDF"
+                                    }
+                                  >
+                                    {notaPdf ? (
+                                      <CheckCircle className="w-4 h-4" />
+                                    ) : (
+                                      <Upload className="w-5 h-5" />
+                                    )}
+                                  </button>
+                                  <div className="flex-1">
+                                    <label className="text-sm font-medium">
+                                      Nota Fiscal (PDF)
+                                    </label>
+                                    <p className="text-xs text-muted-foreground">
+                                      {notaPdf
+                                        ? `${notaPdf.name} (${Math.round(notaPdf.size / 1024)} KB)`
+                                        : "Clique no ícone para selecionar o arquivo PDF da nota fiscal"}
+                                    </p>
+                                  </div>
+                                  <input
+                                    key={`nota-pdf-${orderId}`}
+                                    type="file"
+                                    ref={notaPdfRef}
+                                    accept=".pdf"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      handleFileChange(e, setNotaPdf)
+                                    }
+                                  />
+                                </div>
                               </div>
-                              <input
-                                key={`nota-pdf-${orderId}`}
-                                type="file"
-                                ref={notaPdfRef}
-                                accept=".pdf"
-                                className="hidden"
-                                onChange={(e) =>
-                                  handleFileChange(e, setNotaPdf)
-                                }
-                              />
-                            </div>
-                          </div>
 
-                          <div className="space-y-4">
-                            <div className="flex items-center space-x-3">
-                              <button
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${notaXml ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
-                                onClick={() => {
-                                  console.log("Clique no ícone XML");
-                                  if (notaXmlRef.current) {
-                                    notaXmlRef.current.value = "";
-                                    notaXmlRef.current.click();
-                                  }
-                                }}
-                                title={
-                                  notaXml
-                                    ? "Alterar arquivo XML"
-                                    : "Selecionar arquivo XML"
-                                }
-                              >
-                                {notaXml ? (
-                                  <CheckCircle className="w-4 h-4" />
-                                ) : (
-                                  <Upload className="w-5 h-5" />
-                                )}
-                              </button>
-                              <div className="flex-1">
-                                <label className="text-sm font-medium">
-                                  Nota Fiscal (XML)
-                                </label>
-                                <p className="text-xs text-muted-foreground">
-                                  {notaXml
-                                    ? `${notaXml.name} (${Math.round(notaXml.size / 1024)} KB)`
-                                    : "Clique no ícone para selecionar o arquivo XML da nota fiscal"}
-                                </p>
+                              <div className="space-y-4">
+                                <div className="flex items-center space-x-3">
+                                  <button
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${notaXml ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
+                                    onClick={() => {
+                                      console.log("Clique no ícone XML");
+                                      if (notaXmlRef.current) {
+                                        notaXmlRef.current.value = "";
+                                        notaXmlRef.current.click();
+                                      }
+                                    }}
+                                    title={
+                                      notaXml
+                                        ? "Alterar arquivo XML"
+                                        : "Selecionar arquivo XML"
+                                    }
+                                  >
+                                    {notaXml ? (
+                                      <CheckCircle className="w-4 h-4" />
+                                    ) : (
+                                      <Upload className="w-5 h-5" />
+                                    )}
+                                  </button>
+                                  <div className="flex-1">
+                                    <label className="text-sm font-medium">
+                                      Nota Fiscal (XML)
+                                    </label>
+                                    <p className="text-xs text-muted-foreground">
+                                      {notaXml
+                                        ? `${notaXml.name} (${Math.round(notaXml.size / 1024)} KB)`
+                                        : "Clique no ícone para selecionar o arquivo XML da nota fiscal"}
+                                    </p>
+                                  </div>
+                                  <input
+                                    key={`nota-xml-${orderId}`}
+                                    type="file"
+                                    ref={notaXmlRef}
+                                    accept=".xml"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      handleFileChange(e, setNotaXml)
+                                    }
+                                  />
+                                </div>
                               </div>
-                              <input
-                                key={`nota-xml-${orderId}`}
-                                type="file"
-                                ref={notaXmlRef}
-                                accept=".xml"
-                                className="hidden"
-                                onChange={(e) =>
-                                  handleFileChange(e, setNotaXml)
-                                }
-                              />
-                            </div>
-                          </div>
 
-                          <div className="space-y-4">
-                            <div className="flex items-center space-x-3">
-                              <button
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${certificadoPdf ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
-                                onClick={() => {
-                                  console.log("Clique no ícone Certificado");
-                                  if (certificadoPdfRef.current) {
-                                    certificadoPdfRef.current.value = "";
-                                    certificadoPdfRef.current.click();
-                                  }
-                                }}
-                                title={
-                                  certificadoPdf
-                                    ? "Alterar arquivo Certificado"
-                                    : "Selecionar arquivo Certificado"
-                                }
-                              >
-                                {certificadoPdf ? (
-                                  <CheckCircle className="w-4 h-4" />
-                                ) : (
-                                  <Upload className="w-5 h-5" />
-                                )}
-                              </button>
-                              <div className="flex-1">
-                                <label className="text-sm font-medium">
-                                  Certificado (PDF)
-                                </label>
-                                <p className="text-xs text-muted-foreground">
-                                  {certificadoPdf
-                                    ? `${certificadoPdf.name} (${Math.round(certificadoPdf.size / 1024)} KB)`
-                                    : "Clique no ícone para selecionar o arquivo PDF do certificado"}
-                                </p>
+                              <div className="space-y-4">
+                                <div className="flex items-center space-x-3">
+                                  <button
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${certificadoPdf ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
+                                    onClick={() => {
+                                      console.log(
+                                        "Clique no ícone Certificado",
+                                      );
+                                      if (certificadoPdfRef.current) {
+                                        certificadoPdfRef.current.value = "";
+                                        certificadoPdfRef.current.click();
+                                      }
+                                    }}
+                                    title={
+                                      certificadoPdf
+                                        ? "Alterar arquivo Certificado"
+                                        : "Selecionar arquivo Certificado"
+                                    }
+                                  >
+                                    {certificadoPdf ? (
+                                      <CheckCircle className="w-4 h-4" />
+                                    ) : (
+                                      <Upload className="w-5 h-5" />
+                                    )}
+                                  </button>
+                                  <div className="flex-1">
+                                    <label className="text-sm font-medium">
+                                      Certificado (PDF)
+                                    </label>
+                                    <p className="text-xs text-muted-foreground">
+                                      {certificadoPdf
+                                        ? `${certificadoPdf.name} (${Math.round(certificadoPdf.size / 1024)} KB)`
+                                        : "Clique no ícone para selecionar o arquivo PDF do certificado"}
+                                    </p>
+                                  </div>
+                                  <input
+                                    key={`certificado-pdf-${orderId}`}
+                                    type="file"
+                                    ref={certificadoPdfRef}
+                                    accept=".pdf"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      handleFileChange(e, setCertificadoPdf)
+                                    }
+                                  />
+                                </div>
                               </div>
-                              <input
-                                key={`certificado-pdf-${orderId}`}
-                                type="file"
-                                ref={certificadoPdfRef}
-                                accept=".pdf"
-                                className="hidden"
-                                onChange={(e) =>
-                                  handleFileChange(e, setCertificadoPdf)
-                                }
-                              />
-                            </div>
-                          </div>
 
-                          <Button
-                            onClick={handleUploadDocuments}
-                            disabled={
-                              documentUploadMutation.isPending ||
-                              isValidating ||
-                              !notaPdf ||
-                              !notaXml ||
-                              !certificadoPdf
-                            }
-                            className="w-full"
-                          >
-                            {isValidating ? (
-                              <>
-                                <svg
-                                  className="mr-2 h-4 w-4 animate-spin"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                  />
-                                </svg>
-                                Validando documentos...
-                              </>
-                            ) : documentUploadMutation.isPending ? (
-                              <>
-                                <svg
-                                  className="mr-2 h-4 w-4 animate-spin"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                  />
-                                </svg>
-                                Enviando documentos...
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="mr-2 h-4 w-4" />
-                                Validar e Enviar Documentos
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                              <Button
+                                onClick={handleUploadDocuments}
+                                disabled={
+                                  documentUploadMutation.isPending ||
+                                  isValidating ||
+                                  !notaPdf ||
+                                  !notaXml ||
+                                  !certificadoPdf
+                                }
+                                className="w-full"
+                              >
+                                {isValidating ? (
+                                  <>
+                                    <svg
+                                      className="mr-2 h-4 w-4 animate-spin"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                      />
+                                      <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                      />
+                                    </svg>
+                                    Validando documentos...
+                                  </>
+                                ) : documentUploadMutation.isPending ? (
+                                  <>
+                                    <svg
+                                      className="mr-2 h-4 w-4 animate-spin"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                      />
+                                      <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                      />
+                                    </svg>
+                                    Enviando documentos...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Validar e Enviar Documentos
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           ) : (
                             <div className="flex flex-col items-center justify-center p-8 border border-gray-200 rounded-lg bg-gray-50">
                               <FileText className="h-16 w-16 text-gray-400 mb-4" />
@@ -3133,7 +3516,11 @@ export function OrderDetailDrawer({
                                 Aguardando Documentos
                               </h3>
                               <p className="text-sm text-gray-500 text-center max-w-md">
-                                Os documentos serão carregados pela empresa fornecedora ({orderDetails.supplier?.name || "não identificada"}).
+                                Os documentos serão carregados pela empresa
+                                fornecedora (
+                                {orderDetails.supplier?.name ||
+                                  "não identificada"}
+                                ).
                               </p>
                             </div>
                           );
@@ -3148,332 +3535,452 @@ export function OrderDetailDrawer({
                   <Card>
                     <CardHeader>
                       <CardTitle>
-                        {orderDetails.status === "Entregue" ? "Entrega Confirmada" : "Confirmar Entrega"}
+                        {orderDetails.status === "Entregue"
+                          ? "Entrega Confirmada"
+                          : "Confirmar Entrega"}
                       </CardTitle>
                       <CardDescription>
                         {orderDetails.status === "Entregue"
                           ? "A entrega deste pedido já foi confirmada"
-                          : "Confirme a entrega do pedido informando a quantidade recebida"
-                        }
+                          : "Confirme a entrega do pedido informando a quantidade recebida"}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* ===== SEÇÃO DA DISTRIBUIDORA ===== */}
-                      <div className="border border-blue-500/30 rounded-lg p-4 bg-blue-950/00">
-                        <h4 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
-                          <Truck className="w-4 h-4" />
-                          Registro de Chegada (Distribuidora/Fornecedor)
-                        </h4>
-                        
-                        {entregaDistribuidoraData?.entregaDistribuidora ? (
-                          // Já foi registrada chegada pela distribuidora
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-green-400">
-                              <CheckCircle className="w-5 h-5" />
-                              <span className="font-medium">Chegada registrada</span>
-                            </div>
-                            <div className="text-sm text-gray-400 space-y-1">
-                              <p><strong>Data/Hora:</strong> {entregaDistribuidoraData.entregaDistribuidora.dataChegada}</p>
-                              {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.location && (
-                                <p><strong>Local detectado (Metadata):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.location}</p>
-                              )}
-                              {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.timestamp && (
-                                <p><strong>Data/Hora da Foto (Metadata):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.timestamp}</p>
-                              )}
-                              {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.coordinates && (
-                                <p><strong>Coordenadas:</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.coordinates.latitude}, {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.coordinates.longitude}</p>
-                              )}
-                              {entregaDistribuidoraData.entregaDistribuidora.registradoPor && (
-                                <p><strong>Registrado por:</strong> {entregaDistribuidoraData.entregaDistribuidora.registradoPor.userName}</p>
-                              )}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/foto-chegada-distribuidora`);
-                                  if (!response.ok) throw new Error('Erro ao baixar foto');
-                                  const blob = await response.blob();
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `foto-chegada-${orderDetails.orderId}.jpg`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  window.URL.revokeObjectURL(url);
-                                  document.body.removeChild(a);
-                                } catch (error) {
-                                  toast({ title: "Erro", description: "Erro ao baixar foto", variant: "destructive" });
-                                }
-                              }}
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Baixar Foto de Chegada
-                            </Button>
-                          </div>
-                        ) : (userCompanyType?.isDistribuidora || userCompanyType?.isKeyUser) ? (
-                          // Formulário para distribuidora registrar chegada
-                          <div className="space-y-3">
-                            <p className="text-sm text-gray-600">
-                              Registre a data/hora de chegada no destino e envie uma foto da carga no local.
-                            </p>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-xs font-medium">Data de Chegada</label>
-                                <Input
-                                  type="date"
-                                  value={dataChegadaDistribuidora}
-                                  onChange={(e) => setDataChegadaDistribuidora(e.target.value)}
-                                />
+                        {/* ===== SEÇÃO DA DISTRIBUIDORA ===== */}
+                        <div className="border border-blue-500/30 rounded-lg p-4 bg-blue-950/00">
+                          <h4 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                            <Truck className="w-4 h-4" />
+                            Registro de Chegada (Distribuidora/Fornecedor)
+                          </h4>
+
+                          {entregaDistribuidoraData?.entregaDistribuidora ? (
+                            // Já foi registrada chegada pela distribuidora
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 text-green-400">
+                                <CheckCircle className="w-5 h-5" />
+                                <span className="font-medium">
+                                  Chegada registrada
+                                </span>
                               </div>
-                              <div>
-                                <label className="text-xs font-medium">Hora de Chegada</label>
-                                <Input
-                                  type="time"
-                                  value={horaChegadaDistribuidora}
-                                  onChange={(e) => setHoraChegadaDistribuidora(e.target.value)}
-                                />
+                              <div className="text-sm text-gray-400 space-y-1">
+                                <p>
+                                  <strong>Data/Hora:</strong>{" "}
+                                  {
+                                    entregaDistribuidoraData
+                                      .entregaDistribuidora.dataChegada
+                                  }
+                                </p>
+                                {entregaDistribuidoraData.entregaDistribuidora
+                                  .dadosOCR?.location && (
+                                  <p>
+                                    <strong>Local detectado (Metadata):</strong>{" "}
+                                    {
+                                      entregaDistribuidoraData
+                                        .entregaDistribuidora.dadosOCR.location
+                                    }
+                                  </p>
+                                )}
+                                {entregaDistribuidoraData.entregaDistribuidora
+                                  .dadosOCR?.timestamp && (
+                                  <p>
+                                    <strong>
+                                      Data/Hora da Foto (Metadata):
+                                    </strong>{" "}
+                                    {
+                                      entregaDistribuidoraData
+                                        .entregaDistribuidora.dadosOCR.timestamp
+                                    }
+                                  </p>
+                                )}
+                                {entregaDistribuidoraData.entregaDistribuidora
+                                  .dadosOCR?.coordinates && (
+                                  <p>
+                                    <strong>Coordenadas:</strong>{" "}
+                                    {
+                                      entregaDistribuidoraData
+                                        .entregaDistribuidora.dadosOCR
+                                        .coordinates.latitude
+                                    }
+                                    ,{" "}
+                                    {
+                                      entregaDistribuidoraData
+                                        .entregaDistribuidora.dadosOCR
+                                        .coordinates.longitude
+                                    }
+                                  </p>
+                                )}
+                                {entregaDistribuidoraData.entregaDistribuidora
+                                  .registradoPor && (
+                                  <p>
+                                    <strong>Registrado por:</strong>{" "}
+                                    {
+                                      entregaDistribuidoraData
+                                        .entregaDistribuidora.registradoPor
+                                        .userName
+                                    }
+                                  </p>
+                                )}
                               </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(
+                                      `/api/pedidos/${orderDetails.id}/foto-chegada-distribuidora`,
+                                    );
+                                    if (!response.ok)
+                                      throw new Error("Erro ao baixar foto");
+                                    const blob = await response.blob();
+                                    const url =
+                                      window.URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = `foto-chegada-${orderDetails.orderId}.jpg`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    document.body.removeChild(a);
+                                  } catch (error) {
+                                    toast({
+                                      title: "Erro",
+                                      description: "Erro ao baixar foto",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                              >
+                                <Download className="mr-2 h-4 w-4" />
+                                Baixar Foto de Chegada
+                              </Button>
                             </div>
-                            <div>
-                              <label className="text-xs font-medium flex items-center gap-1">
-                                <Camera className="w-3 h-3" />
-                                Foto da Carga no Local (com timestamp)
-                              </label>
-                              <div className="border-2 border-dashed border-blue-200 rounded-lg p-3 mt-1">
-                                <div className="flex flex-col items-center gap-2">
-                                  <button
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${fotoChegadaDistribuidora ? "bg-green-500 text-white" : "bg-blue-100 text-blue-500"}`}
-                                    onClick={() => fotoChegadaDistribuidoraRef.current?.click()}
-                                  >
-                                    {fotoChegadaDistribuidora ? <CheckCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
-                                  </button>
-                                  <input
-                                    ref={fotoChegadaDistribuidoraRef}
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/jpg"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) setFotoChegadaDistribuidora(file);
-                                    }}
-                                    className="hidden"
+                          ) : userCompanyType?.isDistribuidora ||
+                            userCompanyType?.isKeyUser ? (
+                            // Formulário para distribuidora registrar chegada
+                            <div className="space-y-3">
+                              <p className="text-sm text-gray-600">
+                                Registre a data/hora de chegada no destino e
+                                envie uma foto da carga no local.
+                              </p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs font-medium">
+                                    Data de Chegada
+                                  </label>
+                                  <Input
+                                    type="date"
+                                    value={dataChegadaDistribuidora}
+                                    onChange={(e) =>
+                                      setDataChegadaDistribuidora(
+                                        e.target.value,
+                                      )
+                                    }
                                   />
-                                  <p className="text-xs text-gray-500 text-center">
-                                    {fotoChegadaDistribuidora
-                                      ? `Foto: ${fotoChegadaDistribuidora.name}`
-                                      : "A foto será analisada para extrair data/hora e localização"}
+                                </div>
+                                <div>
+                                  <label className="text-xs font-medium">
+                                    Hora de Chegada
+                                  </label>
+                                  <Input
+                                    type="time"
+                                    value={horaChegadaDistribuidora}
+                                    onChange={(e) =>
+                                      setHoraChegadaDistribuidora(
+                                        e.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium flex items-center gap-1">
+                                  <Camera className="w-3 h-3" />
+                                  Foto da Carga no Local (com timestamp)
+                                </label>
+                                <div className="border-2 border-dashed border-blue-200 rounded-lg p-3 mt-1">
+                                  <div className="flex flex-col items-center gap-2">
+                                    <button
+                                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${fotoChegadaDistribuidora ? "bg-green-500 text-white" : "bg-blue-100 text-blue-500"}`}
+                                      onClick={() =>
+                                        fotoChegadaDistribuidoraRef.current?.click()
+                                      }
+                                    >
+                                      {fotoChegadaDistribuidora ? (
+                                        <CheckCircle className="w-4 h-4" />
+                                      ) : (
+                                        <Camera className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                    <input
+                                      ref={fotoChegadaDistribuidoraRef}
+                                      type="file"
+                                      accept="image/jpeg,image/png,image/jpg"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file)
+                                          setFotoChegadaDistribuidora(file);
+                                      }}
+                                      className="hidden"
+                                    />
+                                    <p className="text-xs text-gray-500 text-center">
+                                      {fotoChegadaDistribuidora
+                                        ? `Foto: ${fotoChegadaDistribuidora.name}`
+                                        : "A foto será analisada para extrair data/hora e localização"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                onClick={handleRegistrarChegadaDistribuidora}
+                                disabled={
+                                  !dataChegadaDistribuidora ||
+                                  !horaChegadaDistribuidora ||
+                                  !fotoChegadaDistribuidora ||
+                                  isSubmittingDistribuidora
+                                }
+                                className="w-full"
+                              >
+                                {isSubmittingDistribuidora ? (
+                                  <>Registrando...</>
+                                ) : (
+                                  <>
+                                    <Truck className="mr-2 h-4 w-4" />
+                                    Registrar Chegada no Destino
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
+                            // Aguardando distribuidora
+                            <div className="text-sm text-gray-500 flex items-center gap-2">
+                              <Clock className="w-4 h-4" />
+                              Aguardando registro de chegada pela distribuidora
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ===== SEÇÃO DA CONSTRUTORA ===== */}
+                        <div className="border border-blue-500/30 rounded-lg p-4 bg-blue-950/00">
+                          <h4 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                            <Package className="w-4 h-4" />
+                            Confirmação de Recebimento (Construtora)
+                          </h4>
+
+                          {orderDetails.status === "Entregue" ? (
+                            // Mostrar informações da entrega confirmada
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-center p-6 border border-green-500/30 rounded-lg bg-green-950/00">
+                                <div className="text-center">
+                                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                                  <h3 className="text-xl font-medium text-green-400 mb-2">
+                                    Entrega Confirmada
+                                  </h3>
+                                  <p className="text-sm text-green-400/80">
+                                    Quantidade recebida:{" "}
+                                    {(() => {
+                                      // Buscar quantidade da foto_confirmacao
+                                      const fotoConfirmacao =
+                                        orderDetails.fotoConfirmacao ||
+                                        (orderDetails as any).foto_confirmacao;
+                                      let quantidadeConfirmada = null;
+
+                                      if (fotoConfirmacao) {
+                                        try {
+                                          const confirmacao =
+                                            typeof fotoConfirmacao === "string"
+                                              ? JSON.parse(fotoConfirmacao)
+                                              : fotoConfirmacao;
+                                          quantidadeConfirmada =
+                                            confirmacao?.quantidadeConfirmada;
+                                        } catch (e) {
+                                          console.error(
+                                            "Erro ao parse foto_confirmacao:",
+                                            e,
+                                          );
+                                        }
+                                      }
+
+                                      const valor =
+                                        quantidadeConfirmada ||
+                                        (orderDetails as any)
+                                          .quantidade_recebida ||
+                                        orderDetails.confirmedQuantity ||
+                                        parseFloat(
+                                          orderDetails.quantity || "0",
+                                        );
+                                      return formatNumber(valor);
+                                    })()}{" "}
+                                    {orderDetails.unit?.abbreviation || ""}
                                   </p>
                                 </div>
                               </div>
-                            </div>
-                            <Button
-                              onClick={handleRegistrarChegadaDistribuidora}
-                              disabled={!dataChegadaDistribuidora || !horaChegadaDistribuidora || !fotoChegadaDistribuidora || isSubmittingDistribuidora}
-                              className="w-full"
-                            >
-                              {isSubmittingDistribuidora ? (
-                                <>Registrando...</>
-                              ) : (
-                                <>
-                                  <Truck className="mr-2 h-4 w-4" />
-                                  Registrar Chegada no Destino
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        ) : (
-                          // Aguardando distribuidora
-                          <div className="text-sm text-gray-500 flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            Aguardando registro de chegada pela distribuidora
-                          </div>
-                        )}
-                      </div>
 
-                      {/* ===== SEÇÃO DA CONSTRUTORA ===== */}
-                      <div className="border border-amber-500/30 rounded-lg p-4 bg-amber-950/00">
-                        <h4 className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
-                          <Package className="w-4 h-4" />
-                          Confirmação de Recebimento (Construtora)
-                        </h4>
-
-                        {orderDetails.status === "Entregue" ? (
-                        // Mostrar informações da entrega confirmada
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-center p-6 border border-green-500/30 rounded-lg bg-green-950/00">
-                            <div className="text-center">
-                              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                              <h3 className="text-xl font-medium text-green-400 mb-2">
-                                Entrega Confirmada
-                              </h3>
-                              <p className="text-sm text-green-400/80">
-                                Quantidade recebida: {(() => {
-                                  // Buscar quantidade da foto_confirmacao
-                                  const fotoConfirmacao = orderDetails.fotoConfirmacao || (orderDetails as any).foto_confirmacao;
-                                  let quantidadeConfirmada = null;
-
-                                  if (fotoConfirmacao) {
+                              {/* Botão para download da foto da nota assinada */}
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                  <Camera className="w-4 h-4" />
+                                  Foto da Nota Fiscal Assinada
+                                </label>
+                                <Button
+                                  variant="outline"
+                                  onClick={async () => {
                                     try {
-                                      const confirmacao = typeof fotoConfirmacao === 'string'
-                                        ? JSON.parse(fotoConfirmacao)
-                                        : fotoConfirmacao;
-                                      quantidadeConfirmada = confirmacao?.quantidadeConfirmada;
-                                    } catch (e) {
-                                      console.error('Erro ao parse foto_confirmacao:', e);
-                                    }
-                                  }
-
-                                  const valor = quantidadeConfirmada || (orderDetails as any).quantidade_recebida || orderDetails.confirmedQuantity || parseFloat(orderDetails.quantity || "0");
-                                  return formatNumber(valor);
-                                })()} {orderDetails.unit?.abbreviation || ""}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Botão para download da foto da nota assinada */}
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                              <Camera className="w-4 h-4" />
-                              Foto da Nota Fiscal Assinada
-                            </label>
-                            <Button
-                              variant="outline"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(`/api/pedidos/${orderDetails.id}/foto-confirmacao`);
-                                  if (!response.ok) {
-                                    throw new Error('Erro ao baixar foto');
-                                  }
-
-                                  const blob = await response.blob();
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.style.display = 'none';
-                                  a.href = url;
-                                  a.download = `foto-confirmacao-${orderDetails.orderId}.jpg`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  window.URL.revokeObjectURL(url);
-                                  document.body.removeChild(a);
-
-                                  toast({
-                                    title: "Download Concluído",
-                                    description: "Foto baixada com sucesso",
-                                  });
-                                } catch (error) {
-                                  toast({
-                                    title: "Erro no Download",
-                                    description: error instanceof Error ? error.message : "Erro ao baixar foto",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
-                              className="w-full"
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Baixar Foto da Nota Assinada
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (userCompanyType?.isConstrutora || userCompanyType?.isKeyUser || user?.canConfirmDelivery) ? (
-                        // Formulário de confirmação (apenas construtora/keyuser/permissão especial)
-                        <>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">
-                              Quantidade Recebida
-                            </label>
-                            <Input
-                              type="number"
-                              placeholder="Digite a quantidade recebida"
-                              value={quantidadeRecebida}
-                              onChange={(e) => {
-                                setQuantidadeRecebida(e.target.value);
-                                setConfirmedQuantity(e.target.value);
-                              }}
-                              min="0.01"
-                              max="999999.99"
-                              step="0.01"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                              <Camera className="w-4 h-4" />
-                              Foto da Nota Fiscal Assinada
-                            </label>
-                            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
-                              <div className="flex flex-col items-center gap-4">
-                                <div className="flex flex-col items-center gap-2">
-                                  <button
-                                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${fotoNotaAssinada ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
-                                    onClick={() => {
-                                      if (fotoNotaAssinadaRef.current) {
-                                        fotoNotaAssinadaRef.current.value = "";
-                                        fotoNotaAssinadaRef.current.click();
+                                      const response = await fetch(
+                                        `/api/pedidos/${orderDetails.id}/foto-confirmacao`,
+                                      );
+                                      if (!response.ok) {
+                                        throw new Error("Erro ao baixar foto");
                                       }
-                                    }}
-                                    title={
-                                      fotoNotaAssinada
-                                        ? "Alterar foto"
-                                        : "Clique no ícone para tirar uma foto da nota fiscal assinada"
+
+                                      const blob = await response.blob();
+                                      const url =
+                                        window.URL.createObjectURL(blob);
+                                      const a = document.createElement("a");
+                                      a.style.display = "none";
+                                      a.href = url;
+                                      a.download = `foto-confirmacao-${orderDetails.orderId}.jpg`;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      window.URL.revokeObjectURL(url);
+                                      document.body.removeChild(a);
+
+                                      toast({
+                                        title: "Download Concluído",
+                                        description: "Foto baixada com sucesso",
+                                      });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Erro no Download",
+                                        description:
+                                          error instanceof Error
+                                            ? error.message
+                                            : "Erro ao baixar foto",
+                                        variant: "destructive",
+                                      });
                                     }
-                                  >
-                                    {fotoNotaAssinada ? (
-                                      <CheckCircle className="w-4 h-4" />
-                                    ) : (
-                                      <Camera className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                  <input
-                                    ref={fotoNotaAssinadaRef}
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/jpg"
-                                    onChange={(e) => handleFotoChange(e, setFotoNotaAssinada)}
-                                    className="hidden"
-                                  />
-                                </div>
-                                <p className="text-xs text-muted-foreground text-center max-w-xs">
-                                  {fotoNotaAssinada
-                                    ? `Foto selecionada: ${fotoNotaAssinada.name}`
-                                    : "Clique no ícone para tirar uma foto da nota fiscal assinada (apenas JPEG ou PNG)"}
-                                </p>
+                                  }}
+                                  className="w-full"
+                                >
+                                  <Download className="mr-2 h-4 w-4" />
+                                  Baixar Foto da Nota Assinada
+                                </Button>
                               </div>
                             </div>
-                          </div>
+                          ) : userCompanyType?.isConstrutora ||
+                            userCompanyType?.isKeyUser ||
+                            user?.canConfirmDelivery ? (
+                            // Formulário de confirmação (apenas construtora/keyuser/permissão especial)
+                            <>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                  Quantidade Recebida
+                                </label>
+                                <Input
+                                  type="number"
+                                  placeholder="Digite a quantidade recebida"
+                                  value={quantidadeRecebida}
+                                  onChange={(e) => {
+                                    setQuantidadeRecebida(e.target.value);
+                                    setConfirmedQuantity(e.target.value);
+                                  }}
+                                  min="0.01"
+                                  max="999999.99"
+                                  step="0.01"
+                                />
+                              </div>
 
-                          <div className="flex gap-2 pt-4">
-                            <Button
-                              variant="outline"
-                              onClick={() => handleConfirmDelivery("rejeitado")}
-                              className="flex-1"
-                            >
-                              <X className="mr-2 h-4 w-4" />
-                              Rejeitar Entrega
-                            </Button>
-                            <Button
-                              onClick={() => handleConfirmDelivery("aprovado")}
-                              className="flex-1"
-                              disabled={
-                                (!quantidadeRecebida && !confirmedQuantity) ||
-                                !fotoNotaAssinada ||
-                                parseFloat(quantidadeRecebida || confirmedQuantity || "0") <= 0
-                              }
-                            >
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Confirmar Entrega
-                            </Button>
-                          </div>
-                        </>
-                      ) : (
-                        // Aguardando confirmação pela construtora
-                        <div className="text-sm text-amber-400/70 flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          Aguardando confirmação pela construtora
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                  <Camera className="w-4 h-4" />
+                                  Foto da Nota Fiscal Assinada
+                                </label>
+                                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
+                                  <div className="flex flex-col items-center gap-4">
+                                    <div className="flex flex-col items-center gap-2">
+                                      <button
+                                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 cursor-pointer ${fotoNotaAssinada ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
+                                        onClick={() => {
+                                          if (fotoNotaAssinadaRef.current) {
+                                            fotoNotaAssinadaRef.current.value =
+                                              "";
+                                            fotoNotaAssinadaRef.current.click();
+                                          }
+                                        }}
+                                        title={
+                                          fotoNotaAssinada
+                                            ? "Alterar foto"
+                                            : "Clique no ícone para tirar uma foto da nota fiscal assinada"
+                                        }
+                                      >
+                                        {fotoNotaAssinada ? (
+                                          <CheckCircle className="w-4 h-4" />
+                                        ) : (
+                                          <Camera className="w-4 h-4" />
+                                        )}
+                                      </button>
+                                      <input
+                                        ref={fotoNotaAssinadaRef}
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/jpg"
+                                        onChange={(e) =>
+                                          handleFotoChange(
+                                            e,
+                                            setFotoNotaAssinada,
+                                          )
+                                        }
+                                        className="hidden"
+                                      />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground text-center max-w-xs">
+                                      {fotoNotaAssinada
+                                        ? `Foto selecionada: ${fotoNotaAssinada.name}`
+                                        : "Clique no ícone para tirar uma foto da nota fiscal assinada (apenas JPEG ou PNG)"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2 pt-4">
+                                <Button
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleConfirmDelivery("rejeitado")
+                                  }
+                                  className="flex-1"
+                                >
+                                  <X className="mr-2 h-4 w-4" />
+                                  Rejeitar Entrega
+                                </Button>
+                                <Button
+                                  onClick={() =>
+                                    handleConfirmDelivery("aprovado")
+                                  }
+                                  className="flex-1"
+                                  disabled={
+                                    (!quantidadeRecebida &&
+                                      !confirmedQuantity) ||
+                                    !fotoNotaAssinada ||
+                                    parseFloat(
+                                      quantidadeRecebida ||
+                                        confirmedQuantity ||
+                                        "0",
+                                    ) <= 0
+                                  }
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Confirmar Entrega
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            // Aguardando confirmação pela construtora
+                            <div className="text-sm text-blue-400/70 flex items-center gap-2">
+                              <Clock className="w-4 h-4" />
+                              Aguardando confirmação pela construtora
+                            </div>
+                          )}
                         </div>
-                      )}
-                      </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -3501,68 +4008,118 @@ export function OrderDetailDrawer({
                           }> = [];
 
                           // Primeiro, adicionar os logs reais da API
-                          if (historyData && Array.isArray(historyData) && historyData.length > 0) {
+                          if (
+                            historyData &&
+                            Array.isArray(historyData) &&
+                            historyData.length > 0
+                          ) {
                             historyData.forEach((item: any) => {
-                              const action = item.action || item.etapa || "Atualização";
+                              const action =
+                                item.action || item.etapa || "Atualização";
                               let icon = "Edit";
-                              
+
                               // Definir ícone baseado na ação
-                              if (action.toLowerCase().includes("criad") || action.toLowerCase().includes("registr")) {
+                              if (
+                                action.toLowerCase().includes("criad") ||
+                                action.toLowerCase().includes("registr")
+                              ) {
                                 icon = "Package";
-                              } else if (action.toLowerCase().includes("document") || action.toLowerCase().includes("nota") || action.toLowerCase().includes("upload") || action.toLowerCase().includes("carregad")) {
+                              } else if (
+                                action.toLowerCase().includes("document") ||
+                                action.toLowerCase().includes("nota") ||
+                                action.toLowerCase().includes("upload") ||
+                                action.toLowerCase().includes("carregad")
+                              ) {
                                 icon = "FileText";
-                              } else if (action.toLowerCase().includes("rota") || action.toLowerCase().includes("transport")) {
+                              } else if (
+                                action.toLowerCase().includes("rota") ||
+                                action.toLowerCase().includes("transport")
+                              ) {
                                 icon = "Truck";
-                              } else if (action.toLowerCase().includes("entreg") || action.toLowerCase().includes("confirm")) {
+                              } else if (
+                                action.toLowerCase().includes("entreg") ||
+                                action.toLowerCase().includes("confirm")
+                              ) {
                                 icon = "CheckCircle";
-                              } else if (action.toLowerCase().includes("cancel")) {
+                              } else if (
+                                action.toLowerCase().includes("cancel")
+                              ) {
                                 icon = "XCircle";
-                              } else if (action.toLowerCase().includes("reset") || action.toLowerCase().includes("alter")) {
+                              } else if (
+                                action.toLowerCase().includes("reset") ||
+                                action.toLowerCase().includes("alter")
+                              ) {
                                 icon = "Edit";
                               }
 
                               history.push({
                                 etapa: action,
-                                data: item.created_at || item.data || new Date().toISOString(),
-                                usuario: item.user_name || item.usuario || "Sistema",
-                                descricao: item.description || item.descricao || "",
-                                icon: icon
+                                data:
+                                  item.created_at ||
+                                  item.data ||
+                                  new Date().toISOString(),
+                                usuario:
+                                  item.user_name || item.usuario || "Sistema",
+                                descricao:
+                                  item.description || item.descricao || "",
+                                icon: icon,
                               });
                             });
                           }
 
                           // Ordenar por data (mais recente primeiro)
-                          history.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+                          history.sort(
+                            (a, b) =>
+                              new Date(b.data).getTime() -
+                              new Date(a.data).getTime(),
+                          );
 
                           return history.length === 0 ? (
                             <div className="text-center py-8">
                               <History className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                              <p className="text-muted-foreground">Nenhum histórico encontrado para este pedido.</p>
+                              <p className="text-muted-foreground">
+                                Nenhum histórico encontrado para este pedido.
+                              </p>
                             </div>
                           ) : (
                             <div className="space-y-3">
                               {history.map((item, index) => {
                                 const IconComponent = (() => {
                                   switch (item.icon) {
-                                    case "Package": return Package;
-                                    case "FileText": return FileText;
-                                    case "Truck": return Truck;
-                                    case "CheckCircle": return CheckCircle;
-                                    case "XCircle": return XCircle;
-                                    case "Edit": return Edit;
-                                    default: return History;
+                                    case "Package":
+                                      return Package;
+                                    case "FileText":
+                                      return FileText;
+                                    case "Truck":
+                                      return Truck;
+                                    case "CheckCircle":
+                                      return CheckCircle;
+                                    case "XCircle":
+                                      return XCircle;
+                                    case "Edit":
+                                      return Edit;
+                                    default:
+                                      return History;
                                   }
                                 })();
 
                                 return (
-                                  <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-muted/20">
+                                  <div
+                                    key={index}
+                                    className="flex items-start gap-3 p-4 border rounded-lg bg-muted/20"
+                                  >
                                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
                                       <IconComponent className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center justify-between flex-wrap gap-2">
-                                        <h4 className="font-medium text-sm">{item.etapa}</h4>
-                                        <Badge variant="outline" className="text-xs">
+                                        <h4 className="font-medium text-sm">
+                                          {item.etapa}
+                                        </h4>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs"
+                                        >
                                           {formatDateTimeInCuiaba(item.data)}
                                         </Badge>
                                       </div>
@@ -3592,15 +4149,20 @@ export function OrderDetailDrawer({
       </DrawerContent>
 
       {/* Dialog de Reprogramação */}
-      <Dialog open={isReprogramDialogOpen} onOpenChange={setIsReprogramDialogOpen}>
+      <Dialog
+        open={isReprogramDialogOpen}
+        onOpenChange={setIsReprogramDialogOpen}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Reprogramar Entrega</DialogTitle>
             <DialogDescription>
               {(() => {
                 const validUntil = orderDetails?.purchaseOrder?.validUntil
-                  ? new Date(orderDetails.purchaseOrder.validUntil).toLocaleDateString('pt-BR')
-                  : 'não definida';
+                  ? new Date(
+                      orderDetails.purchaseOrder.validUntil,
+                    ).toLocaleDateString("pt-BR")
+                  : "não definida";
 
                 return `Selecione uma nova data de entrega (até ${validUntil}, conforme validade da ordem de compra) e informe a justificativa.`;
               })()}
@@ -3609,7 +4171,9 @@ export function OrderDetailDrawer({
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Nova Data de Entrega</label>
+              <label className="text-sm font-medium">
+                Nova Data de Entrega
+              </label>
               <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -3617,7 +4181,9 @@ export function OrderDetailDrawer({
                     className="w-full justify-start text-left font-normal"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? formatDate(selectedDate.toString()) : "Selecione uma data"}
+                    {selectedDate
+                      ? formatDate(selectedDate.toString())
+                      : "Selecione uma data"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -3636,7 +4202,8 @@ export function OrderDetailDrawer({
                       if (date < today) return true;
 
                       // Se houver ordem de compra com validade, verificar
-                      const validUntil = orderDetails?.purchaseOrder?.validUntil;
+                      const validUntil =
+                        orderDetails?.purchaseOrder?.validUntil;
                       if (validUntil) {
                         const maxDate = new Date(validUntil);
                         maxDate.setHours(23, 59, 59, 999);
@@ -3652,7 +4219,9 @@ export function OrderDetailDrawer({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Justificativa (máx. 100 caracteres)</label>
+              <label className="text-sm font-medium">
+                Justificativa (máx. 100 caracteres)
+              </label>
               <Textarea
                 placeholder="Digite o motivo da reprogramação"
                 value={justificativa}
@@ -3696,16 +4265,17 @@ export function OrderDetailDrawer({
               Cancelar Pedido
             </DialogTitle>
             <DialogDescription>
-              Esta ação cancelará permanentemente o pedido {orderDetails?.orderId}.
-              Informe o motivo do cancelamento.
+              Esta ação cancelará permanentemente o pedido{" "}
+              {orderDetails?.orderId}. Informe o motivo do cancelamento.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
               <p className="text-sm text-yellow-800">
-                <strong>Atenção:</strong> Pedidos só podem ser cancelados com pelo menos 3 dias de antecedência
-                e antes do upload dos documentos fiscais.
+                <strong>Atenção:</strong> Pedidos só podem ser cancelados com
+                pelo menos 3 dias de antecedência e antes do upload dos
+                documentos fiscais.
               </p>
             </div>
 
@@ -3753,77 +4323,103 @@ export function OrderDetailDrawer({
       <Dialog open={isPdfViewerOpen} onOpenChange={setIsPdfViewerOpen}>
         <DialogContent className="max-w-6xl h-[90vh] p-0">
           <DialogHeader className="px-6 py-4 border-b">
-            <DialogTitle>{pdfToView?.name || 'Documento PDF'}</DialogTitle>
+            <DialogTitle>{pdfToView?.name || "Documento PDF"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             {pdfToView?.data && (
-              <PDFViewer
-                fileData={pdfToView.data}
-                fileName={pdfToView.name}
-              />
+              <PDFViewer fileData={pdfToView.data} fileName={pdfToView.name} />
             )}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Dialog de Validação de Documentos */}
-      <Dialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}>
+      <Dialog
+        open={validationDialogOpen}
+        onOpenChange={setValidationDialogOpen}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
+            <DialogTitle className="flex items-center gap-2 text-blue-600">
               <AlertCircle className="h-5 w-5" />
               Atenção: Inconsistências Detectadas
             </DialogTitle>
             <DialogDescription>
-              A validação automática encontrou divergências nos documentos enviados.
-              Revise os detalhes abaixo e decida se deseja prosseguir.
+              A validação automática encontrou divergências nos documentos
+              enviados. Revise os detalhes abaixo e decida se deseja prosseguir.
             </DialogDescription>
           </DialogHeader>
 
           {validationResult && (
             <div className="space-y-4">
               {/* Status da correspondência PDF/XML */}
-              <div className={`p-3 rounded-md border ${validationResult.pdfXmlMatch ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div
+                className={`p-3 rounded-md border ${validationResult.pdfXmlMatch ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+              >
                 <div className="flex items-center gap-2">
                   {validationResult.pdfXmlMatch ? (
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   ) : (
                     <XCircle className="h-4 w-4 text-red-600" />
                   )}
-                  <span className={`font-medium text-sm ${validationResult.pdfXmlMatch ? 'text-green-700' : 'text-red-700'}`}>
-                    {validationResult.pdfXmlMatch 
-                      ? 'PDF e XML correspondem' 
-                      : 'PDF e XML não correspondem'}
+                  <span
+                    className={`font-medium text-sm ${validationResult.pdfXmlMatch ? "text-green-700" : "text-red-700"}`}
+                  >
+                    {validationResult.pdfXmlMatch
+                      ? "PDF e XML correspondem"
+                      : "PDF e XML não correspondem"}
                   </span>
                 </div>
               </div>
 
               {/* Status do pedido de compra */}
-              <div className={`p-3 rounded-md border ${validationResult.purchaseOrderMatch ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div
+                className={`p-3 rounded-md border ${validationResult.purchaseOrderMatch ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+              >
                 <div className="flex items-center gap-2">
                   {validationResult.purchaseOrderMatch ? (
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   ) : (
                     <XCircle className="h-4 w-4 text-red-600" />
                   )}
-                  <span className={`font-medium text-sm ${validationResult.purchaseOrderMatch ? 'text-green-700' : 'text-red-700'}`}>
-                    {validationResult.purchaseOrderMatch 
-                      ? 'Pedido de compra confere' 
-                      : 'Pedido de compra divergente'}
+                  <span
+                    className={`font-medium text-sm ${validationResult.purchaseOrderMatch ? "text-green-700" : "text-red-700"}`}
+                  >
+                    {validationResult.purchaseOrderMatch
+                      ? "Pedido de compra confere"
+                      : "Pedido de compra divergente"}
                   </span>
                 </div>
-                {(!validationResult.purchaseOrderMatch || !validationResult.foundPurchaseOrderNumber) && (
+                {(!validationResult.purchaseOrderMatch ||
+                  !validationResult.foundPurchaseOrderNumber) && (
                   <div className="mt-2 text-sm">
                     {validationResult.foundPurchaseOrderNumber ? (
                       <div className="text-red-600">
-                        <p>Encontrado: <strong>{validationResult.foundPurchaseOrderNumber}</strong></p>
-                        <p>Esperado: <strong>{validationResult.expectedPurchaseOrderNumber || 'Não informado'}</strong></p>
+                        <p>
+                          Encontrado:{" "}
+                          <strong>
+                            {validationResult.foundPurchaseOrderNumber}
+                          </strong>
+                        </p>
+                        <p>
+                          Esperado:{" "}
+                          <strong>
+                            {validationResult.expectedPurchaseOrderNumber ||
+                              "Não informado"}
+                          </strong>
+                        </p>
                       </div>
                     ) : (
-                      <p className="text-amber-600">
-                        Não foi possível identificar o número do pedido de compra na nota fiscal.
+                      <p className="text-blue-600">
+                        Não foi possível identificar o número do pedido de
+                        compra na nota fiscal.
                         {validationResult.expectedPurchaseOrderNumber && (
-                          <span className="block mt-1">Esperado: <strong>{validationResult.expectedPurchaseOrderNumber}</strong></span>
+                          <span className="block mt-1">
+                            Esperado:{" "}
+                            <strong>
+                              {validationResult.expectedPurchaseOrderNumber}
+                            </strong>
+                          </span>
                         )}
                       </p>
                     )}
@@ -3833,30 +4429,44 @@ export function OrderDetailDrawer({
 
               {/* Status do ID do pedido iCap */}
               {validationResult.expectedOrderId && (
-                <div className={`p-3 rounded-md border ${validationResult.orderIdMatch ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div
+                  className={`p-3 rounded-md border ${validationResult.orderIdMatch ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+                >
                   <div className="flex items-center gap-2">
                     {validationResult.orderIdMatch ? (
                       <CheckCircle className="h-4 w-4 text-green-600" />
                     ) : (
                       <XCircle className="h-4 w-4 text-red-600" />
                     )}
-                    <span className={`font-medium text-sm ${validationResult.orderIdMatch ? 'text-green-700' : 'text-red-700'}`}>
-                      {validationResult.orderIdMatch 
-                        ? 'ID do pedido confere' 
-                        : 'ID do pedido divergente'}
+                    <span
+                      className={`font-medium text-sm ${validationResult.orderIdMatch ? "text-green-700" : "text-red-700"}`}
+                    >
+                      {validationResult.orderIdMatch
+                        ? "ID do pedido confere"
+                        : "ID do pedido divergente"}
                     </span>
                   </div>
                   {!validationResult.orderIdMatch && (
                     <div className="mt-2 text-sm">
                       {validationResult.foundOrderId ? (
                         <div className="text-red-600">
-                          <p>Encontrado: <strong>{validationResult.foundOrderId}</strong></p>
-                          <p>Esperado: <strong>{validationResult.expectedOrderId}</strong></p>
+                          <p>
+                            Encontrado:{" "}
+                            <strong>{validationResult.foundOrderId}</strong>
+                          </p>
+                          <p>
+                            Esperado:{" "}
+                            <strong>{validationResult.expectedOrderId}</strong>
+                          </p>
                         </div>
                       ) : (
-                        <p className="text-amber-600">
-                          Não foi possível identificar o ID do pedido na nota fiscal.
-                          <span className="block mt-1">Esperado: <strong>{validationResult.expectedOrderId}</strong></span>
+                        <p className="text-blue-600">
+                          Não foi possível identificar o ID do pedido na nota
+                          fiscal.
+                          <span className="block mt-1">
+                            Esperado:{" "}
+                            <strong>{validationResult.expectedOrderId}</strong>
+                          </span>
                         </p>
                       )}
                     </div>
@@ -3876,7 +4486,10 @@ export function OrderDetailDrawer({
                   <div className="mt-2 text-sm text-red-700">
                     <p>{validationResult.duplicateCheck.message}</p>
                     <p className="mt-1">
-                      Pedido correto: <strong>{validationResult.duplicateCheck.matchingOrderId}</strong>
+                      Pedido correto:{" "}
+                      <strong>
+                        {validationResult.duplicateCheck.matchingOrderId}
+                      </strong>
                     </p>
                   </div>
                 </div>
@@ -3884,23 +4497,22 @@ export function OrderDetailDrawer({
 
               <div className="mt-4">
                 <p className="text-sm text-muted-foreground">
-                  <strong>Deseja prosseguir mesmo assim?</strong><br />
-                  Ao prosseguir, os documentos serão enviados normalmente, mas as divergências ficarão registradas.
+                  <strong>Deseja prosseguir mesmo assim?</strong>
+                  <br />
+                  Ao prosseguir, os documentos serão enviados normalmente, mas
+                  as divergências ficarão registradas.
                 </p>
               </div>
             </div>
           )}
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={cancelUpload}
-            >
+            <Button variant="outline" onClick={cancelUpload}>
               Cancelar
             </Button>
             <Button
               onClick={confirmUploadAfterValidation}
-              className="bg-amber-600 hover:bg-amber-700"
+              className="bg-blue-600 hover:bg-blue-700"
             >
               Prosseguir Mesmo Assim
             </Button>
