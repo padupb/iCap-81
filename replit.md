@@ -49,6 +49,21 @@ i-CAP 5.0 is a comprehensive logistics management system built with React and No
 
 ## Recent Changes
 
+### 2026-01-29: Novo Status "Entregue atrasado"
+- **Nova funcionalidade**: Status automático para entregas confirmadas após a data prevista
+- **Lógica implementada**: 
+  - Quando a confirmação de recebimento é feita, o sistema compara a data atual com a data prevista de entrega
+  - Se data de confirmação <= data prevista: status = "Entregue"
+  - Se data de confirmação > data prevista: status = "Entregue atrasado"
+- **Cor do badge**: Âmbar escuro (amber-600) para diferenciar de "Entregue" (verde esmeralda)
+- **Arquivos modificados**: 
+  - `client/src/lib/utils.ts`: Adicionada cor para o novo status
+  - `client/src/pages/Orders.tsx`: Adicionado filtro para o novo status
+  - `client/src/components/OrderDetailDrawer.tsx`: Atualizado timeline e validações
+  - `server/routes.ts`: Atualizada lógica de confirmação de entrega nas duas rotas (com e sem foto)
+- **Consultas SQL atualizadas**: Cálculos de quantidade entregue agora incluem ambos os status
+- **Validações atualizadas**: Pedidos com status "Entregue atrasado" não podem ser cancelados ou reprogramados
+
 ### 2026-01-29: Separação de Campos de Entrega (Distribuidora vs Construtora)
 - **Nova funcionalidade**: Fluxo de entrega separado para distribuidora e construtora
 - **Campos da Distribuidora**:
