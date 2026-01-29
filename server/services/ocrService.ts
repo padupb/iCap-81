@@ -23,6 +23,9 @@ export async function extractImageMetadata(imageBuffer: Buffer, mimeType: string
 
     console.log('📸 Metadados EXIF brutos extraídos (DETALHADO):', JSON.stringify(exifData, null, 2));
 
+    // SE NÃO HOUVER EXIF, TENTAR ANALISAR O NOME DO ARQUIVO OU TEXTO BÁSICO
+    // Algumas câmeras de celular embutem data no nome do arquivo: foto-chegada-2026-01-29...
+    
     let timestamp: string | undefined;
     let coordinates: { latitude?: number; longitude?: number } | undefined;
 
@@ -35,11 +38,13 @@ export async function extractImageMetadata(imageBuffer: Buffer, mimeType: string
           timestamp = dateField.toLocaleString('pt-BR');
         } else {
           // Se for string, tentar converter para data para formatar
-          const dateAttempt = new Date(String(dateField).replace(/:/g, '-').replace(' ', 'T'));
+          const dateStr = String(dateField).trim();
+          // EXIF dates often use colons: "2026:01:29 10:32:55"
+          const dateAttempt = new Date(dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3').replace(' ', 'T'));
           if (!isNaN(dateAttempt.getTime())) {
             timestamp = dateAttempt.toLocaleString('pt-BR');
           } else {
-            timestamp = String(dateField);
+            timestamp = dateStr;
           }
         }
       }
@@ -55,7 +60,7 @@ export async function extractImageMetadata(imageBuffer: Buffer, mimeType: string
         };
       }
 
-      // Fallback para data do GPS se necessário (GPSDateStamp costuma ser string 'YYYY:MM:DD')
+      // Fallback para data do GPS se necessário
       if (!timestamp && exifData.GPSDateStamp) {
         const gpsDate = String(exifData.GPSDateStamp).replace(/:/g, '-');
         const gpsTime = exifData.GPSTimeStamp ? ` ${exifData.GPSTimeStamp}` : '';
@@ -63,12 +68,12 @@ export async function extractImageMetadata(imageBuffer: Buffer, mimeType: string
       }
     }
 
-    // Se falhou EXIF, tentar buscar informações básicas se for uma imagem válida
+    // Se ainda não tiver nada, vamos considerar que a extração falhou por falta de dados no arquivo
     if (!timestamp && !coordinates) {
-      console.log('⚠️ Nenhum metadado EXIF útil encontrado');
+      console.log('⚠️ Nenhum metadado EXIF útil encontrado na imagem enviada');
       return {
         success: false,
-        error: "A imagem não contém metadados EXIF (data/hora/GPS). Fotos originais de câmera costumam ter essas informações."
+        error: "A imagem não possui metadados EXIF (data/hora/GPS). Certifique-se de enviar a foto original da câmera, pois capturas de tela ou fotos enviadas por alguns aplicativos de mensagens (como WhatsApp com compressão) podem remover esses dados."
       };
     }
 
