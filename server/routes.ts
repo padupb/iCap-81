@@ -1866,11 +1866,12 @@ Status: Teste em progresso...`;
 
       const orderResult = await pool.query(
         `SELECT o.id, o.order_id, o.product_id, o.quantity, o.status, o.purchase_order_id,
+                o.supplier_id,
                 p.name as product_name,
-                po.order_number as purchase_order_number
+                oc.numero_ordem as purchase_order_number
          FROM orders o
          LEFT JOIN products p ON o.product_id = p.id
-         LEFT JOIN purchase_orders po ON o.purchase_order_id = po.id
+         LEFT JOIN ordens_compra oc ON o.purchase_order_id = oc.id
          WHERE o.order_id = $1`,
         [orderId.trim()]
       );
