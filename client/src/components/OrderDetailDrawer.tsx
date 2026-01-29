@@ -3175,10 +3175,13 @@ export function OrderDetailDrawer({
                             <div className="text-sm text-gray-600 space-y-1">
                               <p><strong>Data/Hora:</strong> {entregaDistribuidoraData.entregaDistribuidora.dataChegada}</p>
                               {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.location && (
-                                <p><strong>Local detectado (OCR):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.location}</p>
+                                <p><strong>Local detectado (Metadata):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.location}</p>
                               )}
                               {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.timestamp && (
-                                <p><strong>Timestamp da foto (OCR):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.timestamp}</p>
+                                <p><strong>Data/Hora da Foto (Metadata):</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.timestamp}</p>
+                              )}
+                              {entregaDistribuidoraData.entregaDistribuidora.dadosOCR?.coordinates && (
+                                <p><strong>Coordenadas:</strong> {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.coordinates.latitude}, {entregaDistribuidoraData.entregaDistribuidora.dadosOCR.coordinates.longitude}</p>
                               )}
                               {entregaDistribuidoraData.entregaDistribuidora.registradoPor && (
                                 <p><strong>Registrado por:</strong> {entregaDistribuidoraData.entregaDistribuidora.registradoPor.userName}</p>
