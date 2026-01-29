@@ -453,7 +453,8 @@ export function OrderDetailDrawer({
         orderDetails.status === "Carregado" ||
         orderDetails.status === "Em Rota" ||
         orderDetails.status === "Em transporte" ||
-        orderDetails.status === "Entregue"
+        orderDetails.status === "Entregue" ||
+        orderDetails.status === "Entregue atrasado"
       ) {
         setDocumentsLoaded(true);
       } else {
@@ -526,6 +527,7 @@ export function OrderDetailDrawer({
     if (
       [
         "Entregue",
+        "Entregue atrasado",
         "Cancelado",
         "Suspenso",
         "Em Rota",
@@ -1433,6 +1435,7 @@ export function OrderDetailDrawer({
         "Em Rota": 66.66,
         "Em transporte": 66.66,
         Entregue: 100,
+        "Entregue atrasado": 100,
         Recusado: 0,
       };
       return statusProgress[status] || 0;
@@ -2459,6 +2462,7 @@ export function OrderDetailDrawer({
                               "Em Rota": 2,
                               "Em transporte": 2, // Mesmo nível que Em Rota
                               Entregue: 3,
+                              "Entregue atrasado": 3, // Mesmo nível que Entregue
                               Recusado: -1, // Status especial
                             };
 
@@ -2484,9 +2488,9 @@ export function OrderDetailDrawer({
                             if (currentLevel > stepLevel) {
                               return "completed";
                             } else if (currentLevel === stepLevel) {
-                              // Se o status atual é "Entregue" e o step é "Entregue", mostrar como completed
+                              // Se o status atual é "Entregue" ou "Entregue atrasado" e o step é "Entregue", mostrar como completed
                               if (
-                                currentStatus === "Entregue" &&
+                                (currentStatus === "Entregue" || currentStatus === "Entregue atrasado") &&
                                 stepKey === "Entregue"
                               ) {
                                 return "completed";
@@ -2537,6 +2541,7 @@ export function OrderDetailDrawer({
                                       "Em Rota": 66.66,
                                       "Em transporte": 66.66, // Mesmo que Em Rota
                                       Entregue: 100,
+                                      "Entregue atrasado": 100, // Mesmo que Entregue
                                       Recusado: 0,
                                     };
                                     return statusProgress[currentStatus] || 0;

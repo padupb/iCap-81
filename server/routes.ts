@@ -3933,7 +3933,7 @@ Status: Teste em progresso...`;
       const order = orderResult.rows[0];
 
       // Validar se o pedido pode ser cancelado
-      if (["Cancelado", "Entregue", "Em Rota", "Em transporte"].includes(order.status)) {
+      if (["Cancelado", "Entregue", "Entregue atrasado", "Em Rota", "Em transporte"].includes(order.status)) {
         return res.status(400).json({
           sucesso: false,
           mensagem: `Pedidos com status "${order.status}" não podem ser cancelados`
@@ -4749,13 +4749,13 @@ Status: Teste em progresso...`;
 
       console.log(`📦 Verificando quantidade entregue - Ordem: ${ordemId}, Produto: ${produtoId}`);
 
-      // Buscar quantidade entregue (pedidos com status Entregue)
+      // Buscar quantidade entregue (pedidos com status Entregue ou Entregue atrasado)
       const result = await pool.query(`
         SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as quantidade_entregue
         FROM orders
         WHERE purchase_order_id = $1
           AND product_id = $2
-          AND status = 'Entregue'
+          AND status IN ('Entregue', 'Entregue atrasado')
       `, [ordemId, produtoId]);
 
       const quantidadeEntregue = parseFloat(result.rows[0].quantidade_entregue || 0);
@@ -5902,7 +5902,7 @@ Status: Teste em progresso...`;
       const pedido = pedidoResult.rows[0];
 
       // Verificar se o pedido já foi entregue, cancelado, em rota ou em transporte
-      if (["Entregue", "Cancelado", "Em Rota", "Em transporte"].includes(pedido.status)) {
+      if (["Entregue", "Entregue atrasado", "Cancelado", "Em Rota", "Em transporte"].includes(pedido.status)) {
         return res.status(400).json({
           sucesso: false,
           mensagem: `Não é possível reprogramar pedido com status ${pedido.status}`
@@ -6838,7 +6838,7 @@ Status: Teste em progresso...`;
       const pedido = pedidoResult.rows[0];
 
       // Validar se o pedido pode ser cancelado (status)
-      if (["Entregue", "Em Rota", "Em transporte"].includes(pedido.status)) {
+      if (["Entregue", "Entregue atrasado", "Em Rota", "Em transporte"].includes(pedido.status)) {
         return res.status(400).json({
           sucesso: false,
           mensagem: `Pedidos com status "${pedido.status}" não podem ser cancelados`
@@ -7042,7 +7042,7 @@ Status: Teste em progresso...`;
           oc.numero_ordem as purchase_order_number,
           c_supplier.name as supplier_name,
           c_work.name as work_location_name,
-          COALESCE(SUM(CASE WHEN o.status = 'Entregue' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
+          COALESCE(SUM(CASE WHEN o.status IN ('Entregue', 'Entregue atrasado') THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
           COALESCE(SUM(CASE WHEN LOWER(o.status) NOT IN ('cancelado', 'excluido') THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
         FROM orders o
         JOIN products p ON o.product_id = p.id
@@ -7234,7 +7234,7 @@ Status: Teste em progresso...`;
           oc.numero_ordem as purchase_order_number,
           c_supplier.name as supplier_name,
           c_work.name as work_location_name,
-          COALESCE(SUM(CASE WHEN o.status = 'Entregue' THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
+          COALESCE(SUM(CASE WHEN o.status IN ('Entregue', 'Entregue atrasado') THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_delivered,
           COALESCE(SUM(CASE WHEN LOWER(o.status) NOT IN ('cancelado', 'excluido') THEN CAST(o.quantity AS DECIMAL) ELSE 0 END), 0) as total_ordered_not_canceled
         FROM orders o
         JOIN products p ON o.product_id = p.id
