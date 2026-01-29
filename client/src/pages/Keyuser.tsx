@@ -1346,11 +1346,7 @@ export default function Keyuser() {
         {/* Aba Unidades */}
         <TabsContent value="units" className="space-y-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Unidades de Medida
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-end">
               <Dialog open={activeUnitDialog} onOpenChange={setActiveUnitDialog}>
                 <DialogTrigger asChild>
                   <Button onClick={() => {
@@ -1691,13 +1687,7 @@ export default function Keyuser() {
         {/* Tab iCapMob */}
         <TabsContent value="icapmob" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Smartphone className="w-5 h-5" />
-                Gestão do iCapMob - Transporte
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Upload de nova versão */}
                 <div className="space-y-4">
@@ -1843,13 +1833,7 @@ export default function Keyuser() {
         {/* Nova Aba: Aplicações */}
         <TabsContent value="applications" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5" />
-                Ferramentas de Aplicação
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 pt-6">
               {/* Reset Status */}
               <div className="space-y-4 p-4 border rounded-lg">
                 <h3 className="text-lg font-medium flex items-center gap-2">
