@@ -89,6 +89,8 @@ export function getStatusColor(status: string) {
       return "bg-orange-500 hover:bg-orange-600";
     case "entregue":
       return "bg-emerald-500 hover:bg-emerald-600";
+    case "entregue atrasado":
+      return "bg-amber-600 hover:bg-amber-700";
     case "suspenso":
       return "bg-amber-500 hover:bg-amber-600";
     default:

@@ -6264,12 +6264,22 @@ Status: Teste em progresso...`;
         quantidadeConfirmada: entregueFloat // Adicionar quantidade confirmada
       };
 
+      // Determinar status baseado na data de entrega prevista
+      const dataEntregaPrevista = new Date(pedido.delivery_date);
+      const dataConfirmacao = new Date();
+      
+      // Normalizar para comparar apenas datas (sem hora)
+      dataEntregaPrevista.setHours(23, 59, 59, 999);
+      dataConfirmacao.setHours(0, 0, 0, 0);
+      
+      const statusEntrega = dataConfirmacao > dataEntregaPrevista ? 'Entregue atrasado' : 'Entregue';
+      
       // Atualizar o status do pedido e salvar foto_confirmacao
       await pool.query(
         `UPDATE orders
-         SET status = 'Entregue', foto_confirmacao = $1
-         WHERE id = $2`,
-        [JSON.stringify(fotoConfirmacao), pedidoId]
+         SET status = $1, foto_confirmacao = $2
+         WHERE id = $3`,
+        [statusEntrega, JSON.stringify(fotoConfirmacao), pedidoId]
       );
 
       // Registrar log da ação
@@ -6749,12 +6759,22 @@ Status: Teste em progresso...`;
         });
       }
 
+      // Determinar status baseado na data de entrega prevista
+      const dataEntregaPrevista = new Date(pedido.delivery_date);
+      const dataConfirmacao = new Date();
+      
+      // Normalizar para comparar apenas datas (sem hora)
+      dataEntregaPrevista.setHours(23, 59, 59, 999);
+      dataConfirmacao.setHours(0, 0, 0, 0);
+      
+      const statusEntrega = dataConfirmacao > dataEntregaPrevista ? 'Entregue atrasado' : 'Entregue';
+      
       // Atualizar o status do pedido e a quantidade entregue
       await pool.query(
         `UPDATE orders
-         SET status = 'Entregue', delivered_quantity = $1
-         WHERE id = $2`,
-        [entregueFloat, pedidoId]
+         SET status = $1, delivered_quantity = $2
+         WHERE id = $3`,
+        [statusEntrega, entregueFloat, pedidoId]
       );
 
       // Registrar log da ação

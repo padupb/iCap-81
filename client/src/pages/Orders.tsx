@@ -149,6 +149,7 @@ const statusOptions = [
   "Carregado",
   "Em Rota",
   "Entregue",
+  "Entregue atrasado",
   "Recusado",
   "Cancelado",
 ];
