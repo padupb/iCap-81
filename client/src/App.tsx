@@ -18,6 +18,7 @@ import Users from "./pages/Users";
 import Products from "./pages/Products";
 import Keyuser from "./pages/Keyuser";
 import Logs from "./pages/Logs";
+import TrocaOrdemCompra from "./pages/TrocaOrdemCompra";
 
 import Login from "./pages/Login";
 import NotFound from "@/pages/not-found";
@@ -217,6 +218,17 @@ function Router() {
         {isAuthenticated ? (
           <Layout>
             <Keyuser />
+          </Layout>
+        ) : (
+          <Redirect to="/login" />
+        )}
+      </Route>
+
+      {/* Aplicações KeyUser - Troca de Ordem de Compra */}
+      <Route path="/aplicacoes/troca-ordem-compra">
+        {isAuthenticated ? (
+          <Layout>
+            <TrocaOrdemCompra />
           </Layout>
         ) : (
           <Redirect to="/login" />

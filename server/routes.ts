@@ -1850,6 +1850,305 @@ Status: Teste em progresso...`;
     }
   });
 
+  // Rota para buscar informações do pedido para troca de OC (KeyUser only)
+  app.get("/api/keyuser/pedido-info/:orderId", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const orderId = req.params.orderId;
+
+      if (!orderId || !orderId.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do pedido é obrigatório"
+        });
+      }
+
+      console.log(`🔍 KeyUser ${req.user.name} buscando informações do pedido: ${orderId}`);
+
+      const orderResult = await pool.query(
+        `SELECT o.id, o.order_id, o.product_id, o.quantity, o.status, o.purchase_order_id,
+                p.name as product_name,
+                po.order_number as purchase_order_number
+         FROM orders o
+         LEFT JOIN products p ON o.product_id = p.id
+         LEFT JOIN purchase_orders po ON o.purchase_order_id = po.id
+         WHERE o.order_id = $1`,
+        [orderId.trim()]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: `Pedido ${orderId} não encontrado`
+        });
+      }
+
+      const order = orderResult.rows[0];
+
+      res.json({
+        id: order.id,
+        orderId: order.order_id,
+        productId: order.product_id,
+        productName: order.product_name,
+        quantity: order.quantity,
+        status: order.status,
+        currentPurchaseOrderId: order.purchase_order_id,
+        currentPurchaseOrderNumber: order.purchase_order_number
+      });
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Erro ao buscar informações do pedido:", err);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao buscar informações: ${err.message}`
+      });
+    }
+  });
+
+  // Rota para listar ordens de compra disponíveis para troca (KeyUser only)
+  app.get("/api/keyuser/ordens-compra-disponiveis/:orderId", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do pedido inválido"
+        });
+      }
+
+      console.log(`🔍 KeyUser ${req.user.name} buscando OCs disponíveis para pedido ID: ${orderId}`);
+
+      // Buscar o pedido para obter produto e quantidade
+      const orderResult = await pool.query(
+        `SELECT id, order_id, product_id, quantity, purchase_order_id, supplier_id
+         FROM orders WHERE id = $1`,
+        [orderId]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const order = orderResult.rows[0];
+      const productId = order.product_id;
+      const requiredQuantity = parseFloat(order.quantity);
+      const currentPurchaseOrderId = order.purchase_order_id;
+      const supplierId = order.supplier_id;
+
+      // Buscar ordens de compra que:
+      // 1. Tenham o mesmo produto
+      // 2. Estejam válidas (data atual entre valid_from e valid_until)
+      // 3. Tenham saldo disponível >= quantidade do pedido
+      // 4. Pertençam ao mesmo fornecedor do pedido
+      // 5. Não sejam a ordem atual do pedido
+      const availableOrdersResult = await pool.query(
+        `SELECT 
+           po.id,
+           po.order_number,
+           po.valid_from,
+           po.valid_until,
+           po.company_id,
+           c.name as company_name,
+           poi.quantity as total_quantity,
+           COALESCE(
+             (SELECT SUM(CAST(o.quantity AS DECIMAL)) 
+              FROM orders o 
+              WHERE o.purchase_order_id = po.id 
+              AND o.product_id = $1
+              AND o.id != $4
+              AND o.status != 'Cancelado'),
+             0
+           ) as used_quantity
+         FROM purchase_orders po
+         INNER JOIN purchase_order_items poi ON poi.purchase_order_id = po.id AND poi.product_id = $1
+         INNER JOIN companies c ON po.company_id = c.id
+         WHERE po.status = 'Ativo'
+         AND po.company_id = $3
+         AND NOW() >= po.valid_from
+         AND NOW() <= po.valid_until
+         ${currentPurchaseOrderId ? 'AND po.id != $5' : ''}
+         ORDER BY po.valid_until ASC`,
+        currentPurchaseOrderId 
+          ? [productId, requiredQuantity, supplierId, orderId, currentPurchaseOrderId]
+          : [productId, requiredQuantity, supplierId, orderId]
+      );
+
+      // Filtrar as ordens que têm saldo suficiente
+      const availableOrders = availableOrdersResult.rows
+        .map(row => {
+          const totalQuantity = parseFloat(row.total_quantity);
+          const usedQuantity = parseFloat(row.used_quantity);
+          const availableBalance = totalQuantity - usedQuantity;
+          return {
+            id: row.id,
+            orderNumber: row.order_number,
+            companyName: row.company_name,
+            validFrom: row.valid_from,
+            validUntil: row.valid_until,
+            totalQuantity: totalQuantity.toFixed(2),
+            usedQuantity: usedQuantity.toFixed(2),
+            availableBalance: availableBalance.toFixed(2)
+          };
+        })
+        .filter(order => parseFloat(order.availableBalance) >= requiredQuantity);
+
+      console.log(`📋 Encontradas ${availableOrders.length} ordens de compra disponíveis`);
+
+      res.json(availableOrders);
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Erro ao buscar ordens de compra disponíveis:", err);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao buscar ordens: ${err.message}`
+      });
+    }
+  });
+
+  // Rota para trocar ordem de compra de um pedido (KeyUser only)
+  app.post("/api/keyuser/trocar-ordem-compra", isAuthenticated, isKeyUser, async (req, res) => {
+    try {
+      const { orderId, newPurchaseOrderId } = req.body;
+
+      if (!orderId || !newPurchaseOrderId) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do pedido e nova ordem de compra são obrigatórios"
+        });
+      }
+
+      console.log(`🔄 KeyUser ${req.user.name} solicitou troca de OC - Pedido ID: ${orderId}, Nova OC ID: ${newPurchaseOrderId}`);
+
+      // Buscar o pedido
+      const orderResult = await pool.query(
+        `SELECT id, order_id, product_id, quantity, purchase_order_id, supplier_id, status
+         FROM orders WHERE id = $1`,
+        [orderId]
+      );
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Pedido não encontrado"
+        });
+      }
+
+      const order = orderResult.rows[0];
+      const oldPurchaseOrderId = order.purchase_order_id;
+
+      // Buscar a nova ordem de compra e validar
+      const newPOResult = await pool.query(
+        `SELECT po.id, po.order_number, po.company_id, po.valid_from, po.valid_until, po.status,
+                poi.quantity as item_quantity,
+                c.name as company_name
+         FROM purchase_orders po
+         INNER JOIN purchase_order_items poi ON poi.purchase_order_id = po.id AND poi.product_id = $2
+         INNER JOIN companies c ON po.company_id = c.id
+         WHERE po.id = $1`,
+        [newPurchaseOrderId, order.product_id]
+      );
+
+      if (newPOResult.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Ordem de compra não encontrada ou não possui o mesmo produto do pedido"
+        });
+      }
+
+      const newPO = newPOResult.rows[0];
+
+      // Validar se a OC está ativa
+      if (newPO.status !== 'Ativo') {
+        return res.status(400).json({
+          success: false,
+          message: "A ordem de compra selecionada não está ativa"
+        });
+      }
+
+      // Validar se a OC pertence ao mesmo fornecedor
+      if (newPO.company_id !== order.supplier_id) {
+        return res.status(400).json({
+          success: false,
+          message: "A ordem de compra deve pertencer ao mesmo fornecedor do pedido"
+        });
+      }
+
+      // Validar se está dentro da validade
+      const now = new Date();
+      if (now < new Date(newPO.valid_from) || now > new Date(newPO.valid_until)) {
+        return res.status(400).json({
+          success: false,
+          message: "A ordem de compra está fora do período de validade"
+        });
+      }
+
+      // Calcular saldo disponível
+      const usedResult = await pool.query(
+        `SELECT COALESCE(SUM(CAST(quantity AS DECIMAL)), 0) as used
+         FROM orders 
+         WHERE purchase_order_id = $1 
+         AND product_id = $2 
+         AND id != $3
+         AND status != 'Cancelado'`,
+        [newPurchaseOrderId, order.product_id, orderId]
+      );
+
+      const usedQuantity = parseFloat(usedResult.rows[0].used);
+      const totalQuantity = parseFloat(newPO.item_quantity);
+      const availableBalance = totalQuantity - usedQuantity;
+      const requiredQuantity = parseFloat(order.quantity);
+
+      if (availableBalance < requiredQuantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Saldo insuficiente. Disponível: ${availableBalance.toFixed(2)}, Necessário: ${requiredQuantity.toFixed(2)}`
+        });
+      }
+
+      // Realizar a troca
+      await pool.query(
+        `UPDATE orders SET purchase_order_id = $1 WHERE id = $2`,
+        [newPurchaseOrderId, orderId]
+      );
+
+      console.log(`✅ Pedido ${order.order_id} transferido para OC ${newPO.order_number}`);
+
+      // Registrar log da ação
+      await storage.createLog({
+        userId: req.user.id,
+        action: "Troca de Ordem de Compra",
+        itemType: "order",
+        itemId: order.order_id,
+        details: `KeyUser trocou OC do pedido ${order.order_id} de "${oldPurchaseOrderId || 'nenhuma'}" para "${newPO.order_number}" (ID: ${newPurchaseOrderId})`
+      });
+
+      res.json({
+        success: true,
+        message: `Pedido ${order.order_id} transferido para a ordem de compra ${newPO.order_number}`,
+        order: {
+          id: order.id,
+          orderId: order.order_id,
+          oldPurchaseOrderId: oldPurchaseOrderId,
+          newPurchaseOrderId: newPurchaseOrderId,
+          newPurchaseOrderNumber: newPO.order_number
+        }
+      });
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Erro ao trocar ordem de compra:", err);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao trocar ordem de compra: ${err.message}`
+      });
+    }
+  });
+
   // Rota para colocar pedido em rota (Fornecedores e KeyUsers)
   // Fornecedores só podem usar após upload de documentos
   app.post("/api/pedidos/:id/colocar-em-rota", isAuthenticated, async (req, res) => {

@@ -20,6 +20,10 @@ import {
   History,
   Settings,
   Calendar,
+  AppWindow,
+  ArrowRightLeft,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 const navigation = [
@@ -31,8 +35,11 @@ const navigation = [
   { name: "Empresas", href: "/empresas", icon: Building, area: "companies" },
   { name: "Usuários", href: "/usuarios", icon: Users, area: "users" },
   { name: "Produtos", href: "/produtos", icon: Package, area: "products" },
-  { name: "Keyuser", href: "/dev", icon: Code, area: null },
   { name: "Logs do Sistema", href: "/logs", icon: History, area: "logs" },
+];
+
+const keyuserApplications = [
+  { name: "Troca de Ordem de Compra", href: "/aplicacoes/troca-ordem-compra", icon: ArrowRightLeft },
 ];
 
 export default function Sidebar() {
@@ -41,6 +48,7 @@ export default function Sidebar() {
   const { canView } = useAuthorization();
   const { settings } = useSettings();
   const [logoError, setLogoError] = useState(false);
+  const [aplicacoesOpen, setAplicacoesOpen] = useState(false);
 
   // Buscar reprogramações pendentes para mostrar o badge
   const { data: reprogramacoes = [] } = useQuery({
@@ -85,18 +93,8 @@ export default function Sidebar() {
           const isActive = location === item.href;
           const Icon = item.icon;
 
-          // Mostrar item do menu apenas se:
-          // 1. É a página do Keyuser, mostrada apenas para keyuser
-          // 2. Ou o usuário tem permissão de visualização para a área
-          const isDeveloperItem = item.href === '/dev';
+          const canShowItem = item.area && canView(item.area);
 
-          // Se é item do dev, mostrar apenas para keyuser (isKeyUser)
-          // Para outros itens, verificar permissões normalmente
-          const canShowItem = isDeveloperItem 
-            ? user?.isKeyUser 
-            : (item.area && canView(item.area));
-
-          // Não renderizar se o usuário não tem permissão para ver este item
           if (!canShowItem) return null;
 
           return (
@@ -130,6 +128,56 @@ export default function Sidebar() {
             </div>
           );
         })}
+
+        {/* Menu Aplicações - apenas para KeyUsers */}
+        {user?.isKeyUser && (
+          <div>
+            <div
+              onClick={() => setAplicacoesOpen(!aplicacoesOpen)}
+              className="flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer text-sidebar-foreground hover:bg-gray-700 pt-[8px] pb-[8px]"
+            >
+              <div className="flex items-center">
+                <AppWindow className="w-5 h-5 mr-3" />
+                Aplicações
+              </div>
+              {aplicacoesOpen ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </div>
+            {aplicacoesOpen && (
+              <div className="ml-4 space-y-1">
+                {keyuserApplications.map((app) => {
+                  const AppIcon = app.icon;
+                  const isActive = location === app.href;
+                  return (
+                    <Link key={app.name} href={app.href}>
+                      <div
+                        className={`flex items-center px-4 py-2 rounded-lg transition-colors cursor-pointer text-sidebar-foreground hover:bg-gray-700 text-sm ${
+                          isActive ? "bg-gray-700" : ""
+                        }`}
+                      >
+                        <AppIcon className="w-4 h-4 mr-3" />
+                        {app.name}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Menu Keyuser - apenas para KeyUsers */}
+        {user?.isKeyUser && (
+          <Link href="/dev">
+            <div className="flex items-center px-4 py-3 rounded-lg transition-colors cursor-pointer text-sidebar-foreground hover:bg-gray-700 pt-[8px] pb-[8px]">
+              <Code className="w-5 h-5 mr-3" />
+              Keyuser
+            </div>
+          </Link>
+        )}
       </nav>
       {/* User Menu at the bottom */}
       <div className="mt-auto p-4 border-t border-sidebar-border bg-[#26262c]">
