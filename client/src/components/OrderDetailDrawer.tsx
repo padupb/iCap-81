@@ -1868,23 +1868,18 @@ export function OrderDetailDrawer({
                     value="confirm"
                     className="flex items-center gap-1"
                     disabled={(() => {
-                      // 1. Se o pedido for cancelado, bloquear TODAS as abas exceto detalhes
+                      // 1. Se o pedido for cancelado, bloquear
                       if (orderDetails.quantidade === 0) {
                         return true;
                       }
 
-                      // 2. Verificar se o usuário tem permissão can_confirm_delivery
-                      if (!user?.canConfirmDelivery) {
-                        return true;
-                      }
-
-                      // 3. Se o pedido já foi entregue, não bloquear (permitir visualizar)
+                      // 2. Se o pedido já foi entregue, permitir visualizar
                       if (orderDetails.status === "Entregue") {
                         return false;
                       }
 
-                      // 4. Se o pedido não estiver "Em Rota", bloquear
-                      if (orderDetails.status !== "Em Rota") {
+                      // 3. Se o pedido não estiver "Em Rota" ou "Em transporte", bloquear
+                      if (orderDetails.status !== "Em Rota" && orderDetails.status !== "Em transporte") {
                         return true;
                       }
 
@@ -3378,8 +3373,8 @@ export function OrderDetailDrawer({
                             </Button>
                           </div>
                         </div>
-                      ) : (userCompanyType?.isConstrutora || userCompanyType?.isKeyUser || user?.canConfirmDelivery || userCompanyType?.isDistribuidora) ? (
-                        // Formulário de confirmação (construtora/keyuser/permissão especial/distribuidora)
+                      ) : (userCompanyType?.isConstrutora || userCompanyType?.isKeyUser || user?.canConfirmDelivery) ? (
+                        // Formulário de confirmação (apenas construtora/keyuser/permissão especial)
                         <>
                           <div className="space-y-2">
                             <label className="text-sm font-medium">
